@@ -598,14 +598,22 @@ async function getSupabase() {
 async function saveToCloud(userId, events, tasks, settings) {
   try {
     const sb = await getSupabase();
-    await sb.from("user_data").upsert({
-      user_id: userId,
-      events:   JSON.parse(JSON.stringify(events,  SER)),
-      tasks:    JSON.parse(JSON.stringify(tasks,   SER)),
-      settings: JSON.parse(JSON.stringify(settings,SER)),
-      updated_at: new Date().toISOString(),
-    });
-  } catch (e) { console.warn("Cloud save failed, using local:", e); }
+
+    const { error } = await sb.from("user_data").upsert(
+      {
+        user_id: userId,
+        events: JSON.parse(JSON.stringify(events, SER)),
+        tasks: JSON.parse(JSON.stringify(tasks, SER)),
+        settings: JSON.parse(JSON.stringify(settings, SER)),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) throw error;
+  } catch (e) {
+    console.warn("Cloud save failed, using local:", e);
+  }
 }
 
 async function loadFromCloud(userId) {
@@ -614,9 +622,10 @@ async function loadFromCloud(userId) {
     const { data, error } = await sb.from("user_data").select("*").eq("user_id", userId).single();
     if (error || !data) return null;
     return {
-      events:   JSON.parse(JSON.stringify(data.events   ?? []), DES),
-      tasks:    JSON.parse(JSON.stringify(data.tasks    ?? []), DES),
+      events: JSON.parse(JSON.stringify(data.events ?? []), DES),
+      tasks: JSON.parse(JSON.stringify(data.tasks ?? []), DES),
       settings: data.settings ?? {},
+      updated_at: data.updated_at ?? null,
     };
   } catch (e) { console.warn("Cloud load failed, using local:", e); return null; }
 }
@@ -2127,22 +2136,45 @@ export default function App() {
     const localTk = load(`${uk}_tk`, null);
     loadFromCloud(auth.user.id).then(cloud => {
       clearTimeout(fallbackTimer);
-      if (cloud && cloud.events.length) {
-        // Cloud has real data — use it and sync to localStorage
+      const localUpdatedAt = load(`${uk}_updated_at`, null);
+      const cloudUpdatedAt = cloud?.updated_at ?? null;
+
+      const localIsNewer =
+        localEv &&
+        (
+          !cloud?.events?.length ||
+          !cloudUpdatedAt ||
+          (localUpdatedAt && new Date(localUpdatedAt) >= new Date(cloudUpdatedAt))
+        );
+
+      if (localIsNewer) {
+        // Local browser data is newer — use it and push it up to cloud
+        setEvRaw(reviveEvents(localEv));
+        setTkRaw(localTk ?? INIT_TASKS);
+
+        if (auth.user) {
+          saveToCloud(auth.user.id, localEv, localTk ?? INIT_TASKS, {
+            fontSize,
+            darkMode,
+            theme,
+          });
+        }
+      } else if (cloud && cloud.events.length) {
+        // Cloud is newer — use cloud and mirror to localStorage
         setEvRaw(reviveEvents(cloud.events));
         save(`${uk}_ev`, cloud.events);
-        setTkRaw(cloud.tasks.length ? cloud.tasks : (localTk ?? INIT_TASKS));
-        save(`${uk}_tk`, cloud.tasks.length ? cloud.tasks : (localTk ?? INIT_TASKS));
+
+        const cloudTasks = cloud.tasks.length ? cloud.tasks : (localTk ?? INIT_TASKS);
+        setTkRaw(cloudTasks);
+        save(`${uk}_tk`, cloudTasks);
+
+        if (cloud.updated_at) save(`${uk}_updated_at`, cloud.updated_at);
+
         if (cloud.settings?.fontSize) setFSRaw(cloud.settings.fontSize);
         if (cloud.settings?.darkMode !== undefined) setDMRaw(cloud.settings.darkMode);
         if (cloud.settings?.theme) setThRaw(cloud.settings.theme);
-      } else if (localEv) {
-        // No cloud data yet but localStorage has real data — use local and push to cloud
-        setEvRaw(reviveEvents(localEv));
-        setTkRaw(localTk ?? INIT_TASKS);
-        if (auth.user) saveToCloud(auth.user.id, localEv, localTk ?? INIT_TASKS, {});
       } else {
-        // Brand new user — start with demo seed data
+        // Brand new user
         setEvRaw(reviveEvents(INIT_EVENTS));
         setTkRaw(INIT_TASKS);
         setFSRaw(load(`${uk}_fs`, "md"));
@@ -2179,12 +2211,17 @@ export default function App() {
   }, [auth.user?.id]);
 
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
+  const markUpdated = () => save(`${uk}_updated_at`, new Date().toISOString());
+
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
+    markUpdated();
     if (auth.user) saveToCloud(auth.user.id, evs, tks ?? tasks, { fontSize, darkMode, theme });
   };
+
   const syncTasks = (tks, evs) => {
     save(`${uk}_tk`, tks);
+    markUpdated();
     if (auth.user) saveToCloud(auth.user.id, evs ?? events, tks, { fontSize, darkMode, theme });
   };
 
