@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/set-state-in-effect */
 
-"use client";
+"use client"; 
 
 import { useState, useRef, useEffect } from "react";
 
@@ -2090,6 +2090,9 @@ export default function App() {
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showAddEvent,  setShowAddEvent]  = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showGcalModal, setShowGcalModal] = useState(false);
+  const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [focusMode,    setFocusMode]    = useState(false);
