@@ -2170,16 +2170,47 @@ export default function App() {
 
         if (cloud.updated_at) save(`${uk}_updated_at`, cloud.updated_at);
 
-        if (cloud.settings?.fontSize) setFSRaw(cloud.settings.fontSize);
-        if (cloud.settings?.darkMode !== undefined) setDMRaw(cloud.settings.darkMode);
-        if (cloud.settings?.theme) setThRaw(cloud.settings.theme);
+        const settings = {
+          fontSize: cloud.settings?.fontSize ?? load(`${uk}_fs`, "md"),
+          darkMode: cloud.settings?.darkMode ?? load(`${uk}_dm`, false),
+          theme: cloud.settings?.theme ?? load(`${uk}_th`, "tempo"),
+          workStart: cloud.settings?.workStart ?? load(`${uk}_ws`, 9),
+          workEnd: cloud.settings?.workEnd ?? load(`${uk}_we`, 19),
+          notifs: cloud.settings?.notifs ?? load(`${uk}_nf`, false),
+          timezone: cloud.settings?.timezone ?? load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+        };
+
+        setFSRaw(settings.fontSize);
+        setDMRaw(settings.darkMode);
+        setThRaw(settings.theme);
+        setWSRaw(Number(settings.workStart));
+        setWERaw(Number(settings.workEnd));
+        setNfRaw(Boolean(settings.notifs));
+        setTzRaw(settings.timezone);
+        setWorkHoursCtx(Number(settings.workStart), Number(settings.workEnd));
       } else {
         // Brand new user
         setEvRaw(reviveEvents(INIT_EVENTS));
         setTkRaw(INIT_TASKS);
-        setFSRaw(load(`${uk}_fs`, "md"));
-        setDMRaw(load(`${uk}_dm`, false));
-        setThRaw(load(`${uk}_th`, "tempo"));
+        
+        const localSettings = {
+          fontSize: load(`${uk}_fs`, "md"),
+          darkMode: load(`${uk}_dm`, false),
+          theme: load(`${uk}_th`, "tempo"),
+          workStart: load(`${uk}_ws`, 9),
+          workEnd: load(`${uk}_we`, 19),
+          notifs: load(`${uk}_nf`, false),
+          timezone: load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+        };
+
+        setFSRaw(localSettings.fontSize);
+        setDMRaw(localSettings.darkMode);
+        setThRaw(localSettings.theme);
+        setWSRaw(Number(localSettings.workStart));
+        setWERaw(Number(localSettings.workEnd));
+        setNfRaw(Boolean(localSettings.notifs));
+        setTzRaw(localSettings.timezone);
+        setWorkHoursCtx(Number(localSettings.workStart), Number(localSettings.workEnd));
       }
       // Journal always loads from localStorage (per-device, private by design)
       setJournalRaw(load(`${uk}_journal`, {}));
@@ -2213,34 +2244,102 @@ export default function App() {
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
   const markUpdated = () => save(`${uk}_updated_at`, new Date().toISOString());
 
+  const currentSettings = (overrides = {}) => ({
+    fontSize,
+    darkMode,
+    theme,
+    workStart,
+    workEnd,
+    notifs,
+    timezone,
+    ...overrides,
+  });
+
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
-    markUpdated();
-    if (auth.user) saveToCloud(auth.user.id, evs, tks ?? tasks, { fontSize, darkMode, theme });
+    save(`${uk}_updated_at`, new Date().toISOString());
+
+    if (auth.user) {
+      saveToCloud(auth.user.id, evs, tks ?? tasks, currentSettings());
+    }
   };
 
   const syncTasks = (tks, evs) => {
     save(`${uk}_tk`, tks);
-    markUpdated();
-    if (auth.user) saveToCloud(auth.user.id, evs ?? events, tks, { fontSize, darkMode, theme });
+    save(`${uk}_updated_at`, new Date().toISOString());
+
+    if (auth.user) {
+      saveToCloud(auth.user.id, evs ?? events, tks, currentSettings());
+    }
   };
 
   const setEvents   = v => { const n = reviveEvents(typeof v === "function" ? v(events) : v); setEvRaw(n); syncEvents(n, tasks); };
   const setTasks    = v => { const n = typeof v === "function" ? v(tasks)  : v; setTkRaw(n); syncTasks(n, events); };
-  const setFontSize = v => { setFSRaw(v); save(`${uk}_fs`, v); if (auth.user) saveToCloud(auth.user.id, events, tasks, { fontSize: v, darkMode }); };
-  const setDarkMode = v => { const n = typeof v === "function" ? v(darkMode) : v; setDMRaw(n); save(`${uk}_dm`, n); if (auth.user) saveToCloud(auth.user.id, events, tasks, { fontSize, darkMode: n }); };
-  const setWorkStart = v => { setWSRaw(v); save(`${uk}_ws`, v); setWorkHoursCtx(v, workEnd); };
-  const setWorkEnd   = v => { setWERaw(v); save(`${uk}_we`, v); setWorkHoursCtx(workStart, v); };
-  // Keep context in sync on every render (cheap, ensures no stale values)
+  const persistSettings = overrides => {
+    const next = currentSettings(overrides);
+
+    save(`${uk}_fs`, next.fontSize);
+    save(`${uk}_dm`, next.darkMode);
+    save(`${uk}_th`, next.theme);
+    save(`${uk}_ws`, next.workStart);
+    save(`${uk}_we`, next.workEnd);
+    save(`${uk}_nf`, next.notifs);
+    save(`${uk}_tz`, next.timezone);
+    save(`${uk}_updated_at`, new Date().toISOString());
+
+    if (auth.user) {
+      saveToCloud(auth.user.id, events, tasks, next);
+    }
+  };
+
+  const setFontSize = v => {
+    setFSRaw(v);
+    persistSettings({ fontSize: v });
+  };
+
+  const setDarkMode = v => {
+    const n = typeof v === "function" ? v(darkMode) : v;
+    setDMRaw(n);
+    persistSettings({ darkMode: n });
+  };
+
+  const setWorkStart = v => {
+    const n = Number(v);
+    setWSRaw(n);
+    setWorkHoursCtx(n, workEnd);
+    persistSettings({ workStart: n });
+  };
+
+  const setWorkEnd = v => {
+    const n = Number(v);
+    setWERaw(n);
+    setWorkHoursCtx(workStart, n);
+    persistSettings({ workEnd: n });
+  };
+
+  // Keep context in sync on every render
   setWorkHoursCtx(workStart, workEnd);
-  const setNotifs    = v => { setNfRaw(v); save(`${uk}_nf`, v); };
-  const setTimezone  = v => { setTzRaw(v); save(`${uk}_tz`, v); };
+
+  const setNotifs = v => {
+    const n = typeof v === "function" ? v(notifs) : v;
+    setNfRaw(n);
+    persistSettings({ notifs: n });
+  };
+
+  const setTimezone = v => {
+    setTzRaw(v);
+    persistSettings({ timezone: v });
+  };
+
   const toggleCalVisibility = id => {
     const n = hiddenCals.includes(id) ? hiddenCals.filter(c => c !== id) : [...hiddenCals, id];
     setHiddenCals(n); save(`${uk}_hidden_cals`, n);
   };
   const setJournal   = v => { const n = typeof v === "function" ? v(journal) : v; setJournalRaw(n); save(`${uk}_journal`, n); };
-  const setTheme     = v => { setThRaw(v); save(`${uk}_th`, v); if (auth.user) saveToCloud(auth.user.id, events, tasks, { fontSize, darkMode, theme: v }); };
+  const setTheme = v => {
+    setThRaw(v);
+    persistSettings({ theme: v });
+  };
 
   function pushUndo() { setUndo(s => [...s.slice(-19), { events, tasks }]); }
   function undo() {
