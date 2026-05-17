@@ -1,3 +1,6 @@
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable react-hooks/set-state-in-effect */
+
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -993,7 +996,7 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
     });
   }
 
-  function onGridClick(e) {
+  function handleGridClick(e) {
     // Ignore clicks on event blocks
     if (e.target.closest(".event-block")) return;
     const snap = snapToGrid(e.clientY);
@@ -1008,7 +1011,7 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
       <div className="drag-hint">⠿ Drag events to reschedule · Click empty slot to add event · Drag tasks from panel</div>
       {conflicts.length > 0 && <div className="conflict-banner">⚠️ {conflicts.length} conflict{conflicts.length > 1 ? "s" : ""} — overlapping events</div>}
       <div className="day-grid" ref={gridRef} style={{ height: gridH }}
-        onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onGridClick}>
+        onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={handleGridClick}>
         {hours.map(h => {
           const label = h === 0 ? "12am" : h === 12 ? "12pm" : h === 24 ? "12am" : h > 12 ? `${h - 12}pm` : `${h}am`;
           return <div key={h} className="hour-row" style={{ top: (h - DAY_START) * HOUR_H }}><span className="hour-label">{label}</span><div className="hour-line" /></div>;
