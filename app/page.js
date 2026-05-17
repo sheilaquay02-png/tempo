@@ -160,7 +160,59 @@ const reviveEvents = evs => evs.map(e => ({
   end:   e.end   instanceof Date ? e.end   : new Date(e.end?.__d   ?? e.end),
 }));
 
-// ─── Date key helper (local timezone, used throughout) ───────────────────────
+// ─── Recurring event expansion ────────────────────────────────────────────────
+// Given the stored base events, expand recurring ones into a window of ±60 days
+function expandRecurring(baseEvents, windowDays = 60) {
+  const result = [];
+  const winStart = new Date(TODAY); winStart.setDate(winStart.getDate() - windowDays);
+  const winEnd   = new Date(TODAY); winEnd.setDate(winEnd.getDate() + windowDays);
+
+  for (const ev of baseEvents) {
+    result.push(ev); // always include the original
+    if (!ev.recurrence) continue;
+    const dur = ev.end - ev.start; // ms
+
+    // Generate occurrences within the window
+    const cursor = new Date(ev.start);
+    // Step to first occurrence on or after winStart
+    while (cursor < winStart) {
+      if (ev.recurrence === "daily")    cursor.setDate(cursor.getDate() + 1);
+      else if (ev.recurrence === "weekly")   cursor.setDate(cursor.getDate() + 7);
+      else if (ev.recurrence === "weekdays") {
+        do { cursor.setDate(cursor.getDate() + 1); } while (cursor.getDay() === 0 || cursor.getDay() === 6);
+      }
+      else if (ev.recurrence === "monthly")  cursor.setMonth(cursor.getMonth() + 1);
+      else break;
+    }
+
+    let safety = 0;
+    while (cursor <= winEnd && safety++ < 500) {
+      // Skip the original date itself
+      if (!sameDay(cursor, ev.start)) {
+        const start = new Date(cursor);
+        const end   = new Date(cursor.getTime() + dur);
+        result.push({
+          ...ev,
+          id:    ev.id + "_r_" + dateKey(cursor),
+          start,
+          end,
+          _recurring: true, // mark as generated — not stored
+        });
+      }
+      // Advance
+      if (ev.recurrence === "daily")    cursor.setDate(cursor.getDate() + 1);
+      else if (ev.recurrence === "weekly")   cursor.setDate(cursor.getDate() + 7);
+      else if (ev.recurrence === "weekdays") {
+        do { cursor.setDate(cursor.getDate() + 1); } while (cursor.getDay() === 0 || cursor.getDay() === 6);
+      }
+      else if (ev.recurrence === "monthly")  cursor.setMonth(cursor.getMonth() + 1);
+      else break;
+    }
+  }
+  return result;
+}
+
+
 const dateKey = d => {
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
@@ -510,9 +562,9 @@ function usePomodoro() {
 
 // ── Supabase client ───────────────────────────────────────────────────────────
 // Keys are read from environment variables (set in Vercel dashboard).
-// For local dev, create a .env.local file in your project root:
-//   NEXT_PUBLIC_SUPABASE_URL=https://zyrxfrmkvqwtxffzgvtj.supabase.co
-//   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+// For local dev, create a .env file in your project root:
+//   VITE_SUPABASE_URL=https://zyrxfrmkvqwtxffzgvtj.supabase.co
+//   VITE_SUPABASE_ANON_KEY=eyJhbGci...
 const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL      ?? "https://zyrxfrmkvqwtxffzgvtj.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnhmcm1rdnF3dHhmZnpndnRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5ODUwMDgsImV4cCI6MjA5NDU2MTAwOH0.rn6TDqi-Vvw7pK6sX_TfAe6jpCqv6U6na2wlgB1XTVE";
 
@@ -873,7 +925,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
 }
 
 // ─── Day View ─────────────────────────────────────────────────────────────────
-function DayView({ events, calendars, categories, onReschedule, onEventClick, onDropTask, viewDate }) {
+function DayView({ events, calendars, categories, onReschedule, onEventClick, onDropTask, viewDate, onGridClick }) {
   const hours = []; for (let h = DAY_START; h < DAY_END; h++) hours.push(h);
   const now = new Date(); const nowTop = (now.getHours() + now.getMinutes() / 60 - DAY_START) * HOUR_H;
   const gridH = (DAY_END - DAY_START) * HOUR_H;
@@ -941,12 +993,22 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
     });
   }
 
+  function onGridClick(e) {
+    // Ignore clicks on event blocks
+    if (e.target.closest(".event-block")) return;
+    const snap = snapToGrid(e.clientY);
+    if (!snap) return;
+    const clickDate = new Date(viewDate);
+    clickDate.setHours(Math.floor(snap.mins / 60), snap.mins % 60, 0, 0);
+    onGridClick(clickDate);
+  }
+
   return (
     <div className="day-view" ref={scrollRef}>
-      <div className="drag-hint">⠿ Drag events to reschedule · Drag tasks from panel to schedule them</div>
+      <div className="drag-hint">⠿ Drag events to reschedule · Click empty slot to add event · Drag tasks from panel</div>
       {conflicts.length > 0 && <div className="conflict-banner">⚠️ {conflicts.length} conflict{conflicts.length > 1 ? "s" : ""} — overlapping events</div>}
       <div className="day-grid" ref={gridRef} style={{ height: gridH }}
-        onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+        onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onGridClick}>
         {hours.map(h => {
           const label = h === 0 ? "12am" : h === 12 ? "12pm" : h === 24 ? "12am" : h > 12 ? `${h - 12}pm` : `${h}am`;
           return <div key={h} className="hour-row" style={{ top: (h - DAY_START) * HOUR_H }}><span className="hour-label">{label}</span><div className="hour-line" /></div>;
@@ -1295,7 +1357,7 @@ function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["F","Focus mode"],["C","Open chat"],["S","Settings"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["F","Focus mode"],["C","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -1307,8 +1369,20 @@ function ShortcutsModal({ onClose }) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, user, onSignOut }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, timezone, setTimezone, user, onSignOut }) {
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
+
+  // Common timezones list
+  const TIMEZONES = [
+    "Pacific/Honolulu","America/Anchorage","America/Los_Angeles","America/Denver",
+    "America/Chicago","America/New_York","America/Sao_Paulo","Europe/London",
+    "Europe/Paris","Europe/Berlin","Europe/Istanbul","Asia/Dubai","Asia/Kolkata",
+    "Asia/Bangkok","Asia/Singapore","Asia/Tokyo","Asia/Seoul","Australia/Sydney",
+    "Pacific/Auckland",
+  ];
+  // Also include the user's detected timezone if not in list
+  const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tzList = TIMEZONES.includes(detected) ? TIMEZONES : [detected, ...TIMEZONES];
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-panel" onClick={e => e.stopPropagation()}>
@@ -1357,6 +1431,17 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="work-hours-row">
               <label>Start <input type="number" className="tf-num wh-input" min={0} max={23} value={workStart} onChange={e => setWorkStart(Number(e.target.value))} /> {workStart < 12 ? "am" : workStart === 12 ? "pm" : `${workStart - 12}pm`}</label>
               <label>End <input type="number" className="tf-num wh-input" min={0} max={23} value={workEnd} onChange={e => setWorkEnd(Number(e.target.value))} /> {workEnd < 12 ? "am" : workEnd === 12 ? "pm" : `${workEnd - 12}pm`}</label>
+            </div>
+          </div>
+          {/* Timezone */}
+          <div className="settings-section">
+            <div className="settings-section-label">Time Zone</div>
+            <div className="settings-section-desc">Times display correctly when travelling</div>
+            <select className="tf-select" value={timezone} onChange={e => setTimezone(e.target.value)} style={{width:"100%"}}>
+              {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g," ")}</option>)}
+            </select>
+            <div style={{fontSize:10,color:"var(--text3)",marginTop:6,fontFamily:"var(--mono)"}}>
+              Detected: {detected}
             </div>
           </div>
           {/* Notifications */}
@@ -1829,6 +1914,115 @@ function AddEventModal({ onClose, onSave, defaultDate }) {
   );
 }
 
+// ─── Search Modal ─────────────────────────────────────────────────────────────
+function SearchModal({ events, tasks, onClose, onEventClick, onTaskEdit, onNavigate }) {
+  const [query, setQuery] = useState("");
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const q = query.trim().toLowerCase();
+  const matchedEvents = q.length < 2 ? [] : events
+    .filter(e => e.title.toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q))
+    .sort((a, b) => a.start - b.start)
+    .slice(0, 20);
+  const matchedTasks = q.length < 2 ? [] : tasks
+    .filter(t => t.title.toLowerCase().includes(q) || (t.notes || "").toLowerCase().includes(q))
+    .slice(0, 10);
+
+  function handleKey(e) {
+    if (e.key === "Escape") onClose();
+  }
+
+  return (
+    <div className="modal-overlay search-overlay" onClick={onClose}>
+      <div className="search-modal" onClick={e => e.stopPropagation()}>
+        <div className="search-input-row">
+          <span className="search-icon">🔍</span>
+          <input
+            ref={inputRef}
+            className="search-input"
+            placeholder="Search events, tasks, notes…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={handleKey}
+          />
+          {query && <button className="search-clear" onClick={() => setQuery("")}>✕</button>}
+        </div>
+
+        {q.length >= 2 && (
+          <div className="search-results">
+            {matchedEvents.length === 0 && matchedTasks.length === 0 && (
+              <div className="search-empty">No results for "{query}"</div>
+            )}
+
+            {matchedEvents.length > 0 && (
+              <div className="search-section">
+                <div className="search-section-title">📅 Events ({matchedEvents.length})</div>
+                {matchedEvents.map(e => {
+                  const cal = CALENDARS.find(c => c.id === e.calendar);
+                  const color = e.color || cal?.color || "#FF7BAC";
+                  return (
+                    <div key={e.id} className="search-result-row" onClick={() => { onNavigate(e.start); onEventClick(e); onClose(); }}>
+                      <div className="search-result-dot" style={{ background: color }} />
+                      <div className="search-result-body">
+                        <div className="search-result-title">{highlightMatch(e.title, q)}</div>
+                        <div className="search-result-meta">
+                          {e.start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.start)}–{fmt(e.end)}
+                          {e._recurring && <span className="search-recurring-badge">↻ recurring</span>}
+                        </div>
+                        {e.notes && <div className="search-result-notes">{highlightMatch(e.notes.slice(0, 80), q)}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {matchedTasks.length > 0 && (
+              <div className="search-section">
+                <div className="search-section-title">✅ Tasks ({matchedTasks.length})</div>
+                {matchedTasks.map(t => {
+                  const cat = CATEGORIES.find(c => c.id === t.category);
+                  return (
+                    <div key={t.id} className={`search-result-row ${t.done ? "search-done" : ""}`} onClick={() => { onTaskEdit(t); onClose(); }}>
+                      <div className="search-result-dot" style={{ background: cat?.color || "#FF7BAC" }} />
+                      <div className="search-result-body">
+                        <div className="search-result-title">{highlightMatch(t.title, q)}</div>
+                        <div className="search-result-meta">
+                          {cat?.icon} {cat?.label} · {t.duration}min · {t.scope}
+                          {t.done && <span className="search-done-badge">✓ done</span>}
+                        </div>
+                        {t.notes && <div className="search-result-notes">{highlightMatch(t.notes.slice(0, 80), q)}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {q.length < 2 && (
+          <div className="search-hint">Type at least 2 characters to search across all events and tasks</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function highlightMatch(text, query) {
+  if (!query || !text) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="search-highlight">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
 function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAddEvent }) {
   const [messages, setMessages] = useState([{ role: "assistant", text: buildGreeting(events, tasks) }]);
@@ -1884,7 +2078,7 @@ export default function App() {
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
   const [workStart, setWSRaw]       = useState(() => load(`${uk}_ws`, 9));
   const [workEnd,   setWERaw]       = useState(() => load(`${uk}_we`, 19));
-  const [notifs,    setNfRaw]       = useState(() => load(`${uk}_nf`, false));
+  const [timezone,   setTzRaw]        = useState(() => load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone));
   const [theme,     setThRaw]       = useState(() => load(`${uk}_th`, "tempo"));
   const [undoStack, setUndo]        = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -1894,7 +2088,7 @@ export default function App() {
   const [showAddEvent,  setShowAddEvent]  = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
-  const [showGcalModal, setShowGcalModal] = useState(false);
+  const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [focusMode,    setFocusMode]    = useState(false);
   const [dataReady,    setDataReady]    = useState(false);
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
@@ -1997,6 +2191,7 @@ export default function App() {
   // Keep context in sync on every render (cheap, ensures no stale values)
   setWorkHoursCtx(workStart, workEnd);
   const setNotifs    = v => { setNfRaw(v); save(`${uk}_nf`, v); };
+  const setTimezone  = v => { setTzRaw(v); save(`${uk}_tz`, v); };
   const toggleCalVisibility = id => {
     const n = hiddenCals.includes(id) ? hiddenCals.filter(c => c !== id) : [...hiddenCals, id];
     setHiddenCals(n); save(`${uk}_hidden_cals`, n);
@@ -2016,9 +2211,19 @@ export default function App() {
   function toggleTask(id)         { pushUndo(); setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, task]); }
   function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
-  function reschedule(id, ns, ne) { pushUndo(); setEvents(ev => ev.map(e => e.id === id ? { ...e, start: ns, end: ne } : e)); }
-  function saveEvent(ev)          { pushUndo(); setEvents(es => es.map(e => e.id === ev.id ? ev : e)); }
-  function deleteEvent(id)        { pushUndo(); setEvents(es => es.filter(e => e.id !== id)); }
+  function reschedule(id, ns, ne) {
+    // Strip _r_ suffix to find the base event if user drags a recurring instance
+    const baseId = id.includes("_r_") ? id.split("_r_")[0] : id;
+    pushUndo(); setEvents(ev => ev.map(e => e.id === baseId ? { ...e, start: ns, end: ne } : e));
+  }
+  function saveEvent(ev) {
+    const baseId = ev.id.includes("_r_") ? ev.id.split("_r_")[0] : ev.id;
+    pushUndo(); setEvents(es => es.map(e => e.id === baseId ? { ...ev, id: baseId } : e));
+  }
+  function deleteEvent(id) {
+    const baseId = id.includes("_r_") ? id.split("_r_")[0] : id;
+    pushUndo(); setEvents(es => es.filter(e => e.id !== baseId));
+  }
 
   function applyTemplate(tpl) {
     pushUndo();
@@ -2040,9 +2245,11 @@ export default function App() {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
       if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); return; }
       if (e.key === "Escape") {
+        if (showSearch) { setShowSearch(false); return; }
         if (page === "journal") { setPage("calendar"); return; }
         setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); setFocusMode(false); return;
       }
+      if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
       const k = e.key.toLowerCase();
       if (k === "d" && !e.metaKey && !e.ctrlKey) { setPage("calendar"); setView("day"); }
@@ -2081,8 +2288,9 @@ export default function App() {
     </>
   );
 
-  const viewDayEvents = events.filter(e => e.start instanceof Date && e.start.toDateString() === viewDate.toDateString() && !hiddenCals.includes(e.calendar));
-  const visibleEvents = events.filter(e => !hiddenCals.includes(e.calendar));
+  const expandedEvents  = expandRecurring(events);
+  const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && e.start.toDateString() === viewDate.toDateString() && !hiddenCals.includes(e.calendar));
+  const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
   const openToday     = tasks.filter(t => !t.done && t.scope === "day").length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
@@ -2168,6 +2376,7 @@ export default function App() {
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
             <button className="topbar-btn add-event-btn" onClick={() => setShowAddEvent(true)}>+ Event</button>
+            <button className="topbar-btn" onClick={() => setShowSearch(true)} title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)}>🗂 Templates</button>
             <button className="topbar-btn icon-only" onClick={() => setShowShortcuts(true)}>⌨️</button>
             <button className="topbar-btn icon-only" onClick={() => setSettingsOpen(true)}>⚙️</button>
@@ -2182,7 +2391,7 @@ export default function App() {
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
-              {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={CATEGORIES} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} />}
+              {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={CATEGORIES} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => setQuickAddDate(d)} />}
               {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={CATEGORIES} onEventClick={setSelectedEvent} viewDate={viewDate} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const year = viewDate.getFullYear(), month = viewDate.getMonth();
@@ -2191,16 +2400,28 @@ export default function App() {
                 for (let i = 0; i < so; i++) days.push(null);
                 for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
                 while (days.length % 7 !== 0) days.push(null);
+
+                // Compute max events in any single day this month for heat map normalisation
+                const dayCounts = days.filter(Boolean).map(d =>
+                  visibleEvents.filter(e => e.start instanceof Date && sameDay(e.start, d)).length
+                );
+                const maxCount = Math.max(...dayCounts, 1);
+
                 return (
                   <div className="month-view">
                     {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => <div key={d} className="month-header">{d}</div>)}
                     {days.map((day, i) => {
-                      const de = day ? visibleEvents.filter(e => e.start instanceof Date && e.start.toDateString() === day.toDateString()) : [];
-                      const isT = day && day.toDateString() === TODAY.toDateString();
+                      const de = day ? visibleEvents.filter(e => e.start instanceof Date && sameDay(e.start, day)) : [];
+                      const isT = day && sameDay(day, TODAY);
+                      const heat = day ? de.length / maxCount : 0; // 0–1
+                      // Heat map: tint the active theme accent colour at low opacity
+                      const heatBg = heat > 0.05 ? `rgba(var(--accent-rgb,255,123,172),${(heat * 0.22).toFixed(2)})` : undefined;
                       return (
                         <div key={i} className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
+                          style={heatBg ? { background: heatBg } : {}}
                           onClick={() => { if (day) { setViewDate(day); setView("day"); } }}>
                           {day && <div className="month-day-num">{isT ? <span className="today-circle">{day.getDate()}</span> : day.getDate()}</div>}
+                          {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
                             {de.slice(0, 4).map(e => {
                               const cal = CALENDARS.find(c => c.id === e.calendar);
@@ -2231,13 +2452,15 @@ export default function App() {
       {pomodoro.state.active && <PomodoroWidget state={pomodoro.state} tasks={tasks} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} />}
       {undoStack.length > 0 && <button className="undo-btn" onClick={undo}>↩ Undo <kbd>⌘Z</kbd></button>}
 
+      {showSearch && <SearchModal events={expandedEvents} tasks={tasks} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedEvent} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {showGcalModal && <GcalModal onClose={() => setShowGcalModal(false)} onImport={evs => { evs.forEach(ev => addEvent(ev)); setShowGcalModal(false); }} viewDate={viewDate} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} />}
       {showAddEvent  && <AddEventModal onClose={() => setShowAddEvent(false)} onSave={addEvent} defaultDate={viewDate} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={CATEGORIES} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} />}
       {showStats  && <StatsCard events={events} tasks={tasks} streak={streak} onClose={() => setShowStats(false)} />}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && t.scope === "day")} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} user={auth.user} onSignOut={auth.signOut} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} timezone={timezone} setTimezone={setTimezone} user={auth.user} onSignOut={auth.signOut} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)}>
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
@@ -2423,7 +2646,7 @@ const loginCSS = `
 function appCSS(cvars, fontScale) { return `
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Inconsolata:wght@300;400;500&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  :root{${cvars}--mint:#B8F0E0;--radius:16px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow:0 2px 16px rgba(0,0,0,0.08);--shadow-md:0 4px 24px rgba(0,0,0,0.12);--fs:${fontScale};}
+  :root{${cvars}--mint:#B8F0E0;--radius:16px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow:0 2px 16px rgba(0,0,0,0.08);--shadow-md:0 4px 24px rgba(0,0,0,0.12);--fs:${fontScale};--accent-rgb:255,123,172;}
   body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
   .app{display:flex;height:100vh;overflow:hidden;}
   .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow:hidden;}
@@ -2714,6 +2937,37 @@ function appCSS(cvars, fontScale) { return `
   .fsr-A{font-size:18px;color:var(--text2);font-weight:700;font-family:var(--mono);}
   .font-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;outline:none;cursor:pointer;background:linear-gradient(to right,var(--accent) 0%,var(--accent3) 100%);}
   .font-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:white;border:2.5px solid var(--accent);cursor:pointer;}
+  /* ── Month heat map ─────────────────────────────────────────────────────────── */
+  .month-heat-bar{position:absolute;bottom:0;left:0;height:3px;background:var(--accent);opacity:0.5;border-radius:0 0 0 0;pointer-events:none;}
+  .month-day{position:relative;}
+
+  /* ── Search modal ───────────────────────────────────────────────────────────── */
+  .search-overlay{align-items:flex-start!important;padding-top:80px;}
+  .search-modal{width:580px;max-width:calc(100vw - 32px);background:var(--bg2);border-radius:20px;border:1.5px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,.18);overflow:hidden;animation:popIn .18s cubic-bezier(.34,1.56,.64,1);}
+  .search-input-row{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);}
+  .search-icon{font-size:18px;flex-shrink:0;}
+  .search-input{flex:1;background:transparent;border:none;outline:none;font-family:var(--font);font-size:16px;font-weight:700;color:var(--text);}
+  .search-input::placeholder{color:var(--text3);}
+  .search-clear{background:var(--bg4);border:1px solid var(--border);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:11px;}
+  .search-results{max-height:480px;overflow-y:auto;}
+  .search-results::-webkit-scrollbar{width:3px;}
+  .search-results::-webkit-scrollbar-thumb{background:var(--border);}
+  .search-section{padding:8px 0;}
+  .search-section-title{padding:6px 20px;font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;background:var(--bg3);}
+  .search-result-row{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--border);}
+  .search-result-row:hover{background:var(--bg3);}
+  .search-result-row:last-child{border-bottom:none;}
+  .search-result-row.search-done{opacity:.5;}
+  .search-result-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+  .search-result-body{flex:1;min-width:0;}
+  .search-result-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;}
+  .search-result-meta{font-size:11px;font-family:var(--mono);color:var(--text3);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .search-result-notes{font-size:11px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .search-highlight{background:var(--accent3);color:var(--text);border-radius:2px;padding:0 1px;}
+  .search-recurring-badge,.search-done-badge{background:var(--bg4);border-radius:20px;padding:1px 7px;font-size:10px;color:var(--text3);}
+  .search-empty{padding:24px 20px;text-align:center;color:var(--text3);font-size:13px;}
+  .search-hint{padding:20px;text-align:center;color:var(--text3);font-size:12px;font-family:var(--mono);}
+
   .undo-btn{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:#4A2840;color:white;border:none;border-radius:20px;padding:8px 20px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(74,40,64,.3);z-index:99;display:flex;align-items:center;gap:8px;animation:slideUp .2s ease;white-space:nowrap;}
   .undo-btn:hover{background:#6A3860;transform:translateX(-50%) scale(1.03);}
   .undo-btn kbd{background:rgba(255,255,255,.15);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:10px;}
