@@ -1,5 +1,6 @@
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps */
 
 "use client"; 
 
@@ -220,6 +221,33 @@ const dateKey = d => {
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
 };
+
+const nextRecurringDateKey = (dateValue, recurrence) => {
+  const d = dateValue ? new Date(dateValue) : new Date(TODAY);
+  if (Number.isNaN(d.getTime())) d.setTime(TODAY.getTime());
+
+  if (recurrence === "daily") d.setDate(d.getDate() + 1);
+  else if (recurrence === "weekly") d.setDate(d.getDate() + 7);
+  else if (recurrence === "weekdays") {
+    do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6);
+  }
+  else if (recurrence === "monthly") d.setMonth(d.getMonth() + 1);
+  else return null;
+
+  return dateKey(d);
+};
+
+const makeNextRecurringTask = task => {
+  if (!task.recurrence) return null;
+  return {
+    ...task,
+    id: "t" + uid(),
+    done: false,
+    scheduled: null,
+    deadline: nextRecurringDateKey(task.deadline, task.recurrence),
+  };
+};
+
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
 // Seed events — relative to real today so demo data is always current
@@ -1041,7 +1069,7 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
 }
 
 // ─── Week View (full timetable, like TimeTree) ────────────────────────────────
-function WeekView({ events, calendars, categories, onEventClick, viewDate, onDayClick }) {
+function WeekView({ events, calendars, categories, onEventClick, onReschedule, viewDate, onDayClick }) {
   // Monday of the viewed week
   const mon = new Date(viewDate);
   const dow = mon.getDay(); // 0=Sun
@@ -1056,12 +1084,60 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
   const gridH = (DAY_END - DAY_START) * HOUR_H;
 
   const scrollRef = useRef(null);
+  const gridRef = useRef(null);
+
   useEffect(() => {
     let el = scrollRef.current?.parentElement;
     while (el && !el.classList?.contains("calendar-pane")) el = el.parentElement;
     const scrollTo = Math.max(nowTop - 120, 8 * HOUR_H - 120);
     (el || document.querySelector(".calendar-pane"))?.scrollTo({ top: scrollTo, behavior: "smooth" });
   }, []);
+
+  function snapWeekPoint(clientX, clientY) {
+    if (!gridRef.current) return null;
+
+    const rect = gridRef.current.getBoundingClientRect();
+    const gridLeft = rect.left + 48;
+    const colW = (rect.width - 48) / 7;
+
+    let dayIndex = Math.floor((clientX - gridLeft) / colW);
+    dayIndex = Math.max(0, Math.min(6, dayIndex));
+
+    const rawMins = ((clientY - rect.top) / HOUR_H) * 60 + DAY_START * 60;
+    const mins = Math.max(
+      DAY_START * 60,
+      Math.min(Math.round(rawMins / 15) * 15, (DAY_END - 1) * 60)
+    );
+
+    return { day: days[dayIndex], mins };
+  }
+
+  function startWeekEventDrag(e, ev) {
+    if (ev.fixed || e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dur = ev.end - ev.start;
+
+    function up(me) {
+      document.removeEventListener("mouseup", up);
+
+      const snap = snapWeekPoint(me.clientX, me.clientY);
+      if (!snap) return;
+
+      const ns = new Date(snap.day);
+      ns.setHours(Math.floor(snap.mins / 60), snap.mins % 60, 0, 0);
+
+      const ne = new Date(ns.getTime() + dur);
+
+      if (ns.getTime() !== ev.start.getTime()) {
+        onReschedule(ev.id, ns, ne);
+      }
+    }
+
+    document.addEventListener("mouseup", up);
+  }
 
   return (
     <div className="week-timetable" ref={scrollRef}>
@@ -1080,7 +1156,7 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
       </div>
 
       {/* Timetable grid */}
-      <div className="wt-grid" style={{ height: gridH + 32 }}>
+      <div className="wt-grid" ref={gridRef} style={{ height: gridH + 32 }}>
         {/* Hour labels + horizontal lines */}
         {hours.map(h => {
           const label = h === 0 ? "12am" : h === 12 ? "12pm" : h > 12 ? `${h-12}pm` : `${h}am`;
@@ -1112,14 +1188,21 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
             const eh = ev.end.getHours() + ev.end.getMinutes() / 60;
             const top = (sh - DAY_START) * HOUR_H;
             const height = Math.max((eh - sh) * HOUR_H - 2, 22);
-            // left offset: time gutter (48px) + column index * (1/7 of remaining)
             return (
-              <div key={ev.id} className="wt-event" onClick={() => onEventClick(ev)}
-                style={{ top, height, color,
+              <div
+                key={ev.id}
+                className={`wt-event ${ev.fixed ? "fixed-event" : "draggable"}`}
+                onMouseDown={e => startWeekEventDrag(e, ev)}
+                onClick={() => onEventClick(ev)}
+                style={{
+                  top,
+                  height,
+                  color,
                   background: `${color}18`,
                   borderLeft: `3px solid ${color}`,
                   left: `calc(48px + ${di} * ((100% - 48px) / 7) + 2px)`,
                   width: `calc((100% - 48px) / 7 - 5px)`,
+                  cursor: ev.fixed ? "default" : "grab",
                 }}>
                 <div className="wt-event-title">{ev.title}</div>
                 {height > 30 && <div className="wt-event-time">{ev.start.getHours()}:{String(ev.start.getMinutes()).padStart(2,"0")} - {ev.end.getHours()}:{String(ev.end.getMinutes()).padStart(2,"0")}</div>}
@@ -1135,8 +1218,15 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
 }
 
 // ─── Task Item ────────────────────────────────────────────────────────────────
-function TaskItem({ task, onToggle, onStartPomodoro, categories }) {
+function TaskItem({ task, onToggle, onEdit, onDelete, onStartPomodoro, categories }) {
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ ...task });
+
+  useEffect(() => {
+    setEditForm({ ...task });
+  }, [task]);
+
   const cat = categories.find(c => c.id === task.category);
   const pri = PRIORITIES.find(p => p.id === task.priority);
   const color = cat?.color || "var(--accent)";
@@ -1144,8 +1234,12 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories }) {
   function onDragStart(e) {
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("application/tempo-task", JSON.stringify({
-      id: task.id, title: task.title, duration: task.duration,
-      category: task.category, color: cat?.color || null,
+      id: task.id,
+      title: task.title,
+      duration: task.duration,
+      category: task.category,
+      color: cat?.color || null,
+      recurrence: task.recurrence || null,
     }));
     // Ghost image
     const ghost = document.createElement("div");
@@ -1154,6 +1248,89 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories }) {
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 0, 14);
     setTimeout(() => ghost.remove(), 0);
+  }
+
+  function saveEdit() {
+    if (!editForm.title?.trim()) return;
+    onEdit({
+      ...task,
+      ...editForm,
+      title: editForm.title.trim(),
+      duration: Number(editForm.duration) || 30,
+      recurrence: editForm.recurrence || null,
+      deadline: editForm.deadline || null,
+    });
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className={`task-item task-editing ${task.done ? "done" : ""}`} data-priority={task.priority}>
+        <div className="task-edit-form">
+          <input
+            className="tf-input"
+            value={editForm.title || ""}
+            onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="Task name..."
+            autoFocus
+          />
+          <div className="tf-row">
+            <select className="tf-select" value={editForm.category || "deep"} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+            </select>
+            <select className="tf-select" value={editForm.scope || "day"} onChange={e => setEditForm(f => ({ ...f, scope: e.target.value }))}>
+              <option value="day">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+            </select>
+          </div>
+          <div className="tf-row">
+            <select className="tf-select" value={editForm.priority || "medium"} onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}>
+              {PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
+            </select>
+            <select className="tf-select" value={editForm.recurrence || ""} onChange={e => setEditForm(f => ({ ...f, recurrence: e.target.value || null }))}>
+              <option value="">No repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div className="tf-row">
+            <div className="tf-duration">
+              <span>⏱</span>
+              <input
+                type="number"
+                className="tf-num"
+                value={editForm.duration || 30}
+                min={5}
+                step={5}
+                onChange={e => setEditForm(f => ({ ...f, duration: parseInt(e.target.value) || 30 }))}
+              />
+              <span>min</span>
+            </div>
+            <input
+              type="date"
+              className="tf-input tf-date"
+              value={editForm.deadline || ""}
+              onChange={e => setEditForm(f => ({ ...f, deadline: e.target.value || null }))}
+            />
+          </div>
+          <textarea
+            className="tf-input tf-notes"
+            placeholder="Notes..."
+            value={editForm.notes || ""}
+            onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+            rows={2}
+          />
+          <div className="tf-actions">
+            <button className="tf-cancel" onClick={() => { setEditing(false); setEditForm({ ...task }); }}>Cancel</button>
+            <button className="modal-delete" onClick={() => onDelete(task.id)}>Delete</button>
+            <button className="tf-save" onClick={saveEdit}>Save</button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1167,27 +1344,50 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories }) {
           <span style={{ color: cat?.color }}>{cat?.icon} {cat?.label}</span>
           <span>{task.duration}min</span>
           {pri && <span style={{ color: pri.color }}>{pri.icon} {pri.label}</span>}
+          {task.recurrence && <span title={`Repeats ${task.recurrence}`}>🔁 {task.recurrence}</span>}
           {task.deadline && <span className="deadline">due {task.deadline.slice(5)}</span>}
           {task.notes && <span title={task.notes}>📝</span>}
         </div>
         {expanded && task.notes && <div className="task-notes">{task.notes}</div>}
       </div>
-      {!task.done && <button className="pomo-btn" onClick={() => onStartPomodoro(task.id)} title="Start Pomodoro">⏱</button>}
+      <div className="task-actions">
+        <button className="pomo-btn" onClick={() => setEditing(true)} title="Edit task">✎</button>
+        {!task.done && <button className="pomo-btn" onClick={() => onStartPomodoro(task.id)} title="Start Pomodoro">⏱</button>}
+      </div>
     </div>
   );
 }
 
 // ─── Task Panel ───────────────────────────────────────────────────────────────
-function TaskPanel({ tasks, categories, onToggle, onAdd, onStartPomodoro, scope, setScope }) {
+function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onDelete, onStartPomodoro, scope, setScope }) {
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding]       = useState(false);
-  const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "" });
+  const emptyTaskForm = {
+    title: "",
+    duration: 30,
+    category: "deep",
+    scope: "day",
+    deadline: "",
+    priority: "medium",
+    notes: "",
+    recurrence: null,
+  };
+  const [form, setForm] = useState(emptyTaskForm);
   const filtered = tasks.filter(t => t.scope === scope);
   const urgent   = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= new Date(TODAY.getTime() + 3 * 86400000));
   function handleAdd() {
     if (!form.title.trim()) return;
-    onAdd({ ...form, id: "t" + uid(), done: false, scheduled: null });
-    setForm({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "" });
+    onAdd({
+      ...form,
+      id: "t" + uid(),
+      title: form.title.trim(),
+      duration: Number(form.duration) || 30,
+      done: false,
+      scheduled: null,
+      deadline: form.deadline || null,
+      recurrence: form.recurrence || null,
+    });
+    setForm(emptyTaskForm);
     setAdding(false);
   }
   return (
@@ -1214,9 +1414,16 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onStartPomodoro, scope,
           </div>
           <div className="tf-row">
             <select className="tf-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select>
-            <input type="date" className="tf-input tf-date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
+            <select className="tf-select" value={form.recurrence || ""} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value || null }))}>
+              <option value="">No repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="monthly">Monthly</option>
+            </select>
           </div>
           <div className="tf-row">
+            <input type="date" className="tf-input tf-date" value={form.deadline || ""} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
             <div className="tf-duration"><span>⏱</span><input type="number" className="tf-num" value={form.duration} min={5} step={5} onChange={e => setForm(f => ({ ...f, duration: parseInt(e.target.value) || 30 }))}/><span>min</span></div>
           </div>
           <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
@@ -1225,7 +1432,17 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onStartPomodoro, scope,
       )}
       <div className="task-list">
         {filtered.length === 0 && <div className="empty-state">No {scope} tasks yet</div>}
-        {[...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onStartPomodoro={onStartPomodoro} categories={categories} />)}
+        {[...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => (
+          <TaskItem
+            key={t.id}
+            task={t}
+            onToggle={onToggle}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onStartPomodoro={onStartPomodoro}
+            categories={categories}
+          />
+        ))}
       </div>
       <div className="task-footer"><span>{filtered.filter(t => !t.done).length} remaining</span><span>{filtered.filter(t => t.done).length} done ✅</span></div>
       </div>{/* end task-panel-inner */}
@@ -2085,6 +2302,7 @@ export default function App() {
   const [tasks,  setTkRaw]          = useState(() => load(`${uk}_tk`, INIT_TASKS));
   const [chatOpen, setChatOpen]     = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fontSize,  setFSRaw]       = useState(() => load(`${uk}_fs`, "md"));
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
@@ -2350,8 +2568,31 @@ export default function App() {
     });
   }
 
-  function toggleTask(id)         { pushUndo(); setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
-  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, task]); }
+  function toggleTask(id) {
+    pushUndo();
+    setTasks(ts => ts.flatMap(t => {
+      if (t.id !== id) return [t];
+
+      const nextDone = !t.done;
+      const updated = { ...t, done: nextDone };
+
+      if (nextDone && t.recurrence) {
+        const nextRecurringTask = makeNextRecurringTask(t);
+        return nextRecurringTask ? [updated, nextRecurringTask] : [updated];
+      }
+
+      return [updated];
+    }));
+  }
+  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, { ...task, recurrence: task.recurrence || null }]); }
+  function updateTask(updatedTask) {
+    pushUndo();
+    setTasks(ts => ts.map(t => t.id === updatedTask.id ? { ...updatedTask, recurrence: updatedTask.recurrence || null } : t));
+  }
+  function deleteTask(id) {
+    pushUndo();
+    setTasks(ts => ts.filter(t => t.id !== id));
+  }
   function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
   function reschedule(id, ns, ne) {
     // Strip _r_ suffix to find the base event if user drags a recurring instance
@@ -2360,7 +2601,15 @@ export default function App() {
   }
   function saveEvent(ev) {
     const baseId = ev.id.includes("_r_") ? ev.id.split("_r_")[0] : ev.id;
-    pushUndo(); setEvents(es => es.map(e => e.id === baseId ? { ...ev, id: baseId } : e));
+    const cleaned = { ...ev, id: baseId };
+    delete cleaned._recurring;
+
+    pushUndo();
+    setEvents(es => es.map(e => e.id === baseId ? {
+      ...e,
+      ...cleaned,
+      recurrence: cleaned.recurrence ?? e.recurrence ?? null,
+    } : e));
   }
   function deleteEvent(id) {
     const baseId = id.includes("_r_") ? id.split("_r_")[0] : id;
@@ -2445,7 +2694,18 @@ export default function App() {
       {focusMode && <FocusMode tasks={tasks} events={events} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} onExit={() => setFocusMode(false)} />}
 
       <div className="app">
-        <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
+        <div
+          className={`sidebar ${sidebarOpen ? "" : "closed"} ${mobileMenuOpen ? "mobile-open" : ""}`}
+          onClickCapture={e => {
+            if (
+              typeof window !== "undefined" &&
+              window.innerWidth <= 768 &&
+              e.target.closest(".nav-item")
+            ) {
+              setMobileMenuOpen(false);
+            }
+          }}
+        >
           <div className="sidebar-logo"><div className="logo-icon">🌸</div><span>Tempo</span></div>
           <div className="sidebar-date">
             <div className="date-big">{TODAY.getDate()}</div>
@@ -2485,12 +2745,30 @@ export default function App() {
           </div>
         </div>
 
+        {mobileMenuOpen && (
+          <div
+            className="mobile-sidebar-backdrop"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         <div className="main">
           {page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} />
           ) : (<>
           <div className="topbar">
-            <button className="topbar-btn icon-only" onClick={() => setSidebarOpen(v => !v)}>☰</button>
+            <button
+              className="topbar-btn icon-only"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.innerWidth <= 768) {
+                  setMobileMenuOpen(v => !v);
+                } else {
+                  setSidebarOpen(v => !v);
+                }
+              }}
+            >
+              ☰
+            </button>
             <button className="topbar-btn icon-only nav-arrow" onClick={() => {
               const d = new Date(viewDate);
               if (view === "day")   d.setDate(d.getDate() - 1);
@@ -2534,7 +2812,7 @@ export default function App() {
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
               {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={CATEGORIES} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => setQuickAddDate(d)} />}
-              {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={CATEGORIES} onEventClick={setSelectedEvent} viewDate={viewDate} onDayClick={d => { setViewDate(d); setView("day"); }} />}
+              {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={CATEGORIES} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const year = viewDate.getFullYear(), month = viewDate.getMonth();
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -2559,9 +2837,40 @@ export default function App() {
                       // Heat map: tint the active theme accent colour at low opacity
                       const heatBg = heat > 0.05 ? `rgba(var(--accent-rgb,255,123,172),${(heat * 0.22).toFixed(2)})` : undefined;
                       return (
-                        <div key={i} className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
+                        <div
+                          key={i}
+                          className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
                           style={heatBg ? { background: heatBg } : {}}
-                          onClick={() => { if (day) { setViewDate(day); setView("day"); } }}>
+                          onDragOver={ev => {
+                            if (day && ev.dataTransfer.types.includes("application/tempo-event")) {
+                              ev.preventDefault();
+                            }
+                          }}
+                          onDrop={ev => {
+                            ev.preventDefault();
+
+                            if (!day) return;
+
+                            const id = ev.dataTransfer.getData("application/tempo-event");
+                            if (!id) return;
+
+                            const source = visibleEvents.find(x => x.id === id);
+                            if (!source) return;
+
+                            const dur = source.end - source.start;
+                            const ns = new Date(day);
+                            ns.setHours(source.start.getHours(), source.start.getMinutes(), 0, 0);
+
+                            const ne = new Date(ns.getTime() + dur);
+                            reschedule(id, ns, ne);
+                          }}
+                          onClick={() => {
+                            if (day) {
+                              setViewDate(day);
+                              setView("day");
+                            }
+                          }}
+                        >
                           {day && <div className="month-day-num">{isT ? <span className="today-circle">{day.getDate()}</span> : day.getDate()}</div>}
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
@@ -2569,8 +2878,26 @@ export default function App() {
                               const cal = CALENDARS.find(c => c.id === e.calendar);
                               const color = e.color || cal?.color || "#FF7BAC";
                               return (
-                                <div key={e.id} className="month-event-row" style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)" }}
-                                  onClick={ev => { ev.stopPropagation(); setSelectedEvent(e); }}>
+                                <div
+                                  key={e.id}
+                                  className={`month-event-row ${e.fixed ? "fixed-event" : "draggable"}`}
+                                  draggable={!e.fixed}
+                                  style={{
+                                    background: `${color}20`,
+                                    borderLeft: `2px solid ${color}`,
+                                    color: "var(--text)",
+                                    cursor: e.fixed ? "default" : "grab",
+                                  }}
+                                  onDragStart={ev => {
+                                    ev.stopPropagation();
+                                    ev.dataTransfer.effectAllowed = "move";
+                                    ev.dataTransfer.setData("application/tempo-event", e.id);
+                                  }}
+                                  onClick={ev => {
+                                    ev.stopPropagation();
+                                    setSelectedEvent(e);
+                                  }}
+                                >
                                   <span className="month-event-time">{e.start.getHours()}:{String(e.start.getMinutes()).padStart(2,"0")}</span>
                                   <span className="month-event-name">{e.title}</span>
                                 </div>
@@ -2585,7 +2912,17 @@ export default function App() {
                 );
               })()}
             </div>
-            <TaskPanel tasks={tasks} categories={CATEGORIES} onToggle={toggleTask} onAdd={addTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} />
+            <TaskPanel
+              tasks={tasks}
+              categories={CATEGORIES}
+              onToggle={toggleTask}
+              onAdd={addTask}
+              onEdit={updateTask}
+              onDelete={deleteTask}
+              onStartPomodoro={pomodoro.start}
+              scope={taskScope}
+              setScope={setTaskScope}
+            />
           </div>
         </>)}
         </div>
@@ -2622,9 +2959,9 @@ export default function App() {
 
       {/* Mobile bottom nav — visible only on small screens */}
       <div className="mobile-nav">
+        <button className="mobile-nav-btn" onClick={() => setMobileMenuOpen(true)}>☰<span>Menu</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>☀️<span>Day</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("week"); }}>🗓️<span>Week</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
         <button className="mobile-nav-btn" onClick={() => { setTaskScope("day"); document.querySelector(".task-panel")?.classList.toggle("mobile-open"); }}>✅<span>Tasks</span></button>
         <button className="mobile-nav-btn" onClick={() => setSettingsOpen(true)}>⚙️<span>More</span></button>
       </div>
@@ -3120,18 +3457,193 @@ function appCSS(cvars, fontScale) { return `
   .template-btn{width:100%;padding:14px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg3);text-align:left;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;transition:all .15s;}
   .template-btn:hover{border-color:var(--accent3);background:var(--bg4);}
   .tpl-events{font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono);}
-  @media(max-width:768px){
-    .sidebar{display:none;}
-    .task-panel{display:none;position:fixed;inset:0;top:auto;height:70vh;z-index:150;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(255,123,172,.2);width:100%!important;flex-direction:column;}
-    .task-panel.mobile-open{display:flex;}
-    .task-panel-toggle{display:none;}
-    .chat-panel{width:calc(100vw - 32px);right:16px;left:16px;bottom:86px;}
-    .chat-fab{bottom:80px;}
-    .stats-bar{overflow-x:auto;flex-wrap:nowrap;}
-    .pomo-widget{right:16px;bottom:140px;}
-    .topbar-btn:not(.icon-only){display:none;}
-    .mobile-nav{display:flex;}
-    .content-area{padding-bottom:64px;}
+  
+  .task-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  .task-editing{display:block;padding:12px;}
+  .task-edit-form{display:flex;flex-direction:column;gap:8px;width:100%;}
+@media(max-width:768px){
+    body{
+      overflow:hidden;
+      height:100dvh;
+    }
+
+    .app{
+      height:100dvh;
+      width:100vw;
+      overflow:hidden;
+    }
+
+    .sidebar{
+      display:flex;
+      position:fixed;
+      top:0;
+      left:0;
+      bottom:0;
+      width:82vw;
+      max-width:320px;
+      z-index:220;
+      transform:translateX(-105%);
+      transition:transform .22s ease;
+      box-shadow:10px 0 40px rgba(74,40,64,.18);
+      border-right:1px solid var(--border);
+    }
+
+    .sidebar.closed{
+      width:82vw;
+      max-width:320px;
+    }
+
+    .sidebar.mobile-open{
+      transform:translateX(0);
+    }
+
+    .mobile-sidebar-backdrop{
+      position:fixed;
+      inset:0;
+      z-index:210;
+      background:rgba(30,12,28,.28);
+      backdrop-filter:blur(3px);
+    }
+
+    .main{
+      width:100vw;
+      min-width:0;
+    }
+
+    .topbar{
+      height:56px;
+      padding:8px 10px;
+      gap:6px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .topbar-date{
+      min-width:110px;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .view-tabs{
+      display:none;
+    }
+
+    .topbar-btn{
+      min-width:38px;
+      height:38px;
+      padding:0 10px;
+      border-radius:12px;
+      flex-shrink:0;
+    }
+
+    .topbar-btn:not(.icon-only):not(.today-btn):not(.add-event-btn){
+      display:none;
+    }
+
+    .today-btn{
+      display:flex;
+      font-size:12px;
+    }
+
+    .add-event-btn{
+      display:flex;
+      font-size:0;
+      width:38px;
+      padding:0;
+    }
+
+    .add-event-btn::after{
+      content:"+";
+      font-size:22px;
+      line-height:1;
+    }
+
+    .stats-bar{
+      overflow-x:auto;
+      flex-wrap:nowrap;
+      padding:8px 10px;
+      gap:8px;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .stat{
+      flex:0 0 auto;
+      font-size:11px;
+      white-space:nowrap;
+    }
+
+    .content-area{
+      padding-bottom:72px;
+      overflow:hidden;
+    }
+
+    .calendar-pane{
+      width:100%;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .task-panel{
+      display:none;
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:60px;
+      top:auto;
+      height:72vh;
+      z-index:180;
+      border-radius:22px 22px 0 0;
+      box-shadow:0 -8px 40px rgba(255,123,172,.22);
+      width:100%!important;
+      max-width:none;
+      flex-direction:column;
+      background:var(--bg2);
+    }
+
+    .task-panel.mobile-open{
+      display:flex;
+    }
+
+    .task-panel-toggle{
+      display:none;
+    }
+
+    .chat-panel{
+      width:calc(100vw - 24px);
+      right:12px;
+      left:12px;
+      bottom:82px;
+      max-height:70vh;
+    }
+
+    .chat-fab{
+      bottom:76px;
+      right:14px;
+    }
+
+    .pomo-widget{
+      right:12px;
+      bottom:136px;
+      max-width:calc(100vw - 24px);
+    }
+
+    .modal,
+    .modal-panel,
+    .event-modal,
+    .settings-panel,
+    .templates-panel,
+    .search-panel,
+    .gcal-modal{
+      width:calc(100vw - 24px)!important;
+      max-width:calc(100vw - 24px)!important;
+      max-height:86vh;
+      overflow:auto;
+      border-radius:22px;
+    }
+
+    .mobile-nav{
+      display:flex;
+    }
   }
   .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:var(--bg2);border-top:1.5px solid var(--border);z-index:110;align-items:stretch;}
   .mobile-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;border:none;color:var(--text2);font-family:var(--font);font-size:18px;cursor:pointer;padding:8px 0;}
