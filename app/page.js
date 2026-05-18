@@ -217,6 +217,76 @@ const formatTaskDuration = mins => {
   if (unit === "hours") return `${amount}h`;
   return `${amount}min`;
 };
+const localDateFromKey = key => {
+  if (!key || typeof key !== "string") return null;
+  const [y, m, d] = key.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+};
+const localDateFromMonthKey = key => {
+  if (!key || typeof key !== "string") return null;
+  const [y, m] = key.slice(0, 7).split("-").map(Number);
+  if (!y || !m) return null;
+  return new Date(y, m - 1, 1, 0, 0, 0, 0);
+};
+const monthKey = d => {
+  const dt = d instanceof Date ? d : new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+};
+const taskScopeOf = task => task?.scope || "day";
+const taskAnchorDate = (task, fallbackDate = TODAY) => {
+  const scope = taskScopeOf(task);
+  if (scope === "month") {
+    const m = localDateFromMonthKey(task?.monthKey || task?.month || null);
+    if (m) return m;
+  }
+  const raw = task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline || task?.completedDate || null;
+  const parsed = localDateFromKey(raw);
+  if (parsed) return parsed;
+  if (scope === "week" && task?.weekKey) return localDateFromKey(task.weekKey) || weekStart(fallbackDate);
+  return dayStart(fallbackDate);
+};
+const taskDayKey = (task, fallbackDate = TODAY) => dateKey(taskAnchorDate(task, fallbackDate));
+const taskWeekKey = (task, fallbackDate = TODAY) => {
+  if (task?.weekKey) return dateKey(weekStart(localDateFromKey(task.weekKey) || taskAnchorDate(task, fallbackDate)));
+  return dateKey(weekStart(taskAnchorDate(task, fallbackDate)));
+};
+const taskMonthKey = (task, fallbackDate = TODAY) => task?.monthKey || monthKey(taskAnchorDate(task, fallbackDate));
+const taskPeriodPatchForScope = (scope, anchorDate = TODAY) => {
+  const d = dayStart(anchorDate);
+  if (scope === "week") return { taskDate: null, scheduled: null, weekKey: dateKey(weekStart(d)), monthKey: null };
+  if (scope === "month") return { taskDate: null, scheduled: null, weekKey: null, monthKey: monthKey(d) };
+  const key = dateKey(d);
+  return { taskDate: key, scheduled: key, weekKey: null, monthKey: null };
+};
+const withTaskPeriod = (task, anchorDate = TODAY) => {
+  const scope = taskScopeOf(task);
+  const inferredAnchor = taskAnchorDate(task, anchorDate);
+  return { ...task, scope, ...taskPeriodPatchForScope(scope, inferredAnchor) };
+};
+const normalizeTasks = tasks => Array.isArray(tasks) ? tasks.map(t => withTaskPeriod(t, TODAY)) : [];
+const taskBelongsToPeriod = (task, scope, anchorDate = TODAY) => {
+  const taskScope = taskScopeOf(task);
+  if (taskScope !== scope) return false;
+  if (scope === "week") return taskWeekKey(task) === dateKey(weekStart(anchorDate));
+  if (scope === "month") return taskMonthKey(task) === monthKey(anchorDate);
+  return taskDayKey(task) === dateKey(anchorDate);
+};
+const shiftTaskPeriodDate = (date, scope, delta) => {
+  if (scope === "week") return addDaysSafe(date, delta * 7);
+  if (scope === "month") return addMonthsSafe(date, delta);
+  return addDaysSafe(date, delta);
+};
+const formatTaskPeriodLabel = (scope, date) => {
+  if (scope === "week") {
+    const start = weekStart(date);
+    const end = addDaysSafe(start, 6);
+    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  }
+  if (scope === "month") return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+};
+const taskCompletionTargetKey = task => taskScopeOf(task) === "day" ? taskDayKey(task) : dateKey(new Date());
 const taskHasCompletionStamp = task => Boolean(task?.completedDate || task?.completedAt || task?.doneAt || task?.completed_at);
 const taskCompletedDateKey = task => {
   if (!task?.done) return null;
@@ -229,43 +299,28 @@ const taskCompletedDateKey = task => {
   return null;
 };
 const completedTasksForDateKey = (tasks, key) => {
-  const todayKey = dateKey(new Date());
   const seen = new Set();
-  const addUnique = (list, task) => {
+  const completed = [];
+  const addUnique = task => {
     if (!task?.done || seen.has(task.id)) return;
     seen.add(task.id);
-    list.push(task);
+    completed.push(task);
   };
 
-  const completed = [];
-
-  // Best case: modern tasks now store a local completedDate, so journal grouping
-  // is stable even when completedAt is an ISO/UTC timestamp.
   tasks.forEach(t => {
-    if (taskCompletedDateKey(t) === key) addUnique(completed, t);
+    if (taskCompletedDateKey(t) === key) addUnique(t);
   });
 
-  // Compatibility: older tasks may have been checked before completedDate existed,
-  // or may have an incorrect/missing completedAt from older builds. For today's
-  // journal, treat currently completed Day tasks as today's wins, matching what
-  // the user sees on the Day task list.
-  if (key === todayKey) {
-    tasks.forEach(t => {
-      const scope = t.scope || "day";
-      if (t?.done && scope === "day") addUnique(completed, t);
-    });
-  }
-
-  // For older legacy tasks viewed on non-today dates, fall back to scheduled/deadline
-  // only when there is no completion stamp at all.
+  // Legacy compatibility: if an older completed Day task has no completion
+  // timestamp, place it under the strict day it belongs to. This avoids global
+  // completed tasks leaking into every journal date.
   tasks.forEach(t => {
     if (!t?.done || taskHasCompletionStamp(t)) return;
-    if (t.scheduled === key || t.deadline === key) addUnique(completed, t);
+    if (taskScopeOf(t) === "day" && taskDayKey(t) === key) addUnique(t);
   });
 
   return completed;
-};
-const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
+};const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
 const isRecurringEvent = ev => Boolean(normalizeRecurrence(ev?.recurrence));
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
@@ -393,28 +448,35 @@ function createFollowingSeries(baseEvent, occurrenceDate, patch = {}) {
 function createNextRecurringTask(task, allTasks) {
   const rec = normalizeRecurrence(task.recurrence);
   if (!rec) return null;
-  const currentAnchor = task.scheduled || task.deadline || task.completedAt || dateKey(TODAY);
-  const currentDate = dayStart(new Date(currentAnchor));
+  const currentAnchor = task.scheduled || task.taskDate || task.deadline || task.completedDate || dateKey(TODAY);
+  const currentDate = dayStart(localDateFromKey(currentAnchor) || new Date(currentAnchor));
   const nextDate = stepRecurringDate(currentDate, rec);
   if (!nextDate) return null;
-  if (!shouldEmitOccurrence({ start: currentDate }, nextDate, rec, Number(task.recurrenceIndex || 0) + 1)) return null;
+  if (!shouldEmitOccurrence(task, nextDate, rec, Number(task.recurrenceIndex || 0) + 1)) return null;
   const nextKey = recurrenceDateKey(nextDate);
   const skipped = recurrenceSkippedDates(rec);
   if (skipped.has(nextKey)) return null;
-  if (allTasks.some(t => t.parentTaskId === (task.parentTaskId || task.id) && (t.scheduled === nextKey || t.deadline === nextKey))) return null;
+  const periodPatch = taskPeriodPatchForScope(taskScopeOf(task), nextDate);
+  const probe = { ...task, ...periodPatch };
+  if (allTasks.some(t =>
+    t.parentTaskId === (task.parentTaskId || task.id) &&
+    taskScopeOf(t) === taskScopeOf(probe) &&
+    (taskScopeOf(t) === "week" ? taskWeekKey(t) === taskWeekKey(probe) :
+     taskScopeOf(t) === "month" ? taskMonthKey(t) === taskMonthKey(probe) :
+     taskDayKey(t) === taskDayKey(probe))
+  )) return null;
   return {
     ...task,
+    ...periodPatch,
     id: "t" + uid(),
     done: false,
     completedAt: null,
     completedDate: null,
-    scheduled: task.scheduled ? nextKey : task.scheduled,
     deadline: task.deadline ? nextKey : task.deadline,
     parentTaskId: task.parentTaskId || task.id,
     recurrenceIndex: Number(task.recurrenceIndex || 0) + 1,
   };
 }
-
 // Given the stored base events, expand recurring ones into a visible window.
 function expandRecurring(baseEvents, windowStart = addDaysSafe(TODAY, -RECURRENCE_WINDOW_DAYS), windowEnd = addDaysSafe(TODAY, RECURRENCE_WINDOW_DAYS)) {
   const result = [];
@@ -522,7 +584,7 @@ const INIT_TASKS = [
 
 const hasStoredUserData = uk => Boolean(load(`${uk}_ev`, null) || load(`${uk}_tk`, null) || load(`${uk}_journal`, null));
 const loadStoredEventsOrSeed = uk => reviveEvents(load(`${uk}_ev`, null) ?? INIT_EVENTS);
-const loadStoredTasksOrSeed = uk => load(`${uk}_tk`, null) ?? INIT_TASKS;
+const loadStoredTasksOrSeed = uk => normalizeTasks(load(`${uk}_tk`, null) ?? INIT_TASKS);
 
 // ─── NLP helpers ──────────────────────────────────────────────────────────────
 function parseTimeStr(s, contextHint) {
@@ -638,7 +700,7 @@ function buildGreeting(events, tasks) {
   const h = new Date().getHours();
   const g = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const te = getEventsOnDay(events, TODAY);
-  const ot = tasks.filter(t => !t.done && t.scope === "day");
+  const ot = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
   const fb = freeBlocks(events, TODAY)[0];
   const bs = fb ? ` First free: ${minsToTime(fb.start)}–${minsToTime(fb.end)}.` : "";
   return `${g} ✨ ${te.length} event${te.length !== 1 ? "s" : ""} and ${ot.length} open task${ot.length !== 1 ? "s" : ""} today.${bs} What do you need?`;
@@ -700,7 +762,7 @@ function processMessage(input, events, tasks, pending) {
     return { text: `Here's what I can do 🌸\n\n📅 "What's on today?" / "Show my week"\n⏰ "When's my next free 2-hour block?" / "How much focus time is left?"\n➕ "Add a 1-hour gym session tomorrow morning"\n✅ "I need to finish the proposal by Friday, probably 3 hours"\n🔄 "Move standup to 10am"\n🧹 "Clear my Friday afternoon"\n⚖️ "I only have 4 hours today, what should I prioritise?"\n📊 "How busy am I?" / "What did I not finish this week?"`, newEv, newTk, newP };
 
   if (/\b(what('s| is) (on|happening) today|show (me )?today|today('s)? (schedule|events|plan)|my day)\b/.test(msg) || msg === "today") {
-    const evs = getEventsOnDay(events, TODAY); const ot = tasks.filter(t => !t.done && t.scope === "day");
+    const evs = getEventsOnDay(events, TODAY); const ot = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
     text = evs.length === 0 ? "Nothing today! 🎉" : `📅 Today:\n\n${evs.map(e => `• ${fmt(e.start)}–${fmt(e.end)}: ${e.title}${hasConflict(events, e) ? " ⚠️" : ""}`).join("\n")}${ot.length ? `\n\n📋 Tasks:\n${ot.map(t => `• ${t.title} (${t.duration}min)`).join("\n")}` : ""}`;
     return { text, newEv, newTk, newP };
   }
@@ -789,7 +851,7 @@ function processMessage(input, events, tasks, pending) {
 
   if (/\b(running behind|got a meeting|what needs to move|what can i push|push to tomorrow)\b/.test(msg)) {
     const movable = events.filter(e => sameDay(e.start, TODAY) && !e.fixed && e.start > new Date()).sort((a, b) => a.start - b.start);
-    const open = tasks.filter(t => !t.done && t.scope === "day").sort((a, b) => b.duration - a.duration);
+    const open = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).sort((a, b) => b.duration - a.duration);
     text = `Here's the softest trade-off I see:\n\n${movable.slice(0, 3).map(e => `• Move "${e.title}" (${fmt(e.start)}–${fmt(e.end)})`).join("\n") || "• No movable events left today"}\n${open.slice(0, 3).map(t => `• Push task "${t.title}" (${t.duration}min)`).join("\n") || "• No day tasks to push"}\n\nTell me what to move and I'll preview it before changing anything.`;
     return { text, newEv, newTk, newP };
   }
@@ -908,7 +970,7 @@ function processMessage(input, events, tasks, pending) {
     title = title || "New task";
     title = title.charAt(0).toUpperCase() + title.slice(1).replace(/[.!?]$/, "");
     const cat = inferCategory(title) === "meeting" ? "deep" : inferCategory(title);
-    const tk = { id: "t" + uid(), title, duration: dur, category: cat, scope: "week", done: false, deadline: td ? dateKey(td) : null, priority: dur >= 120 ? "high" : "medium", notes: "", scheduled: null };
+    const tk = withTaskPeriod({ id: "t" + uid(), title, duration: dur, category: cat, scope: "week", done: false, deadline: td ? dateKey(td) : null, priority: dur >= 120 ? "high" : "medium", notes: "", scheduled: null }, td || TODAY);
     newP = { type: "add_task", task: tk };
     text = `Add task "${title}" (${dur}min${tk.deadline ? `, due ${tk.deadline}` : ""})?`;
     return { text, newEv, newTk, newP };
@@ -966,7 +1028,7 @@ function processMessage(input, events, tasks, pending) {
     let cat = "admin";
     if (/gym|workout|health/i.test(title)) cat = "health";
     else if (/write|research|report|build|code|study|plan|design|prepare/i.test(title)) cat = "deep";
-    const tk = { id: "t" + uid(), title, duration: dur, category: cat, scope: sc, done: false, deadline: null, priority: "medium", notes: "", scheduled: null };
+    const tk = withTaskPeriod({ id: "t" + uid(), title, duration: dur, category: cat, scope: sc, done: false, deadline: null, priority: "medium", notes: "", scheduled: null }, TODAY);
     newP = { type: "add_task", task: tk };
     text = `Add task "${title}" (${dur}min, ${sc})?`;
     return { text, newEv, newTk, newP };
@@ -1803,18 +1865,18 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
 }
 
 // ─── Task Panel ───────────────────────────────────────────────────────────────
-function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, standalone = false, mobileOpen = false, onMobileClose }) {
+function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding]       = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
   const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
-  const filtered = tasks.filter(t => (t.scope || "day") === scope);
+  const filtered = tasks.filter(t => taskBelongsToPeriod(t, scope, periodDate));
   const openTasks = filtered.filter(t => !t.done);
   const urgent   = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= new Date(TODAY.getTime() + 3 * 86400000));
   function handleAdd() {
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
-    onAdd({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null, scheduled: null });
+    onAdd(withTaskPeriod({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null }, periodDate));
     setForm({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
@@ -1831,13 +1893,19 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
           <button className="add-btn" onClick={() => setAdding(v => !v)}>+</button>
           {onMobileClose && <button className="add-btn" onClick={onMobileClose}>✕</button>}
         </div>
+        <div className="task-period-nav">
+          <button className="period-btn" onClick={() => setPeriodDate(d => shiftTaskPeriodDate(d, scope, -1))}>‹</button>
+          <button className="period-label" onClick={() => setPeriodDate(new Date(TODAY))}>{formatTaskPeriodLabel(scope, periodDate)}</button>
+          <button className="period-btn" onClick={() => setPeriodDate(d => shiftTaskPeriodDate(d, scope, 1))}>›</button>
+        </div>
       {adding && (
         <div className="task-form">
           <input className="tf-input" placeholder="Task name..." value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
           <div className="tf-row">
             <select className="tf-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select>
-            <select className="tf-select" value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}><option value="day">Today</option><option value="week">This week</option><option value="month">This month</option></select>
+            <select className="tf-select" value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select>
           </div>
+          <div className="task-period-hint">Saving to {form.scope === "week" ? "week" : form.scope === "month" ? "month" : "day"}: {formatTaskPeriodLabel(form.scope, periodDate)}</div>
           <div className="tf-row">
             <select className="tf-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select>
             <input type="date" className="tf-input tf-date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
@@ -1872,16 +1940,21 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   const initial = splitTaskDuration(task.duration);
   const [form, setForm] = useState({ ...task, deadline: task.deadline || "", recurrence: task.recurrence || null });
   const [durationDraft, setDurationDraft] = useState(initial);
+  const [periodDate, setPeriodDate] = useState(taskAnchorDate(task, TODAY));
   function saveTask() {
     if (!form.title.trim()) return;
     const becameDone = Boolean(form.done) && !Boolean(task.done);
     const stayedDone = Boolean(form.done) && Boolean(task.done);
-    onSave({
+    const perioded = withTaskPeriod({
       ...form,
       title: form.title.trim(),
       duration: taskDurationToMinutes(durationDraft.amount, durationDraft.unit),
+    }, periodDate);
+    const completionKey = taskCompletionTargetKey(perioded);
+    onSave({
+      ...perioded,
       completedAt: Boolean(form.done) ? (becameDone ? new Date().toISOString() : (stayedDone ? (task.completedAt || new Date().toISOString()) : new Date().toISOString())) : null,
-      completedDate: Boolean(form.done) ? (becameDone ? dateKey(new Date()) : (stayedDone ? (task.completedDate || taskCompletedDateKey(task) || dateKey(new Date())) : dateKey(new Date()))) : null,
+      completedDate: Boolean(form.done) ? (taskScopeOf(perioded) === "day" ? completionKey : (becameDone ? completionKey : (task.completedDate || taskCompletedDateKey(task) || completionKey))) : null,
     });
     onClose();
   }
@@ -1895,6 +1968,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
         <div className="modal-body">
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           <div className="modal-row"><label>Scope</label><select className="modal-select" value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></div>
+          <div className="modal-row"><label>{form.scope === "week" ? "Week" : form.scope === "month" ? "Month" : "Day"}</label>{form.scope === "month" ? <input type="month" className="modal-select" value={monthKey(periodDate)} onChange={e => setPeriodDate(localDateFromMonthKey(e.target.value) || new Date(TODAY))}/> : <input type="date" className="modal-select" value={dateKey(periodDate)} onChange={e => setPeriodDate(localDateFromKey(e.target.value) || new Date(TODAY))}/>}</div>
           <div className="modal-row"><label>Priority</label><select className="modal-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select></div>
           <div className="modal-row"><label>Duration</label><input type="number" className="modal-select modal-time" min={1} value={durationDraft.amount} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="modal-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">minutes</option><option value="hours">hours</option><option value="days">days</option></select></div>
           <div className="modal-row"><label>Deadline</label><input type="date" className="modal-select" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}/></div>
@@ -1908,14 +1982,14 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope }) {
+function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate }) {
   return (
     <div className="tasks-page">
       <div className="journal-header">
         <div className="journal-title">✅ Tasks</div>
         <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
       </div>
-      <TaskPanel tasks={tasks} categories={categories} onToggle={onToggle} onAdd={onAdd} onEdit={onEdit} onStartPomodoro={onStartPomodoro} scope={scope} setScope={setScope} standalone />
+      <TaskPanel tasks={tasks} categories={categories} onToggle={onToggle} onAdd={onAdd} onEdit={onEdit} onStartPomodoro={onStartPomodoro} scope={scope} setScope={setScope} periodDate={periodDate} setPeriodDate={setPeriodDate} standalone />
     </div>
   );
 }
@@ -2042,7 +2116,7 @@ function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
 
 // ─── Stats Card ───────────────────────────────────────────────────────────────
 function StatsCard({ events, tasks, streak, onClose }) {
-  const td = getEventsOnDay(events, TODAY); const dn = tasks.filter(t => t.done).length, tot = tasks.length;
+  const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
   const catMins = id => td.filter(e => e.category === id).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
   const bars = [
     { label: "Deep Work", mins: catMins("deep"),    color: "#B08AE0" },
@@ -2085,7 +2159,7 @@ function CarryOverPrompt({ tasks, onCarry, onDrop, onDismiss }) {
 // ─── Focus Mode ───────────────────────────────────────────────────────────────
 function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume, onStop, onExit }) {
   const now  = new Date(); const next = events.filter(e => e.start > now).sort((a, b) => a.start - b.start)[0];
-  const open = tasks.filter(t => !t.done && t.scope === "day");
+  const open = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
   return (
     <div className="focus-overlay">
       <button className="focus-exit" onClick={onExit}>✕ Exit Focus Mode</button>
@@ -2760,8 +2834,9 @@ export default function App() {
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
   const [page, setPage]             = useState("calendar"); // "calendar" | "journal" | "tasks"
   const [taskScope, setTaskScope]   = useState("day");
+  const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
-  const [tasks,  setTkRaw]          = useState(() => load(`${uk}_tk`, INIT_TASKS));
+  const [tasks,  setTkRaw]          = useState(() => normalizeTasks(load(`${uk}_tk`, INIT_TASKS)));
   const [chatOpen, setChatOpen]     = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth > 768));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -2840,7 +2915,7 @@ export default function App() {
     const applyLoadedData = ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
       const safeEvents = reviveEvents(loadedEvents || []);
-      const safeTasks = Array.isArray(loadedTasks) ? loadedTasks : [];
+      const safeTasks = normalizeTasks(Array.isArray(loadedTasks) ? loadedTasks : []);
       const safeSettings = settings || {};
 
       setEvRaw(safeEvents);
@@ -3029,7 +3104,7 @@ export default function App() {
   };
 
   const setEvents   = v => { const n = reviveEvents(typeof v === "function" ? v(events) : v); setEvRaw(n); syncEvents(n, tasks); };
-  const setTasks    = v => { const n = typeof v === "function" ? v(tasks)  : v; setTkRaw(n); syncTasks(n, events); };
+  const setTasks    = v => { const n = normalizeTasks(typeof v === "function" ? v(tasks)  : v); setTkRaw(n); syncTasks(n, events); };
   const persistSettings = overrides => {
     const next = currentSettings(overrides);
 
@@ -3179,7 +3254,7 @@ export default function App() {
       if (!task) return ts;
       const nextDone = !task.done;
       const completedAt = new Date().toISOString();
-      const completedDate = dateKey(new Date());
+      const completedDate = taskCompletionTargetKey(task);
       let updated = ts.map(t => t.id === id ? { ...t, done: nextDone, completedAt: nextDone ? completedAt : null, completedDate: nextDone ? completedDate : null } : t);
       if (nextDone) {
         const nextRecurring = createNextRecurringTask(task, ts);
@@ -3188,7 +3263,7 @@ export default function App() {
       return updated;
     });
   }
-  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, task]); }
+  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, withTaskPeriod(task, taskPeriodDate)]); }
   function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
   async function reschedule(id, ns, ne) {
     const baseId = getBaseEventId(id);
@@ -3287,7 +3362,7 @@ export default function App() {
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
   function deleteTemplate(id) { setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
-  function handleCarryOver(ids) { setTasks(ts => ts.map(t => ids.includes(t.id) ? { ...t, scope: "day", done: false, completedAt: null, completedDate: null } : t)); setShowCarryOver(false); }
+  function handleCarryOver(ids) { const tomorrow = addDaysSafe(TODAY, 1); setTasks(ts => ts.map(t => ids.includes(t.id) ? withTaskPeriod({ ...t, scope: "day", done: false, completedAt: null, completedDate: null }, tomorrow) : t)); setShowCarryOver(false); }
   function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
 
   // Keyboard shortcuts
@@ -3346,7 +3421,7 @@ export default function App() {
   const expandedEvents  = expandRecurring(events, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
   const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
-  const openToday     = tasks.filter(t => !t.done && t.scope === "day").length;
+  const openToday     = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
@@ -3401,7 +3476,7 @@ export default function App() {
           {page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} />
           ) : page === "tasks" ? (
-            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} />
+            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} />
           ) : (<>
           <div className="topbar">
             <button className="topbar-btn icon-only" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
@@ -3496,7 +3571,7 @@ export default function App() {
                 );
               })()}
             </div>
-            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
+            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
           </div>
         </>)}
         </div>
@@ -3512,7 +3587,7 @@ export default function App() {
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={saveTask} onDelete={deleteTask} />}
       {showStats  && <StatsCard events={events} tasks={tasks} streak={streak} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
-      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && t.scope === "day")} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
+      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} />}
       {showTemplates && (
@@ -3828,6 +3903,11 @@ function appCSS(cvars, fontScale) { return `
   .panel-header{padding:14px 14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg3);}
   .panel-title{font-size:15px;font-weight:900;flex:1;color:var(--text);}
   .urgent-badge{background:#FFE0E0;color:#C04040;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:800;}
+  .task-period-nav{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);}
+  .period-btn,.period-label{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:10px;font-family:var(--font);font-weight:800;cursor:pointer;box-shadow:var(--shadow);}
+  .period-btn{width:28px;height:28px;font-size:16px;line-height:1;}
+  .period-label{min-width:150px;padding:7px 12px;font-size:11px;}
+  .task-period-hint{font-size:10px;font-weight:800;color:var(--text3);padding:2px 2px 4px;text-align:center;}
   .scope-tabs{display:flex;gap:2px;background:var(--bg4);padding:2px;border-radius:8px;}
   .scope-tab{padding:3px 9px;border-radius:6px;border:none;background:transparent;font-family:var(--font);font-size:10px;font-weight:800;color:var(--text3);cursor:pointer;text-transform:capitalize;transition:all .15s;}
   .scope-tab.active{background:var(--bg2);color:var(--accent);box-shadow:var(--shadow);}
