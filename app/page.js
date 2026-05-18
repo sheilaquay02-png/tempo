@@ -217,6 +217,7 @@ const formatTaskDuration = mins => {
   if (unit === "hours") return `${amount}h`;
   return `${amount}min`;
 };
+const taskHasCompletionStamp = task => Boolean(task?.completedDate || task?.completedAt || task?.doneAt || task?.completed_at);
 const taskCompletedDateKey = task => {
   if (!task?.done) return null;
   if (task.completedDate) return task.completedDate;
@@ -225,11 +226,45 @@ const taskCompletedDateKey = task => {
     const d = new Date(completedAt);
     return Number.isNaN(d.getTime()) ? null : dateKey(d);
   }
-  if (task.scheduled) return task.scheduled;
-  if (task.deadline) return task.deadline;
   return null;
 };
-const completedTasksForDateKey = (tasks, key) => tasks.filter(t => taskCompletedDateKey(t) === key);
+const completedTasksForDateKey = (tasks, key) => {
+  const todayKey = dateKey(new Date());
+  const seen = new Set();
+  const addUnique = (list, task) => {
+    if (!task?.done || seen.has(task.id)) return;
+    seen.add(task.id);
+    list.push(task);
+  };
+
+  const completed = [];
+
+  // Best case: modern tasks now store a local completedDate, so journal grouping
+  // is stable even when completedAt is an ISO/UTC timestamp.
+  tasks.forEach(t => {
+    if (taskCompletedDateKey(t) === key) addUnique(completed, t);
+  });
+
+  // Compatibility: older tasks may have been checked before completedDate existed,
+  // or may have an incorrect/missing completedAt from older builds. For today's
+  // journal, treat currently completed Day tasks as today's wins, matching what
+  // the user sees on the Day task list.
+  if (key === todayKey) {
+    tasks.forEach(t => {
+      const scope = t.scope || "day";
+      if (t?.done && scope === "day") addUnique(completed, t);
+    });
+  }
+
+  // For older legacy tasks viewed on non-today dates, fall back to scheduled/deadline
+  // only when there is no completion stamp at all.
+  tasks.forEach(t => {
+    if (!t?.done || taskHasCompletionStamp(t)) return;
+    if (t.scheduled === key || t.deadline === key) addUnique(completed, t);
+  });
+
+  return completed;
+};
 const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
 const isRecurringEvent = ev => Boolean(normalizeRecurrence(ev?.recurrence));
 
@@ -371,6 +406,8 @@ function createNextRecurringTask(task, allTasks) {
     ...task,
     id: "t" + uid(),
     done: false,
+    completedAt: null,
+    completedDate: null,
     scheduled: task.scheduled ? nextKey : task.scheduled,
     deadline: task.deadline ? nextKey : task.deadline,
     parentTaskId: task.parentTaskId || task.id,
@@ -647,7 +684,7 @@ function processMessage(input, events, tasks, pending) {
       if      (pending.type === "add_event")     { newEv = [...events, pending.event]; text = `Done! 🎉 Added "${pending.event.title}" on ${fmtDay(pending.event.start)} at ${fmt(pending.event.start)}.`; }
       else if (pending.type === "add_task")      { newTk = [...tasks, pending.task];   text = `Added! ✅ "${pending.task.title}" is in your ${pending.task.scope} list.`; }
       else if (pending.type === "delete_event")  { newEv = events.filter(e => e.id !== pending.eventId); text = `Removed "${pending.title}" 🗑️`; }
-      else if (pending.type === "complete_task") { newTk = tasks.map(t => t.id === pending.taskId ? { ...t, done: true, completedAt: new Date().toISOString() } : t); text = `Done! "${pending.title}" marked complete ✅`; }
+      else if (pending.type === "complete_task") { const now = new Date(); newTk = tasks.map(t => t.id === pending.taskId ? { ...t, done: true, completedAt: now.toISOString(), completedDate: dateKey(now) } : t); text = `Done! "${pending.title}" marked complete ✅`; }
       else if (pending.type === "reschedule")    { newEv = events.map(e => e.id === pending.eventId ? { ...e, start: pending.newStart, end: pending.newEnd } : e); text = `Rescheduled! "${pending.title}" → ${fmt(pending.newStart)}.`; }
       else if (pending.type === "clear_day")     { newEv = events.filter(e => !sameDay(e.start, pending.date) || e.fixed); text = `Cleared ${fmtDay(pending.date)}.`; }
       else if (pending.type === "clear_window")  { newEv = events.filter(e => !pending.eventIds.includes(e.id)); text = `Cleared ${pending.label} on ${fmtDay(pending.date)}.`; }
@@ -1777,7 +1814,7 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
   function handleAdd() {
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
-    onAdd({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, scheduled: null });
+    onAdd({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null, scheduled: null });
     setForm({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
@@ -1844,6 +1881,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
       title: form.title.trim(),
       duration: taskDurationToMinutes(durationDraft.amount, durationDraft.unit),
       completedAt: Boolean(form.done) ? (becameDone ? new Date().toISOString() : (stayedDone ? (task.completedAt || new Date().toISOString()) : new Date().toISOString())) : null,
+      completedDate: Boolean(form.done) ? (becameDone ? dateKey(new Date()) : (stayedDone ? (task.completedDate || taskCompletedDateKey(task) || dateKey(new Date())) : dateKey(new Date()))) : null,
     });
     onClose();
   }
@@ -3141,7 +3179,8 @@ export default function App() {
       if (!task) return ts;
       const nextDone = !task.done;
       const completedAt = new Date().toISOString();
-      let updated = ts.map(t => t.id === id ? { ...t, done: nextDone, completedAt: nextDone ? completedAt : null } : t);
+      const completedDate = dateKey(new Date());
+      let updated = ts.map(t => t.id === id ? { ...t, done: nextDone, completedAt: nextDone ? completedAt : null, completedDate: nextDone ? completedDate : null } : t);
       if (nextDone) {
         const nextRecurring = createNextRecurringTask(task, ts);
         if (nextRecurring) updated = [...updated, nextRecurring];
@@ -3248,7 +3287,7 @@ export default function App() {
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
   function deleteTemplate(id) { setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
-  function handleCarryOver(ids) { setTasks(ts => ts.map(t => ids.includes(t.id) ? { ...t, scope: "day", done: false, completedAt: null } : t)); setShowCarryOver(false); }
+  function handleCarryOver(ids) { setTasks(ts => ts.map(t => ids.includes(t.id) ? { ...t, scope: "day", done: false, completedAt: null, completedDate: null } : t)); setShowCarryOver(false); }
   function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
 
   // Keyboard shortcuts
