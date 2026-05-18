@@ -4964,7 +4964,12 @@ export default function App() {
   const expandedEvents  = expandRecurring(events, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
   const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
-  const gameStats      = calculateGameStats(tasks, journal, visibleEvents);
+  // Gamification must be calculated from a stable event window, not the current
+  // calendar view. Otherwise XP/levels can change when switching Day/Week/Month
+  // because recurring/focus events are expanded differently per view. Hidden
+  // calendar filters should also not affect earned XP.
+  const gameEvents      = expandRecurring(events, addDaysSafe(TODAY, -120), addDaysSafe(TODAY, 30));
+  const gameStats      = calculateGameStats(tasks, journal, gameEvents);
   const openToday     = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
