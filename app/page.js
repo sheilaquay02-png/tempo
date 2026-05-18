@@ -2294,6 +2294,21 @@ function GameDashboard({ gameStats, compact = false }) {
   );
 }
 
+function BloomRoomPage({ gameStats }) {
+  return (
+    <div className="bloom-room-page">
+      <div className="journal-header">
+        <div>
+          <div className="journal-title">🌸 Bloom Room</div>
+          <div className="bloom-room-subtitle">Your cozy productivity game space</div>
+        </div>
+        <div className="journal-streak">Lvl {gameStats?.level ?? 1} · {gameStats?.today?.rank ?? "D"} Rank</div>
+      </div>
+      <GameDashboard gameStats={gameStats} />
+    </div>
+  );
+}
+
 // ─── Task Item ────────────────────────────────────────────────────────────────
 function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
   const [expanded, setExpanded] = useState(false);
@@ -2466,7 +2481,6 @@ function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
         <div className="journal-title">✅ Tasks</div>
         <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
       </div>
-      <GameDashboard gameStats={gameStats} compact />
       <TaskPanel tasks={tasks} categories={categories} onToggle={onToggle} onAdd={onAdd} onEdit={onEdit} onStartPomodoro={onStartPomodoro} scope={scope} setScope={setScope} periodDate={periodDate} setPeriodDate={setPeriodDate} standalone />
     </div>
   );
@@ -3991,6 +4005,7 @@ export default function App() {
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
+            <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
             <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
@@ -4018,6 +4033,8 @@ export default function App() {
             <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} gameStats={gameStats} />
+          ) : page === "bloom" ? (
+            <BloomRoomPage gameStats={gameStats} />
           ) : (<>
           <div className="topbar">
             <button className="topbar-btn icon-only" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
@@ -4061,8 +4078,6 @@ export default function App() {
             <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#C9A0FF" }} />Lvl {gameStats.level} · {gameStats.today.rank} Rank</div>
           </div>
-
-          <GameDashboard gameStats={gameStats} />
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
@@ -4163,6 +4178,7 @@ export default function App() {
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("week"); }}>🗓️<span>Week</span></button>
         <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
       </div>
 
@@ -4822,6 +4838,10 @@ function appCSS(cvars, fontScale) { return `
   .completed-task-body{min-width:0;display:flex;flex-direction:column;gap:2px;}
   .completed-task-title{font-size:13px;font-weight:800;color:var(--text);line-height:1.25;}
   .completed-task-meta{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
+
+  .bloom-room-page{height:100%;overflow:auto;padding:20px;background:var(--bg);}
+  .bloom-room-page .game-dashboard{padding:0;}
+  .bloom-room-subtitle{font-size:12px;font-weight:700;color:var(--text3);margin-top:4px;}
 
   /* ── Cozy game layer ─────────────────────────────────────────────────────── */
   .level-card{margin:10px 12px 8px;background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1.5px solid var(--border);border-radius:16px;padding:12px;box-shadow:0 8px 24px rgba(var(--accent-rgb),.08);}
