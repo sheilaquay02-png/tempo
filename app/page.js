@@ -470,7 +470,7 @@ const INIT_TASKS = [
   { id:"t5", title:"Performance review",       duration:120, category:"deep",  scope:"month", done:false, deadline:_deadline(14), priority:"high",   notes:"Cover Q1+Q2",   scheduled:null },
 ];
 
-const hasStoredUserData = uk => Boolean(load(`${uk}_ev`, null) || load(`${uk}_tk`, null));
+const hasStoredUserData = uk => Boolean(load(`${uk}_ev`, null) || load(`${uk}_tk`, null) || load(`${uk}_journal`, null));
 const loadStoredEventsOrSeed = uk => reviveEvents(load(`${uk}_ev`, null) ?? INIT_EVENTS);
 const loadStoredTasksOrSeed = uk => load(`${uk}_tk`, null) ?? INIT_TASKS;
 
@@ -1029,9 +1029,11 @@ function usePomodoro() {
       updated_at timestamptz default now()
     );
     alter table public.user_data enable row level security;
+    drop policy if exists "Users can only access their own data" on public.user_data;
     create policy "Users can only access their own data"
       on public.user_data for all
-      using (auth.uid() = user_id);
+      using (auth.uid() = user_id)
+      with check (auth.uid() = user_id);
 
   6. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel environment variables
   7. Supabase JS loads via CDN automatically — no npm install needed
@@ -1094,9 +1096,19 @@ async function saveToCloud(userId, events, tasks, settings) {
 async function loadFromCloud(userId) {
   try {
     const sb = await getSupabase();
-    const { data, error } = await sb.from("user_data").select("*").eq("user_id", userId).single();
+    const { data, error } = await sb
+      .from("user_data")
+      .select("user_id, events, tasks, settings, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
     if (error || !data) return null;
+
+    // Extra client-side guard: never hydrate a session with a row that
+    // does not exactly belong to the signed-in Supabase auth user.
+    if (data.user_id !== userId) return null;
+
     return {
+      user_id: data.user_id,
       events: JSON.parse(JSON.stringify(data.events ?? []), DES),
       tasks: JSON.parse(JSON.stringify(data.tasks ?? []), DES),
       settings: data.settings ?? {},
@@ -1746,7 +1758,7 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
   const [adding, setAdding]       = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
   const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
-  const filtered = standalone ? tasks : tasks.filter(t => t.scope === scope);
+  const filtered = tasks.filter(t => (t.scope || "day") === scope);
   const openTasks = filtered.filter(t => !t.done);
   const urgent   = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= new Date(TODAY.getTime() + 3 * 86400000));
   function handleAdd() {
@@ -2667,12 +2679,12 @@ export default function App() {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("calendar"); // "calendar" | "journal"
+  const [page, setPage]             = useState("calendar"); // "calendar" | "journal" | "tasks"
   const [taskScope, setTaskScope]   = useState("day");
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
   const [tasks,  setTkRaw]          = useState(() => load(`${uk}_tk`, INIT_TASKS));
   const [chatOpen, setChatOpen]     = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth > 768));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fontSize,  setFSRaw]       = useState(() => load(`${uk}_fs`, "md"));
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
@@ -2698,10 +2710,14 @@ export default function App() {
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [focusMode,    setFocusMode]    = useState(false);
   const [dataReady,    setDataReady]    = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState(null);
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   // Real streak: count consecutive days the user has been active
   const [streak, setStreak] = useState(0);
   const pomodoro = usePomodoro();
+  const closeSidebarOnMobile = () => {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
+  };
 
   // Helper: compute, persist, and return the current streak for a given user key
   const computeAndSaveStreak = useCallback((userKey) => {
@@ -2719,144 +2735,182 @@ export default function App() {
     return streak;
   }, []);
   useEffect(() => {
-    if (!auth.user) { setDataReady(false); return; }
-    setDataReady(false);
-    const fallbackTimer = setTimeout(() => {
-      setEvRaw(loadStoredEventsOrSeed(uk));
-      setTkRaw(loadStoredTasksOrSeed(uk));
-      setFSRaw(load(`${uk}_fs`, "md"));
-      setDMRaw(load(`${uk}_dm`, false));
-      setThRaw(load(`${uk}_th`, "tempo"));
-      setCatRaw(load(`${uk}_categories`, CATEGORIES));
-      setTplRaw(load(`${uk}_templates`, DAY_TEMPLATES));
-      setJournalActivitiesRaw(load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
-      setJournalRaw(load(`${uk}_journal`, {}));
-      setStreak(computeAndSaveStreak(uk));
-      setDataReady(true);
-    }, CLOUD_FALLBACK_MS);
-    // Helper: load user data, always prefer localStorage over demo seed data
-    const localEv = load(`${uk}_ev`, null);
-    const localTk = load(`${uk}_tk`, null);
-    loadFromCloud(auth.user.id).then(cloud => {
-      clearTimeout(fallbackTimer);
-      const localUpdatedAt = load(`${uk}_updated_at`, null);
-      const cloudUpdatedAt = cloud?.updated_at ?? null;
+    const userId = auth.user?.id;
+    if (!userId) {
+      setDataReady(false);
+      setLoadedUserId(null);
+      setEvRaw([]);
+      setTkRaw([]);
+      setJournalRaw({});
+      return;
+    }
 
-      const localHasData = hasStoredUserData(uk);
+    let cancelled = false;
+    const userKey = userId;
+
+    // Privacy guard: immediately blank the in-memory state before loading the
+    // newly signed-in user's own scoped data. This prevents a newly signed-in
+    // user from briefly seeing the previous user's calendar/tasks/journal.
+    setDataReady(false);
+    setLoadedUserId(null);
+    setEvRaw([]);
+    setTkRaw([]);
+    setJournalRaw({});
+    setJournalActivitiesRaw(load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES));
+
+    const applyLoadedData = ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
+      if (cancelled) return;
+      const safeEvents = reviveEvents(loadedEvents || []);
+      const safeTasks = Array.isArray(loadedTasks) ? loadedTasks : [];
+      const safeSettings = settings || {};
+
+      setEvRaw(safeEvents);
+      setTkRaw(safeTasks);
+
+      save(`${userKey}_ev`, safeEvents);
+      save(`${userKey}_tk`, safeTasks);
+      if (updatedAt) save(`${userKey}_updated_at`, updatedAt);
+
+      const nextSettings = {
+        fontSize: safeSettings.fontSize ?? load(`${userKey}_fs`, "md"),
+        darkMode: safeSettings.darkMode ?? load(`${userKey}_dm`, false),
+        theme: safeSettings.theme ?? load(`${userKey}_th`, "tempo"),
+        workStart: safeSettings.workStart ?? load(`${userKey}_ws`, 9),
+        workEnd: safeSettings.workEnd ?? load(`${userKey}_we`, 19),
+        notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
+        timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+        categories: safeSettings.categories ?? load(`${userKey}_categories`, CATEGORIES),
+        templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
+        journalActivities: safeSettings.journalActivities ?? load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+        journal: safeSettings.journal ?? load(`${userKey}_journal`, {}),
+      };
+
+      setFSRaw(nextSettings.fontSize);
+      setDMRaw(Boolean(nextSettings.darkMode));
+      setThRaw(nextSettings.theme);
+      setWSRaw(Number(nextSettings.workStart));
+      setWERaw(Number(nextSettings.workEnd));
+      setNfRaw(Boolean(nextSettings.notifs));
+      setTzRaw(nextSettings.timezone);
+      setCatRaw(nextSettings.categories);
+      setTplRaw(nextSettings.templates);
+      setJournalActivitiesRaw(nextSettings.journalActivities);
+      setJournalRaw(nextSettings.journal || {});
+      save(`${userKey}_journal`, nextSettings.journal || {});
+      setWorkHoursCtx(Number(nextSettings.workStart), Number(nextSettings.workEnd));
+      setStreak(computeAndSaveStreak(userKey));
+      setLoadedUserId(userId);
+      setDataReady(true);
+    };
+
+    const fallbackTimer = setTimeout(() => {
+      if (cancelled) return;
+      const localHasData = hasStoredUserData(userKey);
+      applyLoadedData({
+        loadedEvents: localHasData ? reviveEvents(load(`${userKey}_ev`, [])) : [],
+        loadedTasks: localHasData ? load(`${userKey}_tk`, []) : [],
+        settings: {
+          fontSize: load(`${userKey}_fs`, "md"),
+          darkMode: load(`${userKey}_dm`, false),
+          theme: load(`${userKey}_th`, "tempo"),
+          workStart: load(`${userKey}_ws`, 9),
+          workEnd: load(`${userKey}_we`, 19),
+          notifs: load(`${userKey}_nf`, false),
+          timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+          categories: load(`${userKey}_categories`, CATEGORIES),
+          templates: load(`${userKey}_templates`, DAY_TEMPLATES),
+          journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          journal: load(`${userKey}_journal`, {}),
+        },
+        updatedAt: load(`${userKey}_updated_at`, null),
+      });
+    }, CLOUD_FALLBACK_MS);
+
+    loadFromCloud(userId).then(cloud => {
+      clearTimeout(fallbackTimer);
+      if (cancelled) return;
+
+      const localHasData = hasStoredUserData(userKey);
+      const localUpdatedAt = load(`${userKey}_updated_at`, null);
+      const cloudUpdatedAt = cloud?.updated_at ?? null;
       const localIsNewer =
         localHasData &&
-        (
-          !cloud?.events?.length ||
-          !cloudUpdatedAt ||
-          (localUpdatedAt && new Date(localUpdatedAt) >= new Date(cloudUpdatedAt))
-        );
+        (!cloudUpdatedAt || (localUpdatedAt && new Date(localUpdatedAt) >= new Date(cloudUpdatedAt)));
 
-      if (localIsNewer) {
-        // Local browser data is newer — use it and push it up to cloud
-        const nextEvents = loadStoredEventsOrSeed(uk);
-        const nextTasks = loadStoredTasksOrSeed(uk);
-        setEvRaw(nextEvents);
-        setTkRaw(nextTasks);
-
-        if (auth.user) {
-          saveToCloud(auth.user.id, nextEvents, nextTasks, {
-            fontSize: load(`${uk}_fs`, "md"),
-            darkMode: load(`${uk}_dm`, false),
-            theme: load(`${uk}_th`, "tempo"),
-            workStart: load(`${uk}_ws`, 9),
-            workEnd: load(`${uk}_we`, 19),
-            notifs: load(`${uk}_nf`, false),
-            timezone: load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
-            categories: load(`${uk}_categories`, CATEGORIES),
-            templates: load(`${uk}_templates`, DAY_TEMPLATES),
-            journalActivities: load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES),
-          });
-        }
-      } else if (cloud && cloud.events.length) {
-        // Cloud is newer — use cloud and mirror to localStorage
-        setEvRaw(reviveEvents(cloud.events));
-        save(`${uk}_ev`, cloud.events);
-
-        const cloudTasks = cloud.tasks.length ? cloud.tasks : (localTk ?? INIT_TASKS);
-        setTkRaw(cloudTasks);
-        save(`${uk}_tk`, cloudTasks);
-
-        if (cloud.updated_at) save(`${uk}_updated_at`, cloud.updated_at);
-
-        const settings = {
-          fontSize: cloud.settings?.fontSize ?? load(`${uk}_fs`, "md"),
-          darkMode: cloud.settings?.darkMode ?? load(`${uk}_dm`, false),
-          theme: cloud.settings?.theme ?? load(`${uk}_th`, "tempo"),
-          workStart: cloud.settings?.workStart ?? load(`${uk}_ws`, 9),
-          workEnd: cloud.settings?.workEnd ?? load(`${uk}_we`, 19),
-          notifs: cloud.settings?.notifs ?? load(`${uk}_nf`, false),
-          timezone: cloud.settings?.timezone ?? load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
-          categories: cloud.settings?.categories ?? load(`${uk}_categories`, CATEGORIES),
-          templates: cloud.settings?.templates ?? load(`${uk}_templates`, DAY_TEMPLATES),
-          journalActivities: cloud.settings?.journalActivities ?? load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES),
+      // Authenticated accounts are never hydrated from anonymous/demo keys.
+      // Order of trust: this user's cloud row > this user's scoped local row > empty.
+      if (cloud && !localIsNewer) {
+        applyLoadedData({
+          loadedEvents: Array.isArray(cloud.events) ? cloud.events : [],
+          loadedTasks: Array.isArray(cloud.tasks) ? cloud.tasks : [],
+          settings: cloud.settings || {},
+          updatedAt: cloud.updated_at,
+        });
+      } else if (localHasData) {
+        const nextEvents = reviveEvents(load(`${userKey}_ev`, []));
+        const nextTasks = load(`${userKey}_tk`, []);
+        const nextSettings = {
+          fontSize: load(`${userKey}_fs`, "md"),
+          darkMode: load(`${userKey}_dm`, false),
+          theme: load(`${userKey}_th`, "tempo"),
+          workStart: load(`${userKey}_ws`, 9),
+          workEnd: load(`${userKey}_we`, 19),
+          notifs: load(`${userKey}_nf`, false),
+          timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+          categories: load(`${userKey}_categories`, CATEGORIES),
+          templates: load(`${userKey}_templates`, DAY_TEMPLATES),
+          journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          journal: load(`${userKey}_journal`, {}),
         };
-
-        setFSRaw(settings.fontSize);
-        setDMRaw(settings.darkMode);
-        setThRaw(settings.theme);
-        setWSRaw(Number(settings.workStart));
-        setWERaw(Number(settings.workEnd));
-        setNfRaw(Boolean(settings.notifs));
-        setTzRaw(settings.timezone);
-        setCatRaw(settings.categories);
-        setTplRaw(settings.templates);
-        setJournalActivitiesRaw(settings.journalActivities);
-        setWorkHoursCtx(Number(settings.workStart), Number(settings.workEnd));
+        applyLoadedData({ loadedEvents: nextEvents, loadedTasks: nextTasks, settings: nextSettings, updatedAt: localUpdatedAt });
+        saveToCloud(userId, nextEvents, nextTasks, nextSettings);
       } else {
-        // Brand new user, unless this browser already has real local data.
-        // This avoids demo seed data overwriting a user's local schedule.
-        setEvRaw(loadStoredEventsOrSeed(uk));
-        setTkRaw(loadStoredTasksOrSeed(uk));
-        
-        const localSettings = {
-          fontSize: load(`${uk}_fs`, "md"),
-          darkMode: load(`${uk}_dm`, false),
-          theme: load(`${uk}_th`, "tempo"),
-          workStart: load(`${uk}_ws`, 9),
-          workEnd: load(`${uk}_we`, 19),
-          notifs: load(`${uk}_nf`, false),
-          timezone: load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
-          categories: load(`${uk}_categories`, CATEGORIES),
-          templates: load(`${uk}_templates`, DAY_TEMPLATES),
-          journalActivities: load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES),
+        // Brand-new authenticated user: start empty. Do not copy previous in-memory,
+        // anonymous, demo, or browser data into this account.
+        const blankSettings = {
+          fontSize: "md",
+          darkMode: false,
+          theme: "tempo",
+          workStart: 9,
+          workEnd: 19,
+          notifs: false,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          categories: CATEGORIES,
+          templates: DAY_TEMPLATES,
+          journalActivities: JOURNAL_ACTIVITIES,
+          journal: {},
         };
-
-        setFSRaw(localSettings.fontSize);
-        setDMRaw(localSettings.darkMode);
-        setThRaw(localSettings.theme);
-        setWSRaw(Number(localSettings.workStart));
-        setWERaw(Number(localSettings.workEnd));
-        setNfRaw(Boolean(localSettings.notifs));
-        setTzRaw(localSettings.timezone);
-        setCatRaw(localSettings.categories);
-        setTplRaw(localSettings.templates);
-        setJournalActivitiesRaw(localSettings.journalActivities);
-        setWorkHoursCtx(Number(localSettings.workStart), Number(localSettings.workEnd));
+        applyLoadedData({ loadedEvents: [], loadedTasks: [], settings: blankSettings, updatedAt: new Date().toISOString() });
+        saveToCloud(userId, [], [], blankSettings);
       }
-      // Journal always loads from localStorage (per-device, private by design)
-      setJournalRaw(load(`${uk}_journal`, {}));
-      setStreak(computeAndSaveStreak(uk));
-      setDataReady(true);
     }).catch(() => {
       clearTimeout(fallbackTimer);
-      setEvRaw(loadStoredEventsOrSeed(uk));
-      setTkRaw(loadStoredTasksOrSeed(uk));
-      setFSRaw(load(`${uk}_fs`, "md"));
-      setDMRaw(load(`${uk}_dm`, false));
-      setThRaw(load(`${uk}_th`, "tempo"));
-      setCatRaw(load(`${uk}_categories`, CATEGORIES));
-      setTplRaw(load(`${uk}_templates`, DAY_TEMPLATES));
-      setJournalActivitiesRaw(load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
-      setJournalRaw(load(`${uk}_journal`, {}));
-      setStreak(computeAndSaveStreak(uk));
-      setDataReady(true);
+      if (cancelled) return;
+      const localHasData = hasStoredUserData(userKey);
+      applyLoadedData({
+        loadedEvents: localHasData ? reviveEvents(load(`${userKey}_ev`, [])) : [],
+        loadedTasks: localHasData ? load(`${userKey}_tk`, []) : [],
+        settings: {
+          fontSize: load(`${userKey}_fs`, "md"),
+          darkMode: load(`${userKey}_dm`, false),
+          theme: load(`${userKey}_th`, "tempo"),
+          workStart: load(`${userKey}_ws`, 9),
+          workEnd: load(`${userKey}_we`, 19),
+          notifs: load(`${userKey}_nf`, false),
+          timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+          categories: load(`${userKey}_categories`, CATEGORIES),
+          templates: load(`${userKey}_templates`, DAY_TEMPLATES),
+          journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          journal: load(`${userKey}_journal`, {}),
+        },
+        updatedAt: load(`${userKey}_updated_at`, null),
+      });
     });
-    return () => clearTimeout(fallbackTimer);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimer);
+    };
   }, [auth.user?.id]);
 
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
@@ -2873,6 +2927,7 @@ export default function App() {
     categories,
     templates,
     journalActivities,
+    journal,
     ...overrides,
   });
 
@@ -2909,6 +2964,7 @@ export default function App() {
     save(`${uk}_categories`, next.categories);
     save(`${uk}_templates`, next.templates);
     save(`${uk}_journal_activities`, next.journalActivities);
+    save(`${uk}_journal`, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
 
     if (auth.user) {
@@ -2985,7 +3041,13 @@ export default function App() {
     const n = hiddenCals.includes(id) ? hiddenCals.filter(c => c !== id) : [...hiddenCals, id];
     setHiddenCals(n); save(`${uk}_hidden_cals`, n);
   };
-  const setJournal   = v => { const n = typeof v === "function" ? v(journal) : v; setJournalRaw(n); save(`${uk}_journal`, n); save(`${uk}_updated_at`, new Date().toISOString()); };
+  const setJournal   = v => {
+    const n = typeof v === "function" ? v(journal) : v;
+    setJournalRaw(n);
+    save(`${uk}_journal`, n);
+    save(`${uk}_updated_at`, new Date().toISOString());
+    if (auth.user && dataReady) saveToCloud(auth.user.id, events, tasks, currentSettings({ journal: n }));
+  };
   const setTheme = v => {
     setThRaw(v);
     persistSettings({ theme: v });
@@ -3189,8 +3251,9 @@ export default function App() {
     </>
   );
 
-  // Show spinner while pulling data from cloud
-  if (!dataReady) return (
+  // Show spinner while pulling this exact user's data from cloud/local storage.
+  // The loadedUserId guard prevents cross-account data from appearing during user switching.
+  if (!dataReady || loadedUserId !== auth.user.id) return (
     <>
       <style>{loginCSS}</style>
       <div className="login-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
@@ -3222,18 +3285,18 @@ export default function App() {
             {TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
           </div>
-          {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => setPage("journal")} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
+          {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
           <nav className="sidebar-nav">
             <div className="nav-section-label">Calendar</div>
             {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌙",label:"Month"}].map(n => (
-              <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
+              <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); closeSidebarOnMobile(); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
             ))}
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
-            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => setPage("journal")}><span className="nav-icon">📔</span>Journal</div>
-            <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => setPage("tasks")}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-item" onClick={() => setFocusMode(true)}><span className="nav-icon">🎯</span>Focus Mode</div>
-            <div className="nav-item" onClick={() => setShowStats(true)}><span className="nav-icon">📊</span>Daily Stats</div>
-            <div className="nav-item" onClick={() => setShowCarryOver(true)}><span className="nav-icon">🌙</span>End of Day</div>
+            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
+            <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
+            <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
+            <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
+            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
           </nav>
           <div className="sidebar-cals">
             <div className="cal-label-row">
@@ -3400,7 +3463,7 @@ export default function App() {
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("week"); }}>🗓️<span>Week</span></button>
         <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
-        <button className="mobile-nav-btn" onClick={() => setSettingsOpen(true)}>⚙️<span>More</span></button>
+        <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
       </div>
 
       <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : "🌸"}</button>
@@ -4073,6 +4136,10 @@ function appCSS(cvars, fontScale) { return `
     .task-panel:not(.standalone).mobile-open{display:flex!important;}
     .tasks-page{padding:14px 12px 74px;}
     .task-panel.standalone{height:auto;min-height:calc(100vh - 170px);}
+    .sidebar{display:flex!important;position:fixed;top:0;bottom:60px;left:0;width:230px!important;z-index:160;box-shadow:8px 0 40px rgba(255,123,172,.18);transform:translateX(0);transition:transform .25s ease,width .25s ease;}
+    .sidebar.closed{width:230px!important;transform:translateX(-105%);}
+    .sidebar-logo{padding:16px 20px;}
+    .sidebar-nav{overflow-y:auto;}
   }
 
 `; }
