@@ -399,7 +399,126 @@ const completedTasksForDateKey = (tasks, key) => {
   });
 
   return completed;
-};const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
+};
+
+// ─── Gamification helpers ────────────────────────────────────────────────────
+const LEVEL_TITLES = [
+  "Tiny Sprout", "Focus Bud", "Bloom Apprentice", "Tempo Keeper", "Rhythm Builder",
+  "Flow Mage", "Calendar Guardian", "Productivity Queen", "Tempo Legend"
+];
+const XP_PER_LEVEL = 500;
+const taskXPValue = task => {
+  const pri = task?.priority === "high" ? 40 : task?.priority === "low" ? 15 : 25;
+  const durationBonus = Math.min(30, Math.floor((Number(task?.duration) || 0) / 30) * 5);
+  const recurringBonus = task?.recurrence || task?.parentTaskId ? 5 : 0;
+  return pri + durationBonus + recurringBonus;
+};
+const dateRangeKeys = (daysBack = 120, daysForward = 30) => {
+  const keys = [];
+  for (let i = -daysBack; i <= daysForward; i++) keys.push(dateKey(addDaysSafe(TODAY, i)));
+  return keys;
+};
+const hasJournalEntryForKey = (journal, key) => Boolean(journal?.[key]?.mood || journal?.[key]?.note || journal?.[key]?.gratitude?.some(Boolean));
+const focusMinsForKey = (events, key) => events
+  .filter(e => e?.start instanceof Date && eventOccursOnDay(e, localDateFromKey(key) || TODAY) && e.category === "deep")
+  .reduce((sum, e) => sum + Math.max(0, (eventSegmentForDay(e, localDateFromKey(key) || TODAY).end - eventSegmentForDay(e, localDateFromKey(key) || TODAY).start) / 60000), 0);
+const allDayTasksForKey = (tasks, key) => tasks.filter(t => taskScopeOf(t) === "day" && taskDayKey(t) === key);
+const dailyGameSummary = (tasks, journal, events, date = TODAY) => {
+  const key = typeof date === "string" ? date : dateKey(date);
+  const dayTasks = allDayTasksForKey(tasks, key);
+  const completed = completedTasksForDateKey(tasks, key);
+  const highDone = completed.filter(t => t.priority === "high").length;
+  const journalDone = hasJournalEntryForKey(journal, key);
+  const focusMins = focusMinsForKey(events, key);
+  const completionRatio = dayTasks.length ? Math.min(1, completed.length / dayTasks.length) : (completed.length ? 1 : 0);
+  const allDone = dayTasks.length > 0 && dayTasks.every(t => t.done);
+  const taskScore = Math.round(completionRatio * 40);
+  const score = Math.min(100,
+    taskScore +
+    Math.min(15, highDone * 15) +
+    (journalDone ? 15 : 0) +
+    (focusMins >= 60 ? 15 : focusMins > 0 ? 8 : 0) +
+    (allDone ? 15 : 0)
+  );
+  const rank = score >= 95 ? "S" : score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : "D";
+  return { key, dayTasks, completed, highDone, journalDone, focusMins, allDone, score, rank };
+};
+const productiveKeysFromData = (tasks, journal) => {
+  const keys = new Set();
+  tasks.forEach(t => {
+    if (!t?.done) return;
+    const k = taskCompletedDateKey(t) || (taskScopeOf(t) === "day" ? taskDayKey(t) : null);
+    if (k) keys.add(k);
+  });
+  Object.keys(journal || {}).forEach(k => { if (hasJournalEntryForKey(journal, k)) keys.add(k); });
+  return keys;
+};
+const countBackwardStreak = keySet => {
+  let count = 0;
+  let d = new Date(TODAY);
+  while (keySet.has(dateKey(d))) { count++; d = addDaysSafe(d, -1); }
+  return count;
+};
+const buildDailyQuests = (tasks, journal, events, date = TODAY) => {
+  const s = dailyGameSummary(tasks, journal, events, date);
+  const quests = [
+    { id: "three_tasks", icon: "✅", title: "Clear 3 tasks", desc: `${Math.min(s.completed.length, 3)}/3 completed`, done: s.completed.length >= 3, xp: 50 },
+    { id: "priority", icon: "🎯", title: "Win 1 priority task", desc: `${Math.min(s.highDone, 1)}/1 high priority`, done: s.highDone >= 1, xp: 45 },
+    { id: "journal", icon: "📔", title: "Write today’s journal", desc: s.journalDone ? "Entry saved" : "Reflect for the day", done: s.journalDone, xp: 35 },
+    { id: "perfect_day", icon: "🌸", title: "Complete the day list", desc: s.dayTasks.length ? `${s.completed.length}/${s.dayTasks.length} day tasks` : "Add day tasks first", done: s.allDone, xp: 70 },
+  ];
+  return quests;
+};
+const buildBadges = (tasks, journal, events) => {
+  const completed = tasks.filter(t => t.done);
+  const journalCount = Object.keys(journal || {}).filter(k => hasJournalEntryForKey(journal, k)).length;
+  const productiveStreak = countBackwardStreak(productiveKeysFromData(tasks, journal));
+  const todayScore = dailyGameSummary(tasks, journal, events, TODAY).score;
+  const deepDone = completed.filter(t => t.category === "deep").length;
+  const highDone = completed.filter(t => t.priority === "high").length;
+  const recurringDone = completed.filter(t => t.recurrence || t.parentTaskId).length;
+  const perfectDays = dateRangeKeys(120, 0).filter(k => dailyGameSummary(tasks, journal, events, k).score >= 95).length;
+  return [
+    { id: "first_bloom", icon: "🌸", name: "First Bloom", desc: "Complete your first task", unlocked: completed.length >= 1 },
+    { id: "triple_spark", icon: "✨", name: "Triple Spark", desc: "Complete 3 tasks", unlocked: completed.length >= 3 },
+    { id: "priority_hero", icon: "🎯", name: "Priority Hero", desc: "Complete a high-priority task", unlocked: highDone >= 1 },
+    { id: "journal_keeper", icon: "📔", name: "Journal Keeper", desc: "Write 7 journal entries", unlocked: journalCount >= 7 },
+    { id: "streak_starter", icon: "🔥", name: "Streak Starter", desc: "Stay productive for 3 days", unlocked: productiveStreak >= 3 },
+    { id: "deep_work_mage", icon: "🔮", name: "Deep Work Mage", desc: "Complete 10 deep work tasks", unlocked: deepDone >= 10 },
+    { id: "habit_charm", icon: "🔁", name: "Habit Charm", desc: "Complete 5 recurring tasks", unlocked: recurringDone >= 5 },
+    { id: "perfect_day", icon: "🏆", name: "Perfect Day", desc: "Score 95+ in a day", unlocked: todayScore >= 95 || perfectDays >= 1 },
+  ];
+};
+const calculateGameStats = (tasks, journal, events) => {
+  const completed = tasks.filter(t => t.done);
+  const taskXP = completed.reduce((sum, t) => sum + taskXPValue(t), 0);
+  const journalXP = Object.keys(journal || {}).filter(k => hasJournalEntryForKey(journal, k)).length * 30;
+  const todayQuests = buildDailyQuests(tasks, journal, events, TODAY);
+  const questXP = todayQuests.filter(q => q.done).reduce((sum, q) => sum + q.xp, 0);
+  const badges = buildBadges(tasks, journal, events);
+  const badgeXP = badges.filter(b => b.unlocked).length * 75;
+  const totalXP = taskXP + journalXP + questXP + badgeXP;
+  const level = Math.floor(totalXP / XP_PER_LEVEL) + 1;
+  const xpIntoLevel = totalXP % XP_PER_LEVEL;
+  const title = LEVEL_TITLES[Math.min(LEVEL_TITLES.length - 1, Math.floor((level - 1) / 3))];
+  const productiveStreak = countBackwardStreak(productiveKeysFromData(tasks, journal));
+  const journalKeySet = new Set(Object.keys(journal || {}).filter(k => hasJournalEntryForKey(journal, k)));
+  const taskKeySet = new Set(completed.map(t => taskCompletedDateKey(t) || (taskScopeOf(t) === "day" ? taskDayKey(t) : null)).filter(Boolean));
+  return {
+    totalXP, level, xpIntoLevel, nextXP: XP_PER_LEVEL, title,
+    levelPct: Math.round((xpIntoLevel / XP_PER_LEVEL) * 100),
+    today: dailyGameSummary(tasks, journal, events, TODAY),
+    quests: todayQuests,
+    badges,
+    unlockedBadges: badges.filter(b => b.unlocked),
+    streaks: {
+      productive: productiveStreak,
+      tasks: countBackwardStreak(taskKeySet),
+      journal: countBackwardStreak(journalKeySet),
+    },
+  };
+};
+const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
 const isRecurringEvent = ev => Boolean(normalizeRecurrence(ev?.recurrence));
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
@@ -1880,6 +1999,75 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
   );
 }
 
+
+// ─── Gamification UI ──────────────────────────────────────────────────────────
+function LevelBar({ gameStats }) {
+  if (!gameStats) return null;
+  return (
+    <div className="level-card">
+      <div className="level-topline">
+        <div>
+          <div className="level-label">Level {gameStats.level}</div>
+          <div className="level-title">{gameStats.title}</div>
+        </div>
+        <div className="level-xp">{gameStats.xpIntoLevel}/{gameStats.nextXP} XP</div>
+      </div>
+      <div className="level-track"><div className="level-fill" style={{ width: `${gameStats.levelPct}%` }} /></div>
+      <div className="level-meta"><span>🔥 {gameStats.streaks.productive}d streak</span><span>🏅 {gameStats.unlockedBadges.length}/{gameStats.badges.length} badges</span></div>
+    </div>
+  );
+}
+
+function DailyQuestsCard({ gameStats }) {
+  if (!gameStats) return null;
+  const done = gameStats.quests.filter(q => q.done).length;
+  return (
+    <div className="daily-quests-card">
+      <div className="game-card-head">
+        <div><span className="game-card-title">Daily Quests</span><span className="game-card-sub"> {done}/{gameStats.quests.length} cleared</span></div>
+        <span className="score-pill">{gameStats.today.rank} Rank · {gameStats.today.score}</span>
+      </div>
+      <div className="quest-list">
+        {gameStats.quests.map(q => (
+          <div key={q.id} className={`quest-item ${q.done ? "done" : ""}`}>
+            <span className="quest-icon">{q.done ? "✓" : q.icon}</span>
+            <div className="quest-body"><div className="quest-title">{q.title}</div><div className="quest-desc">{q.desc}</div></div>
+            <span className="quest-xp">+{q.xp} XP</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BadgesPreview({ gameStats, limit = 6 }) {
+  if (!gameStats) return null;
+  const badges = gameStats.badges.slice(0, limit);
+  return (
+    <div className="badges-card">
+      <div className="game-card-head"><span className="game-card-title">Achievements</span><span className="game-card-sub">{gameStats.unlockedBadges.length}/{gameStats.badges.length}</span></div>
+      <div className="badge-grid">
+        {badges.map(b => (
+          <div key={b.id} className={`badge-chip ${b.unlocked ? "unlocked" : "locked"}`} title={b.desc}>
+            <span className="badge-icon">{b.icon}</span>
+            <span className="badge-name">{b.name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GameDashboard({ gameStats, compact = false }) {
+  if (!gameStats) return null;
+  return (
+    <div className={`game-dashboard ${compact ? "compact" : ""}`}>
+      <DailyQuestsCard gameStats={gameStats} />
+      <BadgesPreview gameStats={gameStats} />
+    </div>
+  );
+}
+
 // ─── Task Item ────────────────────────────────────────────────────────────────
 function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
   const [expanded, setExpanded] = useState(false);
@@ -2045,13 +2233,14 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate }) {
+function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate, gameStats }) {
   return (
     <div className="tasks-page">
       <div className="journal-header">
         <div className="journal-title">✅ Tasks</div>
         <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
       </div>
+      <GameDashboard gameStats={gameStats} compact />
       <TaskPanel tasks={tasks} categories={categories} onToggle={onToggle} onAdd={onAdd} onEdit={onEdit} onStartPomodoro={onStartPomodoro} scope={scope} setScope={setScope} periodDate={periodDate} setPeriodDate={setPeriodDate} standalone />
     </div>
   );
@@ -2178,7 +2367,7 @@ function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
 }
 
 // ─── Stats Card ───────────────────────────────────────────────────────────────
-function StatsCard({ events, tasks, streak, onClose }) {
+function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
   const catMins = id => td.filter(e => e.category === id).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
   const bars = [
@@ -2188,17 +2377,25 @@ function StatsCard({ events, tasks, streak, onClose }) {
     { label: "Personal",  mins: catMins("personal") + catMins("health"), color: "#70C8A0" },
   ];
   const mx = Math.max(...bars.map(b => b.mins), 1);
+  const gs = gameStats || calculateGameStats(tasks, {}, events);
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily summary">
       <div className="stats-card" onClick={e => e.stopPropagation()}>
         <div className="stats-header"><span className="stats-title">📊 Daily Summary</span><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="stats-streak">🔥 {streak} day streak</div>
+        <div className="stats-streak">🔥 {gs.streaks?.productive ?? streak} day productivity streak · Level {gs.level} {gs.title}</div>
         <div className="stats-row">
           <div className="stat-big"><div className="stat-num">{dn}/{tot}</div><div className="stat-lbl">Tasks done</div></div>
+          <div className="stat-big"><div className="stat-num">{gs.today.rank}</div><div className="stat-lbl">Daily rank</div></div>
+          <div className="stat-big"><div className="stat-num">{gs.today.score}</div><div className="stat-lbl">Tempo score</div></div>
+        </div>
+        <div className="stats-row">
           <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Focus time</div></div>
           <div className="stat-big"><div className="stat-num">{td.length}</div><div className="stat-lbl">Events</div></div>
+          <div className="stat-big"><div className="stat-num">{gs.unlockedBadges.length}</div><div className="stat-lbl">Badges</div></div>
         </div>
+        <LevelBar gameStats={gs} />
         <div className="stats-bars">{bars.map(b => <div key={b.label} className="stats-bar-row"><span className="stats-bar-label">{b.label}</span><div className="stats-bar-track"><div className="stats-bar-fill" style={{ width: `${(b.mins / mx) * 100}%`, background: b.color }} /></div><span className="stats-bar-val">{Math.round(b.mins)}m</span></div>)}</div>
+        <BadgesPreview gameStats={gs} limit={8} />
       </div>
     </div>
   );
@@ -2640,6 +2837,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
         const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
         const completedTasks = completedTasksForDateKey(tasks, viewingKey);
+        const dayScore = dailyGameSummary(tasks, journal, events, viewingKey);
         return (
           <div className="modal-overlay" onClick={() => setViewingKey(null)} role="dialog" aria-modal="true" aria-label="View journal entry">
             <div className="entry-view-modal" onClick={e=>e.stopPropagation()}>
@@ -2657,6 +2855,18 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                 {acts.length>0 && <div className="entry-view-section"><div className="entry-section-title">Activities</div><div className="activity-chips">{acts.map(a=><span key={a.id} className="activity-chip selected">{a.emoji} {a.label}</span>)}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
+                <div className="entry-view-section daily-score-section">
+                  <div className="entry-section-title">Daily Score 🌸</div>
+                  <div className="daily-score-card">
+                    <div className="daily-score-main"><span className="daily-score-rank">{dayScore.rank}</span><span className="daily-score-num">{dayScore.score}/100</span></div>
+                    <div className="daily-score-lines">
+                      <span>✅ {dayScore.completed.length} task{dayScore.completed.length !== 1 ? "s" : ""}</span>
+                      <span>🎯 {dayScore.highDone} priority</span>
+                      <span>🔮 {Math.round(dayScore.focusMins / 60 * 10) / 10}h focus</span>
+                      <span>📔 {dayScore.journalDone ? "Journal done" : "No journal"}</span>
+                    </div>
+                  </div>
+                </div>
                 {completedTasks.length > 0 && (
                   <div className="entry-view-section completed-tasks-section">
                     <div className="entry-section-title">Completed Tasks ✅</div>
@@ -3515,6 +3725,7 @@ export default function App() {
   const expandedEvents  = expandRecurring(events, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
   const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
+  const gameStats      = calculateGameStats(tasks, journal, visibleEvents);
   const openToday     = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
@@ -3536,6 +3747,7 @@ export default function App() {
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
           </div>
           {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
+          <LevelBar gameStats={gameStats} />
           <nav className="sidebar-nav">
             <div className="nav-section-label">Calendar</div>
             {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌙",label:"Month"}].map(n => (
@@ -3570,7 +3782,7 @@ export default function App() {
           {page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} />
           ) : page === "tasks" ? (
-            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} />
+            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} gameStats={gameStats} />
           ) : (<>
           <div className="topbar">
             <button className="topbar-btn icon-only" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
@@ -3611,8 +3823,11 @@ export default function App() {
             <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Focus: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FF7BAC" }} />{openToday} tasks open</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#70C8A0" }} />Free blocks: {freeBlocks(visibleEvents, viewDate).length}</div>
-            <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {streak}d streak</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#C9A0FF" }} />Lvl {gameStats.level} · {gameStats.today.rank} Rank</div>
           </div>
+
+          <GameDashboard gameStats={gameStats} />
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
@@ -3679,7 +3894,7 @@ export default function App() {
       {showAddEvent  && <AddEventModal onClose={() => setShowAddEvent(false)} onSave={addEvent} defaultDate={viewDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={saveTask} onDelete={deleteTask} />}
-      {showStats  && <StatsCard events={events} tasks={tasks} streak={streak} onClose={() => setShowStats(false)} />}
+      {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
@@ -4372,6 +4587,45 @@ function appCSS(cvars, fontScale) { return `
   .completed-task-body{min-width:0;display:flex;flex-direction:column;gap:2px;}
   .completed-task-title{font-size:13px;font-weight:800;color:var(--text);line-height:1.25;}
   .completed-task-meta{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
+
+  /* ── Cozy game layer ─────────────────────────────────────────────────────── */
+  .level-card{margin:10px 12px 8px;background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1.5px solid var(--border);border-radius:16px;padding:12px;box-shadow:0 8px 24px rgba(var(--accent-rgb),.08);}
+  .level-topline{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+  .level-label{font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:800;}
+  .level-title{font-size:14px;font-weight:900;color:var(--text);line-height:1.2;}
+  .level-xp{font-size:10px;font-family:var(--mono);font-weight:800;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:3px 7px;white-space:nowrap;}
+  .level-track{height:9px;background:var(--bg4);border-radius:999px;border:1px solid var(--border);overflow:hidden;}
+  .level-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;box-shadow:0 0 14px rgba(var(--accent-rgb),.24);transition:width .25s ease;}
+  .level-meta{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;}
+  .game-dashboard{display:grid;grid-template-columns:minmax(260px,1.1fr) minmax(240px,.9fr);gap:12px;padding:0 20px 12px;background:var(--bg);}
+  .game-dashboard.compact{max-width:880px;margin:0 auto 12px;padding:0;grid-template-columns:1.1fr .9fr;}
+  .daily-quests-card,.badges-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;padding:13px 14px;box-shadow:var(--shadow);min-width:0;}
+  .game-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
+  .game-card-title{font-size:13px;font-weight:900;color:var(--text);}
+  .game-card-sub{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
+  .score-pill{font-size:10px;font-family:var(--mono);font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:4px 8px;white-space:nowrap;}
+  .quest-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .quest-item{display:flex;align-items:center;gap:9px;border:1.5px solid var(--border);background:var(--bg3);border-radius:14px;padding:8px 9px;min-width:0;}
+  .quest-item.done{background:linear-gradient(135deg,var(--bg4),var(--bg3));border-color:var(--accent3);}
+  .quest-icon{width:24px;height:24px;border-radius:9px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--accent);flex-shrink:0;}
+  .quest-item.done .quest-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border-color:transparent;}
+  .quest-body{min-width:0;flex:1;}
+  .quest-title{font-size:12px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .quest-desc{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .quest-xp{font-size:10px;font-family:var(--mono);font-weight:900;color:var(--accent);white-space:nowrap;}
+  .badge-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .badge-chip{display:flex;align-items:center;gap:7px;border:1.5px solid var(--border);background:var(--bg3);border-radius:14px;padding:8px;min-width:0;opacity:.48;}
+  .badge-chip.unlocked{opacity:1;background:linear-gradient(135deg,var(--bg4),var(--bg2));border-color:var(--accent3);}
+  .badge-icon{width:22px;height:22px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .badge-name{font-size:11px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .daily-score-section{background:linear-gradient(135deg,var(--bg3),var(--bg2));}
+  .daily-score-card{display:flex;align-items:center;gap:14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:12px;}
+  .daily-score-main{min-width:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg4);border:1px solid var(--border);border-radius:14px;padding:8px;}
+  .daily-score-rank{font-size:24px;font-weight:900;color:var(--accent);line-height:1;}
+  .daily-score-num{font-size:10px;font-family:var(--mono);font-weight:900;color:var(--text3);margin-top:3px;}
+  .daily-score-lines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;font-size:11px;font-weight:800;color:var(--text2);flex:1;}
+  @media(max-width:1080px){.game-dashboard{grid-template-columns:1fr;}.quest-list{grid-template-columns:1fr;}}
+
   /* ── Feature wiring additions (keeps existing aesthetic) ─────────────────── */
   .all-day-strip{display:flex;align-items:flex-start;gap:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;padding:8px 10px;margin-bottom:8px;}
   .all-day-label,.all-day-mini-label{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;}
