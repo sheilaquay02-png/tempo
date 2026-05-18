@@ -431,7 +431,10 @@ const dateRangeKeys = (daysBack = 120, daysForward = 30) => {
   for (let i = -daysBack; i <= daysForward; i++) keys.push(dateKey(addDaysSafe(TODAY, i)));
   return keys;
 };
-const hasJournalEntryForKey = (journal, key) => Boolean(journal?.[key]?.mood || journal?.[key]?.note || journal?.[key]?.gratitude?.some(Boolean));
+const hasJournalEntryForKey = (journal, key) => {
+  const e = journal?.[key];
+  return Boolean(e?.mood || e?.note || e?.gratitude?.some(Boolean) || e?.photos?.length || e?.blocks?.length || e?.tags?.length || Object.values(e?.highlights || {}).some(Boolean));
+};
 const focusMinsForKey = (events, key) => events
   .filter(e => e?.start instanceof Date && eventOccursOnDay(e, localDateFromKey(key) || TODAY) && e.category === "deep")
   .reduce((sum, e) => sum + Math.max(0, (eventSegmentForDay(e, localDateFromKey(key) || TODAY).end - eventSegmentForDay(e, localDateFromKey(key) || TODAY).start) / 60000), 0);
@@ -3105,38 +3108,159 @@ const JOURNAL_PROMPTS = [
   "What did you do for yourself today?",
   "What moment do you want to remember from today?",
 ];
+const MEMORY_TAGS = ["Work", "Date", "Family", "Friends", "Food", "Travel", "Fitness", "Personal", "Achievement", "Rest Day"];
+const SCRAPBOOK_STICKERS = ["🌸", "✨", "🎀", "💌", "📷", "🫶", "🐰", "☕", "🍰", "🌙", "💖", "✅", "🎯", "🥹", "🌈", "🧸"];
+const normalizeMemoryEntry = entry => ({
+  mood: entry?.mood || null,
+  activities: Array.isArray(entry?.activities) ? entry.activities : [],
+  note: entry?.note || "",
+  gratitude: Array.isArray(entry?.gratitude) ? entry.gratitude : ["", "", ""],
+  photos: Array.isArray(entry?.photos) ? entry.photos : [],
+  coverPhotoId: entry?.coverPhotoId || entry?.photos?.[0]?.id || null,
+  tags: Array.isArray(entry?.tags) ? entry.tags : [],
+  highlights: { best: "", win: "", learned: "", remember: "", ...(entry?.highlights || {}) },
+  blocks: Array.isArray(entry?.blocks) ? entry.blocks : (Array.isArray(entry?.scrapbookBlocks) ? entry.scrapbookBlocks : []),
+  updatedAt: entry?.updatedAt || null,
+});
+function resizeImageFileToDataUrl(file, maxSize = 1400, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const src = reader.result;
+      const img = new Image();
+      img.onerror = () => resolve(src);
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch { resolve(src); }
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function journalPhotosFromFiles(files) {
+  const imageFiles = Array.from(files || []).filter(f => f.type?.startsWith("image/"));
+  const photos = [];
+  for (const file of imageFiles) {
+    const src = await resizeImageFileToDataUrl(file);
+    photos.push({ id: "p" + uid(), src, caption: "", name: file.name || "Memory photo", createdAt: new Date().toISOString() });
+  }
+  return photos;
+}
+const memoryEntryCover = entry => {
+  const e = normalizeMemoryEntry(entry);
+  return e.photos.find(p => p.id === e.coverPhotoId) || e.photos[0] || null;
+};
+const memoryTagLabel = tag => String(tag || "").trim();
 // ─── Daily Entry Modal ────────────────────────────────────────────────────────
 function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity }) {
-  const [mood,       setMoodLocal]  = useState(entry?.mood || null);
-  const [activities, setActivities] = useState(entry?.activities || []);
-  const [note,       setNote]       = useState(entry?.note || "");
-  const [gratitude,  setGratitude]  = useState(entry?.gratitude || ["","",""]);
+  const normalized = normalizeMemoryEntry(entry);
+  const [mood,       setMoodLocal]  = useState(normalized.mood);
+  const [activities, setActivities] = useState(normalized.activities);
+  const [note,       setNote]       = useState(normalized.note);
+  const [gratitude,  setGratitude]  = useState(normalized.gratitude.length ? normalized.gratitude : ["","",""]);
+  const [photos,     setPhotos]     = useState(normalized.photos);
+  const [coverPhotoId, setCoverPhotoId] = useState(normalized.coverPhotoId);
+  const [tags,       setTags]       = useState(normalized.tags);
+  const [newTag,     setNewTag]     = useState("");
+  const [blocks,     setBlocks]     = useState(normalized.blocks);
+  const [highlights, setHighlights] = useState(normalized.highlights);
   const [newActivity, setNewActivity] = useState("");
+  const [uploading, setUploading] = useState(false);
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
   const groups = [...new Set(activitiesCatalog.map(a => a.group))];
+  const availableTags = [...new Set([...MEMORY_TAGS, ...tags].map(memoryTagLabel).filter(Boolean))];
+
   function toggleActivity(id) {
     setActivities(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id]);
   }
   function updateGratitude(i, val) {
     setGratitude(g => { const n=[...g]; n[i]=val; return n; });
   }
+  function toggleTag(tag) {
+    const clean = memoryTagLabel(tag);
+    if (!clean) return;
+    setTags(t => t.includes(clean) ? t.filter(x => x !== clean) : [...t, clean]);
+  }
+  async function handlePhotoUpload(files) {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const next = await journalPhotosFromFiles(files);
+      setPhotos(p => {
+        const merged = [...p, ...next];
+        if (!coverPhotoId && merged[0]) setCoverPhotoId(merged[0].id);
+        return merged;
+      });
+    } finally { setUploading(false); }
+  }
+  function updatePhotoCaption(id, caption) {
+    setPhotos(p => p.map(photo => photo.id === id ? { ...photo, caption } : photo));
+  }
+  function removePhoto(id) {
+    setPhotos(p => p.filter(photo => photo.id !== id));
+    setCoverPhotoId(c => c === id ? null : c);
+    setBlocks(bs => bs.map(b => b.type === "photoGrid" ? { ...b, photoIds: (b.photoIds || []).filter(pid => pid !== id) } : b));
+  }
+  function addBlock(type) {
+    if (type === "photoGrid") {
+      setBlocks(bs => [...bs, { id:"b"+uid(), type, photoIds: photos.slice(0,6).map(p=>p.id), caption:"" }]);
+    } else if (type === "sticker") {
+      setBlocks(bs => [...bs, { id:"b"+uid(), type, sticker:"🌸", size:"medium" }]);
+    } else if (type === "quote") {
+      setBlocks(bs => [...bs, { id:"b"+uid(), type, text:"" }]);
+    } else if (type === "divider") {
+      setBlocks(bs => [...bs, { id:"b"+uid(), type }]);
+    } else {
+      setBlocks(bs => [...bs, { id:"b"+uid(), type:"text", text:"" }]);
+    }
+  }
+  function updateBlock(id, patch) { setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
+  function removeBlock(id) { setBlocks(bs => bs.filter(b => b.id !== id)); }
+  function moveBlock(id, dir) {
+    setBlocks(bs => {
+      const idx = bs.findIndex(b => b.id === id), next = [...bs];
+      const to = idx + dir;
+      if (idx < 0 || to < 0 || to >= next.length) return bs;
+      [next[idx], next[to]] = [next[to], next[idx]];
+      return next;
+    });
+  }
   function handleSave() {
-    onSave(dateKey(date), { mood, activities, note, gratitude, updatedAt: new Date().toISOString() });
+    const cleanTags = [...new Set(tags.map(memoryTagLabel).filter(Boolean))];
+    const cleanPhotos = photos.map(p => ({ ...p, caption: p.caption || "" }));
+    const cleanBlocks = blocks.map(b => ({ ...b }));
+    onSave(dateKey(date), {
+      mood, activities, note, gratitude,
+      photos: cleanPhotos,
+      coverPhotoId: coverPhotoId || cleanPhotos[0]?.id || null,
+      tags: cleanTags,
+      highlights,
+      blocks: cleanBlocks,
+      updatedAt: new Date().toISOString()
+    });
     onClose();
   }
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Journal entry">
-      <div className="entry-modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Memory Book entry">
+      <div className="entry-modal memory-entry-modal" onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
             <div className="entry-modal-date">{date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
-            <div className="entry-modal-sub">How was your day?</div>
+            <div className="entry-modal-sub">Add today’s memory page</div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="entry-modal-body">
-        {/* Mood selector */}
         <div className="entry-section">
           <div className="entry-section-title">Mood</div>
           <div className="mood-picker-row">
@@ -3150,7 +3274,42 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
           </div>
         </div>
 
-        {/* Activities */}
+        <div className="entry-section">
+          <div className="entry-section-title">Photos</div>
+          <label className="memory-upload-box">
+            <input type="file" accept="image/*" multiple onChange={e => { handlePhotoUpload(e.target.files); e.target.value=""; }} />
+            <span className="memory-upload-icon">📷</span>
+            <span>{uploading ? "Adding photos…" : "+ Add photos to this memory"}</span>
+          </label>
+          {photos.length > 0 && (
+            <div className="memory-photo-editor-grid">
+              {photos.map(p => (
+                <div key={p.id} className={`memory-photo-editor-card ${coverPhotoId===p.id?"cover":""}`}>
+                  <img src={p.src} alt={p.caption || "Journal memory"} />
+                  <div className="memory-photo-tools">
+                    <button type="button" onClick={() => setCoverPhotoId(p.id)}>{coverPhotoId===p.id ? "Cover ✓" : "Set cover"}</button>
+                    <button type="button" onClick={() => removePhoto(p.id)}>Remove</button>
+                  </div>
+                  <input className="gratitude-input memory-caption-input" placeholder="Add caption…" value={p.caption || ""} onChange={e => updatePhotoCaption(p.id, e.target.value)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="entry-section">
+          <div className="entry-section-title">Memory Tags</div>
+          <div className="memory-tag-row">
+            {availableTags.map(tag => (
+              <button key={tag} type="button" className={`memory-tag-chip ${tags.includes(tag)?"selected":""}`} onClick={() => toggleTag(tag)}>#{tag}</button>
+            ))}
+          </div>
+          <div className="tf-row" style={{marginTop:10}}>
+            <input className="tf-input" placeholder="Add tag…" value={newTag} onChange={e => setNewTag(e.target.value)} />
+            <button className="tf-save" onClick={() => { toggleTag(newTag); setNewTag(""); }}>Add</button>
+          </div>
+        </div>
+
         <div className="entry-section">
           <div className="entry-section-title">Activities</div>
           {groups.map(g => (
@@ -3172,27 +3331,67 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
           </div>
         </div>
 
-        {/* Gratitude */}
+        <div className="entry-section">
+          <div className="entry-section-title">Today’s Highlights ✨</div>
+          <input className="gratitude-input" placeholder="Best moment…" value={highlights.best || ""} onChange={e => setHighlights(h => ({...h, best:e.target.value}))} />
+          <input className="gratitude-input" placeholder="Biggest win…" value={highlights.win || ""} onChange={e => setHighlights(h => ({...h, win:e.target.value}))} />
+          <input className="gratitude-input" placeholder="Something I learned…" value={highlights.learned || ""} onChange={e => setHighlights(h => ({...h, learned:e.target.value}))} />
+          <input className="gratitude-input" placeholder="One thing I want to remember…" value={highlights.remember || ""} onChange={e => setHighlights(h => ({...h, remember:e.target.value}))} />
+        </div>
+
         <div className="entry-section">
           <div className="entry-section-title">3 Things I'm Grateful For 🌸</div>
           {[0,1,2].map(i => (
             <input key={i} className="gratitude-input" placeholder={`Gratitude ${i+1}…`}
-              value={gratitude[i]} onChange={e => updateGratitude(i, e.target.value)} />
+              value={gratitude[i] || ""} onChange={e => updateGratitude(i, e.target.value)} />
           ))}
         </div>
 
-        {/* Journal note */}
         <div className="entry-section">
           <div className="entry-section-title">Journal Entry</div>
           <div className="journal-prompt">💭 {prompt}</div>
           <textarea className="journal-textarea" rows={5} placeholder="Write freely…"
             value={note} onChange={e => setNote(e.target.value)} />
         </div>
-        </div>{/* end entry-modal-body */}
+
+        <div className="entry-section scrapbook-editor-section">
+          <div className="entry-section-title">Scrapbook Blocks</div>
+          <div className="scrapbook-add-row">
+            <button type="button" onClick={() => addBlock("text")}>+ Text</button>
+            <button type="button" onClick={() => addBlock("photoGrid")}>+ Photo Grid</button>
+            <button type="button" onClick={() => addBlock("sticker")}>+ Sticker</button>
+            <button type="button" onClick={() => addBlock("quote")}>+ Quote</button>
+            <button type="button" onClick={() => addBlock("divider")}>+ Divider</button>
+          </div>
+          <div className="scrapbook-block-editor-list">
+            {blocks.map((b, idx) => (
+              <div key={b.id} className={`scrapbook-block-editor block-${b.type}`}>
+                <div className="scrapbook-block-tools">
+                  <span>{b.type === "photoGrid" ? "Photo grid" : b.type === "quote" ? "Quote" : b.type === "sticker" ? "Sticker" : b.type === "divider" ? "Divider" : "Text"}</span>
+                  <div>
+                    <button type="button" disabled={idx===0} onClick={() => moveBlock(b.id,-1)}>↑</button>
+                    <button type="button" disabled={idx===blocks.length-1} onClick={() => moveBlock(b.id,1)}>↓</button>
+                    <button type="button" onClick={() => removeBlock(b.id)}>Remove</button>
+                  </div>
+                </div>
+                {b.type === "text" && <textarea className="journal-textarea" rows={3} placeholder="Scrapbook note…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
+                {b.type === "quote" && <input className="gratitude-input" placeholder="Quote of the day…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
+                {b.type === "sticker" && <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={b.sticker===st?"selected":""} onClick={() => updateBlock(b.id,{sticker:st})}>{st}</button>)}</div>}
+                {b.type === "photoGrid" && <>
+                  <div className="photo-grid-select-row">{photos.map(p => <button key={p.id} type="button" className={(b.photoIds || []).includes(p.id)?"selected":""} onClick={() => { const set = new Set(b.photoIds || []); set.has(p.id) ? set.delete(p.id) : set.add(p.id); updateBlock(b.id,{photoIds:[...set]}); }}><img src={p.src} alt="" /></button>)}</div>
+                  <input className="gratitude-input memory-caption-input" placeholder="Grid caption…" value={b.caption || ""} onChange={e => updateBlock(b.id,{caption:e.target.value})} />
+                </>}
+                {b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}
+              </div>
+            ))}
+            {blocks.length === 0 && <div className="scrapbook-empty-note">Add blocks to make this page feel like a real scrapbook.</div>}
+          </div>
+        </div>
+        </div>
 
         <div className="entry-modal-footer">
           <button className="tf-cancel" onClick={onClose}>Cancel</button>
-          <button className="tf-save" onClick={handleSave}>Save entry ✓</button>
+          <button className="tf-save" onClick={handleSave}>Save memory ✓</button>
         </div>
       </div>
     </div>
@@ -3204,6 +3403,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
+  const [activeTag,  setActiveTag]  = useState("all"); // Memory Book tag filter
 
   function saveEntry(key, data) { setJournal(j => ({ ...j, [key]: data })); }
 
@@ -3217,7 +3417,11 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
   while (calDays.length%7!==0) calDays.push(null);
 
   // Stats for current month
-  const monthEntries = Object.entries(journal).filter(([k]) => k.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
+  const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
+  const monthEntries = Object.entries(journal).filter(([k]) => k.startsWith(monthPrefix));
+  const monthTags = [...new Set(monthEntries.flatMap(([,e]) => normalizeMemoryEntry(e).tags || []))].filter(Boolean).sort();
+  const monthPhotos = monthEntries.reduce((sum, [,e]) => sum + normalizeMemoryEntry(e).photos.length, 0);
+  const monthPages = monthEntries.filter(([,e]) => hasJournalEntryForKey({ tmp: e }, "tmp")).length;
   const moodCounts = JOURNAL_MOODS.map(m => ({ ...m, count: monthEntries.filter(([,e]) => e.mood===m.id).length }));
   const streak = (() => {
     let s=0; const d=new Date(TODAY);
@@ -3231,9 +3435,9 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
     <div className="journal-page">
       {/* Header */}
       <div className="journal-header">
-        <div className="journal-title">📔 Journal</div>
+        <div className="journal-title">📔 Memory Book</div>
         <div className="journal-streak">🔥 {streak} day streak</div>
-        <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Today's entry</button>
+        <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
       </div>
 
       {/* Mood stats bar */}
@@ -3244,6 +3448,52 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
           </div>
         ))}
         <span className="mood-stats-month">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</span>
+      </div>
+
+      {/* Monthly Memory Book */}
+      <div className="memory-book-section">
+        <div className="memory-book-head">
+          <div>
+            <div className="memory-book-title">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})} Memory Book</div>
+            <div className="memory-book-sub">{monthPages} page{monthPages !== 1 ? "s" : ""} • {monthPhotos} photo{monthPhotos !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="memory-book-actions">
+            <button className="topbar-btn icon-only nav-arrow" onClick={() => { const d=new Date(calDate); d.setMonth(d.getMonth()-1); setCalDate(d); }}>‹</button>
+            <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
+            <button className="topbar-btn icon-only nav-arrow" onClick={() => { const d=new Date(calDate); d.setMonth(d.getMonth()+1); setCalDate(d); }}>›</button>
+          </div>
+        </div>
+        <div className="memory-filter-row">
+          <button className={`memory-tag-chip ${activeTag === "all" ? "selected" : ""}`} onClick={() => setActiveTag("all")}>All</button>
+          {monthTags.map(tag => <button key={tag} className={`memory-tag-chip ${activeTag === tag ? "selected" : ""}`} onClick={() => setActiveTag(tag)}>#{tag}</button>)}
+        </div>
+        <div className="memory-page-grid">
+          {calDays.filter(Boolean).map(day => {
+            const key = dateKey(day);
+            const rawEntry = journal[key];
+            const entry = normalizeMemoryEntry(rawEntry);
+            const hasEntry = hasJournalEntryForKey(journal, key);
+            const hiddenByTag = activeTag !== "all" && !entry.tags.includes(activeTag);
+            if (hiddenByTag) return null;
+            const moodObj = entry.mood ? JOURNAL_MOODS.find(m=>m.id===entry.mood) : null;
+            const cover = memoryEntryCover(entry);
+            const completedCount = completedTasksForDateKey(tasks, key).length;
+            const score = dailyGameSummary(tasks, journal, events, key);
+            const isFuture = day > TODAY;
+            return (
+              <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""}`} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
+                {cover && <img className="memory-page-cover" src={cover.src} alt={cover.caption || "Memory cover"} />}
+                <div className="memory-page-shade" />
+                <div className="memory-page-date">{day.getDate()}</div>
+                <div className="memory-page-main">
+                  <span>{moodObj?.emoji || (hasEntry ? "📔" : "＋")}</span>
+                  {hasEntry && <strong>{score.rank}</strong>}
+                </div>
+                {hasEntry && <div className="memory-page-meta">{completedCount}✓ {entry.photos.length}📷</div>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mood Calendar */}
@@ -3280,25 +3530,29 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
       <div className="journal-entries-section">
         <div className="journal-entries-title">Recent Entries</div>
         {Object.entries(journal)
-          .filter(([,e]) => e.mood || e.note)
+          .filter(([k,e]) => hasJournalEntryForKey({ [k]: e }, k))
           .sort(([a],[b]) => b.localeCompare(a))
           .slice(0,10)
           .map(([key, entry]) => {
             const d = new Date(key);
-            const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
-            const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
+            const mem = normalizeMemoryEntry(entry);
+            const moodObj = JOURNAL_MOODS.find(m=>m.id===mem.mood);
+            const cover = memoryEntryCover(mem);
+            const acts = (mem.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
             const completedCount = completedTasksForDateKey(tasks, key).length;
             return (
               <div key={key} className="journal-entry-card" onClick={() => setViewingKey(key)}>
                 <div className="jec-left">
-                  {moodObj && <span className="jec-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>}
+                  {cover ? <img className="jec-cover" src={cover.src} alt={cover.caption || "Memory cover"} /> : (moodObj && <span className="jec-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>)}
                 </div>
                 <div className="jec-body">
                   <div className="jec-date">{d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
                   {moodObj && <div className="jec-mood" style={{color:moodObj.color}}>{moodObj.label}</div>}
                   {acts.length>0 && <div className="jec-acts">{acts.slice(0,5).map(a=><span key={a.id}>{a.emoji}</span>)}</div>}
-                  {entry.note && <div className="jec-note">{entry.note.slice(0,80)}{entry.note.length>80?"…":""}</div>}
-                  {entry.gratitude?.some(g=>g) && <div className="jec-gratitude">🌸 {entry.gratitude.filter(g=>g)[0]}</div>}
+                  {mem.note && <div className="jec-note">{mem.note.slice(0,80)}{mem.note.length>80?"…":""}</div>}
+                  {mem.gratitude?.some(g=>g) && <div className="jec-gratitude">🌸 {mem.gratitude.filter(g=>g)[0]}</div>}
+                  {mem.tags?.length > 0 && <div className="jec-tags">{mem.tags.slice(0,3).map(t => <span key={t}>#{t}</span>)}</div>}
+                  {mem.photos.length > 0 && <div className="jec-gratitude">📷 {mem.photos.length} photo{mem.photos.length !== 1 ? "s" : ""}</div>}
                   {completedCount > 0 && <div className="jec-gratitude">✅ {completedCount} task{completedCount !== 1 ? "s" : ""} completed</div>}
                 </div>
                 <div className="jec-arrow">›</div>
@@ -3309,17 +3563,18 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
           <div className="journal-empty">
             <div className="journal-empty-icon">📔</div>
             <div className="journal-empty-title">No entries yet</div>
-            <div className="journal-empty-sub">Tap "+ Today's entry" to start your journal</div>
-            <button className="tf-save" style={{marginTop:16}} onClick={() => setEditing(new Date(TODAY))}>Start journaling 🌸</button>
+            <div className="journal-empty-sub">Tap "+ Add Memory" to create your first page</div>
+            <button className="tf-save" style={{marginTop:16}} onClick={() => setEditing(new Date(TODAY))}>Create memory 🌸</button>
           </div>
         )}
       </div>
 
       {/* View entry modal */}
       {viewingKey && journal[viewingKey] && (() => {
-        const entry = journal[viewingKey];
+        const entry = normalizeMemoryEntry(journal[viewingKey]);
         const d = new Date(viewingKey);
         const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
+        const cover = memoryEntryCover(entry);
         const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
         const completedTasks = completedTasksForDateKey(tasks, viewingKey);
         const dayScore = dailyGameSummary(tasks, journal, events, viewingKey);
@@ -3332,14 +3587,19 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                   {moodObj && <div className="entry-view-mood" style={{color:moodObj.color}}>{moodObj.emoji} {moodObj.label}</div>}
                 </div>
                 <div style={{display:"flex",gap:8}}>
-                  <button className="tf-cancel" style={{fontSize:11}} onClick={() => { setEditing(d); setViewingKey(null); }}>Edit</button>
+                  <button className="tf-cancel" style={{fontSize:11}} onClick={() => { setEditing(d); setViewingKey(null); }}>Edit Memory</button>
                   <button className="modal-close" onClick={() => setViewingKey(null)}>✕</button>
                 </div>
               </div>
               <div className="entry-view-body">
+                {cover && <div className="memory-cover-hero"><img src={cover.src} alt={cover.caption || "Memory cover"}/>{cover.caption && <div>{cover.caption}</div>}</div>}
+                {entry.tags.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Memory Tags</div><div className="memory-tag-row">{entry.tags.map(t => <span key={t} className="memory-tag-chip selected">#{t}</span>)}</div></div>}
+                {entry.photos.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Photos</div><div className="memory-photo-view-grid">{entry.photos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={p.src} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div></div>}
                 {acts.length>0 && <div className="entry-view-section"><div className="entry-section-title">Activities</div><div className="activity-chips">{acts.map(a=><span key={a.id} className="activity-chip selected">{a.emoji} {a.label}</span>)}</div></div>}
+                {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
+                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={p.src} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -5076,6 +5336,82 @@ function appCSS(cvars, fontScale) { return `
   .completed-task-title{font-size:13px;font-weight:800;color:var(--text);line-height:1.25;}
   .completed-task-meta{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
 
+  /* Memory Book scrapbook layer */
+  .memory-entry-modal{width:720px;max-width:calc(100vw - 32px);}
+  .memory-book-section{padding:16px 20px;background:linear-gradient(135deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--border);}
+  .memory-book-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+  .memory-book-actions{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+  .memory-book-title{font-size:15px;font-weight:900;color:var(--text);}
+  .memory-book-sub{font-size:11px;color:var(--text3);font-family:var(--mono);font-weight:700;margin-top:2px;}
+  .memory-filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .memory-tag-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .memory-tag-chip{border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:5px 10px;font-size:11px;font-family:var(--font);font-weight:800;cursor:pointer;transition:all .15s;}
+  .memory-tag-chip:hover{border-color:var(--accent3);color:var(--accent);}
+  .memory-tag-chip.selected{background:var(--bg4);border-color:var(--accent);color:var(--accent);}
+  .memory-page-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;}
+  .memory-page-card{position:relative;min-height:86px;border:1.5px solid var(--border);background:var(--bg2);border-radius:16px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(var(--accent-rgb),.06);transition:all .16s;font-family:var(--font);}
+  .memory-page-card:hover:not(.future){transform:translateY(-2px);border-color:var(--accent3);box-shadow:var(--shadow);}
+  .memory-page-card.future{opacity:.35;cursor:default;}
+  .memory-page-card.has-memory{background:linear-gradient(135deg,var(--bg4),var(--bg2));}
+  .memory-page-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .memory-page-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.34));opacity:0;}
+  .memory-page-cover + .memory-page-shade{opacity:1;}
+  .memory-page-date{position:absolute;top:7px;left:8px;z-index:2;font-size:10px;font-family:var(--mono);font-weight:900;color:var(--text3);background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.65);border-radius:999px;padding:2px 6px;}
+  .dark .memory-page-date{background:rgba(35,19,41,.78);}
+  .memory-page-main{position:absolute;left:8px;right:8px;top:31px;z-index:2;display:flex;align-items:center;justify-content:center;gap:5px;font-size:20px;font-weight:900;color:var(--text);}
+  .memory-page-cover ~ .memory-page-main,.memory-page-cover ~ .memory-page-meta{color:white;text-shadow:0 1px 4px rgba(0,0,0,.34);}
+  .memory-page-main strong{font-size:10px;font-family:var(--mono);background:rgba(255,255,255,.76);color:var(--accent);border-radius:999px;padding:2px 6px;text-shadow:none;}
+  .memory-page-meta{position:absolute;left:8px;right:8px;bottom:7px;z-index:2;font-size:9px;font-family:var(--mono);font-weight:900;color:var(--text3);text-align:center;}
+  .jec-cover{width:38px;height:38px;border-radius:12px;object-fit:cover;border:1.5px solid var(--border);box-shadow:0 4px 12px rgba(var(--accent-rgb),.12);}
+  .jec-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;}
+  .jec-tags span{font-size:10px;font-family:var(--mono);font-weight:800;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:2px 6px;}
+  .memory-upload-box{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--accent3);background:var(--bg3);border-radius:16px;padding:14px 12px;font-size:13px;font-weight:900;color:var(--accent);cursor:pointer;transition:all .15s;}
+  .memory-upload-box:hover{background:var(--bg4);transform:translateY(-1px);}
+  .memory-upload-box input{display:none;}
+  .memory-upload-icon{font-size:20px;}
+  .memory-photo-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;}
+  .memory-photo-editor-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:16px;padding:8px;overflow:hidden;}
+  .memory-photo-editor-card.cover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);}
+  .memory-photo-editor-card img{width:100%;height:145px;object-fit:cover;border-radius:12px;display:block;background:var(--bg4);}
+  .memory-photo-tools{display:flex;gap:6px;margin:7px 0;}
+  .memory-photo-tools button,.scrapbook-add-row button,.scrapbook-block-tools button,.sticker-picker-row button,.photo-grid-select-row button{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:10px;padding:5px 8px;font-size:10px;font-family:var(--font);font-weight:800;cursor:pointer;}
+  .memory-photo-tools button:hover,.scrapbook-add-row button:hover,.scrapbook-block-tools button:hover{border-color:var(--accent3);color:var(--accent);}
+  .memory-caption-input{margin-bottom:0;font-size:11px;padding:7px 9px;}
+  .memory-cover-hero{position:relative;margin:0;border-bottom:1px solid var(--border);background:var(--bg3);}
+  .memory-cover-hero img{width:100%;max-height:260px;object-fit:cover;display:block;}
+  .memory-cover-hero div{position:absolute;left:14px;right:14px;bottom:12px;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.65);border-radius:14px;padding:8px 10px;font-size:12px;font-weight:800;color:var(--text);backdrop-filter:blur(8px);}
+  .dark .memory-cover-hero div{background:rgba(35,19,41,.78);}
+  .memory-photo-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+  .memory-photo-view-card{margin:0;background:var(--bg3);border:1.5px solid var(--border);border-radius:16px;padding:7px;}
+  .memory-photo-view-card img{width:100%;height:150px;object-fit:cover;border-radius:12px;display:block;}
+  .memory-photo-view-card figcaption{font-size:11px;color:var(--text2);font-weight:800;text-align:center;margin-top:6px;line-height:1.35;}
+  .highlight-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .highlight-view-grid div{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:9px;}
+  .highlight-view-grid span{display:block;font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:900;margin-bottom:4px;}
+  .highlight-view-grid strong{font-size:12px;color:var(--text);line-height:1.4;}
+  .scrapbook-editor-section{background:linear-gradient(135deg,var(--bg2),var(--bg3));}
+  .scrapbook-add-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .scrapbook-block-editor-list{display:flex;flex-direction:column;gap:10px;}
+  .scrapbook-block-editor{border:1.5px solid var(--border);background:var(--bg2);border-radius:16px;padding:10px;}
+  .scrapbook-block-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;}
+  .scrapbook-block-tools span{font-size:10px;font-family:var(--mono);font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+  .scrapbook-block-tools div{display:flex;gap:5px;}
+  .sticker-picker-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .sticker-picker-row button{font-size:18px;padding:6px 8px;}
+  .sticker-picker-row button.selected{border-color:var(--accent);background:var(--bg4);}
+  .photo-grid-select-row{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-bottom:8px;}
+  .photo-grid-select-row button{padding:2px;border-radius:10px;opacity:.45;}
+  .photo-grid-select-row button.selected{opacity:1;border-color:var(--accent);background:var(--bg4);}
+  .photo-grid-select-row img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block;}
+  .scrapbook-empty-note{font-size:12px;color:var(--text3);font-weight:700;text-align:center;border:1.5px dashed var(--border);border-radius:14px;padding:13px;background:var(--bg3);}
+  .scrapbook-view-list{display:flex;flex-direction:column;gap:10px;}
+  .scrapbook-view-block{background:var(--bg3);border:1.5px solid var(--border);border-radius:16px;padding:12px;}
+  .scrapbook-view-block blockquote{margin:0;font-size:15px;line-height:1.55;color:var(--text);font-weight:800;font-style:italic;border-left:3px solid var(--accent);padding-left:12px;}
+  .scrapbook-sticker-view{text-align:center;font-size:42px;line-height:1.1;filter:drop-shadow(0 5px 12px rgba(var(--accent-rgb),.18));}
+  .scrapbook-divider-preview{text-align:center;font-size:14px;color:var(--accent);font-family:var(--mono);font-weight:900;letter-spacing:6px;padding:6px 0;}
+  .scrapbook-photo-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .scrapbook-grid-caption{text-align:center;font-size:12px;font-weight:800;color:var(--text2);margin-top:8px;}
+
   .bloom-room-page{height:100%;overflow:auto;padding:20px;background:var(--bg);}
   .bloom-room-page .game-dashboard{padding:0;}
   .bloom-room-subtitle{font-size:12px;font-weight:700;color:var(--text3);margin-top:4px;}
@@ -5362,6 +5698,41 @@ function appCSS(cvars, fontScale) { return `
     .calendar-pane.view-month .month-event-name{width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .calendar-pane.view-month .month-more{text-align:center;font-size:9px;padding:1px 0;color:var(--text3);}
     .calendar-pane.view-month + .task-panel{display:none!important;}
+  }
+
+  @media(max-width:768px){
+    .journal-page{padding-bottom:70px;}
+    .journal-header{padding:12px 12px 10px;gap:8px;position:sticky;top:0;z-index:12;background:rgba(255,255,255,.84);backdrop-filter:blur(14px);}
+    .dark .journal-header{background:rgba(35,19,41,.84);}
+    .journal-title{font-size:16px;}
+    .journal-streak{font-size:10px;padding:4px 7px;}
+    .journal-today-btn{font-size:10.5px;padding:6px 9px;}
+    .mood-stats-bar{padding:8px 12px;}
+    .memory-book-section,.journal-cal-section,.journal-entries-section{padding:12px;}
+    .memory-book-head{align-items:flex-start;}
+    .memory-book-actions{gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+    .memory-book-title{font-size:14px;}
+    .memory-book-sub{font-size:10px;}
+    .memory-filter-row{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px;}
+    .memory-tag-chip{font-size:10px;padding:4px 8px;white-space:nowrap;}
+    .memory-page-grid{gap:4px;}
+    .memory-page-card{min-height:68px;border-radius:12px;}
+    .memory-page-date{top:5px;left:5px;font-size:8px;padding:1px 5px;}
+    .memory-page-main{top:26px;font-size:16px;}
+    .memory-page-main strong{font-size:8px;padding:1px 5px;}
+    .memory-page-meta{font-size:7.5px;bottom:5px;}
+    .journal-cal-section{display:none;}
+    .journal-entry-card{padding:11px;border-radius:14px;gap:9px;}
+    .jec-left{width:34px;}
+    .jec-cover{width:34px;height:34px;border-radius:10px;}
+    .entry-modal.memory-entry-modal{width:calc(100vw - 20px)!important;max-height:calc(100dvh - 84px)!important;}
+    .memory-photo-editor-grid,.memory-photo-view-grid,.highlight-view-grid{grid-template-columns:1fr;}
+    .memory-photo-editor-card img,.memory-photo-view-card img{height:170px;}
+    .photo-grid-select-row{grid-template-columns:repeat(4,1fr);}
+    .scrapbook-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .scrapbook-block-tools{align-items:flex-start;flex-direction:column;}
+    .scrapbook-block-tools div{flex-wrap:wrap;}
+    .memory-cover-hero img{max-height:220px;}
   }
 
 `; }
