@@ -2213,7 +2213,7 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
 
   return (
     <div className="day-view" ref={scrollRef}>
-      <div className="drag-hint">⠿ Drag events to reschedule · Click empty slot to add event · Drag tasks from panel</div>
+      <div className="drag-hint">⠿ Drag events to reschedule · Click empty slot to add/paste event · Drag tasks from panel</div>
       {allDayEvents.length > 0 && (
         <div className="all-day-strip">
           <span className="all-day-label">All-day</span>
@@ -2903,7 +2903,7 @@ function RecurrenceEditor({ value, onChange, startDate }) {
   );
 }
 
-function EventModal({ event, calendars, categories, onClose, onSave, onDelete }) {
+function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy }) {
   const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay) });
   const cal = calendars.find(c => c.id === form.calendar);
   const COLORS = ["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
@@ -2956,7 +2956,7 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete })
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
         </div>
-        <div className="modal-footer"><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
+        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
       </div>
     </div>
   );
@@ -4278,6 +4278,7 @@ export default function App() {
   const [theme,     setThRaw]       = useState(() => load(`${uk}_th`, "tempo"));
   const [undoStack, setUndo]        = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [copiedEvent, setCopiedEvent] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [mobileTasksOpen, setMobileTasksOpen] = useState(false);
   const [categories, setCatRaw] = useState(() => normalizeCategories(load(`${uk}_categories`, CATEGORIES)));
@@ -4718,6 +4719,68 @@ export default function App() {
   }
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, withTaskPeriod(task, taskPeriodDate)]); }
   function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
+
+  function copyEventForPaste(ev) {
+    if (!ev) return;
+    const clean = stripOccurrenceMeta(ev);
+    const sourceStart = clean.start instanceof Date ? clean.start : new Date(clean.start);
+    const sourceEnd = clean.end instanceof Date ? clean.end : new Date(clean.end);
+    const durationMs = Math.max(15 * 60000, sourceEnd - sourceStart);
+    setCopiedEvent({
+      title: clean.title || "Untitled Event",
+      calendar: clean.calendar || "work",
+      category: clean.category || "meeting",
+      fixed: Boolean(clean.fixed),
+      color: clean.color || null,
+      notes: clean.notes || "",
+      allDay: Boolean(clean.allDay),
+      durationMs,
+      sourceHour: sourceStart.getHours(),
+      sourceMinute: sourceStart.getMinutes(),
+    });
+  }
+
+  function buildPastedEvent(targetDate, { useSourceTime = false } = {}) {
+    if (!copiedEvent || !targetDate) return null;
+    let start;
+    if (copiedEvent.allDay) {
+      start = dayStart(targetDate);
+    } else {
+      start = cloneDate(targetDate);
+      if (useSourceTime) start.setHours(copiedEvent.sourceHour ?? 9, copiedEvent.sourceMinute ?? 0, 0, 0);
+    }
+    const end = new Date(start.getTime() + (copiedEvent.durationMs || 60 * 60000));
+    return {
+      id: "e" + uid(),
+      title: copiedEvent.title,
+      start,
+      end,
+      allDay: Boolean(copiedEvent.allDay),
+      calendar: copiedEvent.calendar,
+      category: copiedEvent.category,
+      fixed: Boolean(copiedEvent.fixed),
+      color: copiedEvent.color || null,
+      notes: copiedEvent.notes || "",
+      recurrence: null,
+      copiedFrom: copiedEvent.title,
+    };
+  }
+
+  function pasteCopiedEvent(targetDate, options = {}) {
+    const ev = buildPastedEvent(targetDate, options);
+    if (!ev) return false;
+    addEvent(ev);
+    return true;
+  }
+
+  function handleCalendarSlotClick(date, options = {}) {
+    if (copiedEvent) {
+      pasteCopiedEvent(date, options);
+      return;
+    }
+    setQuickAddDate(date);
+  }
+
   async function reschedule(id, ns, ne) {
     const baseId = getBaseEventId(id);
     const base = events.find(e => e.id === baseId);
@@ -5008,8 +5071,8 @@ export default function App() {
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
-              {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => setQuickAddDate(d)} />}
-              {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => setQuickAddDate(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
+              {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
+              {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const days = monthDays(viewDate);
 
@@ -5033,7 +5096,7 @@ export default function App() {
                           style={heatBg ? { background: heatBg } : {}}
                           onDragOver={ev => { if (day) ev.preventDefault(); }}
                           onDrop={ev => { ev.preventDefault(); const id = ev.dataTransfer.getData("application/tempo-event"); const baseEv = visibleEvents.find(x => x.id === id); if (day && baseEv) { const dur = baseEv.end - baseEv.start; const ns = new Date(day); ns.setHours(baseEv.start.getHours(), baseEv.start.getMinutes(), 0, 0); reschedule(baseEv.id, ns, new Date(ns.getTime() + dur)); } }}
-                          onClick={() => { if (day) { setViewDate(day); setView("day"); } }}>
+                          onClick={() => { if (!day) return; if (copiedEvent) { pasteCopiedEvent(day, { useSourceTime: true }); return; } setViewDate(day); setView("day"); }}>
                           {day && <div className="month-day-num">{isT ? <span className="today-circle">{day.getDate()}</span> : day.getDate()}</div>}
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
@@ -5065,11 +5128,18 @@ export default function App() {
 
       {pomodoro.state.active && <PomodoroWidget state={pomodoro.state} tasks={tasks} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} />}
       {undoStack.length > 0 && <button className="undo-btn" onClick={undo}>↩ Undo <kbd>⌘Z</kbd></button>}
+      {copiedEvent && (
+        <div className="event-copy-bar">
+          <span className="event-copy-icon">📋</span>
+          <span className="event-copy-text">Copied: <strong>{copiedEvent.title}</strong>. Click any calendar slot to paste.</span>
+          <button className="event-copy-clear" onClick={() => setCopiedEvent(null)}>Clear</button>
+        </div>
+      )}
 
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {showAddEvent  && <AddEventModal onClose={() => setShowAddEvent(false)} onSave={addEvent} defaultDate={viewDate} calendars={CALENDARS} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={saveTask} onDelete={deleteTask} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
@@ -5598,7 +5668,13 @@ function appCSS(cvars, fontScale) { return `
   .search-empty{padding:24px 20px;text-align:center;color:var(--text3);font-size:13px;}
   .search-hint{padding:20px;text-align:center;color:var(--text3);font-size:12px;font-family:var(--mono);}
 
-  .undo-btn{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:#4A2840;color:white;border:none;border-radius:20px;padding:8px 20px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(74,40,64,.3);z-index:99;display:flex;align-items:center;gap:8px;animation:slideUp .2s ease;white-space:nowrap;}
+  
+  .event-copy-bar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 32px));padding:10px 12px;background:rgba(255,255,255,.94);border:1.5px solid var(--border);border-radius:18px;box-shadow:0 14px 40px rgba(255,123,172,.22);backdrop-filter:blur(16px);color:var(--text);font-size:13px;font-weight:700;}
+  .event-copy-icon{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--accent-rgb),.12);}
+  .event-copy-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .event-copy-clear{border:none;background:var(--bg3);color:var(--text2);border-radius:12px;padding:6px 10px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:900;cursor:pointer;}
+  .event-copy-clear:hover{background:var(--bg4);color:var(--text);}
+.undo-btn{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:#4A2840;color:white;border:none;border-radius:20px;padding:8px 20px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(74,40,64,.3);z-index:99;display:flex;align-items:center;gap:8px;animation:slideUp .2s ease;white-space:nowrap;}
   .undo-btn:hover{background:#6A3860;transform:translateX(-50%) scale(1.03);}
   .undo-btn kbd{background:rgba(255,255,255,.15);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:10px;}
   .templates-panel{background:var(--bg2);border-radius:20px;border:1.5px solid var(--border);padding:20px;width:340px;max-width:calc(100vw - 32px);box-shadow:0 24px 64px rgba(255,123,172,.18);animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
@@ -6181,4 +6257,9 @@ function appCSS(cvars, fontScale) { return `
     .journal-header-actions{gap:6px;}
   }
 
+
+  @media(max-width:768px){
+    .event-copy-bar{bottom:78px;left:10px;right:10px;transform:none;max-width:none;border-radius:16px;font-size:12px;padding:9px 10px;}
+    .event-copy-text{white-space:normal;line-height:1.25;}
+  }
 `; }
