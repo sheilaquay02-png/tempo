@@ -217,6 +217,19 @@ const formatTaskDuration = mins => {
   if (unit === "hours") return `${amount}h`;
   return `${amount}min`;
 };
+const taskCompletedDateKey = task => {
+  if (!task?.done) return null;
+  if (task.completedDate) return task.completedDate;
+  const completedAt = task.completedAt || task.doneAt || task.completed_at;
+  if (completedAt) {
+    const d = new Date(completedAt);
+    return Number.isNaN(d.getTime()) ? null : dateKey(d);
+  }
+  if (task.scheduled) return task.scheduled;
+  if (task.deadline) return task.deadline;
+  return null;
+};
+const completedTasksForDateKey = (tasks, key) => tasks.filter(t => taskCompletedDateKey(t) === key);
 const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
 const isRecurringEvent = ev => Boolean(normalizeRecurrence(ev?.recurrence));
 
@@ -634,7 +647,7 @@ function processMessage(input, events, tasks, pending) {
       if      (pending.type === "add_event")     { newEv = [...events, pending.event]; text = `Done! 🎉 Added "${pending.event.title}" on ${fmtDay(pending.event.start)} at ${fmt(pending.event.start)}.`; }
       else if (pending.type === "add_task")      { newTk = [...tasks, pending.task];   text = `Added! ✅ "${pending.task.title}" is in your ${pending.task.scope} list.`; }
       else if (pending.type === "delete_event")  { newEv = events.filter(e => e.id !== pending.eventId); text = `Removed "${pending.title}" 🗑️`; }
-      else if (pending.type === "complete_task") { newTk = tasks.map(t => t.id === pending.taskId ? { ...t, done: true } : t); text = `Done! "${pending.title}" marked complete ✅`; }
+      else if (pending.type === "complete_task") { newTk = tasks.map(t => t.id === pending.taskId ? { ...t, done: true, completedAt: new Date().toISOString() } : t); text = `Done! "${pending.title}" marked complete ✅`; }
       else if (pending.type === "reschedule")    { newEv = events.map(e => e.id === pending.eventId ? { ...e, start: pending.newStart, end: pending.newEnd } : e); text = `Rescheduled! "${pending.title}" → ${fmt(pending.newStart)}.`; }
       else if (pending.type === "clear_day")     { newEv = events.filter(e => !sameDay(e.start, pending.date) || e.fixed); text = `Cleared ${fmtDay(pending.date)}.`; }
       else if (pending.type === "clear_window")  { newEv = events.filter(e => !pending.eventIds.includes(e.id)); text = `Cleared ${pending.label} on ${fmtDay(pending.date)}.`; }
@@ -1824,7 +1837,14 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   const [durationDraft, setDurationDraft] = useState(initial);
   function saveTask() {
     if (!form.title.trim()) return;
-    onSave({ ...form, title: form.title.trim(), duration: taskDurationToMinutes(durationDraft.amount, durationDraft.unit) });
+    const becameDone = Boolean(form.done) && !Boolean(task.done);
+    const stayedDone = Boolean(form.done) && Boolean(task.done);
+    onSave({
+      ...form,
+      title: form.title.trim(),
+      duration: taskDurationToMinutes(durationDraft.amount, durationDraft.unit),
+      completedAt: Boolean(form.done) ? (becameDone ? new Date().toISOString() : (stayedDone ? (task.completedAt || new Date().toISOString()) : new Date().toISOString())) : null,
+    });
     onClose();
   }
   return (
@@ -2410,6 +2430,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
             const d = new Date(key);
             const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
             const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
+            const completedCount = completedTasksForDateKey(tasks, key).length;
             return (
               <div key={key} className="journal-entry-card" onClick={() => setViewingKey(key)}>
                 <div className="jec-left">
@@ -2421,6 +2442,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                   {acts.length>0 && <div className="jec-acts">{acts.slice(0,5).map(a=><span key={a.id}>{a.emoji}</span>)}</div>}
                   {entry.note && <div className="jec-note">{entry.note.slice(0,80)}{entry.note.length>80?"…":""}</div>}
                   {entry.gratitude?.some(g=>g) && <div className="jec-gratitude">🌸 {entry.gratitude.filter(g=>g)[0]}</div>}
+                  {completedCount > 0 && <div className="jec-gratitude">✅ {completedCount} task{completedCount !== 1 ? "s" : ""} completed</div>}
                 </div>
                 <div className="jec-arrow">›</div>
               </div>
@@ -2442,6 +2464,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         const d = new Date(viewingKey);
         const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
         const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
+        const completedTasks = completedTasksForDateKey(tasks, viewingKey);
         return (
           <div className="modal-overlay" onClick={() => setViewingKey(null)} role="dialog" aria-modal="true" aria-label="View journal entry">
             <div className="entry-view-modal" onClick={e=>e.stopPropagation()}>
@@ -2455,9 +2478,27 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                   <button className="modal-close" onClick={() => setViewingKey(null)}>✕</button>
                 </div>
               </div>
-              {acts.length>0 && <div className="entry-view-section"><div className="entry-section-title">Activities</div><div className="activity-chips">{acts.map(a=><span key={a.id} className="activity-chip selected">{a.emoji} {a.label}</span>)}</div></div>}
-              {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
-              {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
+              <div className="entry-view-body">
+                {acts.length>0 && <div className="entry-view-section"><div className="entry-section-title">Activities</div><div className="activity-chips">{acts.map(a=><span key={a.id} className="activity-chip selected">{a.emoji} {a.label}</span>)}</div></div>}
+                {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
+                {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
+                {completedTasks.length > 0 && (
+                  <div className="entry-view-section completed-tasks-section">
+                    <div className="entry-section-title">Completed Tasks ✅</div>
+                    <div className="completed-task-list">
+                      {completedTasks.map(t => (
+                        <div key={t.id} className="completed-task-item">
+                          <span className="completed-task-check">✓</span>
+                          <div className="completed-task-body">
+                            <div className="completed-task-title">{t.title}</div>
+                            <div className="completed-task-meta">{formatTaskDuration(t.duration)}{t.priority ? ` • ${PRIORITIES.find(p=>p.id===t.priority)?.label || t.priority}` : ""}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -3099,7 +3140,8 @@ export default function App() {
       const task = ts.find(t => t.id === id);
       if (!task) return ts;
       const nextDone = !task.done;
-      let updated = ts.map(t => t.id === id ? { ...t, done: nextDone } : t);
+      const completedAt = new Date().toISOString();
+      let updated = ts.map(t => t.id === id ? { ...t, done: nextDone, completedAt: nextDone ? completedAt : null } : t);
       if (nextDone) {
         const nextRecurring = createNextRecurringTask(task, ts);
         if (nextRecurring) updated = [...updated, nextRecurring];
@@ -3206,7 +3248,7 @@ export default function App() {
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
   function deleteTemplate(id) { setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
-  function handleCarryOver(ids) { setTasks(ts => ts.map(t => ids.includes(t.id) ? { ...t, scope: "day", done: false } : t)); setShowCarryOver(false); }
+  function handleCarryOver(ids) { setTasks(ts => ts.map(t => ids.includes(t.id) ? { ...t, scope: "day", done: false, completedAt: null } : t)); setShowCarryOver(false); }
   function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
 
   // Keyboard shortcuts
@@ -4072,6 +4114,9 @@ function appCSS(cvars, fontScale) { return `
   /* Entry modal */
   .entry-modal{width:500px;max-width:calc(100vw - 32px);max-height:88vh;background:var(--bg2);border-radius:24px;border:1.5px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
   .entry-view-modal{width:480px;max-width:calc(100vw - 32px);max-height:88vh;background:var(--bg2);border-radius:24px;border:1.5px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
+  .entry-view-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+  .entry-view-body::-webkit-scrollbar{width:3px;}
+  .entry-view-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
   .entry-modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg3),var(--bg2));flex-shrink:0;}
   .entry-modal-date{font-size:16px;font-weight:800;color:var(--text);}
   .entry-modal-sub{font-size:12px;color:var(--text3);font-weight:600;margin-top:2px;}
@@ -4107,6 +4152,13 @@ function appCSS(cvars, fontScale) { return `
   .journal-textarea{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:10px 14px;font-family:var(--font);font-size:13px;color:var(--text);font-weight:600;outline:none;resize:none;line-height:1.6;}
   .journal-textarea:focus{border-color:var(--accent3);}
   .entry-view-note{font-size:13px;color:var(--text);line-height:1.7;font-weight:600;white-space:pre-wrap;}
+  .completed-tasks-section{background:linear-gradient(135deg,var(--bg2),var(--bg3));}
+  .completed-task-list{display:flex;flex-direction:column;gap:8px;}
+  .completed-task-item{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:14px;padding:9px 11px;}
+  .completed-task-check{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:12px;font-weight:900;box-shadow:0 4px 10px rgba(var(--accent-rgb),.18);}
+  .completed-task-body{min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .completed-task-title{font-size:13px;font-weight:800;color:var(--text);line-height:1.25;}
+  .completed-task-meta{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
   /* ── Feature wiring additions (keeps existing aesthetic) ─────────────────── */
   .all-day-strip{display:flex;align-items:flex-start;gap:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;padding:8px 10px;margin-bottom:8px;}
   .all-day-label,.all-day-mini-label{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;}
