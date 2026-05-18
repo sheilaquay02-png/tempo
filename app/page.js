@@ -236,14 +236,24 @@ const monthKey = d => {
 const taskScopeOf = task => task?.scope || "day";
 const taskAnchorDate = (task, fallbackDate = TODAY) => {
   const scope = taskScopeOf(task);
+
+  // Strict task periods must always be anchored to the assigned period first.
+  // Do not let deadline/completedDate shift a weekly/monthly recurring task.
   if (scope === "month") {
     const m = localDateFromMonthKey(task?.monthKey || task?.month || null);
     if (m) return m;
+    return new Date(fallbackDate.getFullYear(), fallbackDate.getMonth(), 1, 0, 0, 0, 0);
   }
+
+  if (scope === "week") {
+    const wk = localDateFromKey(task?.weekKey || null);
+    if (wk) return weekStart(wk);
+    return weekStart(fallbackDate);
+  }
+
   const raw = task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline || task?.completedDate || null;
   const parsed = localDateFromKey(raw);
   if (parsed) return parsed;
-  if (scope === "week" && task?.weekKey) return localDateFromKey(task.weekKey) || weekStart(fallbackDate);
   return dayStart(fallbackDate);
 };
 const taskDayKey = (task, fallbackDate = TODAY) => dateKey(taskAnchorDate(task, fallbackDate));
@@ -297,6 +307,75 @@ const taskCompletedDateKey = task => {
     return Number.isNaN(d.getTime()) ? null : dateKey(d);
   }
   return null;
+};
+const taskSeriesId = task => task?.parentTaskId || task?.seriesId || task?.id;
+const taskPeriodIdentity = task => {
+  const scope = taskScopeOf(task);
+  if (scope === "week") return `week:${taskWeekKey(task)}`;
+  if (scope === "month") return `month:${taskMonthKey(task)}`;
+  return `day:${taskDayKey(task)}`;
+};
+const taskSkippedPeriods = task => new Set([...(task?.skippedTaskPeriods || []), ...(task?.recurrenceSkippedPeriods || [])]);
+const taskSamePeriod = (a, b) => taskScopeOf(a) === taskScopeOf(b) && taskPeriodIdentity(a) === taskPeriodIdentity(b);
+const taskExistsForPeriod = (tasks, root, probe) => {
+  const rootSeries = taskSeriesId(root);
+  return tasks.some(t => taskSeriesId(t) === rootSeries && taskSamePeriod(t, probe));
+};
+function makeRecurringTaskOccurrence(root, occurrenceDate, index) {
+  const scope = taskScopeOf(root);
+  const periodPatch = taskPeriodPatchForScope(scope, occurrenceDate);
+  const probe = { ...root, ...periodPatch };
+  const identity = taskPeriodIdentity(probe).replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  const dueDate = root.deadline ? recurrenceDateKey(occurrenceDate) : root.deadline;
+  return {
+    ...root,
+    ...periodPatch,
+    id: `t${uid()}_${identity}`,
+    done: false,
+    completedAt: null,
+    completedDate: null,
+    deadline: dueDate,
+    parentTaskId: taskSeriesId(root),
+    recurrenceIndex: index,
+    generatedFromRecurrence: true,
+  };
+}
+function taskOccurrenceFallsInPeriod(scope, occurrenceDate, anchorDate) {
+  if (scope === "week") return dateKey(weekStart(occurrenceDate)) === dateKey(weekStart(anchorDate));
+  if (scope === "month") return monthKey(occurrenceDate) === monthKey(anchorDate);
+  return dateKey(occurrenceDate) === dateKey(anchorDate);
+}
+function ensureRecurringTasksForPeriod(tasks, scope, anchorDate = TODAY) {
+  if (!Array.isArray(tasks) || !tasks.length) return tasks;
+  const additions = [];
+  const roots = tasks.filter(t => normalizeRecurrence(t.recurrence) && !t.parentTaskId && taskScopeOf(t) === scope);
+
+  for (const root of roots) {
+    const rec = normalizeRecurrence(root.recurrence);
+    const start = taskAnchorDate(root, anchorDate);
+    let cursor = dayStart(start);
+    let index = 0;
+    let safety = 0;
+
+    while (cursor <= endOfDay(anchorDate) && safety++ < RECURRENCE_SAFETY_LIMIT) {
+      if (taskOccurrenceFallsInPeriod(scope, cursor, anchorDate)) {
+        const probe = { ...root, ...taskPeriodPatchForScope(scope, cursor) };
+        const identity = taskPeriodIdentity(probe);
+        if (!taskSkippedPeriods(root).has(identity) && shouldEmitOccurrence(root, cursor, rec, index) && !taskExistsForPeriod([...tasks, ...additions], root, probe)) {
+          additions.push(makeRecurringTaskOccurrence(root, cursor, index));
+        }
+        // A week/month task should only appear once in that week/month even if a
+        // daily recurrence could match multiple dates inside the same period.
+        if (scope !== "day") break;
+      }
+      const next = stepRecurringDate(cursor, rec);
+      if (!next || next <= cursor) break;
+      cursor = next;
+      index += 1;
+    }
+  }
+
+  return additions.length ? [...tasks, ...additions] : tasks;
 };
 const completedTasksForDateKey = (tasks, key) => {
   const seen = new Set();
@@ -448,34 +527,15 @@ function createFollowingSeries(baseEvent, occurrenceDate, patch = {}) {
 function createNextRecurringTask(task, allTasks) {
   const rec = normalizeRecurrence(task.recurrence);
   if (!rec) return null;
-  const currentAnchor = task.scheduled || task.taskDate || task.deadline || task.completedDate || dateKey(TODAY);
-  const currentDate = dayStart(localDateFromKey(currentAnchor) || new Date(currentAnchor));
+  const currentDate = taskAnchorDate(task, TODAY);
   const nextDate = stepRecurringDate(currentDate, rec);
   if (!nextDate) return null;
-  if (!shouldEmitOccurrence(task, nextDate, rec, Number(task.recurrenceIndex || 0) + 1)) return null;
-  const nextKey = recurrenceDateKey(nextDate);
-  const skipped = recurrenceSkippedDates(rec);
-  if (skipped.has(nextKey)) return null;
-  const periodPatch = taskPeriodPatchForScope(taskScopeOf(task), nextDate);
-  const probe = { ...task, ...periodPatch };
-  if (allTasks.some(t =>
-    t.parentTaskId === (task.parentTaskId || task.id) &&
-    taskScopeOf(t) === taskScopeOf(probe) &&
-    (taskScopeOf(t) === "week" ? taskWeekKey(t) === taskWeekKey(probe) :
-     taskScopeOf(t) === "month" ? taskMonthKey(t) === taskMonthKey(probe) :
-     taskDayKey(t) === taskDayKey(probe))
-  )) return null;
-  return {
-    ...task,
-    ...periodPatch,
-    id: "t" + uid(),
-    done: false,
-    completedAt: null,
-    completedDate: null,
-    deadline: task.deadline ? nextKey : task.deadline,
-    parentTaskId: task.parentTaskId || task.id,
-    recurrenceIndex: Number(task.recurrenceIndex || 0) + 1,
-  };
+  const nextIndex = Number(task.recurrenceIndex || 0) + 1;
+  if (!shouldEmitOccurrence(task, nextDate, rec, nextIndex)) return null;
+  const probe = { ...task, ...taskPeriodPatchForScope(taskScopeOf(task), nextDate) };
+  if (taskSkippedPeriods(task).has(taskPeriodIdentity(probe))) return null;
+  if (taskExistsForPeriod(allTasks, task, probe)) return null;
+  return makeRecurringTaskOccurrence(task, nextDate, nextIndex);
 }
 // Given the stored base events, expand recurring ones into a visible window.
 function expandRecurring(baseEvents, windowStart = addDaysSafe(TODAY, -RECURRENCE_WINDOW_DAYS), windowEnd = addDaysSafe(TODAY, RECURRENCE_WINDOW_DAYS)) {
@@ -1869,7 +1929,10 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding]       = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
-  const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
+  const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null });
+  useEffect(() => {
+    if (adding) setForm(f => ({ ...f, scope }));
+  }, [adding, scope]);
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, scope, periodDate));
   const openTasks = filtered.filter(t => !t.done);
   const urgent   = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= new Date(TODAY.getTime() + 3 * 86400000));
@@ -1877,7 +1940,7 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
     onAdd(withTaskPeriod({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null }, periodDate));
-    setForm({ title: "", duration: 30, category: "deep", scope: "day", deadline: "", priority: "medium", notes: "", recurrence: null });
+    setForm({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null });
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
   }
@@ -3105,6 +3168,11 @@ export default function App() {
 
   const setEvents   = v => { const n = reviveEvents(typeof v === "function" ? v(events) : v); setEvRaw(n); syncEvents(n, tasks); };
   const setTasks    = v => { const n = normalizeTasks(typeof v === "function" ? v(tasks)  : v); setTkRaw(n); syncTasks(n, events); };
+  useEffect(() => {
+    if (!dataReady) return;
+    const next = ensureRecurringTasksForPeriod(tasks, taskScope, taskPeriodDate);
+    if (next !== tasks) setTasks(next);
+  }, [dataReady, taskScope, taskPeriodDate, tasks.length]);
   const persistSettings = overrides => {
     const next = currentSettings(overrides);
 
@@ -3323,8 +3391,34 @@ export default function App() {
       return es.map(e => e.id === baseId ? deleteSingleOccurrence(e, new Date(occurrenceDate)) : e);
     });
   }
-  function saveTask(task) { pushUndo(); setTasks(ts => ts.map(t => t.id === task.id ? task : t)); }
-  function deleteTask(id) { pushUndo(); setTasks(ts => ts.filter(t => t.id !== id)); }
+  function saveTask(task) {
+    pushUndo();
+    setTasks(ts => {
+      const previous = ts.find(t => t.id === task.id);
+      let updated = ts.map(t => t.id === task.id ? task : t);
+      const becameDone = Boolean(task.done) && !Boolean(previous?.done);
+      if (becameDone) {
+        const nextRecurring = createNextRecurringTask(task, updated);
+        if (nextRecurring) updated = [...updated, nextRecurring];
+      }
+      return updated;
+    });
+  }
+  function deleteTask(id) {
+    pushUndo();
+    setTasks(ts => {
+      const target = ts.find(t => t.id === id);
+      if (!target) return ts;
+      if (target.parentTaskId) {
+        const identity = taskPeriodIdentity(target);
+        return ts
+          .map(t => t.id === target.parentTaskId ? { ...t, skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] } : t)
+          .filter(t => t.id !== id);
+      }
+      if (target.recurrence) return ts.filter(t => t.id !== id && t.parentTaskId !== id);
+      return ts.filter(t => t.id !== id);
+    });
+  }
 
 
   function applyTemplate(tpl) {
