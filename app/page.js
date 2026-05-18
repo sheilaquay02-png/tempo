@@ -1585,8 +1585,36 @@ function usePomodoro() {
       using (auth.uid() = user_id)
       with check (auth.uid() = user_id);
 
-  6. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel environment variables
-  7. Supabase JS loads via CDN automatically — no npm install needed
+  6. Create a private Supabase Storage bucket for Memory Book photos:
+
+    insert into storage.buckets (id, name, public)
+    values ('memory-images', 'memory-images', false)
+    on conflict (id) do nothing;
+
+    drop policy if exists "Users can upload own memory images" on storage.objects;
+    drop policy if exists "Users can view own memory images" on storage.objects;
+    drop policy if exists "Users can update own memory images" on storage.objects;
+    drop policy if exists "Users can delete own memory images" on storage.objects;
+
+    create policy "Users can upload own memory images"
+      on storage.objects for insert
+      with check (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+    create policy "Users can view own memory images"
+      on storage.objects for select
+      using (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+    create policy "Users can update own memory images"
+      on storage.objects for update
+      using (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1])
+      with check (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+    create policy "Users can delete own memory images"
+      on storage.objects for delete
+      using (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+  7. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel environment variables
+  8. Supabase JS loads via CDN automatically — no npm install needed
   ════════════════════════════
 */
 
@@ -1621,6 +1649,95 @@ async function getSupabase() {
     throw e; // callers catch this and fall back to localStorage
   }
 }
+
+
+const MEMORY_STORAGE_BUCKET = "memory-images";
+const MEMORY_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
+const MEMORY_SIGNED_URL_REFRESH_MS = 60 * 60 * 1000;
+
+function fileExtFromType(type = "") {
+  if (type.includes("png")) return "png";
+  if (type.includes("webp")) return "webp";
+  if (type.includes("gif")) return "gif";
+  return "jpg";
+}
+function dataUrlToBlob(dataUrl) {
+  const [meta, body] = String(dataUrl || "").split(",");
+  const mime = (meta.match(/data:(.*?);base64/) || [])[1] || "image/jpeg";
+  const binary = atob(body || "");
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+function resizeImageFileToBlob(file, maxSize = 1600, quality = 0.84) {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !file?.type?.startsWith?.("image/")) return resolve(file);
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(blob || file);
+        }, "image/jpeg", quality);
+      } catch {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      }
+    };
+    img.src = objectUrl;
+  });
+}
+async function signMemoryImagePath(storagePath) {
+  if (!storagePath) return { src: "", srcExpiresAt: null };
+  const sb = await getSupabase();
+  const { data, error } = await sb.storage.from(MEMORY_STORAGE_BUCKET).createSignedUrl(storagePath, MEMORY_SIGNED_URL_SECONDS);
+  if (error) throw error;
+  return {
+    src: data?.signedUrl || "",
+    srcExpiresAt: new Date(Date.now() + (MEMORY_SIGNED_URL_SECONDS * 1000)).toISOString(),
+  };
+}
+async function uploadMemoryBlobToStorage(userId, blob, originalName = "memory-photo") {
+  if (!userId) throw new Error("Please sign in before uploading Memory Book photos.");
+  const sb = await getSupabase();
+  const ext = fileExtFromType(blob?.type || "image/jpeg");
+  const safeName = String(originalName || "memory-photo").replace(/[^a-z0-9._-]+/gi, "-").slice(0, 80);
+  const storagePath = `${userId}/${dateKey(TODAY)}/${Date.now()}-${uid()}-${safeName}.${ext}`;
+  const { error } = await sb.storage.from(MEMORY_STORAGE_BUCKET).upload(storagePath, blob, {
+    cacheControl: "31536000",
+    upsert: false,
+    contentType: blob?.type || "image/jpeg",
+  });
+  if (error) throw error;
+  const signed = await signMemoryImagePath(storagePath);
+  return { storagePath, bucket: MEMORY_STORAGE_BUCKET, ...signed };
+}
+async function uploadMemoryImageToStorage(userId, file) {
+  const blob = await resizeImageFileToBlob(file);
+  return uploadMemoryBlobToStorage(userId, blob, file?.name || "memory-photo");
+}
+async function uploadMemoryDataUrlToStorage(userId, dataUrl, name = "legacy-memory-photo") {
+  const blob = dataUrlToBlob(dataUrl);
+  return uploadMemoryBlobToStorage(userId, blob, name);
+}
+const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);
+const memoryPhotoNeedsSignedUrlRefresh = photo => Boolean(
+  photo?.storagePath && (
+    !photo.src ||
+    String(photo.src).startsWith("data:") ||
+    !photo.srcExpiresAt ||
+    Number.isNaN(Date.parse(photo.srcExpiresAt)) ||
+    Date.parse(photo.srcExpiresAt) < Date.now() + MEMORY_SIGNED_URL_REFRESH_MS
+  )
+);
 
 async function saveToCloud(userId, events, tasks, settings) {
   try {
@@ -2470,7 +2587,7 @@ function StreaksCard({ gameStats }) {
   const rows = [
     ["🔥", "Productive", gameStats.streaks.productive],
     ["✅", "Tasks", gameStats.streaks.tasks],
-    ["📔", "Journal", gameStats.streaks.journal],
+    ["📔", "Memory", gameStats.streaks.journal],
     ["🔮", "Focus", gameStats.streaks.focus],
     ["🌙", "Review", gameStats.streaks.review],
     ["🗓️", "Planning", gameStats.streaks.planning],
@@ -2933,7 +3050,7 @@ function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["F","Focus mode"],["C","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["F","Focus mode"],["C","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -3110,6 +3227,37 @@ const JOURNAL_PROMPTS = [
 ];
 const MEMORY_TAGS = ["Work", "Date", "Family", "Friends", "Food", "Travel", "Fitness", "Personal", "Achievement", "Rest Day"];
 const SCRAPBOOK_STICKERS = ["🌸", "✨", "🎀", "💌", "📷", "🫶", "🐰", "☕", "🍰", "🌙", "💖", "✅", "🎯", "🥹", "🌈", "🧸"];
+
+const MEMORY_ASSET_BASE = "/memory-assets";
+const MEMORY_BACKGROUNDS = [
+  { id:"plain", label:"Plain", src:null, tone:"soft" },
+  { id:"ruled", label:"Ruled", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_ruled_paper.png`, tone:"paper" },
+  { id:"grid", label:"Grid", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_grid_paper.png`, tone:"paper" },
+  { id:"dotgrid", label:"Dot Grid", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_dot_grid_paper.png`, tone:"paper" },
+  { id:"legal", label:"Legal Pad", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_legal_pad.png`, tone:"warm" },
+  { id:"watercolor", label:"Watercolor", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_watercolor_paper.png`, tone:"soft" },
+  { id:"kraft", label:"Kraft", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_kraft_paper.png`, tone:"warm" },
+  { id:"crumpled", label:"Crumpled", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_crumpled_paper.png`, tone:"paper" },
+  { id:"parchment", label:"Parchment", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_parchment_paper.png`, tone:"warm" },
+  { id:"gingham", label:"Gingham", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_gingham.png`, tone:"cute" },
+  { id:"floral", label:"Floral", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_subtle_floral.png`, tone:"cute" },
+  { id:"gradient", label:"Gradient", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_pastel_gradient.png`, tone:"soft" },
+  { id:"checker", label:"Checker", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_retro_checkerboard.png`, tone:"cute" },
+  { id:"happy", label:"Happy Peach", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_mood_happy_peach.png`, tone:"mood" },
+  { id:"calm", label:"Calm Blue", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_mood_calm_blue.png`, tone:"mood" },
+  { id:"energy", label:"Energetic", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_mood_energetic_yellow.png`, tone:"mood" },
+  { id:"lavender", label:"Lavender", src:`${MEMORY_ASSET_BASE}/backgrounds/bg_mood_sad_lavender.png`, tone:"mood" },
+];
+const COZY_STICKER_PACK = Array.from({ length: 12 }, (_, i) => ({
+  id: `cozy-${i+1}`,
+  label: `Cozy ${i+1}`,
+  src: `${MEMORY_ASSET_BASE}/stickers/cozy/${i+1}.png`,
+}));
+const memoryBackgroundById = id => MEMORY_BACKGROUNDS.find(b => b.id === id) || MEMORY_BACKGROUNDS[0];
+const memoryBackgroundStyle = id => {
+  const bg = memoryBackgroundById(id);
+  return bg?.src ? { backgroundImage: `linear-gradient(rgba(255,255,255,.76), rgba(255,255,255,.82)), url(${bg.src})` } : {};
+};
 const normalizeMemoryEntry = entry => ({
   mood: entry?.mood || null,
   activities: Array.isArray(entry?.activities) ? entry.activities : [],
@@ -3120,38 +3268,24 @@ const normalizeMemoryEntry = entry => ({
   tags: Array.isArray(entry?.tags) ? entry.tags : [],
   highlights: { best: "", win: "", learned: "", remember: "", ...(entry?.highlights || {}) },
   blocks: Array.isArray(entry?.blocks) ? entry.blocks : (Array.isArray(entry?.scrapbookBlocks) ? entry.scrapbookBlocks : []),
+  backgroundId: entry?.backgroundId || "plain",
   updatedAt: entry?.updatedAt || null,
 });
-function resizeImageFileToDataUrl(file, maxSize = 1400, quality = 0.82) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const src = reader.result;
-      const img = new Image();
-      img.onerror = () => resolve(src);
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", quality));
-        } catch { resolve(src); }
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-async function journalPhotosFromFiles(files) {
+async function journalPhotosFromFiles(files, userId) {
   const imageFiles = Array.from(files || []).filter(f => f.type?.startsWith("image/"));
   const photos = [];
   for (const file of imageFiles) {
-    const src = await resizeImageFileToDataUrl(file);
-    photos.push({ id: "p" + uid(), src, caption: "", name: file.name || "Memory photo", createdAt: new Date().toISOString() });
+    const uploaded = await uploadMemoryImageToStorage(userId, file);
+    photos.push({
+      id: "p" + uid(),
+      src: uploaded.src,
+      srcExpiresAt: uploaded.srcExpiresAt,
+      storagePath: uploaded.storagePath,
+      bucket: uploaded.bucket,
+      caption: "",
+      name: file.name || "Memory photo",
+      createdAt: new Date().toISOString()
+    });
   }
   return photos;
 }
@@ -3161,7 +3295,7 @@ const memoryEntryCover = entry => {
 };
 const memoryTagLabel = tag => String(tag || "").trim();
 // ─── Daily Entry Modal ────────────────────────────────────────────────────────
-function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity }) {
+function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity, userId }) {
   const normalized = normalizeMemoryEntry(entry);
   const [mood,       setMoodLocal]  = useState(normalized.mood);
   const [activities, setActivities] = useState(normalized.activities);
@@ -3172,9 +3306,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [tags,       setTags]       = useState(normalized.tags);
   const [newTag,     setNewTag]     = useState("");
   const [blocks,     setBlocks]     = useState(normalized.blocks);
+  const [backgroundId, setBackgroundId] = useState(normalized.backgroundId || "plain");
   const [highlights, setHighlights] = useState(normalized.highlights);
   const [newActivity, setNewActivity] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
   const groups = [...new Set(activitiesCatalog.map(a => a.group))];
   const availableTags = [...new Set([...MEMORY_TAGS, ...tags].map(memoryTagLabel).filter(Boolean))];
@@ -3193,13 +3329,17 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   async function handlePhotoUpload(files) {
     if (!files?.length) return;
     setUploading(true);
+    setUploadError("");
     try {
-      const next = await journalPhotosFromFiles(files);
+      const next = await journalPhotosFromFiles(files, userId);
       setPhotos(p => {
         const merged = [...p, ...next];
         if (!coverPhotoId && merged[0]) setCoverPhotoId(merged[0].id);
         return merged;
       });
+    } catch (err) {
+      console.warn("Memory photo upload failed", err);
+      setUploadError(err?.message || "Could not upload photos. Check Supabase Storage setup.");
     } finally { setUploading(false); }
   }
   function updatePhotoCaption(id, caption) {
@@ -3214,7 +3354,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     if (type === "photoGrid") {
       setBlocks(bs => [...bs, { id:"b"+uid(), type, photoIds: photos.slice(0,6).map(p=>p.id), caption:"" }]);
     } else if (type === "sticker") {
-      setBlocks(bs => [...bs, { id:"b"+uid(), type, sticker:"🌸", size:"medium" }]);
+      setBlocks(bs => [...bs, { id:"b"+uid(), type, sticker:"🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null, size:"medium" }]);
     } else if (type === "quote") {
       setBlocks(bs => [...bs, { id:"b"+uid(), type, text:"" }]);
     } else if (type === "divider") {
@@ -3243,6 +3383,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
       photos: cleanPhotos,
       coverPhotoId: coverPhotoId || cleanPhotos[0]?.id || null,
       tags: cleanTags,
+      backgroundId,
       highlights,
       blocks: cleanBlocks,
       updatedAt: new Date().toISOString()
@@ -3251,7 +3392,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   }
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Memory Book entry">
-      <div className="entry-modal memory-entry-modal" onClick={e => e.stopPropagation()}>
+      <div className={`entry-modal memory-entry-modal memory-bg-${backgroundId}`} style={memoryBackgroundStyle(backgroundId)} onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
             <div className="entry-modal-date">{date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
@@ -3281,6 +3422,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <span className="memory-upload-icon">📷</span>
             <span>{uploading ? "Adding photos…" : "+ Add photos to this memory"}</span>
           </label>
+          {uploadError && <div className="memory-upload-error">{uploadError}</div>}
           {photos.length > 0 && (
             <div className="memory-photo-editor-grid">
               {photos.map(p => (
@@ -3307,6 +3449,18 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
           <div className="tf-row" style={{marginTop:10}}>
             <input className="tf-input" placeholder="Add tag…" value={newTag} onChange={e => setNewTag(e.target.value)} />
             <button className="tf-save" onClick={() => { toggleTag(newTag); setNewTag(""); }}>Add</button>
+          </div>
+        </div>
+
+        <div className="entry-section">
+          <div className="entry-section-title">Page Background</div>
+          <div className="memory-background-picker">
+            {MEMORY_BACKGROUNDS.map(bg => (
+              <button key={bg.id} type="button" className={`memory-bg-choice ${backgroundId===bg.id?"selected":""}`} onClick={() => setBackgroundId(bg.id)}>
+                <span className="memory-bg-swatch" style={bg.src ? {backgroundImage:`url(${bg.src})`} : {}} />
+                <span>{bg.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -3376,7 +3530,12 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 </div>
                 {b.type === "text" && <textarea className="journal-textarea" rows={3} placeholder="Scrapbook note…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
                 {b.type === "quote" && <input className="gratitude-input" placeholder="Quote of the day…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
-                {b.type === "sticker" && <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={b.sticker===st?"selected":""} onClick={() => updateBlock(b.id,{sticker:st})}>{st}</button>)}</div>}
+                {b.type === "sticker" && <>
+                  <div className="sticker-asset-picker-row">
+                    {COZY_STICKER_PACK.map(st => <button key={st.id} type="button" className={b.stickerAsset===st.src?"selected":""} onClick={() => updateBlock(b.id,{stickerAsset:st.src})}><img src={st.src} alt={st.label}/></button>)}
+                  </div>
+                  <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={!b.stickerAsset && b.sticker===st?"selected":""} onClick={() => updateBlock(b.id,{sticker:st, stickerAsset:null})}>{st}</button>)}</div>
+                </>}
                 {b.type === "photoGrid" && <>
                   <div className="photo-grid-select-row">{photos.map(p => <button key={p.id} type="button" className={(b.photoIds || []).includes(p.id)?"selected":""} onClick={() => { const set = new Set(b.photoIds || []); set.has(p.id) ? set.delete(p.id) : set.add(p.id); updateBlock(b.id,{photoIds:[...set]}); }}><img src={p.src} alt="" /></button>)}</div>
                   <input className="gratitude-input memory-caption-input" placeholder="Grid caption…" value={b.caption || ""} onChange={e => updateBlock(b.id,{caption:e.target.value})} />
@@ -3399,11 +3558,12 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity }) {
+function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity, userId }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
   const [activeTag,  setActiveTag]  = useState("all"); // Memory Book tag filter
+  const [memorySearch, setMemorySearch] = useState("");
 
   function saveEntry(key, data) { setJournal(j => ({ ...j, [key]: data })); }
 
@@ -3423,11 +3583,89 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
   const monthPhotos = monthEntries.reduce((sum, [,e]) => sum + normalizeMemoryEntry(e).photos.length, 0);
   const monthPages = monthEntries.filter(([,e]) => hasJournalEntryForKey({ tmp: e }, "tmp")).length;
   const moodCounts = JOURNAL_MOODS.map(m => ({ ...m, count: monthEntries.filter(([,e]) => e.mood===m.id).length }));
+  const query = memorySearch.trim().toLowerCase();
+  const memorySearchText = (key, entry) => {
+    const mem = normalizeMemoryEntry(entry);
+    return [
+      key,
+      mem.note,
+      ...(mem.gratitude || []),
+      ...(mem.tags || []),
+      ...Object.values(mem.highlights || {}),
+      ...(mem.photos || []).flatMap(p => [p.caption || "", p.name || ""]),
+      ...(mem.blocks || []).flatMap(b => [b.text || "", b.caption || "", b.sticker || ""])
+    ].join(" ").toLowerCase();
+  };
+  const memoryMatchesFilters = (key, entry) => {
+    if (!hasJournalEntryForKey({ [key]: entry }, key)) return false;
+    const mem = normalizeMemoryEntry(entry);
+    if (activeTag !== "all" && !(mem.tags || []).includes(activeTag)) return false;
+    if (query && !memorySearchText(key, entry).includes(query)) return false;
+    return true;
+  };
+  const memoryFiltersActive = activeTag !== "all" || Boolean(query);
+  const searchableEntries = Object.entries(journal)
+    .filter(([k,e]) => memoryMatchesFilters(k, e))
+    .sort(([a],[b]) => b.localeCompare(a));
+  const throwbackKeys = [dateKey(addDaysSafe(TODAY, -7)), dateKey(addMonthsSafe(TODAY, -1)), dateKey(addDaysSafe(TODAY, -365))];
+  const throwbacks = [...new Set(throwbackKeys)].map(k => [k, journal[k]]).filter(([,e]) => e && hasJournalEntryForKey({ tmp:e }, "tmp")).slice(0,3);
   const streak = (() => {
     let s=0; const d=new Date(TODAY);
-    while(true){ if(!journal[dateKey(d)]?.mood) break; s++; d.setDate(d.getDate()-1); }
+    while(true){ if(!hasJournalEntryForKey(journal, dateKey(d))) break; s++; d.setDate(d.getDate()-1); }
     return s;
   })();
+
+
+
+  useEffect(() => {
+    if (!userId) return;
+    const work = [];
+    Object.entries(journal || {}).forEach(([key, entry]) => {
+      const mem = normalizeMemoryEntry(entry);
+      mem.photos.forEach(photo => {
+        if (memoryPhotoNeedsStorageMigration(photo) || memoryPhotoNeedsSignedUrlRefresh(photo)) {
+          work.push({ key, photo });
+        }
+      });
+    });
+    if (!work.length) return;
+    let cancelled = false;
+    (async () => {
+      const updatedPhotos = {};
+      for (const item of work) {
+        try {
+          let patch;
+          if (memoryPhotoNeedsStorageMigration(item.photo)) {
+            patch = await uploadMemoryDataUrlToStorage(userId, item.photo.src, item.photo.name || "legacy-memory-photo");
+          } else {
+            patch = await signMemoryImagePath(item.photo.storagePath);
+          }
+          updatedPhotos[`${item.key}:${item.photo.id}`] = patch;
+        } catch (err) {
+          console.warn("Could not refresh Memory Book photo", err);
+        }
+      }
+      if (cancelled || !Object.keys(updatedPhotos).length) return;
+      setJournal(prev => {
+        let changed = false;
+        const next = { ...prev };
+        Object.entries(prev || {}).forEach(([key, entry]) => {
+          const mem = normalizeMemoryEntry(entry);
+          let entryChanged = false;
+          const photos = mem.photos.map(photo => {
+            const patch = updatedPhotos[`${key}:${photo.id}`];
+            if (!patch) return photo;
+            changed = true;
+            entryChanged = true;
+            return { ...photo, ...patch };
+          });
+          if (entryChanged) next[key] = { ...entry, photos };
+        });
+        return changed ? next : prev;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [userId, journal]);
 
   // (viewEntry accessed inline below via journal[viewingKey])
 
@@ -3440,6 +3678,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
       </div>
 
+
       {/* Mood stats bar */}
       <div className="mood-stats-bar">
         {moodCounts.map(m => m.count > 0 && (
@@ -3449,6 +3688,25 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         ))}
         <span className="mood-stats-month">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</span>
       </div>
+
+      <div className="memory-search-section">
+        <input className="memory-search-input" value={memorySearch} onChange={e=>setMemorySearch(e.target.value)} placeholder="Search memories, tags, gratitude, captions…" />
+      </div>
+
+      {throwbacks.length > 0 && (
+        <div className="memory-throwback-section">
+          <div className="journal-entries-title">Then & Now Throwbacks ✨</div>
+          <div className="memory-throwback-row">
+            {throwbacks.map(([k,e]) => { const mem = normalizeMemoryEntry(e); const cover = memoryEntryCover(mem); const d = new Date(k); return (
+              <button key={k} className="memory-throwback-card" onClick={() => setViewingKey(k)}>
+                {cover ? <img src={cover.src} alt="Throwback"/> : <span>📔</span>}
+                <strong>{d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</strong>
+                <small>{mem.note ? mem.note.slice(0,42) + (mem.note.length>42?"…":"") : "A memory from before"}</small>
+              </button>
+            );})}
+          </div>
+        </div>
+      )}
 
       {/* Monthly Memory Book */}
       <div className="memory-book-section">
@@ -3473,15 +3731,15 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
             const rawEntry = journal[key];
             const entry = normalizeMemoryEntry(rawEntry);
             const hasEntry = hasJournalEntryForKey(journal, key);
-            const hiddenByTag = activeTag !== "all" && !entry.tags.includes(activeTag);
-            if (hiddenByTag) return null;
+            const matchesFilters = memoryMatchesFilters(key, rawEntry);
+            const filteredOut = memoryFiltersActive && !matchesFilters;
             const moodObj = entry.mood ? JOURNAL_MOODS.find(m=>m.id===entry.mood) : null;
             const cover = memoryEntryCover(entry);
             const completedCount = completedTasksForDateKey(tasks, key).length;
             const score = dailyGameSummary(tasks, journal, events, key);
             const isFuture = day > TODAY;
             return (
-              <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""}`} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
+              <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""} ${filteredOut ? "filtered-out" : ""} ${memoryFiltersActive && matchesFilters ? "filter-match" : ""}`} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
                 {cover && <img className="memory-page-cover" src={cover.src} alt={cover.caption || "Memory cover"} />}
                 <div className="memory-page-shade" />
                 <div className="memory-page-date">{day.getDate()}</div>
@@ -3496,42 +3754,10 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         </div>
       </div>
 
-      {/* Mood Calendar */}
-      <div className="journal-cal-section">
-        <div className="journal-cal-nav">
-          <button className="topbar-btn icon-only nav-arrow" onClick={() => { const d=new Date(calDate); d.setMonth(d.getMonth()-1); setCalDate(d); }}>‹</button>
-          <span className="journal-cal-month">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</span>
-          <button className="topbar-btn icon-only nav-arrow" onClick={() => { const d=new Date(calDate); d.setMonth(d.getMonth()+1); setCalDate(d); }}>›</button>
-        </div>
-        <div className="journal-cal-grid">
-          {["M","T","W","T","F","S","S"].map((d,i) => <div key={i} className="jcal-dow">{d}</div>)}
-          {calDays.map((day, i) => {
-            if (!day) return <div key={i} className="jcal-empty"/>;
-            const key = dateKey(day);
-            const entry = journal[key];
-            const moodObj = entry?.mood ? JOURNAL_MOODS.find(m=>m.id===entry.mood) : null;
-            const isT = day.toDateString()===TODAY.toDateString();
-            const isFuture = day > TODAY;
-            return (
-              <button key={i} className={`jcal-day ${isT?"jcal-today":""} ${isFuture?"jcal-future":""}`}
-                onClick={() => isFuture ? null : (entry ? setViewingKey(key) : setEditing(day))}>
-                {moodObj
-                  ? <span className="jcal-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>
-                  : <span className={`jcal-dot ${isT?"jcal-today-dot":""}`}/>
-                }
-                <span className="jcal-num">{day.getDate()}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Recent entries list */}
       <div className="journal-entries-section">
-        <div className="journal-entries-title">Recent Entries</div>
-        {Object.entries(journal)
-          .filter(([k,e]) => hasJournalEntryForKey({ [k]: e }, k))
-          .sort(([a],[b]) => b.localeCompare(a))
+        <div className="journal-entries-title">{memoryFiltersActive ? "Matching Memories" : "Recent Entries"}</div>
+        {searchableEntries
           .slice(0,10)
           .map(([key, entry]) => {
             const d = new Date(key);
@@ -3569,6 +3795,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         )}
       </div>
 
+
       {/* View entry modal */}
       {viewingKey && journal[viewingKey] && (() => {
         const entry = normalizeMemoryEntry(journal[viewingKey]);
@@ -3580,7 +3807,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         const dayScore = dailyGameSummary(tasks, journal, events, viewingKey);
         return (
           <div className="modal-overlay" onClick={() => setViewingKey(null)} role="dialog" aria-modal="true" aria-label="View journal entry">
-            <div className="entry-view-modal" onClick={e=>e.stopPropagation()}>
+            <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
               <div className="entry-modal-header">
                 <div>
                   <div className="entry-modal-date">{d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
@@ -3599,7 +3826,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={p.src} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
+                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && (b.stickerAsset ? <div className="scrapbook-sticker-view asset"><img src={b.stickerAsset} alt="Sticker"/></div> : <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>)}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={p.src} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -4500,7 +4727,7 @@ export default function App() {
               <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); closeSidebarOnMobile(); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
             ))}
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
-            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
+            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Memory Book</div>
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
@@ -4527,7 +4754,7 @@ export default function App() {
 
         <div className="main">
           {page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} />
+            <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} userId={auth.user?.id} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} gameStats={gameStats} />
           ) : page === "bloom" ? (
@@ -4673,7 +4900,7 @@ export default function App() {
       <div className="mobile-nav">
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>☀️<span>Day</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("week"); }}>🗓️<span>Week</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Memory</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
         <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
@@ -5253,10 +5480,6 @@ function appCSS(cvars, fontScale) { return `
   .mood-stats-month{margin-left:auto;font-size:11px;color:var(--text3);font-family:var(--mono);font-weight:600;flex-shrink:0;}
 
   /* Mood Calendar */
-  .journal-cal-section{padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--border);}
-  .journal-cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-  .journal-cal-month{font-size:14px;font-weight:800;color:var(--text);flex:1;text-align:center;}
-  .journal-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
   .jcal-dow{text-align:center;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:700;padding:4px 0;}
   .jcal-empty{aspect-ratio:1;}
   .jcal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:12px;border:none;background:var(--bg3);cursor:pointer;transition:all .15s;padding:2px;}
@@ -5352,6 +5575,8 @@ function appCSS(cvars, fontScale) { return `
   .memory-page-card{position:relative;min-height:86px;border:1.5px solid var(--border);background:var(--bg2);border-radius:16px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(var(--accent-rgb),.06);transition:all .16s;font-family:var(--font);}
   .memory-page-card:hover:not(.future){transform:translateY(-2px);border-color:var(--accent3);box-shadow:var(--shadow);}
   .memory-page-card.future{opacity:.35;cursor:default;}
+  .memory-page-card.filtered-out{opacity:.28;filter:saturate(.45);box-shadow:none;}
+  .memory-page-card.filter-match{border-color:var(--accent);box-shadow:0 8px 24px rgba(var(--accent-rgb),.12);}
   .memory-page-card.has-memory{background:linear-gradient(135deg,var(--bg4),var(--bg2));}
   .memory-page-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
   .memory-page-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.34));opacity:0;}
@@ -5368,6 +5593,7 @@ function appCSS(cvars, fontScale) { return `
   .memory-upload-box{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--accent3);background:var(--bg3);border-radius:16px;padding:14px 12px;font-size:13px;font-weight:900;color:var(--accent);cursor:pointer;transition:all .15s;}
   .memory-upload-box:hover{background:var(--bg4);transform:translateY(-1px);}
   .memory-upload-box input{display:none;}
+  .memory-upload-error{margin-top:8px;font-size:11px;font-weight:800;color:#E05D7F;background:rgba(255,123,172,.10);border:1px solid var(--border);border-radius:14px;padding:8px 10px;}
   .memory-upload-icon{font-size:20px;}
   .memory-photo-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;}
   .memory-photo-editor-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:16px;padding:8px;overflow:hidden;}
@@ -5708,7 +5934,7 @@ function appCSS(cvars, fontScale) { return `
     .journal-streak{font-size:10px;padding:4px 7px;}
     .journal-today-btn{font-size:10.5px;padding:6px 9px;}
     .mood-stats-bar{padding:8px 12px;}
-    .memory-book-section,.journal-cal-section,.journal-entries-section{padding:12px;}
+    .memory-book-section,.journal-entries-section{padding:12px;}
     .memory-book-head{align-items:flex-start;}
     .memory-book-actions{gap:5px;flex-wrap:wrap;justify-content:flex-end;}
     .memory-book-title{font-size:14px;}
@@ -5721,7 +5947,6 @@ function appCSS(cvars, fontScale) { return `
     .memory-page-main{top:26px;font-size:16px;}
     .memory-page-main strong{font-size:8px;padding:1px 5px;}
     .memory-page-meta{font-size:7.5px;bottom:5px;}
-    .journal-cal-section{display:none;}
     .journal-entry-card{padding:11px;border-radius:14px;gap:9px;}
     .jec-left{width:34px;}
     .jec-cover{width:34px;height:34px;border-radius:10px;}
@@ -5733,6 +5958,38 @@ function appCSS(cvars, fontScale) { return `
     .scrapbook-block-tools{align-items:flex-start;flex-direction:column;}
     .scrapbook-block-tools div{flex-wrap:wrap;}
     .memory-cover-hero img{max-height:220px;}
+  }
+
+
+  /* ── Memory Book Phase 4/5: backgrounds, sticker packs, lock, search, export ── */
+  .memory-entry-modal,.entry-view-modal{background-size:cover;background-position:center;background-repeat:no-repeat;}
+  .memory-bg-choice{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.6);color:var(--text2);font-family:var(--font);font-size:11px;font-weight:900;cursor:pointer;}
+  .memory-bg-choice.selected{border-color:var(--accent);background:rgba(var(--accent-rgb),.12);color:var(--accent);box-shadow:0 4px 14px rgba(var(--accent-rgb),.12);}
+  .memory-background-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+  .memory-bg-swatch{width:28px;height:28px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(135deg,var(--bg3),var(--bg4));background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.55);flex:0 0 auto;}
+  .sticker-asset-picker-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:8px 0;}
+  .sticker-asset-picker-row button{height:54px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.65);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:5px;}
+  .sticker-asset-picker-row button.selected{border-color:var(--accent);background:rgba(var(--accent-rgb),.12);box-shadow:0 6px 18px rgba(var(--accent-rgb),.14);}
+  .sticker-asset-picker-row img{max-width:100%;max-height:100%;object-fit:contain;display:block;}
+  .scrapbook-sticker-view.asset{font-size:0;display:flex;justify-content:center;}
+  .scrapbook-sticker-view.asset img{width:min(140px,45vw);height:auto;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(74,40,64,.12));}
+  .memory-search-section,.memory-throwback-section{padding:12px 16px;border-bottom:1px solid var(--border);}
+  .memory-search-input{width:100%;border:1px solid var(--border);border-radius:18px;padding:11px 14px;background:var(--bg2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;outline:none;}
+  .memory-search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);}
+  .memory-throwback-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;}
+  .memory-throwback-card{border:1px solid var(--border);border-radius:18px;background:var(--bg2);padding:10px;text-align:left;display:grid;gap:6px;color:var(--text);font-family:var(--font);cursor:pointer;box-shadow:0 8px 20px rgba(74,40,64,.06);}
+  .memory-throwback-card img{width:100%;height:74px;object-fit:cover;border-radius:14px;display:block;}
+  .memory-throwback-card span{height:74px;border-radius:14px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:28px;}
+  .memory-throwback-card strong{font-size:12px;color:var(--accent);}
+  .memory-throwback-card small{font-size:11px;color:var(--text2);line-height:1.3;}
+  @media(max-width:768px){
+    .memory-background-picker{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .sticker-asset-picker-row{grid-template-columns:repeat(4,1fr);}
+    .memory-throwback-row{grid-template-columns:1fr;}
+    .memory-throwback-card{grid-template-columns:58px 1fr;align-items:center;}
+    .memory-throwback-card img,.memory-throwback-card span{width:58px;height:58px;grid-row:span 2;}
+    .memory-search-section,.memory-throwback-section{padding:10px 12px;}
+    .journal-header-actions{gap:6px;}
   }
 
 `; }
