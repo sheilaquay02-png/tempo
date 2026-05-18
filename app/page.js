@@ -489,6 +489,117 @@ const buildBadges = (tasks, journal, events) => {
     { id: "perfect_day", icon: "🏆", name: "Perfect Day", desc: "Score 95+ in a day", unlocked: todayScore >= 95 || perfectDays >= 1 },
   ];
 };
+const skillRank = points => {
+  const level = Math.max(1, Math.floor(points / 100) + 1);
+  const pct = Math.min(100, Math.round((points % 100)));
+  return { level, pct };
+};
+const buildSkillStats = (tasks, journal, events) => {
+  const completed = tasks.filter(t => t.done);
+  const completedByCategory = id => completed.filter(t => t.category === id).length;
+  const journalCount = Object.keys(journal || {}).filter(k => hasJournalEntryForKey(journal, k)).length;
+  const focusHours = dateRangeKeys(120, 0).reduce((sum, k) => sum + focusMinsForKey(events, k), 0) / 60;
+  const recurringDone = completed.filter(t => t.recurrence || t.parentTaskId).length;
+  const highDone = completed.filter(t => t.priority === "high").length;
+  const productiveStreak = countBackwardStreak(productiveKeysFromData(tasks, journal));
+  const raw = [
+    { id: "focus", icon: "🔮", label: "Focus", desc: "Deep work and focus blocks", points: completedByCategory("deep") * 22 + Math.round(focusHours * 12) },
+    { id: "discipline", icon: "🔥", label: "Discipline", desc: "Recurring tasks and streaks", points: recurringDone * 24 + productiveStreak * 18 },
+    { id: "wellness", icon: "🌿", label: "Wellness", desc: "Health and personal reset", points: completedByCategory("health") * 26 + completedByCategory("personal") * 10 },
+    { id: "balance", icon: "⚖️", label: "Balance", desc: "Personal/admin life balance", points: completedByCategory("personal") * 18 + completedByCategory("admin") * 14 },
+    { id: "execution", icon: "🎯", label: "Execution", desc: "Priority tasks completed", points: highDone * 30 + completed.length * 6 },
+    { id: "reflection", icon: "📔", label: "Reflection", desc: "Journal consistency", points: journalCount * 28 },
+  ];
+  return raw.map(s => ({ ...s, ...skillRank(s.points) }));
+};
+const buildWeeklyRecap = (tasks, journal, events, date = TODAY) => {
+  const start = weekStart(date);
+  const keys = Array.from({ length: 7 }, (_, i) => dateKey(addDaysSafe(start, i)));
+  const summaries = keys.map(k => dailyGameSummary(tasks, journal, events, k));
+  const weekTaskKey = dateKey(start);
+  const weekTasks = tasks.filter(t =>
+    (taskScopeOf(t) === "day" && keys.includes(taskDayKey(t))) ||
+    (taskScopeOf(t) === "week" && taskWeekKey(t) === weekTaskKey)
+  );
+  const completed = weekTasks.filter(t => t.done || keys.includes(taskCompletedDateKey(t)));
+  const journalDays = keys.filter(k => hasJournalEntryForKey(journal, k)).length;
+  const focusMins = summaries.reduce((sum, d) => sum + d.focusMins, 0);
+  const avgScore = Math.round(summaries.reduce((sum, d) => sum + d.score, 0) / 7);
+  const best = summaries.reduce((a, b) => b.score > a.score ? b : a, summaries[0]);
+  const rank = avgScore >= 95 ? "S" : avgScore >= 85 ? "A" : avgScore >= 70 ? "B" : avgScore >= 50 ? "C" : "D";
+  const bestDate = localDateFromKey(best.key) || TODAY;
+  const byCat = completed.reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + 1; return acc; }, {});
+  const topCat = Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+  return {
+    label: formatTaskPeriodLabel("week", start),
+    tasksDone: completed.length,
+    tasksTotal: weekTasks.length,
+    journalDays,
+    focusHours: Math.round(focusMins / 60 * 10) / 10,
+    avgScore,
+    rank,
+    bestDayLabel: bestDate.toLocaleDateString("en-US", { weekday: "short" }),
+    bestDayScore: best.score,
+    topCategory: topCat,
+    daily: summaries,
+  };
+};
+const MASCOT_STAGES = [
+  { minLevel: 1,  emoji: "☁️", name: "Tiny Cloud",      note: "Every task gives your little cloud more sparkle." },
+  { minLevel: 3,  emoji: "🌱", name: "Sprout Cloud",    note: "Your routine is starting to grow roots." },
+  { minLevel: 6,  emoji: "🌸", name: "Bloom Cloud",     note: "You are turning small wins into a real rhythm." },
+  { minLevel: 10, emoji: "✨", name: "Glow Cloud",      note: "Your consistency is becoming visible." },
+  { minLevel: 15, emoji: "👑", name: "Crowned Cloud",   note: "You are protecting your focus like a pro." },
+  { minLevel: 25, emoji: "🪄", name: "Tempo Wizard",    note: "Your calendar magic is getting powerful." },
+  { minLevel: 40, emoji: "🏰", name: "Tempo Legend",    note: "Your productivity kingdom is fully alive." },
+];
+const buildMascotProgression = (level, streaks) => {
+  let stageIndex = 0;
+  for (let i = 0; i < MASCOT_STAGES.length; i++) if (level >= MASCOT_STAGES[i].minLevel) stageIndex = i;
+  const current = MASCOT_STAGES[stageIndex];
+  const next = MASCOT_STAGES[stageIndex + 1] || null;
+  const toNext = next ? Math.max(0, next.minLevel - level) : 0;
+  const stageStart = current.minLevel;
+  const stageEnd = next?.minLevel || Math.max(level + 1, current.minLevel + 1);
+  const stagePct = next ? Math.min(100, Math.round(((level - stageStart) / (stageEnd - stageStart)) * 100)) : 100;
+  const mood = streaks?.productive >= 7 ? "glowing" : streaks?.productive >= 3 ? "happy" : "gentle";
+  return { ...current, nextName: next?.name || "Max Stage", toNext, stagePct, mood };
+};
+const THEME_UNLOCK_RULES = {
+  "tempo":      { unlocked: () => true, label: "Starter theme" },
+  "pink-white": { unlocked: () => true, label: "Starter theme" },
+  "ocean":      { unlocked: m => m.focusHours >= 3 || m.level >= 5, label: "Unlock: 3h focus or Level 5" },
+  "sunset":     { unlocked: m => m.productiveStreak >= 3 || m.level >= 8, label: "Unlock: 3-day streak or Level 8" },
+  "forest":     { unlocked: m => m.wellnessTasks >= 5 || m.level >= 10, label: "Unlock: 5 wellness tasks or Level 10" },
+  "mono":       { unlocked: m => m.unlockedBadges >= 4 || m.level >= 12, label: "Unlock: 4 badges or Level 12" },
+};
+const buildThemeUnlocksForStats = metrics => THEMES.map(t => {
+  const rule = THEME_UNLOCK_RULES[t.id] || { unlocked: () => true, label: "Unlocked" };
+  const unlocked = Boolean(rule.unlocked(metrics));
+  return { id: t.id, label: t.label, unlocked, reason: unlocked ? "Unlocked" : rule.label };
+});
+const buildMonthlyLifeGarden = (tasks, journal, events, date = TODAY) => {
+  const year = date.getFullYear(), month = date.getMonth();
+  const days = monthDays(date);
+  const todayKey = dateKey(TODAY);
+  const cells = days.map(day => {
+    if (!day) return null;
+    const key = dateKey(day);
+    const summary = dailyGameSummary(tasks, journal, events, key);
+    const future = key > todayKey;
+    let bloom = "·", className = "empty";
+    if (future) { bloom = "·"; className = "future"; }
+    else if (summary.score >= 95) { bloom = "🌟"; className = "gold"; }
+    else if (summary.score >= 85) { bloom = "🌺"; className = "big"; }
+    else if (summary.score >= 70) { bloom = "🌸"; className = "bloom"; }
+    else if (summary.score >= 50) { bloom = "🌷"; className = "bud"; }
+    else if (summary.completed.length || summary.journalDone || summary.focusMins > 0) { bloom = "🌱"; className = "sprout"; }
+    return { key, day: day.getDate(), bloom, className, score: summary.score, rank: summary.rank, completed: summary.completed.length, journalDone: summary.journalDone };
+  });
+  const activeDays = cells.filter(Boolean).filter(c => !["empty","future"].includes(c.className)).length;
+  const goldenDays = cells.filter(Boolean).filter(c => c.className === "gold").length;
+  return { label: new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }), cells, activeDays, goldenDays };
+};
 const calculateGameStats = (tasks, journal, events) => {
   const completed = tasks.filter(t => t.done);
   const taskXP = completed.reduce((sum, t) => sum + taskXPValue(t), 0);
@@ -504,6 +615,20 @@ const calculateGameStats = (tasks, journal, events) => {
   const productiveStreak = countBackwardStreak(productiveKeysFromData(tasks, journal));
   const journalKeySet = new Set(Object.keys(journal || {}).filter(k => hasJournalEntryForKey(journal, k)));
   const taskKeySet = new Set(completed.map(t => taskCompletedDateKey(t) || (taskScopeOf(t) === "day" ? taskDayKey(t) : null)).filter(Boolean));
+  const skills = buildSkillStats(tasks, journal, events);
+  const focusHours = Math.round(dateRangeKeys(120, 0).reduce((sum, k) => sum + focusMinsForKey(events, k), 0) / 60 * 10) / 10;
+  const metrics = {
+    level,
+    productiveStreak,
+    focusHours,
+    wellnessTasks: completed.filter(t => t.category === "health" || t.category === "personal").length,
+    unlockedBadges: badges.filter(b => b.unlocked).length,
+  };
+  const streaks = {
+    productive: productiveStreak,
+    tasks: countBackwardStreak(taskKeySet),
+    journal: countBackwardStreak(journalKeySet),
+  };
   return {
     totalXP, level, xpIntoLevel, nextXP: XP_PER_LEVEL, title,
     levelPct: Math.round((xpIntoLevel / XP_PER_LEVEL) * 100),
@@ -511,11 +636,12 @@ const calculateGameStats = (tasks, journal, events) => {
     quests: todayQuests,
     badges,
     unlockedBadges: badges.filter(b => b.unlocked),
-    streaks: {
-      productive: productiveStreak,
-      tasks: countBackwardStreak(taskKeySet),
-      journal: countBackwardStreak(journalKeySet),
-    },
+    streaks,
+    skills,
+    weekly: buildWeeklyRecap(tasks, journal, events, TODAY),
+    mascot: buildMascotProgression(level, streaks),
+    themeUnlocks: buildThemeUnlocksForStats(metrics),
+    lifeGarden: buildMonthlyLifeGarden(tasks, journal, events, TODAY),
   };
 };
 const createCategoryId = label => (label || "category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,24) || `cat-${uid()}`;
@@ -2018,6 +2144,27 @@ function LevelBar({ gameStats }) {
   );
 }
 
+function MascotProgressCard({ gameStats }) {
+  if (!gameStats?.mascot) return null;
+  const m = gameStats.mascot;
+  return (
+    <div className="mascot-progress-card game-soft-card">
+      <div className="game-card-head">
+        <span className="game-card-title">Mascot Progress</span>
+        <span className="game-card-sub">{m.nextName === "Max Stage" ? "max glow" : `${m.toNext} lvl to next`}</span>
+      </div>
+      <div className={`mascot-stage ${m.mood}`}>
+        <div className="mascot-stage-icon">{m.emoji}</div>
+        <div className="mascot-stage-body">
+          <div className="mascot-stage-name">{m.name}</div>
+          <div className="mascot-stage-note">{m.note}</div>
+        </div>
+      </div>
+      <div className="level-track mini"><div className="level-fill" style={{ width: `${m.stagePct}%` }} /></div>
+    </div>
+  );
+}
+
 function DailyQuestsCard({ gameStats }) {
   if (!gameStats) return null;
   const done = gameStats.quests.filter(q => q.done).length;
@@ -2035,6 +2182,78 @@ function DailyQuestsCard({ gameStats }) {
             <span className="quest-xp">+{q.xp} XP</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function SkillStatsCard({ gameStats }) {
+  if (!gameStats?.skills) return null;
+  return (
+    <div className="skills-card game-soft-card">
+      <div className="game-card-head"><span className="game-card-title">Skill Stats</span><span className="game-card-sub">RPG growth</span></div>
+      <div className="skill-list">
+        {gameStats.skills.map(s => (
+          <div key={s.id} className="skill-row" title={s.desc}>
+            <div className="skill-main"><span className="skill-icon">{s.icon}</span><span className="skill-name">{s.label}</span><span className="skill-level">Lv {s.level}</span></div>
+            <div className="skill-track"><div className="skill-fill" style={{ width: `${s.pct}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WeeklyRecapCard({ gameStats }) {
+  if (!gameStats?.weekly) return null;
+  const w = gameStats.weekly;
+  return (
+    <div className="weekly-recap-card game-soft-card">
+      <div className="game-card-head"><span className="game-card-title">Weekly Recap</span><span className="score-pill">{w.rank} · {w.avgScore}</span></div>
+      <div className="weekly-label">{w.label}</div>
+      <div className="weekly-mini-grid">
+        <div><strong>{w.tasksDone}</strong><span>tasks done</span></div>
+        <div><strong>{w.focusHours}h</strong><span>focus</span></div>
+        <div><strong>{w.journalDays}</strong><span>journal days</span></div>
+        <div><strong>{w.bestDayLabel}</strong><span>best day</span></div>
+      </div>
+      <div className="weekly-bars">
+        {w.daily.map(d => <span key={d.key} className={`weekly-dot rank-${d.rank.toLowerCase()}`} title={`${d.key}: ${d.score}`} />)}
+      </div>
+    </div>
+  );
+}
+
+function ThemeUnlocksCard({ gameStats, limit = 6 }) {
+  if (!gameStats?.themeUnlocks) return null;
+  return (
+    <div className="theme-unlocks-card game-soft-card">
+      <div className="game-card-head"><span className="game-card-title">Theme Unlocks</span><span className="game-card-sub">earned styles</span></div>
+      <div className="theme-unlock-list">
+        {gameStats.themeUnlocks.slice(0, limit).map(t => (
+          <div key={t.id} className={`theme-unlock-pill ${t.unlocked ? "unlocked" : "locked"}`} title={t.reason}>
+            <span>{t.unlocked ? "✓" : "🔒"}</span><span>{t.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LifeGardenCard({ gameStats }) {
+  if (!gameStats?.lifeGarden) return null;
+  const g = gameStats.lifeGarden;
+  return (
+    <div className="life-garden-card game-soft-card">
+      <div className="game-card-head"><span className="game-card-title">Monthly Life Garden</span><span className="game-card-sub">{g.activeDays} active · {g.goldenDays} gold</span></div>
+      <div className="garden-label">{g.label}</div>
+      <div className="garden-dow">{["M","T","W","T","F","S","S"].map((d,i)=><span key={i}>{d}</span>)}</div>
+      <div className="garden-grid">
+        {g.cells.map((c, i) => c ? (
+          <div key={c.key} className={`garden-cell ${c.className}`} title={`${c.key} · ${c.rank} Rank · ${c.score}/100`}>
+            <span className="garden-bloom">{c.bloom}</span><span className="garden-day">{c.day}</span>
+          </div>
+        ) : <div key={`empty-${i}`} className="garden-cell blank" />)}
       </div>
     </div>
   );
@@ -2062,8 +2281,15 @@ function GameDashboard({ gameStats, compact = false }) {
   if (!gameStats) return null;
   return (
     <div className={`game-dashboard ${compact ? "compact" : ""}`}>
+      <MascotProgressCard gameStats={gameStats} />
       <DailyQuestsCard gameStats={gameStats} />
-      <BadgesPreview gameStats={gameStats} />
+      <SkillStatsCard gameStats={gameStats} />
+      <WeeklyRecapCard gameStats={gameStats} />
+      <LifeGardenCard gameStats={gameStats} />
+      <div className="game-stack">
+        <BadgesPreview gameStats={gameStats} />
+        <ThemeUnlocksCard gameStats={gameStats} />
+      </div>
     </div>
   );
 }
@@ -2395,6 +2621,9 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
         </div>
         <LevelBar gameStats={gs} />
         <div className="stats-bars">{bars.map(b => <div key={b.label} className="stats-bar-row"><span className="stats-bar-label">{b.label}</span><div className="stats-bar-track"><div className="stats-bar-fill" style={{ width: `${(b.mins / mx) * 100}%`, background: b.color }} /></div><span className="stats-bar-val">{Math.round(b.mins)}m</span></div>)}</div>
+        <SkillStatsCard gameStats={gs} />
+        <WeeklyRecapCard gameStats={gs} />
+        <LifeGardenCard gameStats={gs} />
         <BadgesPreview gameStats={gs} limit={8} />
       </div>
     </div>
@@ -2463,8 +2692,9 @@ function ShortcutsModal({ onClose }) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, timezone, setTimezone, categories, setCategories, user, onSignOut }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
+  const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
   function addCategory() {
     if (!catDraft.label.trim()) return;
@@ -2507,15 +2737,20 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="settings-section-label">Appearance</div>
             <div className="settings-section-desc">Choose a color theme and toggle light / dark mode</div>
             <div className="theme-grid">
-              {THEMES.map(t => (
-                <button key={t.id} className={`theme-swatch-btn ${theme === t.id ? "active" : ""}`} onClick={() => setTheme(t.id)} title={t.description}>
-                  <div className="theme-swatch-dots">
-                    {t.swatch.map((c, i) => <span key={i} className="theme-swatch-dot" style={{ background: c }} />)}
-                  </div>
-                  <span className="theme-swatch-label">{t.label}</span>
-                  {theme === t.id && <span className="theme-swatch-check">✓</span>}
-                </button>
-              ))}
+              {THEMES.map(t => {
+                const unlock = themeUnlockMap.get(t.id) || { unlocked: true, reason: "Unlocked" };
+                const locked = !unlock.unlocked && theme !== t.id;
+                return (
+                  <button key={t.id} disabled={locked} className={`theme-swatch-btn ${theme === t.id ? "active" : ""} ${locked ? "locked" : ""}`} onClick={() => !locked && setTheme(t.id)} title={locked ? unlock.reason : t.description}>
+                    <div className="theme-swatch-dots">
+                      {t.swatch.map((c, i) => <span key={i} className="theme-swatch-dot" style={{ background: c }} />)}
+                    </div>
+                    <span className="theme-swatch-label">{t.label}</span>
+                    <span className="theme-swatch-lockline">{locked ? unlock.reason : "Unlocked"}</span>
+                    {locked ? <span className="theme-swatch-lock">🔒</span> : theme === t.id && <span className="theme-swatch-check">✓</span>}
+                  </button>
+                );
+              })}
             </div>
             <div className="toggle-row" style={{ marginTop: 14 }}><span>☀️ Light</span><button className={`toggle ${darkMode ? "on" : ""}`} onClick={() => setDarkMode(v => !v)}><div className="toggle-thumb" /></button><span>🌙 Dark</span></div>
           </div>
@@ -3898,7 +4133,7 @@ export default function App() {
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
@@ -4595,11 +4830,13 @@ function appCSS(cvars, fontScale) { return `
   .level-title{font-size:14px;font-weight:900;color:var(--text);line-height:1.2;}
   .level-xp{font-size:10px;font-family:var(--mono);font-weight:800;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:3px 7px;white-space:nowrap;}
   .level-track{height:9px;background:var(--bg4);border-radius:999px;border:1px solid var(--border);overflow:hidden;}
+  .level-track.mini{height:7px;margin-top:10px;}
   .level-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;box-shadow:0 0 14px rgba(var(--accent-rgb),.24);transition:width .25s ease;}
   .level-meta{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;}
-  .game-dashboard{display:grid;grid-template-columns:minmax(260px,1.1fr) minmax(240px,.9fr);gap:12px;padding:0 20px 12px;background:var(--bg);}
-  .game-dashboard.compact{max-width:880px;margin:0 auto 12px;padding:0;grid-template-columns:1.1fr .9fr;}
-  .daily-quests-card,.badges-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;padding:13px 14px;box-shadow:var(--shadow);min-width:0;}
+  .game-dashboard{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:12px;padding:0 20px 12px;background:var(--bg);}
+  .game-dashboard.compact{max-width:980px;margin:0 auto 12px;padding:0;grid-template-columns:repeat(2,minmax(220px,1fr));}
+  .daily-quests-card,.badges-card,.game-soft-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;padding:13px 14px;box-shadow:var(--shadow);min-width:0;}
+  .game-stack{display:flex;flex-direction:column;gap:12px;min-width:0;}
   .game-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
   .game-card-title{font-size:13px;font-weight:900;color:var(--text);}
   .game-card-sub{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);}
@@ -4618,13 +4855,58 @@ function appCSS(cvars, fontScale) { return `
   .badge-chip.unlocked{opacity:1;background:linear-gradient(135deg,var(--bg4),var(--bg2));border-color:var(--accent3);}
   .badge-icon{width:22px;height:22px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
   .badge-name{font-size:11px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mascot-stage{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--bg4),var(--bg3));border:1px solid var(--border);border-radius:16px;padding:11px;}
+  .mascot-stage-icon{width:48px;height:48px;border-radius:18px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 20px rgba(var(--accent-rgb),.12);animation:mascotBounce 2.8s ease-in-out infinite;}
+  .mascot-stage.glowing .mascot-stage-icon{box-shadow:0 0 24px rgba(var(--accent-rgb),.32);}
+  .mascot-stage-body{min-width:0;}
+  .mascot-stage-name{font-size:14px;font-weight:900;color:var(--text);margin-bottom:3px;}
+  .mascot-stage-note{font-size:11px;line-height:1.35;color:var(--text2);font-weight:700;}
+  .skill-list{display:flex;flex-direction:column;gap:8px;}
+  .skill-row{display:flex;flex-direction:column;gap:5px;}
+  .skill-main{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:900;color:var(--text);}
+  .skill-icon{width:22px;height:22px;border-radius:8px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .skill-name{flex:1;min-width:0;}
+  .skill-level{font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:2px 6px;}
+  .skill-track{height:6px;background:var(--bg4);border:1px solid var(--border);border-radius:999px;overflow:hidden;}
+  .skill-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;}
+  .weekly-label,.garden-label{font-size:11px;color:var(--text3);font-family:var(--mono);font-weight:800;margin-bottom:8px;}
+  .weekly-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+  .weekly-mini-grid div{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:8px 6px;text-align:center;display:flex;flex-direction:column;gap:2px;}
+  .weekly-mini-grid strong{font-size:14px;color:var(--text);font-weight:900;}
+  .weekly-mini-grid span{font-size:9px;color:var(--text3);font-family:var(--mono);font-weight:800;}
+  .weekly-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .weekly-dot{height:8px;border-radius:999px;background:var(--bg4);border:1px solid var(--border);}
+  .weekly-dot.rank-s{background:linear-gradient(90deg,#FFD76B,#FFB870);}
+  .weekly-dot.rank-a{background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .weekly-dot.rank-b{background:#B8F0E0;}
+  .weekly-dot.rank-c{background:#FFD6A8;}
+  .weekly-dot.rank-d{background:var(--bg4);}
+  .theme-unlock-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .theme-unlock-pill{display:flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:999px;padding:5px 8px;font-size:10px;font-family:var(--mono);font-weight:900;}
+  .theme-unlock-pill.unlocked{background:var(--bg4);color:var(--accent);}
+  .theme-unlock-pill.locked{background:var(--bg3);color:var(--text3);opacity:.65;}
+  .theme-swatch-btn.locked{opacity:.58;cursor:not-allowed;filter:saturate(.55);}
+  .theme-swatch-lockline{font-size:8px;color:var(--text3);font-family:var(--mono);font-weight:800;margin-top:1px;line-height:1.15;text-align:center;}
+  .theme-swatch-lock{position:absolute;top:6px;right:6px;font-size:12px;}
+  .garden-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+  .garden-dow span{text-align:center;font-size:9px;color:var(--text3);font-family:var(--mono);font-weight:900;}
+  .garden-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .garden-cell{position:relative;min-height:32px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .garden-cell.blank{background:transparent;border-color:transparent;}
+  .garden-cell.future{opacity:.35;}
+  .garden-cell.sprout{background:linear-gradient(135deg,var(--bg3),var(--bg4));}
+  .garden-cell.bud,.garden-cell.bloom,.garden-cell.big,.garden-cell.gold{background:linear-gradient(135deg,var(--bg4),var(--bg2));border-color:var(--accent3);}
+  .garden-cell.gold{box-shadow:0 0 0 1px rgba(var(--accent-rgb),.10),0 8px 18px rgba(var(--accent-rgb),.10);}
+  .garden-bloom{font-size:15px;line-height:1;}
+  .garden-day{position:absolute;right:4px;bottom:2px;font-size:8px;font-family:var(--mono);font-weight:900;color:var(--text3);}
   .daily-score-section{background:linear-gradient(135deg,var(--bg3),var(--bg2));}
   .daily-score-card{display:flex;align-items:center;gap:14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:12px;}
   .daily-score-main{min-width:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg4);border:1px solid var(--border);border-radius:14px;padding:8px;}
   .daily-score-rank{font-size:24px;font-weight:900;color:var(--accent);line-height:1;}
   .daily-score-num{font-size:10px;font-family:var(--mono);font-weight:900;color:var(--text3);margin-top:3px;}
   .daily-score-lines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;font-size:11px;font-weight:800;color:var(--text2);flex:1;}
-  @media(max-width:1080px){.game-dashboard{grid-template-columns:1fr;}.quest-list{grid-template-columns:1fr;}}
+  @media(max-width:1280px){.game-dashboard{grid-template-columns:repeat(2,minmax(220px,1fr));}.quest-list{grid-template-columns:1fr;}}
+  @media(max-width:1080px){.game-dashboard,.game-dashboard.compact{grid-template-columns:1fr;}.weekly-mini-grid{grid-template-columns:repeat(2,1fr);}}
 
   /* ── Feature wiring additions (keeps existing aesthetic) ─────────────────── */
   .all-day-strip{display:flex;align-items:flex-start;gap:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;padding:8px 10px;margin-bottom:8px;}
