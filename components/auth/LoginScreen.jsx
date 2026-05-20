@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import * as Core from "../../lib/tempo/core";
+const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 /*
@@ -91,24 +93,6 @@ export async function getSupabase() {
 }
 
 
-const MEMORY_STORAGE_BUCKET = "memory-images";
-const MEMORY_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
-const MEMORY_IMAGE_LIMIT_PER_ENTRY = 6;
-const MEMORY_MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
-const MEMORY_MAX_IMAGE_EDGE = 1600;
-const MEMORY_THUMB_IMAGE_EDGE = 300;
-const MEMORY_ENCRYPTION_VERSION = 1;
-
-const hasWebCrypto = () => typeof crypto !== "undefined" && Boolean(crypto.subtle) && typeof TextEncoder !== "undefined" && typeof TextDecoder !== "undefined";
-const bytesToBase64 = bytes => {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.slice(i, i + chunk));
-  }
-  return btoa(binary);
-};
-const base64ToBytes = b64 => Uint8Array.from(atob(b64 || ""), c => c.charCodeAt(0));
 
 export function fileExtFromType(type = "") {
   if (type.includes("png")) return "png";
@@ -218,8 +202,8 @@ export async function deleteMemoryStoragePaths(paths = []) {
     return false;
   }
 }
-const allMemoryPhotoStoragePaths = photo => [photo?.storagePath, photo?.thumbStoragePath].filter(Boolean);
-const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);
+export const allMemoryPhotoStoragePaths = photo => [photo?.storagePath, photo?.thumbStoragePath].filter(Boolean);
+export const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);
 
 export async function saveToCloud(userId, events, tasks, settings) {
   try {

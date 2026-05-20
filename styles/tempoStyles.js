@@ -89,10 +89,10 @@ export function appCSS(cvars, fontScale) { return `
   .wt-day-header.wt-today .wt-day-num{color:var(--accent);}
   .wt-today-num{color:var(--accent)!important;}
   .wt-grid{position:relative;display:block;}
-  .wt-hour-row{position:absolute;left:0;right:0;display:flex;height:${HOUR_H}px;align-items:flex-start;}
+  .wt-hour-row{position:absolute;left:0;right:0;display:flex;height:48px;align-items:flex-start;}
   .wt-hour-label{font-family:var(--mono);font-size:10px;color:var(--text3);padding-right:6px;line-height:1;}
   .wt-time-gutter{width:48px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:6px;}
-  .wt-hour-cell{flex:1;border-left:1px solid var(--border);border-top:1px solid var(--border);height:${HOUR_H}px;}
+  .wt-hour-cell{flex:1;border-left:1px solid var(--border);border-top:1px solid var(--border);height:48px;}
   .wt-now-line{position:absolute;left:0;right:0;display:flex;align-items:center;z-index:8;pointer-events:none;}
   .wt-now-track-cell{flex:1;height:1.5px;background:var(--accent);opacity:.7;}
   .wt-event{position:absolute;border-radius:6px;padding:3px 6px;cursor:pointer;overflow:hidden;transition:opacity .15s;z-index:5;}
