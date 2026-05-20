@@ -11,6 +11,7 @@ const RECURRENCE_SAFETY_LIMIT = 500;
 const UNDO_STACK_MAX      = 20;
 const CLOUD_FALLBACK_MS   = 4000;
 const CHAT_REPLY_DELAY_MS = 280;
+const EVENT_DRAG_HOLD_MS = 360;
 
 const CALENDARS = [
   { id: "personal", name: "Personal", color: "#FF7BAC", account: null },
@@ -2027,35 +2028,47 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
   const color  = event.color || cal?.color || "#FF7BAC";
   const draggable = !event.fixed;
   const ref = useRef(null);
+  const suppressClick = useRef(false);
 
-  // Column layout for overlapping events
   const col = event._col ?? 0;
   const totalCols = event._totalCols ?? 1;
   const widthPct = 100 / totalCols;
   const leftPct  = col * widthPct;
-  // Slight inset between columns
   const colStyle = totalCols > 1
     ? { left: `${leftPct}%`, width: `calc(${widthPct}% - 3px)`, right: "auto" }
     : {};
 
-    function onMouseDown(e) {
+  function startDesktopDrag(e) {
     if (!draggable || e.button !== 0) return;
-    e.preventDefault(); e.stopPropagation();
+    e.stopPropagation();
     const sy = e.clientY, ot = top, dur = (event.end - event.start) / 60000;
-    const ghost = document.createElement("div");
-    ghost.style.cssText = `position:fixed;width:${ref.current.offsetWidth}px;height:${height}px;background:${color}40;border:2px dashed ${color};border-radius:12px;pointer-events:none;z-index:9999;left:${ref.current.getBoundingClientRect().left}px;top:${ref.current.getBoundingClientRect().top}px;display:flex;align-items:center;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:${color};`;
-    ghost.textContent = event.title; document.body.appendChild(ghost);
-    const tip = document.createElement("div");
-    tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
-    document.body.appendChild(tip);
+    let started = false;
+    let latestEvent = e;
+    let ghost = null;
+    let tip = null;
+    const timer = setTimeout(() => {
+      if (!ref.current) return;
+      started = true;
+      suppressClick.current = true;
+      ghost = document.createElement("div");
+      ghost.style.cssText = `position:fixed;width:${ref.current.offsetWidth}px;height:${height}px;background:${color}40;border:2px dashed ${color};border-radius:12px;pointer-events:none;z-index:9999;left:${ref.current.getBoundingClientRect().left}px;top:${ref.current.getBoundingClientRect().top}px;display:flex;align-items:center;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:${color};`;
+      ghost.textContent = event.title; document.body.appendChild(ghost);
+      tip = document.createElement("div");
+      tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
+      document.body.appendChild(tip);
+      mv(latestEvent);
+    }, EVENT_DRAG_HOLD_MS);
     function cleanup() {
+      clearTimeout(timer);
       document.removeEventListener("mousemove", mv);
       document.removeEventListener("mouseup", up);
       window.removeEventListener("blur", cleanup);
-      if (ghost.parentNode) ghost.remove();
-      if (tip.parentNode)   tip.remove();
+      if (ghost?.parentNode) ghost.remove();
+      if (tip?.parentNode) tip.remove();
     }
     function mv(me) {
+      latestEvent = me;
+      if (!started || !ghost || !tip || !ref.current) return;
       const dy = me.clientY - sy, nt = ot + dy;
       ghost.style.top = `${ref.current.getBoundingClientRect().top - (top - nt)}px`;
       const rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, em = sm + dur;
@@ -2064,53 +2077,69 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
       tip.style.left = `${me.clientX + 12}px`; tip.style.top = `${me.clientY - 10}px`;
     }
     function up(ue) {
+      const wasStarted = started;
       cleanup();
+      if (!wasStarted) return;
       const dy = ue.clientY - sy, nt = ot + dy, rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
       const ns = new Date(event.start); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
       const ne = new Date(ns.getTime() + dur * 60000);
       if (ns.getTime() !== event.start.getTime()) onReschedule(event.id, ns, ne);
+      setTimeout(() => { suppressClick.current = false; }, 80);
     }
-    document.addEventListener("mousemove", mv); document.addEventListener("mouseup", up);
-    window.addEventListener("blur", cleanup); // clean up if browser loses focus mid-drag
+    document.addEventListener("mousemove", mv);
+    document.addEventListener("mouseup", up);
+    window.addEventListener("blur", cleanup);
   }
 
-  // Touch support for mobile drag
-  function onTouchStart(e) {
+  function startTouchDrag(e) {
     if (!draggable) return;
     const touch = e.touches[0];
     const sy = touch.clientY, ot = top, dur = (event.end - event.start) / 60000;
+    let started = false;
+    const timer = setTimeout(() => {
+      started = true;
+      suppressClick.current = true;
+      if (ref.current) { ref.current.style.opacity = "0.8"; ref.current.style.zIndex = "20"; }
+    }, EVENT_DRAG_HOLD_MS);
+    function cleanup() {
+      clearTimeout(timer);
+      document.removeEventListener("touchmove", mv);
+      document.removeEventListener("touchend", up);
+      document.removeEventListener("touchcancel", cleanup);
+      if (ref.current) { ref.current.style.transform = ""; ref.current.style.opacity = ""; ref.current.style.zIndex = ""; delete ref.current._newMins; }
+    }
     function mv(te) {
+      if (!started || !ref.current) return;
       te.preventDefault();
       const t = te.touches[0], dy = t.clientY - sy, nt = ot + dy;
       const rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
       ref.current.style.transform = `translateY(${dy}px)`;
-      ref.current.style.opacity   = "0.8";
-      ref.current.style.zIndex    = "20";
       ref.current._newMins = cm;
     }
     function up() {
-      document.removeEventListener("touchmove", mv); document.removeEventListener("touchend", up);
-      ref.current.style.transform = ""; ref.current.style.opacity = ""; ref.current.style.zIndex = "";
-      const cm = ref.current._newMins;
-      if (cm !== undefined) {
+      const wasStarted = started;
+      const cm = ref.current?._newMins;
+      cleanup();
+      if (wasStarted && cm !== undefined) {
         const ns = new Date(event.start); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
         const ne = new Date(ns.getTime() + dur * 60000);
         if (ns.getTime() !== event.start.getTime()) onReschedule(event.id, ns, ne);
-        delete ref.current._newMins;
       }
+      setTimeout(() => { suppressClick.current = false; }, 80);
     }
     document.addEventListener("touchmove", mv, { passive: false });
     document.addEventListener("touchend", up);
+    document.addEventListener("touchcancel", cleanup);
   }
 
   return (
     <div ref={ref}
       className={`event-block ${draggable ? "draggable" : "fixed-event"}`}
       style={{ top, height, borderLeft: `3px solid ${color}`, background: `${color}18`, cursor: draggable ? "grab" : "default", ...colStyle }}
-      onMouseDown={onMouseDown}
-      onTouchStart={onTouchStart}
-      onClick={() => onClick(event)}
-      title={event.fixed ? "Fixed · Click to edit" : "Drag to reschedule · Click to edit"}>
+      onMouseDown={startDesktopDrag}
+      onTouchStart={startTouchDrag}
+      onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } onClick(event); }}
+      title={event.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
       {event.fixed && <span className="fixed-badge">🔒</span>}
       {draggable && <span className="drag-handle">⠿</span>}
       {height <= 38 ? (
@@ -2267,21 +2296,33 @@ function WeekEventBlock({ ev, dayIndex, days, gridRef, calendars, categories, on
   const totalCols = ev._totalCols ?? 1;
   const width = `calc(((100% - 48px) / 7 - 5px) / ${totalCols} - 2px)`;
   const left = `calc(48px + ${dayIndex} * ((100% - 48px) / 7) + 2px + ${col} * (((100% - 48px) / 7 - 5px) / ${totalCols}))`;
-  const dragged = useRef(false);
+  const suppressClick = useRef(false);
 
   function onMouseDown(e) {
     if (ev.fixed || e.button !== 0) return;
-    e.preventDefault(); e.stopPropagation();
-    dragged.current = false;
+    e.stopPropagation();
     const sy = e.clientY, sx = e.clientX;
     const dur = (ev.end - ev.start) / 60000;
-    function up(ue) {
+    let started = false;
+    const timer = setTimeout(() => {
+      started = true;
+      suppressClick.current = true;
+    }, EVENT_DRAG_HOLD_MS);
+    function cleanup() {
+      clearTimeout(timer);
       document.removeEventListener("mousemove", mv);
       document.removeEventListener("mouseup", up);
+      window.removeEventListener("blur", cleanup);
+    }
+    function mv(me) {
+      if (!started) return;
+      me.preventDefault();
+    }
+    function up(ue) {
+      const wasStarted = started;
+      cleanup();
+      if (!wasStarted) return;
       if (!gridRef.current) return;
-      const moved = Math.abs(ue.clientY - sy) > 4 || Math.abs(ue.clientX - sx) > 4;
-      if (!moved) { onEventClick(ev); return; }
-      dragged.current = true;
       const rect = gridRef.current.getBoundingClientRect();
       const dayW = (rect.width - 48) / 7;
       const di = Math.max(0, Math.min(6, Math.floor((ue.clientX - rect.left - 48) / dayW)));
@@ -2291,17 +2332,17 @@ function WeekEventBlock({ ev, dayIndex, days, gridRef, calendars, categories, on
       const ns = new Date(days[di]); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
       const ne = new Date(ns.getTime() + dur * 60000);
       if (ns.getTime() !== ev.start.getTime() || di !== dayIndex) onReschedule(ev.id, ns, ne);
-    }
-    function mv(me) {
-      if (Math.abs(me.clientY - sy) > 4 || Math.abs(me.clientX - sx) > 4) dragged.current = true;
+      setTimeout(() => { suppressClick.current = false; }, 80);
     }
     document.addEventListener("mousemove", mv);
     document.addEventListener("mouseup", up);
+    window.addEventListener("blur", cleanup);
   }
 
   return (
-    <div className="wt-event" onMouseDown={onMouseDown} onClick={e => { e.stopPropagation(); if (!dragged.current) onEventClick(ev); }}
-      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: ev.fixed ? "pointer" : "grab" }}>
+    <div className="wt-event" onMouseDown={onMouseDown} onClick={e => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onEventClick(ev); }}
+      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: ev.fixed ? "pointer" : "grab" }}
+      title={ev.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
       <div className="wt-event-title">{ev.title}</div>
       {height > 30 && <div className="wt-event-time">{fmt(ev.start)} - {fmt(ev.end)}</div>}
       {height > 52 && cat && <div className="wt-event-cat">{cat.icon}</div>}
@@ -2395,6 +2436,67 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
           return computeColumns(de).map(ev => <WeekEventBlock key={`${ev.id}-${dateKey(day)}`} ev={ev} dayIndex={di} days={days} gridRef={gridRef} calendars={calendars} categories={categories} onEventClick={onEventClick} onReschedule={onReschedule} />);
         })}
       </div>
+    </div>
+  );
+}
+
+
+function MonthEventRow({ event, color, onOpen, onReschedule }) {
+  const suppressClick = useRef(false);
+  const ref = useRef(null);
+
+  function startPressDrag(e) {
+    if (event.fixed || e.button !== 0) return;
+    e.stopPropagation();
+    const sy = e.clientY, sx = e.clientX;
+    let started = false;
+    let ghost = null;
+    const timer = setTimeout(() => {
+      started = true;
+      suppressClick.current = true;
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      ghost = ref.current.cloneNode(true);
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;z-index:10000;opacity:.82;box-shadow:var(--shadow-md);`;
+      document.body.appendChild(ghost);
+    }, EVENT_DRAG_HOLD_MS);
+    function cleanup() {
+      clearTimeout(timer);
+      document.removeEventListener("mousemove", mv);
+      document.removeEventListener("mouseup", up);
+      window.removeEventListener("blur", cleanup);
+      if (ghost?.parentNode) ghost.remove();
+    }
+    function mv(me) {
+      if (!started || !ghost) return;
+      ghost.style.transform = `translate(${me.clientX - sx}px, ${me.clientY - sy}px)`;
+    }
+    function up(ue) {
+      const wasStarted = started;
+      cleanup();
+      if (!wasStarted) return;
+      const target = document.elementFromPoint(ue.clientX, ue.clientY)?.closest?.("[data-month-date]");
+      const targetKey = target?.getAttribute("data-month-date");
+      const targetDate = targetKey ? localDateFromKey(targetKey) : null;
+      if (targetDate) {
+        const dur = event.end - event.start;
+        const ns = new Date(targetDate); ns.setHours(event.start.getHours(), event.start.getMinutes(), 0, 0);
+        onReschedule(event.id, ns, new Date(ns.getTime() + dur));
+      }
+      setTimeout(() => { suppressClick.current = false; }, 80);
+    }
+    document.addEventListener("mousemove", mv);
+    document.addEventListener("mouseup", up);
+    window.addEventListener("blur", cleanup);
+  }
+
+  return (
+    <div ref={ref} className="month-event-row" onMouseDown={startPressDrag}
+      style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)", cursor: event.fixed ? "pointer" : "grab" }}
+      onClick={ev => { ev.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onOpen(event); }}
+      title={event.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
+      <span className="month-event-time">{isAllDayEvent(event) ? "All day" : `${event.start.getHours()}:${String(event.start.getMinutes()).padStart(2,"0")}`}</span>
+      <span className="month-event-name">{event.title}</span>
     </div>
   );
 }
@@ -2854,17 +2956,91 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate, gameStats }) {
+function TaskPeriodCard({ cardScope, tasks, categories, periodDate, onToggle, onEdit, onStartPomodoro, onAdd, onMoveTaskPeriod, onSelectScope }) {
+  const [isOver, setIsOver] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
+  const [form, setForm] = useState({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null });
+  const filtered = tasks.filter(t => taskBelongsToPeriod(t, cardScope, periodDate));
+  const sorted = [...filtered].sort((a, b) => Number(a.done) - Number(b.done) || (({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)));
+  const openCount = filtered.filter(t => !t.done).length;
+
+  function addCardTask() {
+    if (!form.title.trim()) return;
+    const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
+    onAdd(withTaskPeriod({ ...form, id: "t" + uid(), title: form.title.trim(), duration, scope: cardScope, done: false, completedAt: null, completedDate: null }, periodDate));
+    setForm({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null });
+    setDurationDraft({ amount: 30, unit: "minutes" });
+    setAdding(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsOver(false);
+    const raw = e.dataTransfer.getData("application/tempo-task");
+    if (!raw) return;
+    try {
+      const payload = JSON.parse(raw);
+      if (payload?.id) onMoveTaskPeriod(payload.id, cardScope, periodDate);
+    } catch {}
+  }
+
   return (
-    <div className="tasks-page">
-      <div className="journal-header">
-        <div className="journal-title">✅ Tasks</div>
-        <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
+    <div className={`task-period-card ${isOver ? "drag-over" : ""}`} onDragOver={e => { e.preventDefault(); setIsOver(true); }} onDragLeave={() => setIsOver(false)} onDrop={handleDrop}>
+      <div className="task-period-card-head">
+        <button className="task-period-card-title" onClick={() => onSelectScope(cardScope)}>{cardScope === "day" ? "☀️ Day" : cardScope === "week" ? "🗓️ Week" : "🌙 Month"}</button>
+        <span className="task-period-count">{openCount} open</span>
       </div>
-      <TaskPanel tasks={tasks} categories={categories} onToggle={onToggle} onAdd={onAdd} onEdit={onEdit} onStartPomodoro={onStartPomodoro} scope={scope} setScope={setScope} periodDate={periodDate} setPeriodDate={setPeriodDate} standalone />
+      <div className="task-period-card-sub">{formatTaskPeriodLabel(cardScope, periodDate)}</div>
+      <button className="task-card-add" onClick={() => setAdding(v => !v)}>+ Add {cardScope} task</button>
+      {adding && (
+        <div className="task-form task-card-form">
+          <input className="tf-input" placeholder="Task name..." value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+          <div className="tf-row">
+            <select className="tf-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select>
+            <select className="tf-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select>
+          </div>
+          <div className="tf-row">
+            <div className="tf-duration"><span>⏱</span><input type="number" className="tf-num" value={durationDraft.amount} min={1} step={durationDraft.unit === "minutes" ? 5 : 1} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="tf-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></div>
+          </div>
+          <div className="tf-row">
+            <select className="tf-select" value={form.recurrence || ""} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value || null }))}><option value="">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="weekdays">Weekdays</option><option value="monthly">Monthly</option></select>
+          </div>
+          <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+          <div className="tf-actions"><button className="tf-cancel" onClick={() => setAdding(false)}>Cancel</button><button className="tf-save" onClick={addCardTask}>Add task</button></div>
+        </div>
+      )}
+      <div className="task-period-list">
+        {sorted.length ? sorted.map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} categories={categories} />) : <div className="task-card-empty">Drop a task here or add one 🌸</div>}
+      </div>
     </div>
   );
 }
+
+function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
+  return (
+    <div className="tasks-page">
+      <div className="journal-header">
+        <div>
+          <div className="journal-title">✅ Tasks</div>
+          <div className="memory-book-subtitle">Drag a task into Day, Week, or Month to move it there.</div>
+        </div>
+        <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
+      </div>
+      <div className="task-board-nav">
+        <button className="period-btn" onClick={() => setPeriodDate(d => addDaysSafe(d, -1))}>‹</button>
+        <button className="period-label" onClick={() => setPeriodDate(new Date(TODAY))}>{periodDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</button>
+        <button className="period-btn" onClick={() => setPeriodDate(d => addDaysSafe(d, 1))}>›</button>
+      </div>
+      <div className="task-period-board">
+        {["day", "week", "month"].map(s => (
+          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 // ─── Event Modal ──────────────────────────────────────────────────────────────
 function RecurrenceEditor({ value, onChange, startDate }) {
@@ -3430,7 +3606,7 @@ const memoryEntryCover = entry => {
 };
 const memoryTagLabel = tag => String(tag || "").trim();
 // ─── Daily Entry Modal ────────────────────────────────────────────────────────
-function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity, userId, imageUrls = {} }) {
+function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, imageUrls = {} }) {
   const normalized = normalizeMemoryEntry(entry);
   const originalStoragePaths = useMemo(() => normalized.photos.map(p => p.storagePath).filter(Boolean), [entry]);
   const [mood,       setMoodLocal]  = useState(normalized.mood);
@@ -3449,7 +3625,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [uploadError, setUploadError] = useState("");
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
   const groups = [...new Set(activitiesCatalog.map(a => a.group))];
-  const availableTags = [...new Set([...MEMORY_TAGS, ...tags].map(memoryTagLabel).filter(Boolean))];
+  const availableTags = [...new Set([...(memoryTagsCatalog || MEMORY_TAGS), ...tags].map(memoryTagLabel).filter(Boolean))];
 
   function toggleActivity(id) {
     setActivities(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id]);
@@ -3461,6 +3637,30 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     const clean = memoryTagLabel(tag);
     if (!clean) return;
     setTags(t => t.includes(clean) ? t.filter(x => x !== clean) : [...t, clean]);
+  }
+  function editMemoryTag(tag) {
+    const clean = memoryTagLabel(tag);
+    const next = window.prompt("Rename memory tag", clean);
+    if (!next || !next.trim()) return;
+    const renamed = memoryTagLabel(next);
+    onUpdateMemoryTag?.(clean, renamed);
+    setTags(t => [...new Set(t.map(x => x === clean ? renamed : x))]);
+  }
+  function removeMemoryTag(tag) {
+    const clean = memoryTagLabel(tag);
+    if (!clean) return;
+    onDeleteMemoryTag?.(clean);
+    setTags(t => t.filter(x => x !== clean));
+  }
+  function editActivity(activity) {
+    const label = window.prompt("Rename activity", activity.label);
+    if (!label || !label.trim()) return;
+    const emoji = window.prompt("Emoji", activity.emoji || "✨") || activity.emoji || "✨";
+    onUpdateActivity?.(activity.id, { label: label.trim(), emoji: emoji.trim() || "✨" });
+  }
+  function removeActivity(activity) {
+    onDeleteActivity?.(activity.id);
+    setActivities(a => a.filter(x => x !== activity.id));
   }
   async function handlePhotoUpload(files) {
     if (!files?.length) return;
@@ -3604,14 +3804,18 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 
         <div className="entry-section">
           <div className="entry-section-title">Memory Tags</div>
-          <div className="memory-tag-row">
+          <div className="memory-tag-row editable-memory-row">
             {availableTags.map(tag => (
-              <button key={tag} type="button" className={`memory-tag-chip ${tags.includes(tag)?"selected":""}`} onClick={() => toggleTag(tag)}>#{tag}</button>
+              <span key={tag} className={`editable-chip memory-tag-chip ${tags.includes(tag)?"selected":""}`}>
+                <button type="button" className="editable-chip-main" onClick={() => toggleTag(tag)}>#{tag}</button>
+                <button type="button" className="chip-mini-action" title="Rename tag" onClick={() => editMemoryTag(tag)}>✎</button>
+                <button type="button" className="chip-mini-action" title="Remove tag" onClick={() => removeMemoryTag(tag)}>×</button>
+              </span>
             ))}
           </div>
           <div className="tf-row" style={{marginTop:10}}>
             <input className="tf-input" placeholder="Add tag…" value={newTag} onChange={e => setNewTag(e.target.value)} />
-            <button className="tf-save" onClick={() => { toggleTag(newTag); setNewTag(""); }}>Add</button>
+            <button className="tf-save" onClick={() => { const added = onAddMemoryTag?.(newTag) || memoryTagLabel(newTag); toggleTag(added); setNewTag(""); }}>Add</button>
           </div>
         </div>
 
@@ -3634,10 +3838,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
               <div className="activity-group-label">{g}</div>
               <div className="activity-chips">
                 {activitiesCatalog.filter(a => a.group === g).map(a => (
-                  <button key={a.id} className={`activity-chip ${activities.includes(a.id)?"selected":""}`}
-                    onClick={() => toggleActivity(a.id)}>
-                    <span>{a.emoji}</span><span>{a.label}</span>
-                  </button>
+                  <span key={a.id} className={`editable-chip activity-chip ${activities.includes(a.id)?"selected":""}`}>
+                    <button type="button" className="editable-chip-main" onClick={() => toggleActivity(a.id)}><span>{a.emoji}</span><span>{a.label}</span></button>
+                    <button type="button" className="chip-mini-action" title="Rename activity" onClick={() => editActivity(a)}>✎</button>
+                    <button type="button" className="chip-mini-action" title="Remove activity" onClick={() => removeActivity(a)}>×</button>
+                  </span>
                 ))}
               </div>
             </div>
@@ -3721,7 +3926,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, onAddActivity, userId, onMemoryStorageMigrated }) {
+function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -4046,7 +4251,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         );
       })()}
 
-      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} activitiesCatalog={activitiesCatalog} onAddActivity={onAddActivity} userId={userId} imageUrls={memoryImageUrls} />}
+      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} userId={userId} imageUrls={memoryImageUrls} />}
     </div>
   );
 }
@@ -4284,6 +4489,7 @@ export default function App() {
   const [categories, setCatRaw] = useState(() => normalizeCategories(load(`${uk}_categories`, CATEGORIES)));
   const [templates, setTplRaw] = useState(() => load(`${uk}_templates`, DAY_TEMPLATES));
   const [journalActivities, setJournalActivitiesRaw] = useState(() => load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
+  const [memoryTags, setMemoryTagsRaw] = useState(() => load(`${uk}_memory_tags`, MEMORY_TAGS));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -4343,6 +4549,7 @@ export default function App() {
     setTkRaw([]);
     setJournalRaw({});
     setJournalActivitiesRaw(load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES));
+    setMemoryTagsRaw(load(`${userKey}_memory_tags`, MEMORY_TAGS));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -4368,6 +4575,7 @@ export default function App() {
         categories: normalizeCategories(safeSettings.categories ?? load(`${userKey}_categories`, CATEGORIES)),
         templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
         journalActivities: safeSettings.journalActivities ?? load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+        memoryTags: safeSettings.memoryTags ?? load(`${userKey}_memory_tags`, MEMORY_TAGS),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -4382,6 +4590,7 @@ export default function App() {
       setCatRaw(normalizeCategories(nextSettings.categories));
       setTplRaw(nextSettings.templates);
       setJournalActivitiesRaw(nextSettings.journalActivities);
+      setMemoryTagsRaw(nextSettings.memoryTags || MEMORY_TAGS);
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
@@ -4409,6 +4618,7 @@ export default function App() {
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -4450,6 +4660,7 @@ export default function App() {
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -4469,6 +4680,7 @@ export default function App() {
           categories: normalizeCategories(CATEGORIES),
           templates: DAY_TEMPLATES,
           journalActivities: JOURNAL_ACTIVITIES,
+          memoryTags: MEMORY_TAGS,
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -4493,6 +4705,7 @@ export default function App() {
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+          memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -4520,6 +4733,7 @@ export default function App() {
     categories,
     templates,
     journalActivities,
+    memoryTags,
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -4563,6 +4777,7 @@ export default function App() {
     save(`${uk}_categories`, next.categories);
     save(`${uk}_templates`, next.templates);
     save(`${uk}_journal_activities`, next.journalActivities);
+    save(`${uk}_memory_tags`, next.memoryTags || MEMORY_TAGS);
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -4631,10 +4846,63 @@ export default function App() {
     save(`${uk}_journal_activities`, n);
     persistSettings({ journalActivities: n });
   };
-  function addJournalActivity(label) {
-    const activity = { id: createCategoryId(label) + "-" + uid(), emoji: "✨", label, group: "Custom" };
+  const setMemoryTags = v => {
+    const n = [...new Set((typeof v === "function" ? v(memoryTags) : v).map(memoryTagLabel).filter(Boolean))];
+    setMemoryTagsRaw(n);
+    save(`${uk}_memory_tags`, n);
+    persistSettings({ memoryTags: n });
+  };
+  function addJournalActivity(label, group = "Custom", emoji = "✨") {
+    const activity = { id: createCategoryId(label) + "-" + uid(), emoji, label, group };
     setJournalActivities(a => [...a, activity]);
     return activity;
+  }
+  function updateJournalActivity(id, patch = {}) {
+    setJournalActivities(a => a.map(x => x.id === id ? { ...x, ...patch, label: patch.label?.trim?.() || x.label } : x));
+  }
+  function deleteJournalActivity(id) {
+    setJournalActivities(a => a.filter(x => x.id !== id));
+    setJournal(j => {
+      const next = { ...(j || {}) };
+      Object.keys(next).forEach(k => {
+        const e = normalizeMemoryEntry(next[k]);
+        next[k] = { ...e, activities: (e.activities || []).filter(x => x !== id) };
+      });
+      return next;
+    });
+  }
+  function addMemoryTag(label) {
+    const clean = memoryTagLabel(label);
+    if (!clean) return null;
+    setMemoryTags(t => [...new Set([...t, clean])]);
+    return clean;
+  }
+  function updateMemoryTag(oldTag, newTag) {
+    const oldClean = memoryTagLabel(oldTag);
+    const newClean = memoryTagLabel(newTag);
+    if (!oldClean || !newClean) return;
+    setMemoryTags(t => [...new Set(t.map(x => x === oldClean ? newClean : x))]);
+    setJournal(j => {
+      const next = { ...(j || {}) };
+      Object.keys(next).forEach(k => {
+        const e = normalizeMemoryEntry(next[k]);
+        next[k] = { ...e, tags: [...new Set((e.tags || []).map(x => x === oldClean ? newClean : x))] };
+      });
+      return next;
+    });
+  }
+  function deleteMemoryTag(tag) {
+    const clean = memoryTagLabel(tag);
+    if (!clean) return;
+    setMemoryTags(t => t.filter(x => x !== clean));
+    setJournal(j => {
+      const next = { ...(j || {}) };
+      Object.keys(next).forEach(k => {
+        const e = normalizeMemoryEntry(next[k]);
+        next[k] = { ...e, tags: (e.tags || []).filter(x => x !== clean) };
+      });
+      return next;
+    });
   }
 
   const markMemoryStorageMigrated = iso => {
@@ -4718,6 +4986,10 @@ export default function App() {
     });
   }
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, withTaskPeriod(task, taskPeriodDate)]); }
+  function moveTaskToPeriod(id, scope, anchorDate) {
+    pushUndo();
+    setTasks(ts => ts.map(t => t.id === id ? withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate) : t));
+  }
   function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
 
   function copyEventForPaste(ev) {
@@ -4978,7 +5250,28 @@ export default function App() {
 
   return (
     <>
-      <style>{memoAppCSS}</style>
+      <style>{memoAppCSS + `
+  .editable-chip{position:relative;display:inline-flex;align-items:center;gap:3px;}
+  .editable-chip-main{border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px;}
+  .chip-mini-action{width:18px;height:18px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);font-size:10px;font-weight:900;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;opacity:.65;transition:all .15s;}
+  .editable-chip:hover .chip-mini-action{opacity:1;}
+  .chip-mini-action:hover{background:var(--accent);border-color:var(--accent);color:white;}
+  .editable-memory-row{gap:7px;}
+  .task-board-nav{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 14px;}
+  .task-period-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;}
+  .task-period-card{min-height:420px;background:var(--bg2);border:1.5px solid var(--border);border-radius:22px;box-shadow:var(--shadow-sm);padding:14px;transition:all .18s;}
+  .task-period-card.drag-over{border-color:var(--accent);background:var(--bg4);box-shadow:0 12px 32px rgba(255,123,172,.16);transform:translateY(-2px);}
+  .task-period-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .task-period-card-title{border:0;background:transparent;color:var(--text);font-family:var(--font);font-size:15px;font-weight:900;cursor:pointer;padding:0;}
+  .task-period-count{font-family:var(--mono);font-size:10px;font-weight:800;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:3px 8px;white-space:nowrap;}
+  .task-period-card-sub{font-size:11px;color:var(--text2);font-weight:800;margin-bottom:10px;}
+  .task-card-add{width:100%;border:1.5px dashed var(--border);background:var(--bg3);color:var(--accent);border-radius:14px;padding:9px 10px;font-family:var(--font);font-weight:900;cursor:pointer;margin-bottom:10px;}
+  .task-card-add:hover{border-color:var(--accent);background:var(--bg4);}
+  .task-card-form{margin:0 0 10px;padding:10px;border-radius:16px;}
+  .task-period-list{display:flex;flex-direction:column;gap:6px;}
+  .task-card-empty{border:1.5px dashed var(--border);border-radius:16px;padding:18px 12px;text-align:center;color:var(--text3);font-size:12px;font-weight:800;background:var(--bg3);}
+  @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
+`}</style>
 
       {focusMode && <FocusMode tasks={tasks} events={events} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} onExit={() => setFocusMode(false)} />}
 
@@ -5025,9 +5318,9 @@ export default function App() {
 
         <div className="main">
           {page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} events={events} tasks={tasks} uk={uk} activitiesCatalog={journalActivities} onAddActivity={addJournalActivity} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} />
+            <JournalPage journal={journal} setJournal={setJournal} events={stableGameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} />
           ) : page === "tasks" ? (
-            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} gameStats={gameStats} />
+            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
           ) : (<>
@@ -5097,7 +5390,7 @@ export default function App() {
                       // Heat map: tint the active theme accent colour at low opacity
                       const heatBg = heat > 0.05 ? `rgba(var(--accent-rgb,255,123,172),${(heat * 0.22).toFixed(2)})` : undefined;
                       return (
-                        <div key={i} className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
+                        <div key={i} data-month-date={day ? dateKey(day) : ""} className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
                           style={heatBg ? { background: heatBg } : {}}
                           onDragOver={ev => { if (day) ev.preventDefault(); }}
                           onDrop={ev => { ev.preventDefault(); const id = ev.dataTransfer.getData("application/tempo-event"); const baseEv = visibleEvents.find(x => x.id === id); if (day && baseEv) { const dur = baseEv.end - baseEv.start; const ns = new Date(day); ns.setHours(baseEv.start.getHours(), baseEv.start.getMinutes(), 0, 0); reschedule(baseEv.id, ns, new Date(ns.getTime() + dur)); } }}
@@ -5109,11 +5402,7 @@ export default function App() {
                               const cal = CALENDARS.find(c => c.id === e.calendar);
                               const color = e.color || cal?.color || "#FF7BAC";
                               return (
-                                <div key={e.id} className="month-event-row" draggable={!e.fixed} onDragStart={ev => { ev.stopPropagation(); ev.dataTransfer.setData("application/tempo-event", e.id); }} style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)" }}
-                                  onClick={ev => { ev.stopPropagation(); setSelectedEvent(e); }}>
-                                  <span className="month-event-time">{isAllDayEvent(e) ? "All day" : `${e.start.getHours()}:${String(e.start.getMinutes()).padStart(2,"0")}`}</span>
-                                  <span className="month-event-name">{e.title}</span>
-                                </div>
+                                <MonthEventRow key={e.id} event={e} color={color} onOpen={setSelectedEvent} onReschedule={reschedule} />
                               );
                             })}
                             {de.length > 4 && <div className="month-more">+{de.length - 4} more</div>}
