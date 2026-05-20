@@ -2110,6 +2110,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
     const timer = setTimeout(() => {
       if (!ref.current) return;
       started = true;
+      document.body.classList.add("tempo-dragging");
       suppressClick.current = true;
       setHoldState("dragging");
       const r = ref.current.getBoundingClientRect();
@@ -2131,6 +2132,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
       el?.releasePointerCapture?.(pointerId);
       if (ghost?.parentNode) ghost.remove();
       if (tip?.parentNode) tip.remove();
+      document.body.classList.remove("tempo-dragging");
       setHoldState("idle");
     }
     function cancel() { cleanup(); }
@@ -2166,7 +2168,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
     <div ref={ref} className={`event-block ${event.fixed ? "fixed" : ""} hold-${holdState}`}
       onPointerDown={startPressHoldDrag}
       onClick={(e) => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onClick(event); }}
-      style={{ top, height, borderLeftColor: color, background: `${color}18`, ...colStyle, touchAction: draggable ? "none" : "auto" }}
+      style={{ top, height, color, borderLeft: `3px solid ${color}`, background: `${color}18`, ...colStyle, touchAction: draggable ? "none" : "auto" }}
       title={draggable ? "Tap to edit · Hold to move" : "Fixed event · Tap to edit"}>
       <div className="event-title">{event.title}</div>
       {height > 38 && <div className="event-time">{fmt(event.start)} - {fmt(event.end)}</div>}
@@ -2334,6 +2336,7 @@ function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEventClic
     const timer = setTimeout(() => {
       if (!ref.current) return;
       started = true;
+      document.body.classList.add("tempo-dragging");
       suppressClick.current = true;
       setHoldState("dragging");
       const r = ref.current.getBoundingClientRect();
@@ -2354,6 +2357,7 @@ function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEventClic
       ref.current?.releasePointerCapture?.(pointerId);
       if (ghost?.parentNode) ghost.remove();
       if (tip?.parentNode) tip.remove();
+      document.body.classList.remove("tempo-dragging");
       setHoldState("idle");
     }
     function cancel() { cleanup(); }
@@ -2815,7 +2819,6 @@ function GameDashboard({ gameStats, compact = false }) {
       <MascotProgressCard gameStats={gameStats} />
       <DailyQuestsCard gameStats={gameStats} />
       <StreaksCard gameStats={gameStats} />
-      <XPBreakdownCard gameStats={gameStats} />
       <BloomCollapse title="Weekly missions" defaultOpen={false}><WeeklyMissionsCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Skills & personality" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Badges & theme unlocks" defaultOpen={false}><BadgesPreview gameStats={gameStats} limit={8} /><ThemeUnlocksCard gameStats={gameStats} /></BloomCollapse>
@@ -3038,7 +3041,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <input className="modal-title-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Task title" autoFocus />
-          <button className="modal-close" onClick={requestClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
@@ -3051,7 +3054,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
           <div className="modal-row"><label>Done</label><input type="checkbox" checked={Boolean(form.done)} onChange={e => setForm(f => ({ ...f, done: e.target.checked }))}/></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" rows={3} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/></div>
         </div>
-        <div className="modal-footer">{onDelete && <button className="modal-delete" onClick={() => { onDelete(task.id); onClose(); }}>🗑️ Delete</button>}<div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={saveTask}>Save changes</button></div></div>
+        <div className="modal-footer">{onDelete && <button className="modal-delete" onClick={() => { onDelete(task.id); onClose(); }}>🗑️ Delete</button>}<div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveTask}>Save changes</button></div></div>
       </div>
     </div>
   );
@@ -3241,7 +3244,7 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
         </div>
-        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Duplicate / Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
+        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Duplicate / Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
       </div>
     </div>
   );
@@ -3924,7 +3927,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <div className="entry-modal-date">{date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
             <div className="entry-modal-sub">Add today’s memory page</div>
           </div>
-          <button className="modal-close" onClick={requestClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="entry-modal-body">
@@ -4110,7 +4113,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-modal-footer">
-          <button className="tf-cancel" onClick={requestClose}>Cancel</button>
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
           <button className="tf-save" onClick={handleSave} disabled={uploading}>{uploading ? "Saving…" : "Save memory ✓"}</button>
         </div>
       </div>
@@ -4557,7 +4560,7 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
           {err && <div style={{color:"#C04040",fontSize:12,fontWeight:700}}>⚠️ {err}</div>}
         </div>
-        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
+        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
       </div>
     </div>
   );
@@ -4759,7 +4762,17 @@ function XPBreakdownCard({ gameStats }) {
 
 function BloomCollapse({ title, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
-  return <div className={`bloom-collapse ${open ? "open" : ""}`}><button className="bloom-collapse-head" onClick={() => setOpen(v => !v)}><span>{title}</span><span>{open ? "−" : "+"}</span></button>{open && <div className="bloom-collapse-body">{children}</div>}</div>;
+  function toggle() {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) setOpen(v => !v);
+  }
+  return (
+    <div className={`bloom-collapse ${open ? "open" : ""}`}>
+      <button className="bloom-collapse-head" onClick={toggle} aria-expanded={open}>
+        <span>{title}</span><span className="bloom-collapse-mark">{open ? "−" : "+"}</span>
+      </button>
+      <div className="bloom-collapse-body">{children}</div>
+    </div>
+  );
 }
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
@@ -5873,15 +5886,6 @@ export default function App() {
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{toast.text}</div>}
-      <QuickAddMenu
-        open={quickAddOpen}
-        onToggle={() => setQuickAddOpen(v => !v)}
-        onClose={() => setQuickAddOpen(false)}
-        onAddEvent={() => setShowAddEvent(true)}
-        onAddTask={() => setSelectedTask({ id: "t" + uid(), title: "", duration: 30, category: "admin", scope: "day", done: false, priority: "medium", notes: "", deadline: null, scheduled: null, _isNew: true })}
-        onAddMemory={() => { setPage("journal"); setQuickMemoryDate(new Date(TODAY)); }}
-        onAddFocus={() => { const slot = freeBlocks(events, viewDate)[0]; const startMin = slot?.start ?? 9*60; const ev = eventFromWindow("Focus block", viewDate, startMin, Math.min(startMin + 60, DAY_END*60), "deep"); addEvent(ev); }}
-      />
       <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : "🌸"}</button>
     </>
   );
@@ -7002,4 +7006,26 @@ function appCSS(cvars, fontScale) { return `
     .event-copy-bar{bottom:78px;left:10px;right:10px;transform:none;max-width:none;border-radius:16px;font-size:12px;padding:9px 10px;}
     .event-copy-text{white-space:normal;line-height:1.25;}
   }
+
+  /* ── Final UI polish ─────────────────────────────────────────────────────── */
+  .event-block,.wt-event,.month-event-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+  .tempo-dragging,.tempo-dragging *{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important;}
+  .event-block{border-left-width:3px!important;border-left-style:solid!important;box-shadow:none!important;}
+  .event-title{color:inherit!important;text-shadow:none!important;}
+  .event-block::before{display:none!important;}
+  .bloom-collapse .bloom-collapse-body{display:flex;flex-direction:column;gap:12px;}
+  .bloom-collapse .bloom-collapse-head{cursor:default;}
+  .bloom-collapse .bloom-collapse-mark{display:none;}
+  .xp-breakdown-card{display:none!important;}
+  .quick-add-wrap{display:none!important;}
+
+  @media(max-width:768px){
+    .bloom-collapse:not(.open) .bloom-collapse-body{display:none;}
+    .bloom-collapse .bloom-collapse-head{cursor:pointer;}
+    .bloom-collapse .bloom-collapse-mark{display:inline;}
+    .settings-overlay{align-items:flex-start!important;justify-content:center!important;overflow-y:auto!important;overscroll-behavior:contain;padding:10px!important;-webkit-overflow-scrolling:touch;}
+    .settings-panel{height:calc(100dvh - 20px)!important;max-height:calc(100dvh - 20px)!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}
+    .settings-body{flex:1!important;max-height:none!important;overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+  }
+
 `; }
