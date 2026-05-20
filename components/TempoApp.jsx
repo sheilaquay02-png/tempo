@@ -35,6 +35,7 @@ function RecurrenceEditor({ value, onChange, startDate }) {
               }}>{d}</button>)}
             </div>
           )}
+          {freq === "monthly" && <div className="modal-row"><label>Day of month</label><input type="number" min={1} max={31} className="modal-select modal-time" value={rec?.byMonthDay || startDate?.getDate?.() || TODAY.getDate()} onChange={e => setRec({ byMonthDay: Math.max(1, Math.min(31, Number(e.target.value) || 1)) })}/></div>}
           <div className="modal-row"><label>Ends</label><select className="modal-select" value={rec?.endMode || (rec?.until ? "on" : rec?.count ? "after" : "never")} onChange={e => setRec({ endMode: e.target.value, until: e.target.value === "on" ? (rec?.until || dateKey(addDaysSafe(startDate || TODAY, 30))) : undefined, count: e.target.value === "after" ? (rec?.count || 10) : undefined })}><option value="never">Never</option><option value="on">On date</option><option value="after">After count</option></select></div>
           {(rec?.endMode === "on" || rec?.until) && <div className="modal-row"><label>Until</label><input type="date" className="modal-select" value={rec?.until || rec?.endDate || ""} onChange={e => setRec({ until: e.target.value, endMode: "on" })}/></div>}
           {(rec?.endMode === "after" || rec?.count) && <div className="modal-row"><label>Count</label><input type="number" min={1} className="modal-select modal-time" value={rec?.count || 10} onChange={e => setRec({ count: Math.max(1, Number(e.target.value) || 1), endMode: "after" })}/></div>}
@@ -44,8 +45,34 @@ function RecurrenceEditor({ value, onChange, startDate }) {
   );
 }
 
+
+function EventReminderEditor({ value, onChange }) {
+  const reminder = Core.normalizeEventReminder(value);
+  const presetId = Core.eventReminderPresetId(reminder);
+  const setPreset = id => {
+    const preset = Core.EVENT_REMINDER_PRESETS.find(p => p.id === id);
+    if (id === "none") return onChange({ type: "none", minutesBefore: null });
+    if (id === "at") return onChange({ type: "at", minutesBefore: 0 });
+    if (id === "custom") return onChange({ type: "custom", minutesBefore: reminder.minutesBefore ?? 15 });
+    return onChange({ type: "minutes", minutesBefore: preset?.minutesBefore ?? 10 });
+  };
+  return (
+    <div className="reminder-editor">
+      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
+        {Core.EVENT_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+      </select>
+      {presetId === "custom" && (
+        <div className="modal-row reminder-custom-row">
+          <input type="number" min={0} className="modal-select modal-time" value={reminder.minutesBefore ?? 15} onChange={e => onChange({ type: "custom", minutesBefore: Math.max(0, Number(e.target.value) || 0) })} />
+          <span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>minutes before</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy }) {
-  const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay) });
+  const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay), reminder: Core.normalizeEventReminder(event.reminder) });
   const cal = calendars.find(c => c.id === form.calendar);
   const COLORS = ["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
   const startDate = toDateInput(form.start);
@@ -93,6 +120,7 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
           <div className="modal-row"><label>Calendar</label><select className="modal-select" value={form.calendar} onChange={e => setForm(f => ({ ...f, calendar: e.target.value }))}>{calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={form.start} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div>
+          <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
           <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
@@ -109,12 +137,18 @@ function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
   const m     = Math.floor(state.remaining / 60).toString().padStart(2, "0");
   const s     = (state.remaining % 60).toString().padStart(2, "0");
   const total = state.mode === "work" ? POMODORO_WORK_SECS : POMODORO_BREAK_SECS;
-  const pct   = (1 - state.remaining / total) * 100;
+  const pct   = Math.max(0, Math.min(100, (1 - state.remaining / total) * 100));
+  const progressMins = Number(task?.focusProgressMins || 0);
+  const taskMins = Math.max(1, taskDurationToMinutes(task?.duration || 30));
+  const taskPct = Math.min(100, Math.round((progressMins / taskMins) * 100));
+  const isBoss = task?.priority === "high" || taskMins >= 90;
+  const bossHp = Math.max(0, 100 - taskPct);
   const r = 34; const circ = 2 * Math.PI * r;
   return (
     <div className="pomo-widget">
       <div className="pomo-header"><span className="pomo-mode">{state.mode === "work" ? "🔮 Focus" : "🌸 Break"}</span><span className="pomo-cycles">#{state.cycles + 1}</span><button className="pomo-stop" onClick={onStop}>✕</button></div>
-      {task && <div className="pomo-task">{task.title}</div>}
+      {task && <div className="pomo-task">{isBoss ? "👾 Boss Battle: " : ""}{task.title}</div>}
+      {task && <div className="task-progress-mini"><span>{progressMins}/{taskMins} min</span><div className="task-progress-track"><i style={{ width: `${taskPct}%` }} /></div>{isBoss && <strong>Boss HP {bossHp}%</strong>}</div>}
       <div className="pomo-ring-wrap">
         <svg className="pomo-ring" viewBox="0 0 80 80">
           <circle cx="40" cy="40" r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
@@ -203,7 +237,7 @@ function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume
           {open.slice(0, 5).map(t => (
             <div key={t.id} className="focus-task-row">
               <span className="focus-task-name">{t.title}</span>
-              <span className="focus-task-dur">{t.duration}min</span>
+              <span className="focus-task-dur">{Number(t.focusProgressMins || 0)}/{taskDurationToMinutes(t.duration)}min</span>
               <button className="focus-start-btn" onClick={() => onStartPomodoro(t.id)}>▶</button>
             </div>
           ))}
@@ -1185,7 +1219,7 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
   const end = new Date(now); end.setHours(end.getHours()+1);
   const [form, setForm] = useState({
     title: "", startDate: toDateInput(defaultDate), endDate: toDateInput(defaultDate), startTime: toTimeInputValue(now), endTime: toTimeInputValue(end), allDay: false,
-    calendar: "work", category: "meeting", fixed: false, notes: "", color: null, recurrence: null
+    calendar: "work", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
   });
   const [err, setErr] = useState("");
   function handleSave() {
@@ -1193,7 +1227,7 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
     const start = form.allDay ? applyDateAndTime(form.startDate, "00:00") : applyDateAndTime(form.startDate, form.startTime);
     const endBase = form.allDay ? endOfDay(applyDateAndTime(form.endDate, "00:00")) : applyDateAndTime(form.endDate, form.endTime);
     if (endBase <= start) { setErr("End must be after start."); return; }
-    onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence });
+    onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence, reminder:form.reminder });
     onClose();
   }
   const COLORS=["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
@@ -1212,12 +1246,48 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
           <div className="modal-row"><label>Calendar</label><select className="modal-select" value={form.calendar} onChange={e=>setForm(f=>({...f,calendar:e.target.value}))}>{calendars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>{categories.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={applyDateAndTime(form.startDate, form.startTime)} onChange={recurrence=>setForm(f=>({...f,recurrence}))}/></div>
+          <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder=>setForm(f=>({...f,reminder}))}/></div>
           <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e=>setForm(f=>({...f,fixed:e.target.checked}))}/><span style={{fontSize:11,color:"var(--text2)",marginLeft:6}}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c=><button key={c} className={`color-dot ${form.color===c?"selected":""}`} style={{background:c}} onClick={()=>setForm(f=>({...f,color:c}))}/> )}<button className="color-dot color-reset" onClick={()=>setForm(f=>({...f,color:null}))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
           {err && <div style={{color:"#C04040",fontSize:12,fontWeight:700}}>⚠️ {err}</div>}
         </div>
         <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
+      </div>
+    </div>
+  );
+}
+
+
+function TaskScheduleModal({ task, onClose, onSchedule }) {
+  const [mode, setMode] = useState("today");
+  const [focusOnly, setFocusOnly] = useState(false);
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Schedule task">
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div><strong>📅 Schedule this task</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{task?.title}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="modal-row"><label>Find slot</label><select className="modal-select" value={mode} onChange={e => setMode(e.target.value)}><option value="today">Today</option><option value="week">This week</option><option value="deadline">Before deadline</option></select></div>
+          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>9am–5pm inside your work day</span></div>
+        </div>
+        <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={() => onSchedule(mode, focusOnly)}>Schedule task</button></div>
+      </div>
+    </div>
+  );
+}
+
+function DailyPlanModal({ plan, onClose, onApply }) {
+  if (!plan) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan my day">
+      <div className="modal day-plan-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div><strong>✨ Plan My Day</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
+          {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
+          {plan.unscheduled.length > 0 && <div className="plan-warning">Could not fit: {plan.unscheduled.map(t => t.title).join(", ")}</div>}
+        </div>
+        <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div>
       </div>
     </div>
   );
@@ -1420,6 +1490,8 @@ export default function App() {
   const [copiedEvent, setCopiedEvent] = useState(null);
   const [toast, setToast] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [scheduleTaskTarget, setScheduleTaskTarget] = useState(null);
+  const [dayPlan, setDayPlan] = useState(null);
   const [mobileTasksOpen, setMobileTasksOpen] = useState(false);
   const [categories, setCatRaw] = useState(() => normalizeCategories(load(`${uk}_categories`, CATEGORIES)));
   const [templates, setTplRaw] = useState(() => load(`${uk}_templates`, DAY_TEMPLATES));
@@ -1445,6 +1517,7 @@ export default function App() {
   // Real streak: count consecutive days the user has been active
   const [streak, setStreak] = useState(0);
   const pomodoro = usePomodoro();
+  const lastFocusCycleRef = useRef(0);
   const closeSidebarOnMobile = () => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
   };
@@ -1776,6 +1849,16 @@ export default function App() {
 
   const setEvents   = v => { const n = reviveEvents(typeof v === "function" ? v(events) : v); setEvRaw(n); syncEvents(n, tasks); };
   const setTasks    = v => { const n = normalizeTasks(typeof v === "function" ? v(tasks)  : v); setTkRaw(n); syncTasks(n, events); };
+  const setEventsAndTasks = (nextEvents, nextTasks) => {
+    const evs = reviveEvents(nextEvents);
+    const tks = normalizeTasks(nextTasks);
+    setEvRaw(evs);
+    setTkRaw(tks);
+    save(`${uk}_ev`, evs);
+    save(`${uk}_tk`, tks);
+    save(`${uk}_updated_at`, new Date().toISOString());
+    if (auth.user && dataReady) queueCloudSave(evs, tks, currentSettings());
+  };
   useEffect(() => {
     if (!dataReady) return;
     const next = ensureRecurringTasksForPeriod(tasks, taskScope, taskPeriodDate);
@@ -2066,6 +2149,133 @@ export default function App() {
   }
   function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !confirmEventPlacement(ev, ev.id, "Add event")) return false; pushUndo(); setEvents(es => [...es, ev]); return true; }
 
+
+  function taskCalendarFor(task) {
+    return ["personal", "health"].includes(task?.category) ? "personal" : "work";
+  }
+  function buildTaskEvent(task, start, end, extra = {}) {
+    const cat = categories.find(c => c.id === task.category);
+    return {
+      id: "e" + uid(),
+      title: `Task: ${task.title}`,
+      start,
+      end,
+      allDay: false,
+      calendar: taskCalendarFor(task),
+      category: task.category || "deep",
+      fixed: false,
+      notes: [task.notes || "", `Linked task: ${task.id}`].filter(Boolean).join("\n\n"),
+      color: cat?.color || null,
+      recurrence: null,
+      reminder: { type: "minutes", minutesBefore: 10 },
+      linkedTaskId: task.id,
+      ...extra,
+    };
+  }
+  function freeSlotsForDate(date, focusOnly = false, extraEvents = []) {
+    const startHour = focusOnly ? Math.max(workStart, 9) : workStart;
+    const endHour = focusOnly ? Math.min(workEnd, 17) : workEnd;
+    if (endHour <= startHour) return [];
+    const booked = expandRecurring([...events, ...extraEvents], dayStart(date), addDaysSafe(dayStart(date), 1))
+      .filter(e => eventOccursOnDay(e, date));
+    const now = new Date();
+    return getFreeBlocks(booked, date, startHour, endHour)
+      .map(b => {
+        const start = sameDay(date, now) && b.start < now ? new Date(Math.ceil(now.getTime() / (5 * 60000)) * 5 * 60000) : b.start;
+        return { start, end: b.end, minutes: Math.max(0, Math.round((b.end - start) / 60000)) };
+      })
+      .filter(b => b.minutes >= 15);
+  }
+  function openPlanningTasks(date = TODAY) {
+    const base = tasks.filter(t => !t.done && !t.scheduledEventId && taskBelongsToPeriod(t, "day", date));
+    return base.sort((a, b) => (({ high: 0, medium: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, medium: 1, low: 2 }[b.priority] ?? 1)) || String(a.deadline || "9999").localeCompare(String(b.deadline || "9999")));
+  }
+  function buildDailyPlan(date = TODAY) {
+    const planDate = dayStart(date);
+    const candidates = openPlanningTasks(planDate);
+    let slots = freeSlotsForDate(planDate, false);
+    const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0);
+    const suggestions = [];
+    const unscheduled = [];
+    for (const task of candidates) {
+      const minutes = Math.max(15, taskDurationToMinutes(task.duration || 30));
+      const idx = slots.findIndex(slot => slot.minutes >= minutes);
+      if (idx === -1) { unscheduled.push(task); continue; }
+      const slot = slots[idx];
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + minutes * 60000);
+      suggestions.push({ task, start, end, minutes });
+      slots[idx] = { start: end, end: slot.end, minutes: Math.max(0, Math.round((slot.end - end) / 60000)) };
+      slots = slots.filter(slot => slot.minutes >= 15);
+    }
+    return { date: planDate, freeMinutes, openCount: candidates.length, suggestions, unscheduled };
+  }
+  function applyDayPlan(plan) {
+    if (!plan?.suggestions?.length) return;
+    pushUndo();
+    const additions = plan.suggestions.map(({ task, start, end }) => buildTaskEvent(task, start, end, { source: "day-plan" }));
+    const taskToEvent = new Map(additions.map(ev => [ev.linkedTaskId, ev]));
+    const nextEvents = [...events, ...additions];
+    const nextTasks = tasks.map(t => taskToEvent.has(t.id) ? { ...t, scheduledEventId: taskToEvent.get(t.id).id, scheduledStart: taskToEvent.get(t.id).start.toISOString(), scheduledEnd: taskToEvent.get(t.id).end.toISOString() } : t);
+    setEventsAndTasks(nextEvents, nextTasks);
+    setDayPlan(null);
+    setToast({ text: `Plan added ${additions.length} task block${additions.length === 1 ? "" : "s"} ✓`, ts: Date.now() });
+  }
+  function scheduleTaskIntoCalendar(task, mode = "today", focusOnly = false) {
+    if (!task) return;
+    const duration = Math.max(15, taskDurationToMinutes(task.duration || 30));
+    const startSearch = dayStart(TODAY);
+    const last = mode === "today" ? startSearch : mode === "deadline" && task.deadline ? (localDateFromKey(task.deadline) || startSearch) : addDaysSafe(weekStart(TODAY), 6);
+    for (let d = dayStart(startSearch); d <= dayStart(last); d = addDaysSafe(d, 1)) {
+      const slot = freeSlotsForDate(d, focusOnly).find(s => s.minutes >= duration);
+      if (!slot) continue;
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + duration * 60000);
+      const ev = buildTaskEvent(task, start, end, { source: "task-auto-schedule" });
+      pushUndo();
+      setEventsAndTasks([...events, ev], tasks.map(t => t.id === task.id ? { ...t, scheduledEventId: ev.id, scheduledStart: ev.start.toISOString(), scheduledEnd: ev.end.toISOString() } : t));
+      setScheduleTaskTarget(null);
+      setToast({ text: `Scheduled “${task.title}” at ${fmt(start)} ✓`, ts: Date.now() });
+      return true;
+    }
+    setToast({ text: `No suitable slot found for “${task.title}”`, ts: Date.now() });
+    return false;
+  }
+  function handlePomodoroStop() {
+    const linkedTask = tasks.find(t => t.id === pomodoro.state.taskId);
+    if (linkedTask && typeof window !== "undefined") {
+      const note = window.prompt("Add session notes for this focus session?", "");
+      if (note?.trim()) setTasks(ts => ts.map(t => t.id === linkedTask.id ? { ...t, notes: [t.notes || "", `Focus note (${fmt(new Date())}): ${note.trim()}`].filter(Boolean).join("\n") } : t));
+    }
+    pomodoro.stop();
+  }
+
+
+  useEffect(() => {
+    const cycles = pomodoro.state.cycles || 0;
+    if (cycles <= lastFocusCycleRef.current) return;
+    const taskId = pomodoro.state.taskId;
+    lastFocusCycleRef.current = cycles;
+    if (!taskId) return;
+    const minutes = Math.round(POMODORO_WORK_SECS / 60);
+    const endedAt = new Date();
+    const startedAt = new Date(endedAt.getTime() - minutes * 60000);
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    let completedTask = null;
+    const nextTasks = tasks.map(t => {
+      if (t.id !== taskId) return t;
+      const nextProgress = Number(t.focusProgressMins || 0) + minutes;
+      const required = Math.max(1, taskDurationToMinutes(t.duration || 30));
+      const done = nextProgress >= required;
+      completedTask = { ...t, done, nextProgress };
+      return { ...t, focusProgressMins: nextProgress, done: done ? true : t.done, completedAt: done ? endedAt.toISOString() : t.completedAt, completedDate: done ? taskCompletionTargetKey(t) : t.completedDate };
+    });
+    const focusEvent = buildTaskEvent(task, startedAt, endedAt, { title: `Focus: ${task.title}`, category: task.category || "deep", source: "focus-mode", reminder: { type: "none", minutesBefore: null } });
+    setEventsAndTasks([...events, focusEvent], nextTasks);
+    setToast({ text: completedTask?.done ? `Boss defeated: ${task.title} ✓` : `Focus progress saved for “${task.title}”`, ts: Date.now() });
+  }, [pomodoro.state.cycles]);
+
   function copyEventForPaste(ev) {
     if (!ev) return;
     const clean = stripOccurrenceMeta(ev);
@@ -2079,6 +2289,7 @@ export default function App() {
       fixed: Boolean(clean.fixed),
       color: clean.color || null,
       notes: clean.notes || "",
+      reminder: Core.normalizeEventReminder(clean.reminder),
       allDay: Boolean(clean.allDay),
       durationMs,
       sourceHour: sourceStart.getHours(),
@@ -2107,6 +2318,7 @@ export default function App() {
       fixed: Boolean(copiedEvent.fixed),
       color: copiedEvent.color || null,
       notes: copiedEvent.notes || "",
+      reminder: Core.normalizeEventReminder(copiedEvent.reminder),
       recurrence: null,
       copiedFrom: copiedEvent.title,
     };
@@ -2368,9 +2580,10 @@ export default function App() {
   .xp-breakdown-list{display:flex;flex-direction:column;gap:7px}.xp-breakdown-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);font-weight:800}.xp-breakdown-row strong{color:var(--accent);font-family:var(--mono)}.bloom-collapse{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.bloom-collapse-head{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:900;padding:12px 14px;cursor:pointer}.bloom-collapse-body{padding:12px;display:flex;flex-direction:column;gap:12px}.bloom-collapse-body>.game-card{box-shadow:none;}
   @media(max-width:768px){.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}}
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
+  .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
-      {focusMode && <FocusMode tasks={tasks} events={events} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} onExit={() => setFocusMode(false)} />}
+      {focusMode && <FocusMode tasks={tasks} events={events} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} onExit={() => setFocusMode(false)} />}
 
       <div className="app">
         <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
@@ -2393,6 +2606,7 @@ export default function App() {
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
+            <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
             <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
@@ -2419,7 +2633,7 @@ export default function App() {
           {page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
-            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
+            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
           ) : (<>
@@ -2452,6 +2666,7 @@ export default function App() {
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
             <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
+            <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan My Day</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
@@ -2510,13 +2725,13 @@ export default function App() {
                 );
               })()}
             </div>
-            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
+            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
           </div>
         </>)}
         </div>
       </div>
 
-      {pomodoro.state.active && <PomodoroWidget state={pomodoro.state} tasks={tasks} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={pomodoro.stop} />}
+      {pomodoro.state.active && <PomodoroWidget state={pomodoro.state} tasks={tasks} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} />}
       {undoStack.length > 0 && <button className="undo-btn" onClick={undo}>↩ Undo <kbd>⌘Z</kbd></button>}
       {copiedEvent && (
         <div className="event-copy-bar">
@@ -2530,6 +2745,8 @@ export default function App() {
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
+      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
+      {dayPlan && <DailyPlanModal plan={dayPlan} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
@@ -2567,7 +2784,7 @@ export default function App() {
         <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
       </div>
 
-      {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{toast.text}</div>}
+      {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
       <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : "🌸"}</button>
     </>
   );

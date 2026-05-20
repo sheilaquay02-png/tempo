@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-const EVENT_REMINDER_MINUTES = 10;
+const DEFAULT_EVENT_REMINDER_MINUTES = 10;
 const DEFAULT_LOOKBACK_MINUTES = 10;
 const DEFAULT_LOOKAHEAD_MINUTES = 1;
-const DEFAULT_TASK_REMINDER_HOUR = 9;
+const TASK_REMINDER_TIMES = { morning: '09:00', afternoon: '13:00', evening: '18:00' };
 
 function json(data, status = 200) {
   return Response.json(data, { status });
@@ -98,6 +98,60 @@ function normalizeRecurrence(rec) {
   return rec;
 }
 
+
+function normalizeEventReminder(reminder) {
+  if (reminder === null) return { type: 'none', minutesBefore: null };
+  if (typeof reminder === 'number') return reminder < 0 ? { type: 'none', minutesBefore: null } : { type: 'minutes', minutesBefore: reminder };
+  if (!reminder) return { type: 'minutes', minutesBefore: DEFAULT_EVENT_REMINDER_MINUTES };
+  const type = reminder.type || reminder.mode || reminder.id || 'minutes';
+  if (type === 'none') return { type: 'none', minutesBefore: null };
+  if (type === 'at') return { type: 'at', minutesBefore: 0 };
+  const minutes = Number(reminder.minutesBefore ?? reminder.minutes ?? reminder.offsetMinutes ?? reminder.value ?? DEFAULT_EVENT_REMINDER_MINUTES);
+  return { type: type === 'custom' ? 'custom' : 'minutes', minutesBefore: Math.max(0, Number.isFinite(minutes) ? minutes : DEFAULT_EVENT_REMINDER_MINUTES) };
+}
+
+function eventReminderMinutes(reminder) {
+  const r = normalizeEventReminder(reminder);
+  return r.type === 'none' ? null : Math.max(0, Number(r.minutesBefore) || 0);
+}
+
+function eventReminderLabel(minutes) {
+  if (minutes === 0) return 'now';
+  if (minutes === 60) return '1 hour';
+  if (minutes === 1440) return '1 day';
+  return `${minutes} minutes`;
+}
+
+function normalizeTaskReminder(reminder) {
+  if (reminder === null) return { type: 'none', time: '' };
+  if (typeof reminder === 'string') {
+    if (reminder in TASK_REMINDER_TIMES) return { type: reminder, time: TASK_REMINDER_TIMES[reminder] };
+    return reminder ? { type: 'custom', time: reminder } : { type: 'none', time: '' };
+  }
+  if (!reminder) return { type: 'none', time: '' };
+  const type = reminder.type || reminder.mode || reminder.id || 'none';
+  if (type === 'none') return { type: 'none', time: '' };
+  return { type, time: reminder.time || TASK_REMINDER_TIMES[type] || '09:00' };
+}
+
+function parseClock(time) {
+  const [h, m] = String(time || '').split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return { hour: Math.max(0, Math.min(23, h)), minute: Math.max(0, Math.min(59, m)) };
+}
+
+function localDateTimeMs(parts) {
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0, 0);
+}
+
+function isDueLocalClock(parts, time, lookbackMinutes, lookaheadMinutes) {
+  const clock = parseClock(time);
+  if (!clock) return false;
+  const nowMs = localDateTimeMs(parts);
+  const dueMs = Date.UTC(parts.year, parts.month - 1, parts.day, clock.hour, clock.minute, 0, 0);
+  return dueMs >= nowMs - lookbackMinutes * 60000 && dueMs <= nowMs + lookaheadMinutes * 60000;
+}
+
 function recurrenceEndDate(rec) {
   return rec?.endDate || rec?.until || null;
 }
@@ -107,15 +161,27 @@ function recurrenceSkippedDates(rec) {
 }
 
 function stepRecurringDate(date, rec) {
-  const freq = rec?.frequency || rec?.type || rec;
-  if (freq === 'daily') return addDays(date, 1);
-  if (freq === 'weekly') return addDays(date, 7);
+  const r = normalizeRecurrence(rec) || {};
+  const freq = r.frequency || r.type || rec;
+  const interval = Math.max(1, Number(r.interval || 1));
+  if (freq === 'daily') return addDays(date, interval);
+  if (freq === 'weekly') {
+    if (Array.isArray(r?.byWeekdays) && r.byWeekdays.length) return addDays(date, 1);
+    return addDays(date, 7 * interval);
+  }
   if (freq === 'weekdays') {
     let d = addDays(date, 1);
     while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = addDays(d, 1);
     return d;
   }
-  if (freq === 'monthly') return addMonths(date, 1);
+  if (freq === 'monthly') {
+    const next = addMonths(date, interval);
+    if (r.byMonthDay) {
+      const max = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+      next.setUTCDate(Math.min(Math.max(1, Number(r.byMonthDay) || date.getUTCDate()), max));
+    }
+    return next;
+  }
   return null;
 }
 
@@ -123,41 +189,56 @@ function dateOnlyKeyUTC(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function shouldEmitOccurrence(occurrenceDate, rec, index) {
+function weeksBetweenUTC(a, b) {
+  const a0 = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+  const b0 = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
+  return Math.floor((b0 - a0) / (7 * 86400000));
+}
+
+function shouldEmitOccurrence(baseStart, occurrenceDate, rec, index) {
   const key = dateOnlyKeyUTC(occurrenceDate);
   if (recurrenceSkippedDates(rec).has(key)) return false;
   const end = recurrenceEndDate(rec);
   if (end && occurrenceDate > new Date(`${end}T23:59:59.999Z`)) return false;
   if (rec?.count && index >= Number(rec.count)) return false;
+  if (Array.isArray(rec?.byWeekdays) && rec.byWeekdays.length) {
+    if (!rec.byWeekdays.map(Number).includes(occurrenceDate.getUTCDay())) return false;
+    if (weeksBetweenUTC(baseStart, occurrenceDate) % Math.max(1, Number(rec.interval || 1)) !== 0) return false;
+  }
   return true;
 }
 
 function eventReminderCandidates(events, now, lookbackMinutes, lookaheadMinutes) {
   const dueWindowStart = new Date(now.getTime() - lookbackMinutes * 60000);
   const dueWindowEnd = new Date(now.getTime() + lookaheadMinutes * 60000);
-  const latestEventStart = new Date(dueWindowEnd.getTime() + EVENT_REMINDER_MINUTES * 60000);
-  const earliestEventStart = now;
   const candidates = [];
 
   for (const ev of Array.isArray(events) ? events : []) {
     if (!ev || ev.allDay) continue;
+    const minutesBefore = eventReminderMinutes(ev.reminder);
+    if (minutesBefore === null) continue;
     const baseStart = toDate(ev.start);
     const baseEnd = toDate(ev.end);
     if (!baseStart || !baseEnd) continue;
+    const latestEventStart = new Date(dueWindowEnd.getTime() + minutesBefore * 60000);
+    const earliestEventStart = new Date(dueWindowStart.getTime() + minutesBefore * 60000);
     const durationMs = Math.max(0, baseEnd.getTime() - baseStart.getTime());
     const rec = normalizeRecurrence(ev.recurrence);
 
     const maybeAdd = (start, occurrenceKey = null) => {
-      if (!start || start <= earliestEventStart || start > latestEventStart) return;
-      const dueAt = new Date(start.getTime() - EVENT_REMINDER_MINUTES * 60000);
+      if (!start || start < earliestEventStart || start > latestEventStart) return;
+      const dueAt = new Date(start.getTime() - minutesBefore * 60000);
       if (dueAt < dueWindowStart || dueAt > dueWindowEnd) return;
+      const label = eventReminderLabel(minutesBefore);
       candidates.push({
         type: 'event',
         id: ev.id || ev.title || 'event',
         title: ev.title || 'Untitled event',
         start,
         end: new Date(start.getTime() + durationMs),
-        key: `event:${ev.id || ev.title || 'event'}:${occurrenceKey || start.toISOString()}:10m`,
+        minutesBefore,
+        label,
+        key: `event:${ev.id || ev.title || 'event'}:${occurrenceKey || start.toISOString()}:${minutesBefore}m`,
       });
     };
 
@@ -175,7 +256,7 @@ function eventReminderCandidates(events, now, lookbackMinutes, lookaheadMinutes)
     }
     safety = 0;
     while (cursor <= latestEventStart && safety++ < 100) {
-      if (cursor.getTime() !== baseStart.getTime() && shouldEmitOccurrence(cursor, rec, index)) {
+      if (cursor.getTime() !== baseStart.getTime() && shouldEmitOccurrence(baseStart, cursor, rec, index)) {
         maybeAdd(cursor, dateOnlyKeyUTC(cursor));
       }
       const next = stepRecurringDate(cursor, rec);
@@ -208,60 +289,37 @@ function taskDayKey(task) {
   return task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline || null;
 }
 
-function taskReminderCandidates(tasks, settings, now) {
+function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookaheadMinutes) {
   const timeZone = settings?.timezone || 'Asia/Singapore';
   const parts = localTimeParts(now, timeZone);
-  const reminderHour = Number.isFinite(Number(settings?.workStart))
-    ? Math.max(6, Math.min(22, Number(settings.workStart)))
-    : DEFAULT_TASK_REMINDER_HOUR;
-
-  // Vercel cron runs every 5 minutes. This keeps the reminder gentle and once per period.
-  if (parts.hour !== reminderHour || parts.minute > 10) return [];
-
   const todayKey = parts.dateKey;
   const thisWeekKey = mondayDateKeyFromLocalDateKey(todayKey);
   const thisMonthKey = monthKeyFromDateKey(todayKey);
   const open = (Array.isArray(tasks) ? tasks : []).filter(t => t && !t.done);
   const candidates = [];
 
-  const dayTasks = open.filter(t => taskScopeOf(t) === 'day' && taskDayKey(t) === todayKey);
-  if (dayTasks.length) {
+  for (const task of open) {
+    const reminder = normalizeTaskReminder(task.reminder);
+    if (reminder.type === 'none') continue;
+    if (!isDueLocalClock(parts, reminder.time, lookbackMinutes, lookaheadMinutes)) continue;
+
+    const scope = taskScopeOf(task);
+    let inPeriod = false;
+    if (scope === 'day') inPeriod = taskDayKey(task) === todayKey;
+    if (scope === 'week') inPeriod = (task.weekKey || '') === thisWeekKey;
+    if (scope === 'month') inPeriod = (task.monthKey || '') === thisMonthKey;
+    if (!inPeriod) continue;
+
+    const label = reminder.type === 'custom' ? `at ${reminder.time}` : reminder.type;
     candidates.push({
-      type: 'tasks-day',
-      key: `tasks:day:${todayKey}:morning`,
-      title: 'Today’s tasks 🌸',
-      body: `You have ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'} waiting for today.`,
+      type: 'task',
+      key: `task:${task.id || task.title}:${todayKey}:${reminder.time}`,
+      title: 'Task reminder ✅',
+      body: `${task.title || 'Untitled task'} · ${label}`,
       url: '/',
-      count: dayTasks.length,
+      start: now,
+      count: 1,
     });
-  }
-
-  if (parts.weekday === 'Mon') {
-    const weekTasks = open.filter(t => taskScopeOf(t) === 'week' && (t.weekKey || '') === thisWeekKey);
-    if (weekTasks.length) {
-      candidates.push({
-        type: 'tasks-week',
-        key: `tasks:week:${thisWeekKey}:morning`,
-        title: 'This week’s tasks 🗓️',
-        body: `You have ${weekTasks.length} week task${weekTasks.length === 1 ? '' : 's'} to plan.`,
-        url: '/',
-        count: weekTasks.length,
-      });
-    }
-  }
-
-  if (parts.day === 1) {
-    const monthTasks = open.filter(t => taskScopeOf(t) === 'month' && (t.monthKey || '') === thisMonthKey);
-    if (monthTasks.length) {
-      candidates.push({
-        type: 'tasks-month',
-        key: `tasks:month:${thisMonthKey}:morning`,
-        title: 'This month’s tasks 🌙',
-        body: `You have ${monthTasks.length} month task${monthTasks.length === 1 ? '' : 's'} to review.`,
-        url: '/',
-        count: monthTasks.length,
-      });
-    }
   }
 
   return candidates;
@@ -343,10 +401,10 @@ async function runReminderCheck(request) {
       const eventCandidates = eventReminderCandidates(row.events || [], now, lookbackMinutes, lookaheadMinutes).map(reminder => ({
         ...reminder,
         title: 'Upcoming event ⏰',
-        body: `${reminder.title} starts in about ${EVENT_REMINDER_MINUTES} minutes.`,
+        body: reminder.minutesBefore === 0 ? `${reminder.title} starts now.` : `${reminder.title} starts in ${reminder.label}.`,
         url: '/',
       }));
-      const taskCandidates = taskReminderCandidates(row.tasks || [], settings, now);
+      const taskCandidates = taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes);
       const allCandidates = [...eventCandidates, ...taskCandidates];
       candidates += allCandidates.length;
 

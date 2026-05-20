@@ -2,8 +2,42 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
 
+
+function TaskReminderFields({ value, onChange, compact = false }) {
+  const reminder = Core.normalizeTaskReminder(value);
+  const presetId = Core.taskReminderPresetId(reminder);
+  const setPreset = id => {
+    const preset = Core.TASK_REMINDER_PRESETS.find(p => p.id === id);
+    onChange(Core.normalizeTaskReminder(id === "custom" ? { type: "custom", time: reminder.time || preset?.time || "09:00" } : { type: id, time: preset?.time || "" }));
+  };
+  return (
+    <>
+      <select className={compact ? "tf-select" : "modal-select"} value={presetId} onChange={e => setPreset(e.target.value)}>
+        {Core.TASK_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+      </select>
+      {presetId === "custom" && <input type="time" className={compact ? "tf-select" : "modal-select modal-time"} value={reminder.time || "09:00"} onChange={e => onChange({ type: "custom", time: e.target.value })} />}
+    </>
+  );
+}
+
+function TaskRecurrenceSelect({ value, onChange, anchorDate = TODAY, compact = false }) {
+  const preset = Core.recurrencePresetId(value);
+  return (
+    <select className={compact ? "tf-select" : "modal-select"} value={preset} onChange={e => onChange(Core.buildTaskRecurrencePreset(e.target.value, anchorDate))}>
+      <option value="">No repeat</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="weekdays">Every weekday</option>
+      <option value="weekly-mwf">Every Mon/Wed/Fri</option>
+      <option value="weekly-2">Every 2 weeks</option>
+      <option value="monthly">Every month</option>
+      <option value="monthly-15">Every month on the 15th</option>
+    </select>
+  );
+}
+
 // ─── Task Item ────────────────────────────────────────────────────────────────
-export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
+export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit, onScheduleTask }) {
   const [expanded, setExpanded] = useState(false);
   const cat = categories.find(c => c.id === task.category);
   const pri = PRIORITIES.find(p => p.id === task.priority);
@@ -84,7 +118,9 @@ export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }
         <div className="task-meta">
           <span style={{ color: cat?.color }}>{cat?.icon} {cat?.label}</span>
           <span>{formatTaskDuration(task.duration)}</span>
-          {task.recurrence && <span>↻ {normalizeRecurrence(task.recurrence)?.frequency}</span>}
+          {task.recurrence && <span>↻ {Core.formatRecurrence(task.recurrence)}</span>}
+          {Core.taskReminderPresetId(task.reminder) !== "none" && <span>🔔 {Core.formatTaskReminder(task.reminder)}</span>}
+          {task.scheduledStart && <span>📅 {fmt(new Date(task.scheduledStart))}</span>}
           {pri && <span style={{ color: pri.color }}>{pri.icon} {pri.label}</span>}
           {task.deadline && <span className="deadline">due {task.deadline.slice(5)}</span>}
           {task.notes && <span title={task.notes}>📝</span>}
@@ -92,17 +128,18 @@ export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }
         {expanded && task.notes && <div className="task-notes">{task.notes}</div>}
       </div>
       <button className="pomo-btn" onClick={() => onEdit(task)} title="Edit task">✎</button>
+      {!task.done && <button className="pomo-btn" onClick={() => onScheduleTask?.(task)} title="Schedule this task">📅</button>}
       {!task.done && <button className="pomo-btn" onClick={() => onStartPomodoro(task.id)} title="Start Pomodoro">⏱</button>}
     </div>
   );
 }
 
 // ─── Task Panel ───────────────────────────────────────────────────────────────
-export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
+export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, onScheduleTask, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding]       = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
-  const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null });
+  const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
   useEffect(() => {
     if (adding) setForm(f => ({ ...f, scope }));
   }, [adding, scope]);
@@ -113,7 +150,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
     onAdd(withTaskPeriod({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null }, periodDate));
-    setForm({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null });
+    setForm({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
   }
@@ -150,7 +187,10 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
             <div className="tf-duration"><span>⏱</span><input type="number" className="tf-num" value={durationDraft.amount} min={1} step={durationDraft.unit === "minutes" ? 5 : 1} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="tf-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></div>
           </div>
           <div className="tf-row">
-            <select className="tf-select" value={form.recurrence || ""} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value || null }))}><option value="">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="weekdays">Weekdays</option><option value="monthly">Monthly</option></select>
+            <TaskRecurrenceSelect compact value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} />
+          </div>
+          <div className="tf-row">
+            <TaskReminderFields compact value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} />
           </div>
           <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
           <div className="tf-actions"><button className="tf-cancel" onClick={() => setAdding(false)}>Cancel</button><button className="tf-save" onClick={handleAdd}>Add task</button></div>
@@ -163,7 +203,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
             <div className="empty-state-title">All clear! No tasks for now. Enjoy the free time 🌸</div>
           </div>
         ) : (
-          [...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} categories={categories} />)
+          [...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} categories={categories} />)
         )}
       </div>
       <div className="task-footer"><span>{filtered.filter(t => !t.done).length} remaining</span><span>{filtered.filter(t => t.done).length} done ✅</span></div>
@@ -174,7 +214,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
 
 export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   const initial = splitTaskDuration(task.duration);
-  const [form, setForm] = useState({ ...task, deadline: task.deadline || "", recurrence: task.recurrence || null });
+  const [form, setForm] = useState({ ...task, deadline: task.deadline || "", recurrence: task.recurrence || null, reminder: Core.normalizeTaskReminder(task.reminder) });
   const [durationDraft, setDurationDraft] = useState(initial);
   const [periodDate, setPeriodDate] = useState(taskAnchorDate(task, TODAY));
   function saveTask() {
@@ -208,7 +248,8 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
           <div className="modal-row"><label>Priority</label><select className="modal-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select></div>
           <div className="modal-row"><label>Duration</label><input type="number" className="modal-select modal-time" min={1} value={durationDraft.amount} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="modal-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">minutes</option><option value="hours">hours</option><option value="days">days</option></select></div>
           <div className="modal-row"><label>Deadline</label><input type="date" className="modal-select" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}/></div>
-          <div className="modal-row"><label>Recurrence</label><select className="modal-select" value={form.recurrence || ""} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value || null }))}><option value="">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="weekdays">Weekdays</option><option value="monthly">Monthly</option></select></div>
+          <div className="modal-row"><label>Recurrence</label><TaskRecurrenceSelect value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div>
+          <div className="modal-row"><label>Reminder</label><TaskReminderFields value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
           <div className="modal-row"><label>Done</label><input type="checkbox" checked={Boolean(form.done)} onChange={e => setForm(f => ({ ...f, done: e.target.checked }))}/></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" rows={3} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/></div>
         </div>
@@ -218,11 +259,11 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDate, onToggle, onEdit, onStartPomodoro, onAdd, onMoveTaskPeriod, onSelectScope }) {
+export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDate, onToggle, onEdit, onStartPomodoro, onScheduleTask, onAdd, onMoveTaskPeriod, onSelectScope }) {
   const [isOver, setIsOver] = useState(false);
   const [adding, setAdding] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
-  const [form, setForm] = useState({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null });
+  const [form, setForm] = useState({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, cardScope, periodDate));
   const sorted = [...filtered].sort((a, b) => Number(a.done) - Number(b.done) || (({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)));
   const openCount = filtered.filter(t => !t.done).length;
@@ -231,7 +272,7 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
     onAdd(withTaskPeriod({ ...form, id: "t" + uid(), title: form.title.trim(), duration, scope: cardScope, done: false, completedAt: null, completedDate: null }, periodDate));
-    setForm({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null });
+    setForm({ title: "", category: "deep", priority: "medium", deadline: "", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
   }
@@ -270,20 +311,23 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
             <div className="tf-duration"><span>⏱</span><input type="number" className="tf-num" value={durationDraft.amount} min={1} step={durationDraft.unit === "minutes" ? 5 : 1} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="tf-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></div>
           </div>
           <div className="tf-row">
-            <select className="tf-select" value={form.recurrence || ""} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value || null }))}><option value="">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="weekdays">Weekdays</option><option value="monthly">Monthly</option></select>
+            <TaskRecurrenceSelect compact value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} />
+          </div>
+          <div className="tf-row">
+            <TaskReminderFields compact value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} />
           </div>
           <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
           <div className="tf-actions"><button className="tf-cancel" onClick={() => setAdding(false)}>Cancel</button><button className="tf-save" onClick={addCardTask}>Add task</button></div>
         </div>
       )}
       <div className="task-period-list">
-        {sorted.length ? sorted.map(t => <div key={t.id} className="task-card-with-move"><TaskItem task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} categories={categories} />{cardScope !== "day" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "day", new Date(TODAY))}>Move to Day</button>}{cardScope !== "week" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "week", new Date(TODAY))}>Move to Week</button>}{cardScope !== "month" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "month", new Date(TODAY))}>Move to Month</button>}</div>) : <div className="task-card-empty">No tasks here yet 🌸<br/><small>Drop a task here or add one small task.</small></div>}
+        {sorted.length ? sorted.map(t => <div key={t.id} className="task-card-with-move"><TaskItem task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} categories={categories} />{cardScope !== "day" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "day", new Date(TODAY))}>Move to Day</button>}{cardScope !== "week" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "week", new Date(TODAY))}>Move to Week</button>}{cardScope !== "month" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "month", new Date(TODAY))}>Move to Month</button>}</div>) : <div className="task-card-empty">No tasks here yet 🌸<br/><small>Drop a task here or add one small task.</small></div>}
       </div>
     </div>
   );
 }
 
-export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
+export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, onScheduleTask, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
   useEffect(() => {
     const handler = e => {
       const { id, scope: targetScope, anchor } = e.detail || {};
@@ -304,7 +348,7 @@ export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartP
       </div>
       <div className="task-period-board">
         {["day", "week", "month"].map(s => (
-          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} setPeriodDate={setPeriodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
+          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} setPeriodDate={setPeriodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
         ))}
       </div>
     </div>
