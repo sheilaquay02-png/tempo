@@ -443,3 +443,46 @@ export function LoginScreen({ auth }) {
   );
 }
 
+
+// ─── Closed-app push notification registration ──────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(ch => ch.charCodeAt(0)));
+}
+export async function registerTempoPushNotifications(userId) {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return { ok: false, reason: "Push notifications are not supported on this browser." };
+  }
+  if (!userId) return { ok: false, reason: "Please sign in before enabling closed-app push notifications." };
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidPublicKey) return { ok: false, reason: "Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY." };
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return { ok: false, reason: "Notification permission was not granted." };
+  const registration = await navigator.serviceWorker.register("/tempo-sw.js");
+  const existing = await registration.pushManager.getSubscription();
+  const subscription = existing || await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+  });
+  const sb = await getSupabase();
+  const { data: sessionData } = await sb.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const response = await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ subscription, userId }),
+  });
+  if (!response.ok) throw new Error("Could not save push subscription. Check the push API setup.");
+  return { ok: true, subscription };
+}
+export async function disableTempoPushNotifications() {
+  try {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return true;
+    const registration = await navigator.serviceWorker.getRegistration("/tempo-sw.js");
+    const subscription = await registration?.pushManager?.getSubscription?.();
+    await subscription?.unsubscribe?.();
+  } catch (err) { console.warn("Could not disable Tempo push subscription", err); }
+  return true;
+}

@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
-import { LoginScreen, useAuth, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration } from "./auth/LoginScreen";
+import { LoginScreen, useAuth, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { LevelBar, BloomRoomPage } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
@@ -227,10 +227,19 @@ function ShortcutsModal({ onClose }) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
+  async function toggleClosedPush() {
+    if (!pushEnabled) {
+      const ok = await onEnableClosedPush?.();
+      if (ok) setPushEnabled(true);
+    } else {
+      await disableTempoPushNotifications();
+      setPushEnabled(false);
+    }
+  }
   function addCategory() {
     if (!catDraft.label.trim()) return;
     const id = createCategoryId(catDraft.label);
@@ -342,13 +351,18 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="settings-section-desc">Used for focus timer alerts while the app is open</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
+          <div className="settings-section">
+            <div className="settings-section-label">Closed-app push notifications</div>
+            <div className="settings-section-desc">Registers this device for server-sent reminders while Tempo is closed. Requires the push setup files and VAPID keys.</div>
+            <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush}><div className="toggle-thumb" /></button><span>On</span></div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, imageUrls = {} }) {
+function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, imageUrls = {} }) {
   const normalized = normalizeMemoryEntry(entry);
   const originalStoragePaths = useMemo(() => normalized.photos.flatMap(allMemoryPhotoStoragePaths), [entry]);
   const [mood,       setMoodLocal]  = useState(normalized.mood);
@@ -383,6 +397,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const groups = [...new Set(visibleActivitiesCatalog.map(a => a.group || "Custom"))];
   const [showActivityManager, setShowActivityManager] = useState(false);
   const [showTagManager, setShowTagManager] = useState(false);
+  const [dragActivityId, setDragActivityId] = useState(null);
   const availableTags = [...new Set([...(memoryTagsCatalog || MEMORY_TAGS), ...tags].map(memoryTagLabel).filter(Boolean))];
   const currentSnapshot = JSON.stringify({
     mood, activities, note, gratitude,
@@ -433,6 +448,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     onDeleteActivity?.(activity.id);
     setActivities(a => a.filter(x => x !== activity.id));
   }
+  function handleActivityDrop(targetId) {
+    if (!dragActivityId || dragActivityId === targetId) return;
+    onReorderActivities?.(dragActivityId, targetId);
+    setDragActivityId(null);
+  }
   async function handlePhotoUpload(files) {
     if (!files?.length) return;
     setUploading(true);
@@ -482,6 +502,13 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
       [next[idx], next[to]] = [next[to], next[idx]];
       return next;
     });
+  }
+  function updateStickerPosition(blockId, e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pointer = e.touches?.[0] || e;
+    const x = Math.max(0, Math.min(100, ((pointer.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((pointer.clientY - rect.top) / rect.height) * 100));
+    updateBlock(blockId, { x: Math.round(x), y: Math.round(y) });
   }
   async function handleSave() {
     const memoryKey = dateKey(date);
@@ -660,7 +687,8 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 <div key={groupName} className="manager-group-card">
                   <div className="manager-group-head">{groupName}</div>
                   {visibleActivitiesCatalog.filter(a => (a.group || "Custom") === groupName).map(a => (
-                    <div key={a.id} className="manager-row">
+                    <div key={a.id} className={`manager-row draggable-manager-row ${dragActivityId===a.id?"dragging":""}`} draggable onDragStart={() => setDragActivityId(a.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleActivityDrop(a.id)} onDragEnd={() => setDragActivityId(null)}>
+                      <span className="drag-handle" title="Drag to reorder">⋮⋮</span>
                       <span className="manager-chip">{a.emoji} {a.label}</span>
                       <button type="button" onClick={() => editActivity(a)}>Edit</button>
                       <button type="button" onClick={() => removeActivity(a)}>Archive</button>
@@ -722,6 +750,10 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                     {COZY_STICKER_PACK.map(st => <button key={st.id} type="button" className={b.stickerAsset===st.src?"selected":""} onClick={() => updateBlock(b.id,{stickerAsset:st.src})}><img src={st.src} alt={st.label}/></button>)}
                   </div>
                   <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={!b.stickerAsset && b.sticker===st?"selected":""} onClick={() => updateBlock(b.id,{sticker:st, stickerAsset:null})}>{st}</button>)}</div>
+                  <div className="sticker-position-pad" onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); updateStickerPosition(b.id, e); }} onPointerMove={e => { if (e.buttons) updateStickerPosition(b.id, e); }}>
+                    <span className="sticker-position-help">Drag the sticker into place</span>
+                    <span className="sticker-position-preview" style={{ left: `${b.x ?? 50}%`, top: `${b.y ?? 50}%` }}>{b.stickerAsset ? <img src={b.stickerAsset} alt="Sticker"/> : (b.sticker || "🌸")}</span>
+                  </div>
                 </>}
                 {b.type === "photoGrid" && <>
                   <div className="photo-grid-select-row">{photos.map(p => <button key={p.id} type="button" className={(b.photoIds || []).includes(p.id)?"selected":""} onClick={() => { const set = new Set(b.photoIds || []); set.has(p.id) ? set.delete(p.id) : set.add(p.id); updateBlock(b.id,{photoIds:[...set]}); }}><img src={memoryPhotoSrc(p, imageUrls)} alt="" /></button>)}</div>
@@ -745,7 +777,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -753,6 +785,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
   const [memorySearch, setMemorySearch] = useState("");
   const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [memoryImageUrls, setMemoryImageUrls] = useState({});
+  const [dragActivityId, setDragActivityId] = useState(null);
   useEffect(() => {
     if (quickEditDate) {
       setEditing(quickEditDate);
@@ -1045,7 +1078,8 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
                   <div key={group} className="manager-group-card">
                     <div className="manager-group-head">{group}</div>
                     {(activitiesCatalog || []).filter(a => (a.group || "Custom") === group && !a.archived).map(a => (
-                      <div key={a.id} className="manager-row">
+                      <div key={a.id} className={`manager-row draggable-manager-row ${dragActivityId===a.id?"dragging":""}`} draggable onDragStart={() => setDragActivityId(a.id)} onDragOver={e => e.preventDefault()} onDrop={() => { if (dragActivityId && dragActivityId !== a.id) onReorderActivities?.(dragActivityId, a.id); setDragActivityId(null); }} onDragEnd={() => setDragActivityId(null)}>
+                        <span className="drag-handle" title="Drag to reorder">⋮⋮</span>
                         <span className="manager-chip">{a.emoji} {a.label}</span>
                         <span className="manager-count">{allActivitiesUsage[a.id] || 0} uses</span>
                         <button type="button" onClick={() => { const label = window.prompt("Rename activity", a.label); if (!label?.trim()) return; const emoji = window.prompt("Emoji", a.emoji || "✨") || a.emoji || "✨"; onUpdateActivity?.(a.id, { label: label.trim(), emoji: emoji.trim() || "✨" }); }}>Edit</button>
@@ -1105,7 +1139,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && (b.stickerAsset ? <div className="scrapbook-sticker-view asset"><img src={b.stickerAsset} alt="Sticker"/></div> : <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>)}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} onError={() => refreshMemoryImage(p)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
+                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && <div className="scrapbook-sticker-stage"><div className={`scrapbook-sticker-view ${b.stickerAsset ? "asset" : ""}`} style={{ left:`${b.x ?? 50}%`, top:`${b.y ?? 50}%` }}>{b.stickerAsset ? <img src={b.stickerAsset} alt="Sticker"/> : (b.sticker || "🌸")}</div></div>}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} onError={() => refreshMemoryImage(p)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -1140,7 +1174,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
         );
       })()}
 
-      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} userId={userId} imageUrls={memoryImageUrls} />}
+      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
     </div>
   );
 }
@@ -1397,6 +1431,7 @@ export default function App() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
+  const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
@@ -1428,6 +1463,11 @@ export default function App() {
     return () => {
       if (previous) viewport.setAttribute("content", previous);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/tempo-sw.js").catch(err => console.warn("Tempo service worker registration failed", err));
   }, []);
 
   // Helper: compute, persist, and return the current streak for a given user key
@@ -1490,6 +1530,7 @@ export default function App() {
         workStart: safeSettings.workStart ?? load(`${userKey}_ws`, 9),
         workEnd: safeSettings.workEnd ?? load(`${userKey}_we`, 19),
         notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
+        pushEnabled: safeSettings.pushEnabled ?? load(`${userKey}_push_enabled`, false),
         timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
         categories: normalizeCategories(safeSettings.categories ?? load(`${userKey}_categories`, CATEGORIES)),
         templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
@@ -1505,6 +1546,7 @@ export default function App() {
       setWSRaw(Number(nextSettings.workStart));
       setWERaw(Number(nextSettings.workEnd));
       setNfRaw(Boolean(nextSettings.notifs));
+      setPushEnabledRaw(Boolean(nextSettings.pushEnabled));
       setTzRaw(nextSettings.timezone);
       setCatRaw(normalizeCategories(nextSettings.categories));
       setTplRaw(nextSettings.templates);
@@ -1534,6 +1576,7 @@ export default function App() {
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
           notifs: load(`${userKey}_nf`, false),
+          pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
@@ -1559,7 +1602,33 @@ export default function App() {
 
       // Authenticated accounts are never hydrated from anonymous/demo keys.
       // Order of trust: this user's cloud row > this user's scoped local row > empty.
-      if (cloud && !localIsNewer) {
+      if (cloud && localHasData) {
+        const localSnapshot = {
+          events: reviveEvents(load(`${userKey}_ev`, [])),
+          tasks: load(`${userKey}_tk`, []),
+          settings: {
+            fontSize: load(`${userKey}_fs`, "md"),
+            darkMode: load(`${userKey}_dm`, false),
+            theme: load(`${userKey}_th`, "tempo"),
+            workStart: load(`${userKey}_ws`, 9),
+            workEnd: load(`${userKey}_we`, 19),
+            notifs: load(`${userKey}_nf`, false),
+            pushEnabled: load(`${userKey}_push_enabled`, false),
+            timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
+            categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
+            templates: load(`${userKey}_templates`, DAY_TEMPLATES),
+            journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
+            memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+            memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
+            journal: load(`${userKey}_journal`, {}),
+          },
+          updated_at: localUpdatedAt,
+        };
+        const merged = mergeTempoData(cloud, localSnapshot);
+        setSyncStatus({ status: "saved", message: "Merged & saved to cloud", lastError: "" });
+        await applyLoadedData({ loadedEvents: merged.events, loadedTasks: merged.tasks, settings: merged.settings, updatedAt: new Date().toISOString() });
+        queueCloudSave(merged.events, merged.tasks, merged.settings);
+      } else if (cloud && !localIsNewer) {
         setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         await applyLoadedData({
           loadedEvents: Array.isArray(cloud.events) ? cloud.events : [],
@@ -1577,6 +1646,7 @@ export default function App() {
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
           notifs: load(`${userKey}_nf`, false),
+          pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
@@ -1597,6 +1667,7 @@ export default function App() {
           workStart: 9,
           workEnd: 19,
           notifs: false,
+          pushEnabled: false,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           categories: normalizeCategories(CATEGORIES),
           templates: DAY_TEMPLATES,
@@ -1623,6 +1694,7 @@ export default function App() {
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
           notifs: load(`${userKey}_nf`, false),
+          pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
           categories: normalizeCategories(load(`${userKey}_categories`, CATEGORIES)),
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
@@ -1651,6 +1723,7 @@ export default function App() {
     workStart,
     workEnd,
     notifs,
+    pushEnabled,
     timezone,
     categories,
     templates,
@@ -1717,6 +1790,7 @@ export default function App() {
     save(`${uk}_ws`, next.workStart);
     save(`${uk}_we`, next.workEnd);
     save(`${uk}_nf`, next.notifs);
+    save(`${uk}_push_enabled`, Boolean(next.pushEnabled));
     save(`${uk}_tz`, next.timezone);
     save(`${uk}_categories`, next.categories);
     save(`${uk}_templates`, next.templates);
@@ -1771,6 +1845,23 @@ export default function App() {
     setNfRaw(n);
     persistSettings({ notifs: n });
   };
+  const setPushEnabled = v => {
+    const n = typeof v === "function" ? v(pushEnabled) : v;
+    setPushEnabledRaw(Boolean(n));
+    persistSettings({ pushEnabled: Boolean(n) });
+  };
+  async function enableClosedPushNotifications() {
+    try {
+      const result = await registerTempoPushNotifications(auth.user?.id);
+      if (!result?.ok) throw new Error(result?.reason || "Push setup failed");
+      setToast("Closed-app push notifications enabled ✓");
+      return true;
+    } catch (err) {
+      console.warn("Push notification setup failed", err);
+      setToast(err?.message || "Push setup failed. Check VAPID/server setup.");
+      return false;
+    }
+  }
 
   const setTimezone = v => {
     setTzRaw(v);
@@ -1812,6 +1903,18 @@ export default function App() {
   function deleteJournalActivity(id) {
     // Archive instead of hard-deleting so older Memory Book pages keep their historical activity labels.
     setJournalActivities(a => a.map(x => x.id === id ? { ...x, archived: true } : x));
+  }
+  function reorderJournalActivities(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return;
+    setJournalActivities(list => {
+      const next = [...list];
+      const from = next.findIndex(a => a.id === fromId);
+      const to = next.findIndex(a => a.id === toId);
+      if (from < 0 || to < 0) return list;
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
   }
   function addMemoryTag(label) {
     const clean = memoryTagLabel(label);
@@ -2314,7 +2417,7 @@ export default function App() {
 
         <div className="main">
           {page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
@@ -2431,7 +2534,7 @@ export default function App() {
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

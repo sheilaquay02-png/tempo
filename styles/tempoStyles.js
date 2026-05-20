@@ -1043,11 +1043,16 @@ export function appCSS(cvars, fontScale) { return `
     }
     .settings-panel,
     .modal,
-    .entry-modal,
-    .entry-view-modal,
+    .entry-modal:not(.memory-entry-modal),
     .templates-panel,
     .search-modal{
       background:var(--bg2)!important;
+    }
+    .entry-modal.memory-entry-modal,
+    .entry-view-modal{
+      background-size:cover!important;
+      background-position:center!important;
+      background-repeat:no-repeat!important;
     }
     .calendar-pane.view-month .month-header,
     .wt-header{
@@ -1056,5 +1061,19 @@ export function appCSS(cvars, fontScale) { return `
       -webkit-backdrop-filter:none!important;
     }
   }
+
+
+  /* ── Final interaction polish: activity reorder + positioned stickers ───── */
+  .draggable-manager-row{cursor:grab;user-select:none;}
+  .draggable-manager-row.dragging{opacity:.55;border-color:var(--accent);background:var(--bg4);}
+  .drag-handle{font-family:var(--mono);font-weight:900;color:var(--text3);padding:0 4px;cursor:grab;letter-spacing:-2px;}
+  .sticker-position-pad{height:180px;border:1.5px dashed var(--border);border-radius:18px;background:rgba(255,255,255,.45);position:relative;overflow:hidden;touch-action:none;margin-top:10px;cursor:crosshair;}
+  .sticker-position-help{position:absolute;left:10px;top:8px;font-size:10px;font-weight:900;color:var(--text3);background:rgba(255,255,255,.75);border:1px solid var(--border);border-radius:999px;padding:3px 8px;}
+  .sticker-position-preview{position:absolute;transform:translate(-50%,-50%);font-size:44px;filter:drop-shadow(0 8px 14px rgba(74,40,64,.15));} 
+  .sticker-position-preview img{width:92px;max-height:92px;object-fit:contain;display:block;}
+  .scrapbook-sticker-stage{position:relative;height:210px;border-radius:20px;background:rgba(255,255,255,.28);overflow:hidden;}
+  .scrapbook-sticker-stage .scrapbook-sticker-view{position:absolute;transform:translate(-50%,-50%);font-size:52px;margin:0;}
+  .scrapbook-sticker-stage .scrapbook-sticker-view.asset img{width:min(150px,46vw);}
+  @media(max-width:768px){.sticker-position-pad{height:150px}.scrapbook-sticker-stage{height:170px}.sticker-position-preview img{width:76px}.scrapbook-sticker-stage .scrapbook-sticker-view.asset img{width:min(120px,44vw)}}
 
 `; }
