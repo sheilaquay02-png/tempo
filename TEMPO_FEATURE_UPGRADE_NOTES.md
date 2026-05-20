@@ -39,3 +39,15 @@ This build adds the requested next feature set on top of the existing Vercel + S
 - No database migration is required.
 - Keep the same cron endpoint: `/api/push/reminders`.
 - Continue calling the cron route with your existing `CRON_SECRET` bearer token or `x-tempo-push-secret` header.
+
+## Hotfix: planning and task scheduling slots
+
+Patched after UI testing:
+
+- Fixed `Plan My Day` showing `0 free hours` even when the day calendar had open space.
+  - Root cause: `getFreeBlocks()` returns minute offsets, but the planner was treating them like `Date` objects.
+  - Fix: converted free-block minute offsets into real `Date` objects before calculating remaining minutes.
+- Fixed `Schedule this task` failing to find suitable slots for the same reason.
+- Updated `Focus hours only` to follow Settings → Work Hours instead of being hard-coded to 9am–5pm.
+- Updated the schedule-task modal helper text to show the actual work-hour window, e.g. `10am–6pm from your Work Hours setting`.
+- All-day events are no longer treated as blocking the whole day for task scheduling/planning.

@@ -1259,7 +1259,13 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
 }
 
 
-function TaskScheduleModal({ task, onClose, onSchedule }) {
+function hourLabel(hour) {
+  const h = Math.max(0, Math.min(23, Number(hour) || 0));
+  const display = h % 12 || 12;
+  return `${display}${h < 12 ? "am" : "pm"}`;
+}
+
+function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19 }) {
   const [mode, setMode] = useState("today");
   const [focusOnly, setFocusOnly] = useState(false);
   return (
@@ -1268,7 +1274,7 @@ function TaskScheduleModal({ task, onClose, onSchedule }) {
         <div className="modal-header"><div><strong>📅 Schedule this task</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{task?.title}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="modal-row"><label>Find slot</label><select className="modal-select" value={mode} onChange={e => setMode(e.target.value)}><option value="today">Today</option><option value="week">This week</option><option value="deadline">Before deadline</option></select></div>
-          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>9am–5pm inside your work day</span></div>
+          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{hourLabel(workStart)}–{hourLabel(workEnd)} from your Work Hours setting</span></div>
         </div>
         <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={() => onSchedule(mode, focusOnly)}>Schedule task</button></div>
       </div>
@@ -2173,16 +2179,31 @@ export default function App() {
     };
   }
   function freeSlotsForDate(date, focusOnly = false, extraEvents = []) {
-    const startHour = focusOnly ? Math.max(workStart, 9) : workStart;
-    const endHour = focusOnly ? Math.min(workEnd, 17) : workEnd;
-    if (endHour <= startHour) return [];
+    // Focus-only scheduling should follow the user's Settings → Work Hours.
+    // getFreeBlocks returns minute offsets, so convert those offsets back into
+    // real Date objects before comparing with the current time or durations.
+    // Keeping the focusOnly parameter here lets the modal option stay explicit,
+    // while the actual focus window now mirrors Work Hours instead of 9–5.
+    const startHour = Number(focusOnly ? workStart : workStart);
+    const endHour = Number(focusOnly ? workEnd : workEnd);
+    if (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) return [];
+
+    const toDateAtMinute = minuteOfDay => {
+      const d = dayStart(date);
+      d.setMinutes(minuteOfDay);
+      return d;
+    };
+
     const booked = expandRecurring([...events, ...extraEvents], dayStart(date), addDaysSafe(dayStart(date), 1))
-      .filter(e => eventOccursOnDay(e, date));
+      .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e));
     const now = new Date();
     return getFreeBlocks(booked, date, startHour, endHour)
       .map(b => {
-        const start = sameDay(date, now) && b.start < now ? new Date(Math.ceil(now.getTime() / (5 * 60000)) * 5 * 60000) : b.start;
-        return { start, end: b.end, minutes: Math.max(0, Math.round((b.end - start) / 60000)) };
+        const blockStart = toDateAtMinute(b.start);
+        const blockEnd = toDateAtMinute(b.end);
+        const roundedNow = new Date(Math.ceil(now.getTime() / (5 * 60000)) * 5 * 60000);
+        const start = sameDay(date, now) && blockStart < roundedNow ? roundedNow : blockStart;
+        return { start, end: blockEnd, minutes: Math.max(0, Math.round((blockEnd - start) / 60000)) };
       })
       .filter(b => b.minutes >= 15);
   }
@@ -2745,7 +2766,7 @@ export default function App() {
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
-      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
+      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
