@@ -1306,7 +1306,7 @@ function processMessage(input, events, tasks, pending) {
 
   if (/\b(deadline|due (soon|today|this week)|overdue)\b/.test(msg)) {
     const soon = new Date(TODAY); soon.setDate(soon.getDate() + 3);
-    const ur = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= soon);
+    const ur = tasks.filter(t => !t.done && t.deadline && (localDateFromKey(t.deadline) || new Date(t.deadline)) <= soon);
     text = ur.length ? `⚠️ Upcoming deadlines:\n\n${ur.map(t => `• "${t.title}" — due ${t.deadline}`).join("\n")}` : "No urgent deadlines in 3 days! 🎉";
     return { text, newEv, newTk, newP };
   }
@@ -1657,6 +1657,7 @@ const MEMORY_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
 const MEMORY_IMAGE_LIMIT_PER_ENTRY = 6;
 const MEMORY_MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
 const MEMORY_MAX_IMAGE_EDGE = 1600;
+const MEMORY_THUMB_IMAGE_EDGE = 300;
 const MEMORY_ENCRYPTION_VERSION = 1;
 
 const hasWebCrypto = () => typeof crypto !== "undefined" && Boolean(crypto.subtle) && typeof TextEncoder !== "undefined" && typeof TextDecoder !== "undefined";
@@ -1720,13 +1721,14 @@ async function signMemoryImagePath(storagePath) {
     srcExpiresAt: new Date(Date.now() + (MEMORY_SIGNED_URL_SECONDS * 1000)).toISOString(),
   };
 }
-async function uploadMemoryBlobToStorage(userId, blob, originalName = "memory-photo", memoryDateKey = dateKey(TODAY)) {
+async function uploadMemoryBlobToStorage(userId, blob, originalName = "memory-photo", memoryDateKey = dateKey(TODAY), variant = "full", sharedId = null) {
   if (!userId) throw new Error("Please sign in before uploading Memory Book photos.");
   if (!memoryDateKey) throw new Error("Missing Memory Book date for photo upload.");
   const sb = await getSupabase();
   const ext = fileExtFromType(blob?.type || "image/jpeg");
   const safeName = String(originalName || "memory-photo").replace(/[^a-z0-9._-]+/gi, "-").slice(0, 80);
-  const storagePath = `${userId}/${memoryDateKey}/${Date.now()}-${uid()}-${safeName}.${ext}`;
+  const fileId = sharedId || `${Date.now()}-${uid()}`;
+  const storagePath = `${userId}/${memoryDateKey}/${variant}/${fileId}-${safeName}.${ext}`;
   const { error } = await sb.storage.from(MEMORY_STORAGE_BUCKET).upload(storagePath, blob, {
     cacheControl: "31536000",
     upsert: false,
@@ -1736,24 +1738,48 @@ async function uploadMemoryBlobToStorage(userId, blob, originalName = "memory-ph
   return { storagePath, bucket: MEMORY_STORAGE_BUCKET };
 }
 async function uploadMemoryImageToStorage(userId, file, memoryDateKey = dateKey(TODAY)) {
-  const blob = await resizeImageFileToBlob(file, MEMORY_MAX_IMAGE_EDGE);
-  return uploadMemoryBlobToStorage(userId, blob, file?.name || "memory-photo", memoryDateKey);
+  const fileId = `${Date.now()}-${uid()}`;
+  const fullBlob = await resizeImageFileToBlob(file, MEMORY_MAX_IMAGE_EDGE, 0.84);
+  const thumbBlob = await resizeImageFileToBlob(file, MEMORY_THUMB_IMAGE_EDGE, 0.76);
+  let full = null;
+  try {
+    full = await uploadMemoryBlobToStorage(userId, fullBlob, file?.name || "memory-photo", memoryDateKey, "full", fileId);
+    const thumb = await uploadMemoryBlobToStorage(userId, thumbBlob, file?.name || "memory-photo", memoryDateKey, "thumb", fileId);
+    return { storagePath: full.storagePath, thumbStoragePath: thumb.storagePath, bucket: MEMORY_STORAGE_BUCKET };
+  } catch (err) {
+    if (full?.storagePath) await deleteMemoryStoragePaths([full.storagePath]);
+    throw err;
+  }
 }
 async function uploadMemoryDataUrlToStorage(userId, dataUrl, name = "legacy-memory-photo", memoryDateKey = dateKey(TODAY)) {
+  const fileId = `${Date.now()}-${uid()}`;
   const blob = dataUrlToBlob(dataUrl);
-  return uploadMemoryBlobToStorage(userId, blob, name, memoryDateKey);
+  const fullBlob = await resizeImageFileToBlob(blob, MEMORY_MAX_IMAGE_EDGE, 0.84);
+  const thumbBlob = await resizeImageFileToBlob(blob, MEMORY_THUMB_IMAGE_EDGE, 0.76);
+  let full = null;
+  try {
+    full = await uploadMemoryBlobToStorage(userId, fullBlob, name, memoryDateKey, "full", fileId);
+    const thumb = await uploadMemoryBlobToStorage(userId, thumbBlob, name, memoryDateKey, "thumb", fileId);
+    return { storagePath: full.storagePath, thumbStoragePath: thumb.storagePath, bucket: MEMORY_STORAGE_BUCKET };
+  } catch (err) {
+    if (full?.storagePath) await deleteMemoryStoragePaths([full.storagePath]);
+    throw err;
+  }
 }
 async function deleteMemoryStoragePaths(paths = []) {
   const clean = [...new Set(paths.filter(Boolean))];
-  if (!clean.length) return;
+  if (!clean.length) return true;
   try {
     const sb = await getSupabase();
     const { error } = await sb.storage.from(MEMORY_STORAGE_BUCKET).remove(clean);
     if (error) throw error;
+    return true;
   } catch (err) {
     console.warn("Could not delete removed Memory Book photos", err);
+    return false;
   }
 }
+const allMemoryPhotoStoragePaths = photo => [photo?.storagePath, photo?.thumbStoragePath].filter(Boolean);
 const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);
 
 async function saveToCloud(userId, events, tasks, settings) {
@@ -1776,9 +1802,16 @@ async function saveToCloud(userId, events, tasks, settings) {
     );
 
     if (error) throw error;
+    return true;
   } catch (e) {
     console.warn("Cloud save failed, using local:", e);
+    return false;
   }
+}
+async function saveToCloudStrict(userId, events, tasks, settings) {
+  const ok = await saveToCloud(userId, events, tasks, settings);
+  if (!ok) throw new Error("Cloud save failed. Your Memory Book change was not finalized.");
+  return true;
 }
 
 async function loadFromCloud(userId) {
@@ -2041,7 +2074,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
   function startDesktopDrag(e) {
     if (!draggable || e.button !== 0) return;
     e.stopPropagation();
-    const sy = e.clientY, ot = top, dur = (event.end - event.start) / 60000;
+    const sy = e.clientY, sx = e.clientX, ot = top, dur = (event.end - event.start) / 60000;
     let started = false;
     let latestEvent = e;
     let ghost = null;
@@ -2068,6 +2101,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
     }
     function mv(me) {
       latestEvent = me;
+      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
       if (!started || !ghost || !tip || !ref.current) return;
       const dy = me.clientY - sy, nt = ot + dy;
       ghost.style.top = `${ref.current.getBoundingClientRect().top - (top - nt)}px`;
@@ -2094,7 +2128,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
   function startTouchDrag(e) {
     if (!draggable) return;
     const touch = e.touches[0];
-    const sy = touch.clientY, ot = top, dur = (event.end - event.start) / 60000;
+    const sy = touch.clientY, sx = touch.clientX, ot = top, dur = (event.end - event.start) / 60000;
     let started = false;
     const timer = setTimeout(() => {
       started = true;
@@ -2109,9 +2143,11 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
       if (ref.current) { ref.current.style.transform = ""; ref.current.style.opacity = ""; ref.current.style.zIndex = ""; delete ref.current._newMins; }
     }
     function mv(te) {
+      const t = te.touches[0];
+      if (!started && t && Math.hypot(t.clientX - sx, t.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
       if (!started || !ref.current) return;
       te.preventDefault();
-      const t = te.touches[0], dy = t.clientY - sy, nt = ot + dy;
+      const dy = t.clientY - sy, nt = ot + dy;
       const rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
       ref.current.style.transform = `translateY(${dy}px)`;
       ref.current._newMins = cm;
@@ -2315,6 +2351,7 @@ function WeekEventBlock({ ev, dayIndex, days, gridRef, calendars, categories, on
       window.removeEventListener("blur", cleanup);
     }
     function mv(me) {
+      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
       if (!started) return;
       me.preventDefault();
     }
@@ -2468,6 +2505,7 @@ function MonthEventRow({ event, color, onOpen, onReschedule }) {
       if (ghost?.parentNode) ghost.remove();
     }
     function mv(me) {
+      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
       if (!started || !ghost) return;
       ghost.style.transform = `translate(${me.clientX - sx}px, ${me.clientY - sy}px)`;
     }
@@ -2797,6 +2835,57 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
   const cat = categories.find(c => c.id === task.category);
   const pri = PRIORITIES.find(p => p.id === task.priority);
   const color = cat?.color || "var(--accent)";
+  const pointerDragRef = useRef(null);
+
+  function startPointerDrag(e) {
+    if (task.done || e.pointerType === "mouse" || e.target.closest?.("button,input,textarea,select")) return;
+    const startX = e.clientX, startY = e.clientY;
+    let started = false;
+    let ghost = null;
+    const timer = setTimeout(() => {
+      started = true;
+      try { e.target.setPointerCapture?.(e.pointerId); } catch {}
+      ghost = document.createElement("div");
+      ghost.className = "task-mobile-drag-ghost";
+      ghost.textContent = task.title;
+      ghost.style.left = `${startX}px`;
+      ghost.style.top = `${startY}px`;
+      document.body.appendChild(ghost);
+    }, EVENT_DRAG_HOLD_MS);
+    function cleanup() {
+      clearTimeout(timer);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cleanup);
+      if (ghost?.parentNode) ghost.remove();
+      pointerDragRef.current = null;
+    }
+    function move(me) {
+      if (!started) {
+        if (Math.hypot(me.clientX - startX, me.clientY - startY) > EVENT_DRAG_MOVE_CANCEL_PX) cleanup();
+        return;
+      }
+      me.preventDefault();
+      if (ghost) { ghost.style.left = `${me.clientX}px`; ghost.style.top = `${me.clientY}px`; }
+      document.querySelectorAll(".task-period-card.drag-touch-over").forEach(el => el.classList.remove("drag-touch-over"));
+      document.elementFromPoint(me.clientX, me.clientY)?.closest?.(".task-period-card")?.classList.add("drag-touch-over");
+    }
+    function up(ue) {
+      const wasStarted = started;
+      const target = document.elementFromPoint(ue.clientX, ue.clientY)?.closest?.(".task-period-card");
+      const scope = target?.getAttribute("data-task-scope");
+      const anchor = target?.getAttribute("data-period-anchor");
+      cleanup();
+      document.querySelectorAll(".task-period-card.drag-touch-over").forEach(el => el.classList.remove("drag-touch-over"));
+      if (wasStarted && scope && anchor) {
+        window.dispatchEvent(new CustomEvent("tempo-mobile-task-drop", { detail: { id: task.id, scope, anchor } }));
+      }
+    }
+    pointerDragRef.current = { cleanup };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cleanup);
+  }
 
   function onDragStart(e) {
     e.dataTransfer.effectAllowed = "copy";
@@ -2814,7 +2903,7 @@ function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit }) {
 
   return (
     <div className={`task-item ${task.done ? "done" : ""}`} data-priority={task.priority}
-      draggable={!task.done} onDragStart={!task.done ? onDragStart : undefined}>
+      draggable={!task.done} onDragStart={!task.done ? onDragStart : undefined} onPointerDown={!task.done ? startPointerDrag : undefined}>
       {!task.done && <span className="task-drag-handle" title="Drag to schedule">⠿</span>}
       <button className="task-check" onClick={() => onToggle(task.id)} aria-label={task.done ? "Mark incomplete" : "Mark complete"} aria-pressed={task.done}>{task.done ? "✓" : ""}</button>
       <div className="task-body" onClick={() => setExpanded(v => !v)}>
@@ -2846,7 +2935,7 @@ function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
   }, [adding, scope]);
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, scope, periodDate));
   const openTasks = filtered.filter(t => !t.done);
-  const urgent   = tasks.filter(t => !t.done && t.deadline && new Date(t.deadline) <= new Date(TODAY.getTime() + 3 * 86400000));
+  const urgent   = tasks.filter(t => !t.done && t.deadline && (localDateFromKey(t.deadline) || new Date(t.deadline)) <= new Date(TODAY.getTime() + 3 * 86400000));
   function handleAdd() {
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
@@ -2956,7 +3045,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-function TaskPeriodCard({ cardScope, tasks, categories, periodDate, onToggle, onEdit, onStartPomodoro, onAdd, onMoveTaskPeriod, onSelectScope }) {
+function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDate, onToggle, onEdit, onStartPomodoro, onAdd, onMoveTaskPeriod, onSelectScope }) {
   const [isOver, setIsOver] = useState(false);
   const [adding, setAdding] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
@@ -2986,12 +3075,16 @@ function TaskPeriodCard({ cardScope, tasks, categories, periodDate, onToggle, on
   }
 
   return (
-    <div className={`task-period-card ${isOver ? "drag-over" : ""}`} onDragOver={e => { e.preventDefault(); setIsOver(true); }} onDragLeave={() => setIsOver(false)} onDrop={handleDrop}>
+    <div className={`task-period-card ${isOver ? "drag-over" : ""}`} data-task-scope={cardScope} data-period-anchor={dateKey(periodDate)} onDragOver={e => { e.preventDefault(); setIsOver(true); }} onDragLeave={() => setIsOver(false)} onDrop={handleDrop}>
       <div className="task-period-card-head">
         <button className="task-period-card-title" onClick={() => onSelectScope(cardScope)}>{cardScope === "day" ? "☀️ Day" : cardScope === "week" ? "🗓️ Week" : "🌙 Month"}</button>
         <span className="task-period-count">{openCount} open</span>
       </div>
-      <div className="task-period-card-sub">{formatTaskPeriodLabel(cardScope, periodDate)}</div>
+      <div className="task-period-card-sub card-nav-inline">
+        <button type="button" onClick={() => setPeriodDate(d => shiftTaskPeriodDate(d, cardScope, -1))}>‹</button>
+        <span>{formatTaskPeriodLabel(cardScope, periodDate)}</span>
+        <button type="button" onClick={() => setPeriodDate(d => shiftTaskPeriodDate(d, cardScope, 1))}>›</button>
+      </div>
       <button className="task-card-add" onClick={() => setAdding(v => !v)}>+ Add {cardScope} task</button>
       {adding && (
         <div className="task-form task-card-form">
@@ -3018,6 +3111,15 @@ function TaskPeriodCard({ cardScope, tasks, categories, periodDate, onToggle, on
 }
 
 function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
+  useEffect(() => {
+    const handler = e => {
+      const { id, scope: targetScope, anchor } = e.detail || {};
+      const anchorDate = localDateFromKey(anchor) || periodDate;
+      if (id && targetScope) onMoveTaskPeriod(id, targetScope, anchorDate);
+    };
+    window.addEventListener("tempo-mobile-task-drop", handler);
+    return () => window.removeEventListener("tempo-mobile-task-drop", handler);
+  }, [onMoveTaskPeriod, periodDate]);
   return (
     <div className="tasks-page">
       <div className="journal-header">
@@ -3027,14 +3129,14 @@ function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
         </div>
         <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
       </div>
-      <div className="task-board-nav">
-        <button className="period-btn" onClick={() => setPeriodDate(d => addDaysSafe(d, -1))}>‹</button>
-        <button className="period-label" onClick={() => setPeriodDate(new Date(TODAY))}>{periodDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</button>
-        <button className="period-btn" onClick={() => setPeriodDate(d => addDaysSafe(d, 1))}>›</button>
+      <div className="task-board-nav task-board-quick-nav">
+        <button className="period-label" onClick={() => { setScope("day"); setPeriodDate(new Date(TODAY)); }}>Today</button>
+        <button className="period-label" onClick={() => { setScope("week"); setPeriodDate(new Date(TODAY)); }}>This Week</button>
+        <button className="period-label" onClick={() => { setScope("month"); setPeriodDate(new Date(TODAY)); }}>This Month</button>
       </div>
       <div className="task-period-board">
         {["day", "week", "month"].map(s => (
-          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
+          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} setPeriodDate={setPeriodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
         ))}
       </div>
     </div>
@@ -3341,17 +3443,6 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
               <label>End <input type="number" className="tf-num wh-input" min={0} max={23} value={workEnd} onChange={e => setWorkEnd(Number(e.target.value))} /> {workEnd < 12 ? "am" : workEnd === 12 ? "pm" : `${workEnd - 12}pm`}</label>
             </div>
           </div>
-          {/* Timezone */}
-          <div className="settings-section">
-            <div className="settings-section-label">Time Zone</div>
-            <div className="settings-section-desc">Times display correctly when travelling</div>
-            <select className="tf-select" value={timezone} onChange={e => setTimezone(e.target.value)} style={{width:"100%"}}>
-              {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g," ")}</option>)}
-            </select>
-            <div style={{fontSize:10,color:"var(--text3)",marginTop:6,fontFamily:"var(--mono)"}}>
-              Detected: {detected}
-            </div>
-          </div>
           {/* Categories */}
           <div className="settings-section">
             <div className="settings-section-label">Categories</div>
@@ -3475,6 +3566,7 @@ const normalizeMemoryEntry = entry => ({
 const sanitizeMemoryPhotoForStorage = photo => ({
   id: photo?.id || "p" + uid(),
   storagePath: photo?.storagePath || "",
+  thumbStoragePath: photo?.thumbStoragePath || "",
   bucket: photo?.bucket || MEMORY_STORAGE_BUCKET,
   caption: photo?.caption || "",
   name: photo?.name || "Memory photo",
@@ -3568,7 +3660,13 @@ async function saveJournalLocal(userKey, userId, journal) {
 async function loadJournalLocal(userKey, userId) {
   return decryptMemoryJournalFromStorage(userId, load(`${userKey}_journal`, {}));
 }
-const memoryPhotoSrc = (photo, signedUrls = {}) => photo?.previewSrc || photo?.src || signedUrls?.[photo?.storagePath] || "";
+const memoryPhotoSrc = (photo, signedUrls = {}, preferThumb = false) => {
+  if (!photo) return "";
+  if (photo.previewSrc || photo.src) return photo.previewSrc || photo.src;
+  const preferred = preferThumb ? photo.thumbStoragePath : photo.storagePath;
+  const fallback = preferThumb ? photo.storagePath : photo.thumbStoragePath;
+  return signedUrls?.[preferred] || signedUrls?.[fallback] || "";
+};
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3608,7 +3706,7 @@ const memoryTagLabel = tag => String(tag || "").trim();
 // ─── Daily Entry Modal ────────────────────────────────────────────────────────
 function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, imageUrls = {} }) {
   const normalized = normalizeMemoryEntry(entry);
-  const originalStoragePaths = useMemo(() => normalized.photos.map(p => p.storagePath).filter(Boolean), [entry]);
+  const originalStoragePaths = useMemo(() => normalized.photos.flatMap(allMemoryPhotoStoragePaths), [entry]);
   const [mood,       setMoodLocal]  = useState(normalized.mood);
   const [activities, setActivities] = useState(normalized.activities);
   const [note,       setNote]       = useState(normalized.note);
@@ -3624,7 +3722,10 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
-  const groups = [...new Set(activitiesCatalog.map(a => a.group))];
+  const visibleActivitiesCatalog = (activitiesCatalog || []).filter(a => !a.archived);
+  const groups = [...new Set(visibleActivitiesCatalog.map(a => a.group || "Custom"))];
+  const [showActivityManager, setShowActivityManager] = useState(false);
+  const [showTagManager, setShowTagManager] = useState(false);
   const availableTags = [...new Set([...(memoryTagsCatalog || MEMORY_TAGS), ...tags].map(memoryTagLabel).filter(Boolean))];
 
   function toggleActivity(id) {
@@ -3732,19 +3833,27 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         }
       }
       const cleanBlocks = blocks.map(b => ({ ...b }));
-      const finalStoragePaths = new Set(uploadedPhotos.map(p => p.storagePath).filter(Boolean));
+      const finalStoragePaths = new Set(uploadedPhotos.flatMap(allMemoryPhotoStoragePaths));
       const removedPaths = originalStoragePaths.filter(path => !finalStoragePaths.has(path));
-      onSave(memoryKey, {
-        mood, activities, note, gratitude,
-        photos: uploadedPhotos,
-        coverPhotoId: coverPhotoId || uploadedPhotos[0]?.id || null,
-        tags: cleanTags,
-        backgroundId,
-        highlights,
-        blocks: cleanBlocks,
-        updatedAt: new Date().toISOString()
-      });
-      if (removedPaths.length) deleteMemoryStoragePaths(removedPaths);
+      const newlyUploadedPaths = uploadedPhotos
+        .filter(p => photos.find(original => original.id === p.id)?.pendingFile)
+        .flatMap(allMemoryPhotoStoragePaths);
+      try {
+        await onSave(memoryKey, {
+          mood, activities, note, gratitude,
+          photos: uploadedPhotos,
+          coverPhotoId: coverPhotoId || uploadedPhotos[0]?.id || null,
+          tags: cleanTags,
+          backgroundId,
+          highlights,
+          blocks: cleanBlocks,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (saveErr) {
+        if (newlyUploadedPaths.length) await deleteMemoryStoragePaths(newlyUploadedPaths);
+        throw saveErr;
+      }
+      if (removedPaths.length) await deleteMemoryStoragePaths(removedPaths);
       onClose();
     } catch (err) {
       console.warn("Memory save failed", err);
@@ -3803,7 +3912,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-section">
-          <div className="entry-section-title">Memory Tags</div>
+          <div className="entry-section-title section-title-with-action"><span>Memory Tags</span><button type="button" className="mini-manage-btn" onClick={() => setShowTagManager(v => !v)}>{showTagManager ? "Done" : "Manage"}</button></div>
           <div className="memory-tag-row editable-memory-row">
             {availableTags.map(tag => (
               <span key={tag} className={`editable-chip memory-tag-chip ${tags.includes(tag)?"selected":""}`}>
@@ -3817,6 +3926,19 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <input className="tf-input" placeholder="Add tag…" value={newTag} onChange={e => setNewTag(e.target.value)} />
             <button className="tf-save" onClick={() => { const added = onAddMemoryTag?.(newTag) || memoryTagLabel(newTag); toggleTag(added); setNewTag(""); }}>Add</button>
           </div>
+          {showTagManager && (
+            <div className="memory-manager-panel">
+              <div className="manager-title">Tag Manager</div>
+              {availableTags.map(tag => (
+                <div key={tag} className="manager-row">
+                  <span className="manager-chip">#{tag}</span>
+                  <span className="manager-count">{tags.includes(tag) ? "selected" : "available"}</span>
+                  <button type="button" onClick={() => editMemoryTag(tag)}>Rename</button>
+                  <button type="button" onClick={() => removeMemoryTag(tag)}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="entry-section">
@@ -3832,12 +3954,12 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-section">
-          <div className="entry-section-title">Activities</div>
+          <div className="entry-section-title section-title-with-action"><span>Activities</span><button type="button" className="mini-manage-btn" onClick={() => setShowActivityManager(v => !v)}>{showActivityManager ? "Done" : "Manage"}</button></div>
           {groups.map(g => (
             <div key={g} className="activity-group">
               <div className="activity-group-label">{g}</div>
               <div className="activity-chips">
-                {activitiesCatalog.filter(a => a.group === g).map(a => (
+                {visibleActivitiesCatalog.filter(a => (a.group || "Custom") === g).map(a => (
                   <span key={a.id} className={`editable-chip activity-chip ${activities.includes(a.id)?"selected":""}`}>
                     <button type="button" className="editable-chip-main" onClick={() => toggleActivity(a.id)}><span>{a.emoji}</span><span>{a.label}</span></button>
                     <button type="button" className="chip-mini-action" title="Rename activity" onClick={() => editActivity(a)}>✎</button>
@@ -3851,6 +3973,23 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <input className="tf-input" placeholder="Add activity…" value={newActivity} onChange={e => setNewActivity(e.target.value)} />
             <button className="tf-save" onClick={() => { if (!newActivity.trim()) return; const added = onAddActivity?.(newActivity.trim()); if (added?.id) setActivities(a => [...new Set([...a, added.id])]); setNewActivity(""); }}>Add</button>
           </div>
+          {showActivityManager && (
+            <div className="memory-manager-panel activity-manager-panel">
+              <div className="manager-title">Activity Manager</div>
+              {groups.map(groupName => (
+                <div key={groupName} className="manager-group-card">
+                  <div className="manager-group-head">{groupName}</div>
+                  {visibleActivitiesCatalog.filter(a => (a.group || "Custom") === groupName).map(a => (
+                    <div key={a.id} className="manager-row">
+                      <span className="manager-chip">{a.emoji} {a.label}</span>
+                      <button type="button" onClick={() => editActivity(a)}>Edit</button>
+                      <button type="button" onClick={() => removeActivity(a)}>Archive</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="entry-section">
@@ -3926,7 +4065,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -3934,7 +4073,11 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
   const [memorySearch, setMemorySearch] = useState("");
   const [memoryImageUrls, setMemoryImageUrls] = useState({});
 
-  function saveEntry(key, data) { setJournal(j => ({ ...j, [key]: data })); }
+  async function saveEntry(key, data) {
+    if (onSaveMemoryEntry) return onSaveMemoryEntry(key, data);
+    setJournal(j => ({ ...j, [key]: data }));
+    return true;
+  }
 
   // Build mood calendar for current month
   const year = calDate.getFullYear(), month = calDate.getMonth();
@@ -3990,6 +4133,16 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
     return s;
   })();
 
+  async function refreshMemoryImage(photo, preferThumb = false) {
+    const path = preferThumb ? (photo?.thumbStoragePath || photo?.storagePath) : (photo?.storagePath || photo?.thumbStoragePath);
+    if (!path) return;
+    try {
+      const signed = await signMemoryImagePath(path);
+      if (signed.src) setMemoryImageUrls(prev => ({ ...prev, [path]: signed.src }));
+    } catch (err) {
+      console.warn("Could not refresh Memory Book image URL", err);
+    }
+  }
 
 
   useEffect(() => {
@@ -4000,7 +4153,9 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
       const mem = normalizeMemoryEntry(entry);
       mem.photos.forEach(photo => {
         if (memoryPhotoNeedsStorageMigration(photo)) migrations.push({ key, photo });
-        else if (photo.storagePath && !memoryImageUrls[photo.storagePath]) pathsToSign.add(photo.storagePath);
+        else {
+          allMemoryPhotoStoragePaths(photo).forEach(path => { if (!memoryImageUrls[path]) pathsToSign.add(path); });
+        }
       });
     });
     if (!migrations.length && !pathsToSign.size) return;
@@ -4018,7 +4173,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
             name: item.photo.name || "legacy-memory-photo",
             createdAt: item.photo.createdAt || new Date().toISOString(),
           });
-          pathsToSign.add(uploaded.storagePath);
+          allMemoryPhotoStoragePaths(uploaded).forEach(path => pathsToSign.add(path));
         } catch (err) {
           console.warn("Could not migrate Memory Book photo", err);
         }
@@ -4087,9 +4242,9 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         <div className="memory-throwback-section">
           <div className="journal-entries-title">Then & Now Throwbacks ✨</div>
           <div className="memory-throwback-row">
-            {throwbacks.map(([k,e]) => { const mem = normalizeMemoryEntry(e); const cover = memoryEntryCover(mem); const d = new Date(k); return (
+            {throwbacks.map(([k,e]) => { const mem = normalizeMemoryEntry(e); const cover = memoryEntryCover(mem); const d = localDateFromKey(k) || new Date(TODAY); return (
               <button key={k} className="memory-throwback-card" onClick={() => setViewingKey(k)}>
-                {cover ? <img src={memoryPhotoSrc(cover, memoryImageUrls)} alt="Throwback"/> : <span>📔</span>}
+                {cover ? <img src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt="Throwback"/> : <span>📔</span>}
                 <strong>{d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</strong>
                 <small>{mem.note ? mem.note.slice(0,42) + (mem.note.length>42?"…":"") : "A memory from before"}</small>
               </button>
@@ -4130,7 +4285,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
             const isFuture = day > TODAY;
             return (
               <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""} ${filteredOut ? "filtered-out" : ""} ${memoryFiltersActive && matchesFilters ? "filter-match" : ""}`} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
-                {cover && <img className="memory-page-cover" src={memoryPhotoSrc(cover, memoryImageUrls)} alt={cover.caption || "Memory cover"} />}
+                {cover && <img className="memory-page-cover" src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt={cover.caption || "Memory cover"} />}
                 <div className="memory-page-shade" />
                 <div className="memory-page-date">{day.getDate()}</div>
                 <div className="memory-page-main">
@@ -4150,7 +4305,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
         {searchableEntries
           .slice(0,10)
           .map(([key, entry]) => {
-            const d = new Date(key);
+            const d = localDateFromKey(key) || new Date(TODAY);
             const mem = normalizeMemoryEntry(entry);
             const moodObj = JOURNAL_MOODS.find(m=>m.id===mem.mood);
             const cover = memoryEntryCover(mem);
@@ -4159,7 +4314,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
             return (
               <div key={key} className="journal-entry-card" onClick={() => setViewingKey(key)}>
                 <div className="jec-left">
-                  {cover ? <img className="jec-cover" src={memoryPhotoSrc(cover, memoryImageUrls)} alt={cover.caption || "Memory cover"} /> : (moodObj && <span className="jec-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>)}
+                  {cover ? <img className="jec-cover" src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt={cover.caption || "Memory cover"} /> : (moodObj && <span className="jec-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>)}
                 </div>
                 <div className="jec-body">
                   <div className="jec-date">{d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
@@ -4189,7 +4344,7 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
       {/* View entry modal */}
       {viewingKey && journal[viewingKey] && (() => {
         const entry = normalizeMemoryEntry(journal[viewingKey]);
-        const d = new Date(viewingKey);
+        const d = localDateFromKey(viewingKey) || new Date(TODAY);
         const moodObj = JOURNAL_MOODS.find(m=>m.id===entry.mood);
         const cover = memoryEntryCover(entry);
         const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
@@ -4209,14 +4364,14 @@ function JournalPage({ journal, setJournal, events, tasks, activitiesCatalog = J
                 </div>
               </div>
               <div className="entry-view-body">
-                {cover && <div className="memory-cover-hero"><img src={memoryPhotoSrc(cover, memoryImageUrls)} alt={cover.caption || "Memory cover"}/>{cover.caption && <div>{cover.caption}</div>}</div>}
+                {cover && <div className="memory-cover-hero"><img src={memoryPhotoSrc(cover, memoryImageUrls)} onError={() => refreshMemoryImage(cover)} alt={cover.caption || "Memory cover"}/>{cover.caption && <div>{cover.caption}</div>}</div>}
                 {entry.tags.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Memory Tags</div><div className="memory-tag-row">{entry.tags.map(t => <span key={t} className="memory-tag-chip selected">#{t}</span>)}</div></div>}
-                {entry.photos.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Photos</div><div className="memory-photo-view-grid">{entry.photos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div></div>}
+                {entry.photos.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Photos</div><div className="memory-photo-view-grid">{entry.photos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} onError={() => refreshMemoryImage(p)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div></div>}
                 {acts.length>0 && <div className="entry-view-section"><div className="entry-section-title">Activities</div><div className="activity-chips">{acts.map(a=><span key={a.id} className="activity-chip selected">{a.emoji} {a.label}</span>)}</div></div>}
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && (b.stickerAsset ? <div className="scrapbook-sticker-view asset"><img src={b.stickerAsset} alt="Sticker"/></div> : <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>)}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
+                {entry.blocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-list">{entry.blocks.map(b => { const blockPhotos = (b.photoIds || []).map(id => entry.photos.find(p => p.id === id)).filter(Boolean); return <div key={b.id} className={`scrapbook-view-block block-${b.type}`}>{b.type === "text" && <div className="entry-view-note">{b.text}</div>}{b.type === "quote" && <blockquote>{b.text}</blockquote>}{b.type === "sticker" && (b.stickerAsset ? <div className="scrapbook-sticker-view asset"><img src={b.stickerAsset} alt="Sticker"/></div> : <div className="scrapbook-sticker-view">{b.sticker || "🌸"}</div>)}{b.type === "divider" && <div className="scrapbook-divider-preview">✦ ✦ ✦</div>}{b.type === "photoGrid" && <><div className="memory-photo-view-grid scrapbook-photo-grid">{blockPhotos.map(p => <figure key={p.id} className="memory-photo-view-card"><img src={memoryPhotoSrc(p, memoryImageUrls)} onError={() => refreshMemoryImage(p)} alt={p.caption || "Memory photo"}/>{p.caption && <figcaption>{p.caption}</figcaption>}</figure>)}</div>{b.caption && <div className="scrapbook-grid-caption">{b.caption}</div>}</>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -4861,15 +5016,8 @@ export default function App() {
     setJournalActivities(a => a.map(x => x.id === id ? { ...x, ...patch, label: patch.label?.trim?.() || x.label } : x));
   }
   function deleteJournalActivity(id) {
-    setJournalActivities(a => a.filter(x => x.id !== id));
-    setJournal(j => {
-      const next = { ...(j || {}) };
-      Object.keys(next).forEach(k => {
-        const e = normalizeMemoryEntry(next[k]);
-        next[k] = { ...e, activities: (e.activities || []).filter(x => x !== id) };
-      });
-      return next;
-    });
+    // Archive instead of hard-deleting so older Memory Book pages keep their historical activity labels.
+    setJournalActivities(a => a.map(x => x.id === id ? { ...x, archived: true } : x));
   }
   function addMemoryTag(label) {
     const clean = memoryTagLabel(label);
@@ -4922,7 +5070,16 @@ export default function App() {
     setJournalRaw(clean);
     saveJournalLocal(uk, auth.user?.id, clean);
     save(`${uk}_updated_at`, new Date().toISOString());
-    if (auth.user && dataReady) saveToCloud(auth.user.id, events, tasks, currentSettings({ journal: clean }));
+    if (auth.user && dataReady) return saveToCloud(auth.user.id, events, tasks, currentSettings({ journal: clean }));
+    return Promise.resolve(true);
+  };
+  const saveMemoryEntry = async (key, data) => {
+    const clean = sanitizeMemoryJournalForStorage({ ...(journal || {}), [key]: data });
+    setJournalRaw(clean);
+    await saveJournalLocal(uk, auth.user?.id, clean);
+    save(`${uk}_updated_at`, new Date().toISOString());
+    if (auth.user && dataReady) await saveToCloudStrict(auth.user.id, events, tasks, currentSettings({ journal: clean }));
+    return true;
   };
   const setTheme = v => {
     setThRaw(v);
@@ -5318,7 +5475,7 @@ export default function App() {
 
         <div className="main">
           {page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
@@ -5392,8 +5549,6 @@ export default function App() {
                       return (
                         <div key={i} data-month-date={day ? dateKey(day) : ""} className={`month-day ${!day ? "other" : ""} ${isT ? "today-cell" : ""}`}
                           style={heatBg ? { background: heatBg } : {}}
-                          onDragOver={ev => { if (day) ev.preventDefault(); }}
-                          onDrop={ev => { ev.preventDefault(); const id = ev.dataTransfer.getData("application/tempo-event"); const baseEv = visibleEvents.find(x => x.id === id); if (day && baseEv) { const dur = baseEv.end - baseEv.start; const ns = new Date(day); ns.setHours(baseEv.start.getHours(), baseEv.start.getMinutes(), 0, 0); reschedule(baseEv.id, ns, new Date(ns.getTime() + dur)); } }}
                           onClick={() => { if (!day) return; if (copiedEvent) { pasteCopiedEvent(day, { useSourceTime: true }); return; } setViewDate(day); setView("day"); }}>
                           {day && <div className="month-day-num">{isT ? <span className="today-circle">{day.getDate()}</span> : day.getDate()}</div>}
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
@@ -5964,6 +6119,22 @@ function appCSS(cvars, fontScale) { return `
 
   
   .event-copy-bar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 32px));padding:10px 12px;background:rgba(255,255,255,.94);border:1.5px solid var(--border);border-radius:18px;box-shadow:0 14px 40px rgba(255,123,172,.22);backdrop-filter:blur(16px);color:var(--text);font-size:13px;font-weight:700;}
+  .section-title-with-action{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .mini-manage-btn{border:1.5px solid var(--border);background:var(--bg2);color:var(--accent);border-radius:999px;padding:4px 10px;font-family:var(--font);font-size:10px;font-weight:900;cursor:pointer;}
+  .memory-manager-panel{margin-top:12px;border:1.5px solid var(--border);background:rgba(255,255,255,.62);border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+  .manager-title{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:900;}
+  .manager-group-card{border:1px solid var(--border);background:var(--bg2);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;}
+  .manager-group-head{font-size:12px;font-weight:900;color:var(--text);}
+  .manager-row{display:flex;align-items:center;gap:8px;padding:6px;border-radius:10px;background:var(--bg3);}
+  .manager-row button{border:1px solid var(--border);background:var(--bg2);border-radius:999px;padding:4px 8px;font-family:var(--font);font-size:10px;font-weight:800;color:var(--text2);cursor:pointer;}
+  .manager-chip{font-size:12px;font-weight:800;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .manager-count{font-size:10px;color:var(--text3);font-family:var(--mono);}
+  .card-nav-inline{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .card-nav-inline button{width:24px;height:24px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--accent);font-weight:900;cursor:pointer;}
+  .task-board-quick-nav{justify-content:flex-start;gap:8px;}
+  .task-mobile-drag-ghost{position:fixed;transform:translate(-50%,-50%);z-index:12000;pointer-events:none;background:var(--bg2);border:2px solid var(--accent);box-shadow:0 14px 40px rgba(255,123,172,.24);border-radius:14px;padding:10px 14px;font-family:var(--font);font-size:13px;font-weight:900;color:var(--text);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .task-period-card.drag-touch-over{border-color:var(--accent);background:var(--bg4);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.10);}
+
   .event-copy-icon{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--accent-rgb),.12);}
   .event-copy-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .event-copy-clear{border:none;background:var(--bg3);color:var(--text2);border-radius:12px;padding:6px 10px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:900;cursor:pointer;}
@@ -6448,7 +6619,6 @@ function appCSS(cvars, fontScale) { return `
     body{overflow:hidden;}
     .main{margin-left:0;width:100%;min-width:0;}
     .app{padding-bottom:60px;}
-    .mobile-nav{display:flex;}
     .modal,.entry-modal,.entry-view-modal,.settings-panel,.templates-panel,.search-modal{width:calc(100vw - 20px)!important;max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 96px)!important;overflow-y:auto;}
     .modal-overlay,.settings-overlay{padding:10px;align-items:center!important;}
     .week-timetable,.day-view,.month-view{min-width:0;}
