@@ -3,6 +3,14 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Pre-split data schema notes ──────────────────────────────────────────────
+// Event: { id,title,start,end,calendar,category,fixed,color,notes,recurrence,allDay }
+// Task: { id,title,duration,category,scope,done,priority,dayKey,weekKey,monthKey,recurrence }
+// MemoryEntry: { mood,activities,note,gratitude,photos,tags,backgroundId,highlights,blocks,updatedAt }
+// MemoryPhoto: { id,storagePath,thumbStoragePath,bucket,caption,name,createdAt }
+// MemoryBlock: { id,type,text,photoIds,caption,sticker,stickerAsset,size }
+// UserSettings: { fontSize,darkMode,theme,workStart,workEnd,notifs,categories,templates,journalActivities,memoryTags }
+// Memory Storage Service surface: upload full/thumb, sign URLs, refresh URLs, delete full/thumb, migrate legacy base64.
 const DAY_START = 0, DAY_END = 24, HOUR_H = 48;
 const POMODORO_WORK_SECS  = 25 * 60;
 const POMODORO_BREAK_SECS = 5  * 60;
@@ -136,14 +144,29 @@ const DAY_TEMPLATES = [
 const TODAY = Object.freeze((() => { const d = new Date(); d.setHours(0,0,0,0); return d; })());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt      = d => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-const fmtDate  = d => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Singapore";
+let _displayTimezone = DEFAULT_TIMEZONE;
+const setDisplayTimezoneCtx = tz => {
+  try {
+    if (tz) new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date());
+    _displayTimezone = tz || DEFAULT_TIMEZONE;
+  } catch {
+    _displayTimezone = DEFAULT_TIMEZONE;
+  }
+};
+const formatWithDisplayTimezone = (d, opts) => {
+  const date = d instanceof Date ? d : new Date(d);
+  try { return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: _displayTimezone }).format(date); }
+  catch { return new Intl.DateTimeFormat("en-US", opts).format(date); }
+};
+const fmt      = d => formatWithDisplayTimezone(d, { hour: "2-digit", minute: "2-digit", hour12: true });
+const fmtDate  = d => formatWithDisplayTimezone(d, { weekday: "short", month: "short", day: "numeric" });
 const sameDay  = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const fmtDay   = d => {
   if (sameDay(d, TODAY)) return "today";
   const t = new Date(TODAY); t.setDate(t.getDate() + 1);
   if (sameDay(d, t)) return "tomorrow";
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  return formatWithDisplayTimezone(d, { weekday: "long", month: "short", day: "numeric" });
 };
 const minsToTime = m => {
   const h = Math.floor(m / 60), mn = m % 60, ap = h >= 12 ? "pm" : "am", hd = h > 12 ? h - 12 : h === 0 ? 12 : h;
@@ -2062,6 +2085,7 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
   const draggable = !event.fixed;
   const ref = useRef(null);
   const suppressClick = useRef(false);
+  const [holdState, setHoldState] = useState("idle");
 
   const col = event._col ?? 0;
   const totalCols = event._totalCols ?? 1;
@@ -2071,125 +2095,84 @@ function EventBlock({ event, calendars, categories, onReschedule, onClick }) {
     ? { left: `${leftPct}%`, width: `calc(${widthPct}% - 3px)`, right: "auto" }
     : {};
 
-  function startDesktopDrag(e) {
-    if (!draggable || e.button !== 0) return;
+  function startPressHoldDrag(e) {
+    if (!draggable || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.stopPropagation();
-    const sy = e.clientY, sx = e.clientX, ot = top, dur = (event.end - event.start) / 60000;
+    const sx = e.clientX, sy = e.clientY, ot = top, dur = (event.end - event.start) / 60000;
+    const pointerId = e.pointerId;
     let started = false;
     let latestEvent = e;
     let ghost = null;
     let tip = null;
+    const el = ref.current;
+    el?.setPointerCapture?.(pointerId);
+    setHoldState("holding");
     const timer = setTimeout(() => {
       if (!ref.current) return;
       started = true;
       suppressClick.current = true;
+      setHoldState("dragging");
+      const r = ref.current.getBoundingClientRect();
       ghost = document.createElement("div");
-      ghost.style.cssText = `position:fixed;width:${ref.current.offsetWidth}px;height:${height}px;background:${color}40;border:2px dashed ${color};border-radius:12px;pointer-events:none;z-index:9999;left:${ref.current.getBoundingClientRect().left}px;top:${ref.current.getBoundingClientRect().top}px;display:flex;align-items:center;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:${color};`;
-      ghost.textContent = event.title; document.body.appendChild(ghost);
+      ghost.style.cssText = `position:fixed;width:${r.width}px;height:${height}px;background:${color}40;border:2px dashed ${color};border-radius:12px;pointer-events:none;z-index:9999;left:${r.left}px;top:${r.top}px;display:flex;align-items:center;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:${color};`;
+      ghost.textContent = event.title;
+      document.body.appendChild(ghost);
       tip = document.createElement("div");
       tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
       document.body.appendChild(tip);
-      mv(latestEvent);
+      move(latestEvent);
     }, EVENT_DRAG_HOLD_MS);
     function cleanup() {
       clearTimeout(timer);
-      document.removeEventListener("mousemove", mv);
-      document.removeEventListener("mouseup", up);
-      window.removeEventListener("blur", cleanup);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      el?.releasePointerCapture?.(pointerId);
       if (ghost?.parentNode) ghost.remove();
       if (tip?.parentNode) tip.remove();
+      setHoldState("idle");
     }
-    function mv(me) {
-      latestEvent = me;
-      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
+    function cancel() { cleanup(); }
+    function move(pe) {
+      latestEvent = pe;
+      if (!started && Math.hypot(pe.clientX - sx, pe.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
       if (!started || !ghost || !tip || !ref.current) return;
-      const dy = me.clientY - sy, nt = ot + dy;
+      pe.preventDefault?.();
+      const dy = pe.clientY - sy, nt = ot + dy;
       ghost.style.top = `${ref.current.getBoundingClientRect().top - (top - nt)}px`;
       const rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, em = sm + dur;
       const f12 = (h, m) => { const ap = h >= 12 ? "pm" : "am", hd = h > 12 ? h - 12 : h === 0 ? 12 : h; return m === 0 ? `${hd}${ap}` : `${hd}:${m.toString().padStart(2,"0")}${ap}`; };
-      tip.textContent = `${f12(Math.floor(sm/60), sm%60)} – ${f12(Math.floor(em/60), em%60)}`;
-      tip.style.left = `${me.clientX + 12}px`; tip.style.top = `${me.clientY - 10}px`;
+      tip.textContent = `Move event · ${f12(Math.floor(sm/60), sm%60)} – ${f12(Math.floor(em/60), em%60)}`;
+      tip.style.left = `${pe.clientX + 12}px`; tip.style.top = `${pe.clientY - 10}px`;
     }
-    function up(ue) {
+    function up(pe) {
       const wasStarted = started;
       cleanup();
       if (!wasStarted) return;
-      const dy = ue.clientY - sy, nt = ot + dy, rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
+      const dy = pe.clientY - sy, nt = ot + dy, rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
       const ns = new Date(event.start); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
       const ne = new Date(ns.getTime() + dur * 60000);
       if (ns.getTime() !== event.start.getTime()) onReschedule(event.id, ns, ne);
       setTimeout(() => { suppressClick.current = false; }, 80);
     }
-    document.addEventListener("mousemove", mv);
-    document.addEventListener("mouseup", up);
-    window.addEventListener("blur", cleanup);
-  }
-
-  function startTouchDrag(e) {
-    if (!draggable) return;
-    const touch = e.touches[0];
-    const sy = touch.clientY, sx = touch.clientX, ot = top, dur = (event.end - event.start) / 60000;
-    let started = false;
-    const timer = setTimeout(() => {
-      started = true;
-      suppressClick.current = true;
-      if (ref.current) { ref.current.style.opacity = "0.8"; ref.current.style.zIndex = "20"; }
-    }, EVENT_DRAG_HOLD_MS);
-    function cleanup() {
-      clearTimeout(timer);
-      document.removeEventListener("touchmove", mv);
-      document.removeEventListener("touchend", up);
-      document.removeEventListener("touchcancel", cleanup);
-      if (ref.current) { ref.current.style.transform = ""; ref.current.style.opacity = ""; ref.current.style.zIndex = ""; delete ref.current._newMins; }
-    }
-    function mv(te) {
-      const t = te.touches[0];
-      if (!started && t && Math.hypot(t.clientX - sx, t.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
-      if (!started || !ref.current) return;
-      te.preventDefault();
-      const dy = t.clientY - sy, nt = ot + dy;
-      const rm = nt / HOUR_H * 60 + DAY_START * 60, sm = Math.round(rm / 5) * 5, cm = Math.max(DAY_START * 60, Math.min(sm, (DAY_END - 1) * 60));
-      ref.current.style.transform = `translateY(${dy}px)`;
-      ref.current._newMins = cm;
-    }
-    function up() {
-      const wasStarted = started;
-      const cm = ref.current?._newMins;
-      cleanup();
-      if (wasStarted && cm !== undefined) {
-        const ns = new Date(event.start); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
-        const ne = new Date(ns.getTime() + dur * 60000);
-        if (ns.getTime() !== event.start.getTime()) onReschedule(event.id, ns, ne);
-      }
-      setTimeout(() => { suppressClick.current = false; }, 80);
-    }
-    document.addEventListener("touchmove", mv, { passive: false });
-    document.addEventListener("touchend", up);
-    document.addEventListener("touchcancel", cleanup);
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
   }
 
   return (
-    <div ref={ref}
-      className={`event-block ${draggable ? "draggable" : "fixed-event"}`}
-      style={{ top, height, borderLeft: `3px solid ${color}`, background: `${color}18`, cursor: draggable ? "grab" : "default", ...colStyle }}
-      onMouseDown={startDesktopDrag}
-      onTouchStart={startTouchDrag}
-      onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } onClick(event); }}
-      title={event.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
+    <div ref={ref} className={`event-block ${event.fixed ? "fixed" : ""} hold-${holdState}`}
+      onPointerDown={startPressHoldDrag}
+      onClick={(e) => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onClick(event); }}
+      style={{ top, height, borderLeftColor: color, background: `${color}18`, ...colStyle, touchAction: draggable ? "none" : "auto" }}
+      title={draggable ? "Tap to edit · Hold to move" : "Fixed event · Tap to edit"}>
+      <div className="event-title">{event.title}</div>
+      {height > 38 && <div className="event-time">{fmt(event.start)} - {fmt(event.end)}</div>}
+      {cat && height > 55 && <div className="event-cat"><span>{cat.icon}</span> {cat.label}</div>}
       {event.fixed && <span className="fixed-badge">🔒</span>}
-      {draggable && <span className="drag-handle">⠿</span>}
-      {height <= 38 ? (
-        <div className="event-inline">
-          <div className="event-title" style={{ color }}>{event.title}</div>
-          <div className="event-time">{fmt(event.start)} – {fmt(event.end)}</div>
-        </div>
-      ) : (
-        <>
-          <div className="event-title" style={{ color }}>{event.title}</div>
-          <div className="event-time">{fmt(event.start)} – {fmt(event.end)}</div>
-          {height > 56 && cat && <div className="event-cat" style={{ color }}>{cat.icon} {cat.label}</div>}
-        </>
-      )}
+      {!event.fixed && <span className="hold-cue">{holdState === "holding" ? "Keep holding…" : holdState === "dragging" ? "Move event" : "Tap to edit · Hold to move"}</span>}
     </div>
   );
 }
@@ -2320,66 +2303,100 @@ function DayView({ events, calendars, categories, onReschedule, onEventClick, on
 }
 
 // ─── Week View (full timetable, like TimeTree) ────────────────────────────────
-function WeekEventBlock({ ev, dayIndex, days, gridRef, calendars, categories, onEventClick, onReschedule }) {
+function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEventClick, onReschedule, gridRef, days }) {
   const cal = calendars.find(c => c.id === ev.calendar);
   const cat = categories.find(c => c.id === ev.category);
   const color = ev.color || cal?.color || "#FF7BAC";
   const sh = ev.start.getHours() + ev.start.getMinutes() / 60;
   const eh = ev.end.getHours() + ev.end.getMinutes() / 60;
   const top = (sh - DAY_START) * HOUR_H;
-  const height = Math.max((eh - sh) * HOUR_H - 2, 22);
-  const col = ev._col ?? 0;
-  const totalCols = ev._totalCols ?? 1;
-  const width = `calc(((100% - 48px) / 7 - 5px) / ${totalCols} - 2px)`;
-  const left = `calc(48px + ${dayIndex} * ((100% - 48px) / 7) + 2px + ${col} * (((100% - 48px) / 7 - 5px) / ${totalCols}))`;
+  const height = Math.max((eh - sh) * HOUR_H - 2, 20);
+  const dayColumnWidth = `calc((100% - 48px) / 7)`;
+  const col = ev._col ?? 0, total = ev._totalCols ?? 1;
+  const subWidth = 100 / total, subLeft = col * subWidth;
+  const left = `calc(48px + ${dayIndex} * ${dayColumnWidth} + (${dayColumnWidth} * ${subLeft / 100}))`;
+  const width = `calc(${dayColumnWidth} * ${subWidth / 100} - 3px)`;
   const suppressClick = useRef(false);
+  const ref = useRef(null);
+  const [holdState, setHoldState] = useState("idle");
 
-  function onMouseDown(e) {
-    if (ev.fixed || e.button !== 0) return;
+  function onPointerDown(e) {
+    if (ev.fixed || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.stopPropagation();
-    const sy = e.clientY, sx = e.clientX;
-    const dur = (ev.end - ev.start) / 60000;
+    const sx = e.clientX, sy = e.clientY, dur = (ev.end - ev.start) / 60000;
     let started = false;
+    let latestEvent = e;
+    let ghost = null;
+    let tip = null;
+    const pointerId = e.pointerId;
+    ref.current?.setPointerCapture?.(pointerId);
+    setHoldState("holding");
     const timer = setTimeout(() => {
+      if (!ref.current) return;
       started = true;
       suppressClick.current = true;
+      setHoldState("dragging");
+      const r = ref.current.getBoundingClientRect();
+      ghost = document.createElement("div");
+      ghost.style.cssText = `position:fixed;width:${r.width}px;height:${height}px;background:${color}40;border:2px dashed ${color};border-radius:10px;pointer-events:none;z-index:9999;left:${r.left}px;top:${r.top}px;display:flex;align-items:center;padding:6px 8px;font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;color:${color};`;
+      ghost.textContent = ev.title;
+      document.body.appendChild(ghost);
+      tip = document.createElement("div");
+      tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
+      document.body.appendChild(tip);
+      move(latestEvent);
     }, EVENT_DRAG_HOLD_MS);
     function cleanup() {
       clearTimeout(timer);
-      document.removeEventListener("mousemove", mv);
-      document.removeEventListener("mouseup", up);
-      window.removeEventListener("blur", cleanup);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", cancel);
+      ref.current?.releasePointerCapture?.(pointerId);
+      if (ghost?.parentNode) ghost.remove();
+      if (tip?.parentNode) tip.remove();
+      setHoldState("idle");
     }
-    function mv(me) {
-      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
-      if (!started) return;
-      me.preventDefault();
-    }
-    function up(ue) {
-      const wasStarted = started;
-      cleanup();
-      if (!wasStarted) return;
-      if (!gridRef.current) return;
-      const rect = gridRef.current.getBoundingClientRect();
-      const dayW = (rect.width - 48) / 7;
-      const di = Math.max(0, Math.min(6, Math.floor((ue.clientX - rect.left - 48) / dayW)));
-      const rawMins = ((ue.clientY - rect.top) / HOUR_H) * 60 + DAY_START * 60;
+    function cancel() { cleanup(); }
+    function snap(pe) {
+      if (!gridRef.current) return null;
+      const g = gridRef.current.getBoundingClientRect();
+      const dayW = (g.width - 48) / 7;
+      const di = Math.max(0, Math.min(6, Math.floor((pe.clientX - g.left - 48) / dayW)));
+      const rawMins = ((pe.clientY - g.top) / HOUR_H) * 60 + DAY_START * 60;
       const snapped = Math.round(rawMins / 15) * 15;
       const cm = Math.max(DAY_START * 60, Math.min(snapped, (DAY_END - 1) * 60));
       const ns = new Date(days[di]); ns.setHours(Math.floor(cm / 60), cm % 60, 0, 0);
-      const ne = new Date(ns.getTime() + dur * 60000);
-      if (ns.getTime() !== ev.start.getTime() || di !== dayIndex) onReschedule(ev.id, ns, ne);
+      return { di, ns, ne: new Date(ns.getTime() + dur * 60000) };
+    }
+    function move(pe) {
+      latestEvent = pe;
+      if (!started && Math.hypot(pe.clientX - sx, pe.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
+      if (!started || !ghost || !tip) return;
+      pe.preventDefault?.();
+      const s = snap(pe);
+      if (!s) return;
+      ghost.style.left = `${pe.clientX - 40}px`; ghost.style.top = `${pe.clientY - 20}px`;
+      tip.textContent = `Move event · ${fmt(s.ns)} – ${fmt(s.ne)}`;
+      tip.style.left = `${pe.clientX + 12}px`; tip.style.top = `${pe.clientY - 10}px`;
+    }
+    function up(pe) {
+      const wasStarted = started;
+      cleanup();
+      if (!wasStarted) return;
+      const s = snap(pe);
+      if (!s) return;
+      if (s.ns.getTime() !== ev.start.getTime() || s.di !== dayIndex) onReschedule(ev.id, s.ns, s.ne);
       setTimeout(() => { suppressClick.current = false; }, 80);
     }
-    document.addEventListener("mousemove", mv);
-    document.addEventListener("mouseup", up);
-    window.addEventListener("blur", cleanup);
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", cancel);
   }
 
   return (
-    <div className="wt-event" onMouseDown={onMouseDown} onClick={e => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onEventClick(ev); }}
-      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: ev.fixed ? "pointer" : "grab" }}
-      title={ev.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
+    <div ref={ref} className={`wt-event hold-${holdState}`} onPointerDown={onPointerDown} onClick={e => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onEventClick(ev); }}
+      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: ev.fixed ? "pointer" : "grab", touchAction: ev.fixed ? "auto" : "none" }}
+      title={ev.fixed ? "Fixed · Click to edit" : "Tap to edit · Hold to move"}>
       <div className="wt-event-title">{ev.title}</div>
       {height > 30 && <div className="wt-event-time">{fmt(ev.start)} - {fmt(ev.end)}</div>}
       {height > 52 && cat && <div className="wt-event-cat">{cat.icon}</div>}
@@ -2797,19 +2814,14 @@ function GameDashboard({ gameStats, compact = false }) {
     <div className={`game-dashboard ${compact ? "compact" : ""}`}>
       <MascotProgressCard gameStats={gameStats} />
       <DailyQuestsCard gameStats={gameStats} />
-      <WeeklyMissionsCard gameStats={gameStats} />
-      <ComboCard gameStats={gameStats} />
-      <BossBattlesCard gameStats={gameStats} />
-      <SkillStatsCard gameStats={gameStats} />
       <StreaksCard gameStats={gameStats} />
-      <WeeklyRecapCard gameStats={gameStats} />
-      <LifeGardenCard gameStats={gameStats} />
-      <div className="game-stack">
-        <PersonalityCard gameStats={gameStats} />
-        <BadgesPreview gameStats={gameStats} limit={8} />
-        <ThemeUnlocksCard gameStats={gameStats} />
-      </div>
-      <PersonalLeaderboardCard gameStats={gameStats} />
+      <XPBreakdownCard gameStats={gameStats} />
+      <BloomCollapse title="Weekly missions" defaultOpen={false}><WeeklyMissionsCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Skills & personality" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Badges & theme unlocks" defaultOpen={false}><BadgesPreview gameStats={gameStats} limit={8} /><ThemeUnlocksCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Boss battles & combos" defaultOpen={false}><ComboCard gameStats={gameStats} /><BossBattlesCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Weekly recap & life garden" defaultOpen={false}><WeeklyRecapCard gameStats={gameStats} /><LifeGardenCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Personal leaderboard" defaultOpen={false}><PersonalLeaderboardCard gameStats={gameStats} /></BloomCollapse>
     </div>
   );
 }
@@ -3026,7 +3038,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <input className="modal-title-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Task title" autoFocus />
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={requestClose}>✕</button>
         </div>
         <div className="modal-body">
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
@@ -3039,7 +3051,7 @@ function TaskModal({ task, categories, onClose, onSave, onDelete }) {
           <div className="modal-row"><label>Done</label><input type="checkbox" checked={Boolean(form.done)} onChange={e => setForm(f => ({ ...f, done: e.target.checked }))}/></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" rows={3} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/></div>
         </div>
-        <div className="modal-footer"><button className="modal-delete" onClick={() => { onDelete(task.id); onClose(); }}>🗑️ Delete</button><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveTask}>Save changes</button></div></div>
+        <div className="modal-footer">{onDelete && <button className="modal-delete" onClick={() => { onDelete(task.id); onClose(); }}>🗑️ Delete</button>}<div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={saveTask}>Save changes</button></div></div>
       </div>
     </div>
   );
@@ -3104,7 +3116,7 @@ function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDat
         </div>
       )}
       <div className="task-period-list">
-        {sorted.length ? sorted.map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} categories={categories} />) : <div className="task-card-empty">Drop a task here or add one 🌸</div>}
+        {sorted.length ? sorted.map(t => <div key={t.id} className="task-card-with-move"><TaskItem task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} categories={categories} />{cardScope !== "day" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "day", new Date(TODAY))}>Move to Day</button>}{cardScope !== "week" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "week", new Date(TODAY))}>Move to Week</button>}{cardScope !== "month" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "month", new Date(TODAY))}>Move to Month</button>}</div>) : <div className="task-card-empty">No tasks here yet 🌸<br/><small>Drop a task here or add one small task.</small></div>}
       </div>
     </div>
   );
@@ -3128,11 +3140,6 @@ function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro
           <div className="memory-book-subtitle">Drag a task into Day, Week, or Month to move it there.</div>
         </div>
         <div className="journal-streak">{tasks.filter(t => !t.done).length} open</div>
-      </div>
-      <div className="task-board-nav task-board-quick-nav">
-        <button className="period-label" onClick={() => { setScope("day"); setPeriodDate(new Date(TODAY)); }}>Today</button>
-        <button className="period-label" onClick={() => { setScope("week"); setPeriodDate(new Date(TODAY)); }}>This Week</button>
-        <button className="period-label" onClick={() => { setScope("month"); setPeriodDate(new Date(TODAY)); }}>This Month</button>
       </div>
       <div className="task-period-board">
         {["day", "week", "month"].map(s => (
@@ -3234,7 +3241,7 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
         </div>
-        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
+        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Duplicate / Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
       </div>
     </div>
   );
@@ -3443,6 +3450,15 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
               <label>End <input type="number" className="tf-num wh-input" min={0} max={23} value={workEnd} onChange={e => setWorkEnd(Number(e.target.value))} /> {workEnd < 12 ? "am" : workEnd === 12 ? "pm" : `${workEnd - 12}pm`}</label>
             </div>
           </div>
+          {/* Timezone */}
+          <div className="settings-section">
+            <div className="settings-section-label">Timezone</div>
+            <div className="settings-section-desc">Choose the timezone used for displaying calendar and schedule times</div>
+            <select className="tf-select" value={timezone || detected} onChange={e => setTimezone(e.target.value)}>
+              {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
+            </select>
+          </div>
+
           {/* Categories */}
           <div className="settings-section">
             <div className="settings-section-label">Categories</div>
@@ -3466,8 +3482,8 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           </div>
           {/* Notifications */}
           <div className="settings-section">
-            <div className="settings-section-label">Notifications</div>
-            <div className="settings-section-desc">Get reminded 10 min before events</div>
+            <div className="settings-section-label">Pomodoro notifications</div>
+            <div className="settings-section-desc">Used for focus timer alerts while the app is open</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
         </div>
@@ -3675,7 +3691,7 @@ function readFileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
-async function prepareJournalPhotosFromFiles(files, existingCount = 0) {
+async function prepareJournalPhotosFromFiles(files, existingCount = 0, onProgress = null) {
   const imageFiles = Array.from(files || []).filter(f => f.type?.startsWith("image/"));
   if (!imageFiles.length) return [];
   if (existingCount + imageFiles.length > MEMORY_IMAGE_LIMIT_PER_ENTRY) {
@@ -3686,7 +3702,9 @@ async function prepareJournalPhotosFromFiles(files, existingCount = 0) {
     throw new Error(`${tooLarge.name || "This image"} is too large. Please use images under 15MB.`);
   }
   const photos = [];
-  for (const file of imageFiles) {
+  for (let i = 0; i < imageFiles.length; i++) {
+    const file = imageFiles[i];
+    onProgress?.(`Reading image ${i + 1} of ${imageFiles.length}…`);
     photos.push({
       id: "p" + uid(),
       previewSrc: await readFileAsDataUrl(file),
@@ -3721,12 +3739,36 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [newActivity, setNewActivity] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("");
+  const initialSnapshot = useMemo(() => JSON.stringify({
+    mood: normalized.mood,
+    activities: normalized.activities,
+    note: normalized.note,
+    gratitude: normalized.gratitude.length ? normalized.gratitude : ["","",""],
+    photos: normalized.photos.map(p => ({ id:p.id, caption:p.caption || "", storagePath:p.storagePath || "", thumbStoragePath:p.thumbStoragePath || "" })),
+    coverPhotoId: normalized.coverPhotoId,
+    tags: normalized.tags,
+    blocks: normalized.blocks,
+    backgroundId: normalized.backgroundId || "plain",
+    highlights: normalized.highlights,
+  }), [entry]);
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
   const visibleActivitiesCatalog = (activitiesCatalog || []).filter(a => !a.archived);
   const groups = [...new Set(visibleActivitiesCatalog.map(a => a.group || "Custom"))];
   const [showActivityManager, setShowActivityManager] = useState(false);
   const [showTagManager, setShowTagManager] = useState(false);
   const availableTags = [...new Set([...(memoryTagsCatalog || MEMORY_TAGS), ...tags].map(memoryTagLabel).filter(Boolean))];
+  const currentSnapshot = JSON.stringify({
+    mood, activities, note, gratitude,
+    photos: photos.map(p => ({ id:p.id, caption:p.caption || "", storagePath:p.storagePath || "", thumbStoragePath:p.thumbStoragePath || "", pending: Boolean(p.pendingFile) })),
+    coverPhotoId, tags, blocks, backgroundId, highlights,
+  });
+  const hasUnsavedChanges = currentSnapshot !== initialSnapshot;
+  function requestClose() {
+    if (uploading) return;
+    if (hasUnsavedChanges && !window.confirm("Discard this memory? You have unsaved changes.")) return;
+    onClose();
+  }
 
   function toggleActivity(id) {
     setActivities(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id]);
@@ -3750,6 +3792,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   function removeMemoryTag(tag) {
     const clean = memoryTagLabel(tag);
     if (!clean) return;
+    if (!window.confirm(`Remove #${clean} from all memories? This cannot be undone.`)) return;
     onDeleteMemoryTag?.(clean);
     setTags(t => t.filter(x => x !== clean));
   }
@@ -3760,6 +3803,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     onUpdateActivity?.(activity.id, { label: label.trim(), emoji: emoji.trim() || "✨" });
   }
   function removeActivity(activity) {
+    if (!window.confirm(`Archive ${activity.emoji || ""} ${activity.label}? Old memories will keep their label.`)) return;
     onDeleteActivity?.(activity.id);
     setActivities(a => a.filter(x => x !== activity.id));
   }
@@ -3767,8 +3811,9 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     if (!files?.length) return;
     setUploading(true);
     setUploadError("");
+    setUploadStatus("Preparing photos…");
     try {
-      const next = await prepareJournalPhotosFromFiles(files, photos.length);
+      const next = await prepareJournalPhotosFromFiles(files, photos.length, setUploadStatus);
       setPhotos(p => {
         const merged = [...p, ...next];
         if (!coverPhotoId && merged[0]) setCoverPhotoId(merged[0].id);
@@ -3777,12 +3822,13 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     } catch (err) {
       console.warn("Memory photo selection failed", err);
       setUploadError(err?.message || "Could not add photos. Please try smaller image files.");
-    } finally { setUploading(false); }
+    } finally { setUploading(false); setUploadStatus(""); }
   }
   function updatePhotoCaption(id, caption) {
     setPhotos(p => p.map(photo => photo.id === id ? { ...photo, caption } : photo));
   }
   function removePhoto(id) {
+    if (!window.confirm("Remove this photo from the memory? The file is deleted after the memory saves successfully.")) return;
     setPhotos(p => p.filter(photo => photo.id !== id));
     setCoverPhotoId(c => c === id ? null : c);
     setBlocks(bs => bs.map(b => b.type === "photoGrid" ? { ...b, photoIds: (b.photoIds || []).filter(pid => pid !== id) } : b));
@@ -3818,8 +3864,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     try {
       const cleanTags = [...new Set(tags.map(memoryTagLabel).filter(Boolean))];
       const uploadedPhotos = [];
+      const pendingPhotos = photos.filter(p => p.pendingFile);
       for (const photo of photos) {
         if (photo.pendingFile) {
+          const uploadIndex = pendingPhotos.findIndex(p => p.id === photo.id) + 1;
+          setUploadStatus(`Uploading ${uploadIndex || 1} of ${pendingPhotos.length || 1} photos…`);
           const uploaded = await uploadMemoryImageToStorage(userId, photo.pendingFile, memoryKey);
           uploadedPhotos.push(sanitizeMemoryPhotoForStorage({
             id: photo.id,
@@ -3839,6 +3888,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         .filter(p => photos.find(original => original.id === p.id)?.pendingFile)
         .flatMap(allMemoryPhotoStoragePaths);
       try {
+        setUploadStatus("Saving memory…");
         await onSave(memoryKey, {
           mood, activities, note, gratitude,
           photos: uploadedPhotos,
@@ -3853,7 +3903,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         if (newlyUploadedPaths.length) await deleteMemoryStoragePaths(newlyUploadedPaths);
         throw saveErr;
       }
-      if (removedPaths.length) await deleteMemoryStoragePaths(removedPaths);
+      if (removedPaths.length) {
+        setUploadStatus("Cleaning removed photos…");
+        await deleteMemoryStoragePaths(removedPaths);
+      }
+      setUploadStatus("Memory saved ✓");
       onClose();
     } catch (err) {
       console.warn("Memory save failed", err);
@@ -3863,14 +3917,14 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     }
   }
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Memory Book entry">
+    <div className="modal-overlay" onClick={requestClose} role="dialog" aria-modal="true" aria-label="Memory Book entry">
       <div className={`entry-modal memory-entry-modal memory-bg-${backgroundId}`} style={memoryBackgroundStyle(backgroundId)} onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
             <div className="entry-modal-date">{date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
             <div className="entry-modal-sub">Add today’s memory page</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={requestClose}>✕</button>
         </div>
 
         <div className="entry-modal-body">
@@ -3894,7 +3948,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <span className="memory-upload-icon">📷</span>
             <span>{uploading ? "Working on photos…" : `+ Add photos (${photos.length}/${MEMORY_IMAGE_LIMIT_PER_ENTRY})`}</span>
           </label>
-          {uploadError && <div className="memory-upload-error">{uploadError}</div>}
+          {(uploadStatus || uploadError) && <div className={uploadError ? "memory-upload-error" : "memory-upload-status"}>{uploadError || uploadStatus}</div>}
           {photos.length > 0 && (
             <div className="memory-photo-editor-grid">
               {photos.map(p => (
@@ -4056,7 +4110,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-modal-footer">
-          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-cancel" onClick={requestClose}>Cancel</button>
           <button className="tf-save" onClick={handleSave} disabled={uploading}>{uploading ? "Saving…" : "Save memory ✓"}</button>
         </div>
       </div>
@@ -4065,13 +4119,20 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
   const [activeTag,  setActiveTag]  = useState("all"); // Memory Book tag filter
   const [memorySearch, setMemorySearch] = useState("");
+  const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [memoryImageUrls, setMemoryImageUrls] = useState({});
+  useEffect(() => {
+    if (quickEditDate) {
+      setEditing(quickEditDate);
+      onQuickEditHandled?.();
+    }
+  }, [quickEditDate]);
 
   async function saveEntry(key, data) {
     if (onSaveMemoryEntry) return onSaveMemoryEntry(key, data);
@@ -4092,6 +4153,8 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
   const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
   const monthEntries = Object.entries(journal).filter(([k]) => k.startsWith(monthPrefix));
   const monthTags = [...new Set(monthEntries.flatMap(([,e]) => normalizeMemoryEntry(e).tags || []))].filter(Boolean).sort();
+  const allTagUsage = Object.values(journal || {}).reduce((acc, e) => { normalizeMemoryEntry(e).tags.forEach(t => { acc[t] = (acc[t] || 0) + 1; }); return acc; }, {});
+  const allActivitiesUsage = Object.values(journal || {}).reduce((acc, e) => { normalizeMemoryEntry(e).activities.forEach(id => { acc[id] = (acc[id] || 0) + 1; }); return acc; }, {});
   const monthPhotos = monthEntries.reduce((sum, [,e]) => sum + normalizeMemoryEntry(e).photos.length, 0);
   const monthPages = monthEntries.filter(([,e]) => hasJournalEntryForKey({ tmp: e }, "tmp")).length;
   const moodCounts = JOURNAL_MOODS.map(m => ({ ...m, count: monthEntries.filter(([,e]) => e.mood===m.id).length }));
@@ -4220,6 +4283,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
       <div className="journal-header">
         <div className="journal-title">📔 Memory Book</div>
         <div className="journal-streak">🔥 {streak} day streak</div>
+        <button className="tf-cancel journal-today-btn" onClick={() => setMemorySettingsOpen(true)}>Memory Settings</button>
         <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
       </div>
 
@@ -4341,6 +4405,50 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
       </div>
 
 
+      {memorySettingsOpen && (
+        <div className="modal-overlay" onClick={() => setMemorySettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Memory Settings">
+          <div className="entry-modal memory-settings-modal" onClick={e => e.stopPropagation()}>
+            <div className="entry-modal-header">
+              <div><div className="entry-modal-date">Memory Settings</div><div className="entry-modal-sub">Manage activities, tags, backgrounds, and stickers</div></div>
+              <button className="modal-close" onClick={() => setMemorySettingsOpen(false)}>✕</button>
+            </div>
+            <div className="entry-modal-body">
+              <div className="entry-section">
+                <div className="entry-section-title">Activities</div>
+                {[...new Set((activitiesCatalog || []).map(a => a.group || "Custom"))].map(group => (
+                  <div key={group} className="manager-group-card">
+                    <div className="manager-group-head">{group}</div>
+                    {(activitiesCatalog || []).filter(a => (a.group || "Custom") === group && !a.archived).map(a => (
+                      <div key={a.id} className="manager-row">
+                        <span className="manager-chip">{a.emoji} {a.label}</span>
+                        <span className="manager-count">{allActivitiesUsage[a.id] || 0} uses</span>
+                        <button type="button" onClick={() => { const label = window.prompt("Rename activity", a.label); if (!label?.trim()) return; const emoji = window.prompt("Emoji", a.emoji || "✨") || a.emoji || "✨"; onUpdateActivity?.(a.id, { label: label.trim(), emoji: emoji.trim() || "✨" }); }}>Edit</button>
+                        <button type="button" onClick={() => { if (window.confirm(`Archive ${a.emoji || ""} ${a.label}? Old memories will keep their label.`)) onDeleteActivity?.(a.id); }}>Archive</button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div className="tf-row" style={{marginTop:10}}><button className="tf-save" onClick={() => { const label = window.prompt("New activity name"); if (!label?.trim()) return; const emoji = window.prompt("Emoji", "✨") || "✨"; const group = window.prompt("Group", "Custom") || "Custom"; onAddActivity?.(label.trim(), group.trim() || "Custom", emoji.trim() || "✨"); }}>+ Add activity</button></div>
+              </div>
+              <div className="entry-section">
+                <div className="entry-section-title">Memory Tags</div>
+                {Object.keys(allTagUsage).length === 0 && <div className="scrapbook-empty-note">No tags yet. Add tags while creating a memory.</div>}
+                {Object.keys(allTagUsage).sort().map(tag => (
+                  <div key={tag} className="manager-row">
+                    <span className="manager-chip">#{tag}</span><span className="manager-count">{allTagUsage[tag]} uses</span>
+                    <button type="button" onClick={() => { const next = window.prompt("Rename memory tag", tag); if (next?.trim()) onUpdateMemoryTag?.(tag, next.trim()); }}>Rename</button>
+                    <button type="button" onClick={() => { const into = window.prompt("Merge into which tag?"); if (into?.trim()) onUpdateMemoryTag?.(tag, into.trim()); }}>Merge</button>
+                    <button type="button" onClick={() => { if (window.confirm(`Delete #${tag} from all memories?`)) onDeleteMemoryTag?.(tag); }}>Delete</button>
+                  </div>
+                ))}
+              </div>
+              <div className="entry-section"><div className="entry-section-title">Backgrounds</div><div className="memory-background-picker">{MEMORY_BACKGROUNDS.map(bg => <span key={bg.id} className="memory-bg-choice"><span className="memory-bg-swatch" style={bg.src ? {backgroundImage:`url(${bg.src})`} : {}} /> <span>{bg.label}</span></span>)}</div></div>
+              <div className="entry-section"><div className="entry-section-title">Stickers</div><div className="sticker-asset-picker-row">{COZY_STICKER_PACK.map(st => <span key={st.id}><img src={st.src} alt={st.label}/></span>)}</div></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View entry modal */}
       {viewingKey && journal[viewingKey] && (() => {
         const entry = normalizeMemoryEntry(journal[viewingKey]);
@@ -4449,7 +4557,7 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
           {err && <div style={{color:"#C04040",fontSize:12,fontWeight:700}}>⚠️ {err}</div>}
         </div>
-        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
+        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={requestClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
       </div>
     </div>
   );
@@ -4605,6 +4713,55 @@ function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAd
   );
 }
 
+
+function SyncStatusPill({ syncStatus, onRetry }) {
+  const status = syncStatus?.status || "saved";
+  const label = syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud");
+  const icon = status === "saving" ? "⏳" : status === "failed" ? "⚠️" : status === "offline" ? "📱" : "✓";
+  return (
+    <button type="button" className={`sync-pill sync-${status}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
+      <span>{icon}</span><span>{label}</span>
+    </button>
+  );
+}
+
+function QuickAddMenu({ open, onToggle, onClose, onAddEvent, onAddTask, onAddMemory, onAddFocus }) {
+  return (
+    <div className="quick-add-wrap">
+      {open && <div className="quick-add-menu" role="menu">
+        <button onClick={() => { onAddEvent(); onClose(); }}>📅 Event</button>
+        <button onClick={() => { onAddTask(); onClose(); }}>✅ Task</button>
+        <button onClick={() => { onAddMemory(); onClose(); }}>📔 Memory</button>
+        <button onClick={() => { onAddFocus(); onClose(); }}>🎯 Focus block</button>
+      </div>}
+      <button className="quick-add-fab" onClick={onToggle} aria-label="Quick add">{open ? "×" : "+"}</button>
+    </div>
+  );
+}
+
+function XPBreakdownCard({ gameStats }) {
+  const b = gameStats?.xpBreakdown || {};
+  const rows = [
+    ["Completed tasks", b.taskXP || 0],
+    ["Memory Book", b.journalXP || 0],
+    ["Daily quests", b.questXP || 0],
+    ["Weekly missions", b.missionXP || 0],
+    ["Combos", b.comboXP || 0],
+    ["Badges", b.badgeXP || 0],
+  ];
+  return (
+    <div className="game-card xp-breakdown-card">
+      <div className="game-card-title">Why did my XP change?</div>
+      <div className="xp-breakdown-list">{rows.map(([label, xp]) => <div key={label} className="xp-breakdown-row"><span>{label}</span><strong>+{xp} XP</strong></div>)}</div>
+    </div>
+  );
+}
+
+function BloomCollapse({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return <div className={`bloom-collapse ${open ? "open" : ""}`}><button className="bloom-collapse-head" onClick={() => setOpen(v => !v)}><span>{title}</span><span>{open ? "−" : "+"}</span></button>{open && <div className="bloom-collapse-body">{children}</div>}</div>;
+}
+
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const auth = useAuth();
@@ -4639,6 +4796,7 @@ export default function App() {
   const [undoStack, setUndo]        = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [copiedEvent, setCopiedEvent] = useState(null);
+  const [toast, setToast] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [mobileTasksOpen, setMobileTasksOpen] = useState(false);
   const [categories, setCatRaw] = useState(() => normalizeCategories(load(`${uk}_categories`, CATEGORIES)));
@@ -4654,6 +4812,10 @@ export default function App() {
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
+  const [quickMemoryDate, setQuickMemoryDate] = useState(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
+  const cloudQueueRef = useRef(Promise.resolve());
   const [focusMode,    setFocusMode]    = useState(false);
   const [dataReady,    setDataReady]    = useState(false);
   const [loadedUserId, setLoadedUserId] = useState(null);
@@ -4665,6 +4827,22 @@ export default function App() {
   const closeSidebarOnMobile = () => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
   };
+
+  // Mobile app-like viewport: prevent accidental pinch/input zoom and horizontal scaling.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement("meta");
+      viewport.setAttribute("name", "viewport");
+      document.head.appendChild(viewport);
+    }
+    const previous = viewport.getAttribute("content") || "";
+    viewport.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+    return () => {
+      if (previous) viewport.setAttribute("content", previous);
+    };
+  }, []);
 
   // Helper: compute, persist, and return the current streak for a given user key
   const computeAndSaveStreak = useCallback((userKey) => {
@@ -4758,6 +4936,7 @@ export default function App() {
 
     const fallbackTimer = setTimeout(async () => {
       if (cancelled) return;
+      setSyncStatus({ status: "offline", message: "Offline — saved on this device only", lastError: "Cloud load timed out" });
       const localHasData = hasStoredUserData(userKey);
       await applyLoadedData({
         loadedEvents: localHasData ? reviveEvents(load(`${userKey}_ev`, [])) : [],
@@ -4795,6 +4974,7 @@ export default function App() {
       // Authenticated accounts are never hydrated from anonymous/demo keys.
       // Order of trust: this user's cloud row > this user's scoped local row > empty.
       if (cloud && !localIsNewer) {
+        setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         await applyLoadedData({
           loadedEvents: Array.isArray(cloud.events) ? cloud.events : [],
           loadedTasks: Array.isArray(cloud.tasks) ? cloud.tasks : [],
@@ -4844,6 +5024,7 @@ export default function App() {
       }
     }).catch(async () => {
       clearTimeout(fallbackTimer);
+      setSyncStatus({ status: "offline", message: "Offline — saved on this device only", lastError: "Cloud load failed" });
       if (cancelled) return;
       const localHasData = hasStoredUserData(userKey);
       await applyLoadedData({
@@ -4894,12 +5075,34 @@ export default function App() {
     ...overrides,
   });
 
+  const queueCloudSave = (evs = events, tks = tasks, settings = currentSettings(), options = {}) => {
+    if (!auth.user || !dataReady) {
+      setSyncStatus({ status: "offline", message: "Saved on this device only", lastError: "Not signed in or cloud not ready" });
+      return Promise.resolve(!options.strict);
+    }
+    const run = async () => {
+      setSyncStatus({ status: "saving", message: "Saving…", lastError: "" });
+      const ok = await saveToCloud(auth.user.id, evs, tks, settings);
+      if (ok) {
+        setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
+        return true;
+      }
+      setSyncStatus({ status: "failed", message: "Sync failed — tap to retry", lastError: "Cloud save failed" });
+      if (options.strict) throw new Error("Cloud save failed. Your Memory Book change was not finalized.");
+      return false;
+    };
+    const queued = cloudQueueRef.current.then(run, run);
+    cloudQueueRef.current = queued.catch(() => {});
+    return queued;
+  };
+  const retryCloudSave = () => queueCloudSave(events, tasks, currentSettings());
+
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
     save(`${uk}_updated_at`, new Date().toISOString());
 
     if (auth.user && dataReady) {
-      saveToCloud(auth.user.id, evs, tks ?? tasks, currentSettings());
+      queueCloudSave(evs, tks ?? tasks, currentSettings());
     }
   };
 
@@ -4908,7 +5111,7 @@ export default function App() {
     save(`${uk}_updated_at`, new Date().toISOString());
 
     if (auth.user && dataReady) {
-      saveToCloud(auth.user.id, evs ?? events, tks, currentSettings());
+      queueCloudSave(evs ?? events, tks, currentSettings());
     }
   };
 
@@ -4938,7 +5141,7 @@ export default function App() {
     save(`${uk}_updated_at`, new Date().toISOString());
 
     if (auth.user) {
-      saveToCloud(auth.user.id, events, tasks, next);
+      queueCloudSave(events, tasks, next);
     }
   };
 
@@ -4971,6 +5174,11 @@ export default function App() {
   useEffect(() => {
     setWorkHoursCtx(workStart, workEnd);
   }, [workStart, workEnd]);
+  // Keep display timezone context in sync whenever timezone changes
+  useEffect(() => {
+    setDisplayTimezoneCtx(timezone);
+  }, [timezone]);
+
 
   const setNotifs = v => {
     const n = typeof v === "function" ? v(notifs) : v;
@@ -5070,15 +5278,23 @@ export default function App() {
     setJournalRaw(clean);
     saveJournalLocal(uk, auth.user?.id, clean);
     save(`${uk}_updated_at`, new Date().toISOString());
-    if (auth.user && dataReady) return saveToCloud(auth.user.id, events, tasks, currentSettings({ journal: clean }));
+    if (auth.user && dataReady) return queueCloudSave(events, tasks, currentSettings({ journal: clean }));
+    setSyncStatus({ status: "offline", message: "Saved on this device only", lastError: "" });
     return Promise.resolve(true);
   };
   const saveMemoryEntry = async (key, data) => {
     const clean = sanitizeMemoryJournalForStorage({ ...(journal || {}), [key]: data });
+    if (auth.user && dataReady) {
+      await queueCloudSave(events, tasks, currentSettings({ journal: clean }), { strict: true });
+      setJournalRaw(clean);
+      await saveJournalLocal(uk, auth.user?.id, clean);
+      save(`${uk}_updated_at`, new Date().toISOString());
+      return true;
+    }
     setJournalRaw(clean);
     await saveJournalLocal(uk, auth.user?.id, clean);
     save(`${uk}_updated_at`, new Date().toISOString());
-    if (auth.user && dataReady) await saveToCloudStrict(auth.user.id, events, tasks, currentSettings({ journal: clean }));
+    setSyncStatus({ status: "offline", message: "Saved locally only", lastError: "Not signed in" });
     return true;
   };
   const setTheme = v => {
@@ -5143,11 +5359,23 @@ export default function App() {
     });
   }
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, withTaskPeriod(task, taskPeriodDate)]); }
+  function eventConflictsFor(candidate, skipId = null) {
+    const skipBase = skipId ? getBaseEventId(skipId) : getBaseEventId(candidate.id);
+    return expandRecurring(events, dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
+      .filter(e => getBaseEventId(e.id) !== skipBase && eventOccursOnDay(e, candidate.start) && candidate.start < e.end && candidate.end > e.start)
+      .slice(0, 4);
+  }
+  function confirmEventPlacement(candidate, skipId = null, action = "Place event") {
+    const conflicts = eventConflictsFor(candidate, skipId);
+    if (!conflicts.length) return true;
+    const lines = conflicts.map(e => `• ${e.title}, ${fmt(e.start)}–${fmt(e.end)}`).join("\n");
+    return window.confirm(`${action} overlaps with:\n${lines}\n\nPlace anyway?`);
+  }
   function moveTaskToPeriod(id, scope, anchorDate) {
     pushUndo();
     setTasks(ts => ts.map(t => t.id === id ? withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate) : t));
   }
-  function addEvent(ev)           { pushUndo(); setEvents(es => [...es, ev]); }
+  function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !confirmEventPlacement(ev, ev.id, "Add event")) return false; pushUndo(); setEvents(es => [...es, ev]); return true; }
 
   function copyEventForPaste(ev) {
     if (!ev) return;
@@ -5198,7 +5426,9 @@ export default function App() {
   function pasteCopiedEvent(targetDate, options = {}) {
     const ev = buildPastedEvent(targetDate, options);
     if (!ev) return false;
-    addEvent(ev);
+    if (!confirmEventPlacement(ev, ev.id, "Paste event")) return false;
+    addEvent(ev, { skipConflictCheck: true });
+    setToast({ text: `Copied event pasted to ${fmt(ev.start)} ✓`, ts: Date.now() });
     return true;
   }
 
@@ -5214,6 +5444,7 @@ export default function App() {
     const baseId = getBaseEventId(id);
     const base = events.find(e => e.id === baseId);
     if (!base) return;
+    if (!confirmEventPlacement({ ...base, id: baseId, start: ns, end: ne }, baseId, "Move event")) return;
     const occurrenceDate = String(id).includes("_r_") ? id.split("_r_")[1] : dateKey(base.start);
     const needsScope = isRecurringEvent(base);
     const scope = needsScope ? await chooseRecurrenceScope("Move") : "all";
@@ -5282,6 +5513,8 @@ export default function App() {
     });
   }
   function deleteTask(id) {
+    const target = tasks.find(t => t.id === id);
+    if (target?.recurrence && !window.confirm("Delete this full recurring task series?")) return;
     pushUndo();
     setTasks(ts => {
       const target = ts.find(t => t.id === id);
@@ -5331,7 +5564,7 @@ export default function App() {
     setTemplates(t => [...t, tpl]);
   }
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
-  function deleteTemplate(id) { setTemplates(tpls => tpls.filter(t => t.id !== id)); }
+  function deleteTemplate(id) { if (!window.confirm("Delete this day template?")) return; setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
   function handleCarryOver(ids) { const tomorrow = addDaysSafe(TODAY, 1); setTasks(ts => ts.map(t => ids.includes(t.id) ? withTaskPeriod({ ...t, scope: "day", done: false, completedAt: null, completedDate: null }, tomorrow) : t)); setShowCarryOver(false); }
   function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
@@ -5427,6 +5660,16 @@ export default function App() {
   .task-card-form{margin:0 0 10px;padding:10px;border-radius:16px;}
   .task-period-list{display:flex;flex-direction:column;gap:6px;}
   .task-card-empty{border:1.5px dashed var(--border);border-radius:16px;padding:18px 12px;text-align:center;color:var(--text3);font-size:12px;font-weight:800;background:var(--bg3);}
+  .sync-pill{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;display:inline-flex;align-items:center;gap:5px;cursor:default;white-space:nowrap;}
+  .sync-pill.sync-saving{color:#B07800;background:#FFF4D8;}.sync-pill.sync-saved{color:#2E8B57;background:#EAF7EF;}.sync-pill.sync-failed{color:#D44848;background:#FFF0F0;cursor:pointer;}.sync-pill.sync-offline{color:#A07090;background:var(--bg4);}
+  .quick-add-wrap{position:fixed;right:76px;bottom:20px;z-index:80;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}.quick-add-fab{width:52px;height:52px;border-radius:18px;border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:28px;font-weight:900;box-shadow:0 14px 32px rgba(var(--accent-rgb),.28);cursor:pointer;}.quick-add-menu{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;box-shadow:0 16px 40px rgba(0,0,0,.14);padding:8px;display:flex;flex-direction:column;gap:6px;min-width:170px;}.quick-add-menu button{border:0;background:var(--bg3);color:var(--text);border-radius:12px;padding:10px 12px;text-align:left;font-family:var(--font);font-weight:900;cursor:pointer;}.quick-add-menu button:hover{background:var(--bg4);color:var(--accent);}
+  .tempo-toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#4A2840;color:white;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;z-index:120;box-shadow:0 12px 32px rgba(0,0,0,.18);animation:toastFade 2.4s ease forwards;}@keyframes toastFade{0%{opacity:0;transform:translate(-50%,8px)}15%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,8px)}}
+  .hold-cue{position:absolute;right:8px;bottom:5px;font-size:9px;font-weight:900;color:var(--text3);opacity:.0;background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:2px 6px;transition:opacity .15s;}.event-block:hover .hold-cue,.event-block.hold-holding .hold-cue,.event-block.hold-dragging .hold-cue{opacity:.92}.event-block.hold-holding{box-shadow:0 0 0 2px var(--accent3),var(--shadow-sm)}.event-block.hold-dragging{opacity:.75;}
+  .memory-upload-status{font-size:11px;font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-top:8px;}
+  .memory-settings-modal{max-width:820px;width:min(92vw,820px);}.memory-settings-modal .entry-modal-body{max-height:72vh;overflow:auto;}
+  .task-card-with-move{border-radius:14px;}.task-card-with-move .task-item{margin-bottom:4px;}.mini-move-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:4px 7px;font-size:10px;font-weight:900;margin:2px 3px 6px 0;cursor:pointer;}.mini-move-btn:hover{background:var(--bg4);color:var(--accent);}
+  .xp-breakdown-list{display:flex;flex-direction:column;gap:7px}.xp-breakdown-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);font-weight:800}.xp-breakdown-row strong{color:var(--accent);font-family:var(--mono)}.bloom-collapse{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.bloom-collapse-head{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:900;padding:12px 14px;cursor:pointer}.bloom-collapse-body{padding:12px;display:flex;flex-direction:column;gap:12px}.bloom-collapse-body>.game-card{box-shadow:none;}
+  @media(max-width:768px){.quick-add-wrap{right:16px;bottom:84px}.quick-add-fab{width:50px;height:50px}.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}}
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
 `}</style>
 
@@ -5439,6 +5682,7 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
+            <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
           </div>
           {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
           <LevelBar gameStats={gameStats} />
@@ -5475,14 +5719,14 @@ export default function App() {
 
         <div className="main">
           {page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
           ) : (<>
           <div className="topbar">
-            <button className="topbar-btn icon-only" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
+            <button className="topbar-btn icon-only desktop-sidebar-toggle" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
             <button className="topbar-btn icon-only nav-arrow" onClick={() => {
               const d = new Date(viewDate);
               if (view === "day")   d.setDate(d.getDate() - 1);
@@ -5509,7 +5753,8 @@ export default function App() {
             <div className="view-tabs">
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
-            <button className="topbar-btn add-event-btn" onClick={() => setShowAddEvent(true)}>+ Event</button>
+            <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
+            <button className="topbar-btn add-event-btn" onClick={() => setQuickAddOpen(v => !v)}>+ Add</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
@@ -5580,7 +5825,7 @@ export default function App() {
       {copiedEvent && (
         <div className="event-copy-bar">
           <span className="event-copy-icon">📋</span>
-          <span className="event-copy-text">Copied: <strong>{copiedEvent.title}</strong>. Click any calendar slot to paste.</span>
+          <span className="event-copy-text">Copied: <strong>{copiedEvent.title}</strong>. Click any empty slot to paste multiple times, then Clear when done.</span>
           <button className="event-copy-clear" onClick={() => setCopiedEvent(null)}>Clear</button>
         </div>
       )}
@@ -5589,7 +5834,7 @@ export default function App() {
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {showAddEvent  && <AddEventModal onClose={() => setShowAddEvent(false)} onSave={addEvent} defaultDate={viewDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
-      {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={saveTask} onDelete={deleteTask} />}
+      {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
@@ -5620,14 +5865,23 @@ export default function App() {
 
       {/* Mobile bottom nav — visible only on small screens */}
       <div className="mobile-nav">
-        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>☀️<span>Day</span></button>
-        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("week"); }}>🗓️<span>Week</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Memory</span></button>
-        <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
+        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>☀️<span>Day</span></button>
+        <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Memory</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
       </div>
 
+      {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{toast.text}</div>}
+      <QuickAddMenu
+        open={quickAddOpen}
+        onToggle={() => setQuickAddOpen(v => !v)}
+        onClose={() => setQuickAddOpen(false)}
+        onAddEvent={() => setShowAddEvent(true)}
+        onAddTask={() => setSelectedTask({ id: "t" + uid(), title: "", duration: 30, category: "admin", scope: "day", done: false, priority: "medium", notes: "", deadline: null, scheduled: null, _isNew: true })}
+        onAddMemory={() => { setPage("journal"); setQuickMemoryDate(new Date(TODAY)); }}
+        onAddFocus={() => { const slot = freeBlocks(events, viewDate)[0]; const startMin = slot?.start ?? 9*60; const ev = eventFromWindow("Focus block", viewDate, startMin, Math.min(startMin + 60, DAY_END*60), "deep"); addEvent(ev); }}
+      />
       <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : "🌸"}</button>
     </>
   );
@@ -6154,6 +6408,10 @@ function appCSS(cvars, fontScale) { return `
   .mobile-nav-btn span{font-size:9px;font-weight:700;color:var(--text3);}
   .mobile-nav-btn:hover{background:var(--bg3);color:var(--accent);}
 
+  /* Mobile hardening: prevent layout/input zoom and keep task board app-like. */
+  html,body{max-width:100%;overflow-x:hidden;}
+  *{box-sizing:border-box;}
+
   @media(max-width:768px){
     .sidebar{display:none;}
     .task-panel{display:none;position:fixed;inset:0;top:auto;height:70vh;z-index:150;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(255,123,172,.2);width:100%!important;flex-direction:column;}
@@ -6166,6 +6424,20 @@ function appCSS(cvars, fontScale) { return `
     .topbar-btn:not(.icon-only){display:none;}
     .mobile-nav{display:flex;}
     .content-area{padding-bottom:64px;}
+    .desktop-sidebar-toggle{display:none!important;}
+    .topbar{gap:6px;padding-left:10px;padding-right:10px;}
+    .topbar-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    input,textarea,select{font-size:16px!important;}
+    .tasks-page{width:100%;max-width:100vw;overflow-x:hidden;padding:12px 10px 78px!important;}
+    .task-period-board{grid-template-columns:1fr!important;gap:10px;width:100%;max-width:100%;overflow:visible;}
+    .task-period-card{width:100%;max-width:100%;min-width:0;min-height:auto!important;padding:12px;border-radius:18px;}
+    .task-period-card-head,.task-period-card-sub{min-width:0;}
+    .task-period-card-sub span{min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .task-period-list{width:100%;min-width:0;}
+    .task-card-with-move,.task-item{width:100%;max-width:100%;min-width:0;}
+    .task-main,.task-title{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .tf-row{grid-template-columns:1fr!important;display:flex;flex-direction:column;gap:8px;}
+    .tf-duration{width:100%;}   
   }
   /* ── Theme picker ─────────────────────────────────────────────────────────── */
   .theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -6630,6 +6902,10 @@ function appCSS(cvars, fontScale) { return `
     .sidebar.closed{width:230px!important;transform:translateX(-105%);}
     .sidebar-logo{padding:16px 20px;}
     .sidebar-nav{overflow-y:auto;}
+    .desktop-sidebar-toggle{display:none!important;}
+    .tasks-page{overflow-x:hidden!important;}
+    .task-period-board{grid-template-columns:1fr!important;}
+    .task-period-card{min-width:0!important;width:100%!important;}
   }
 
 
