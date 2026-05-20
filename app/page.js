@@ -7036,4 +7036,78 @@ function appCSS(cvars, fontScale) { return `
     .settings-body{flex:1!important;max-height:none!important;overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
   }
 
+
+  /* ── Mobile sticky opaque page headers ───────────────────────────────────── */
+  @media(max-width:768px){
+    /* Keep every page header pinned while scrolling on mobile. Use solid surfaces
+       so content never shows through underneath the header. */
+    .topbar{
+      position:sticky!important;
+      top:0!important;
+      z-index:80!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:var(--shadow)!important;
+    }
+    .stats-bar{
+      position:sticky!important;
+      top:58px!important;
+      z-index:70!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+    .journal-header,
+    .bloom-room-page .journal-header{
+      position:sticky!important;
+      top:0!important;
+      z-index:90!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:0 1px 0 var(--border), var(--shadow-sm)!important;
+    }
+    .dark .journal-header,
+    .dark .bloom-room-page .journal-header{
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+    .task-board-nav{
+      position:sticky!important;
+      top:0!important;
+      z-index:75!important;
+      background:var(--bg)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:0 1px 0 var(--border)!important;
+    }
+    .settings-header,
+    .modal-header,
+    .entry-modal-header{
+      position:sticky!important;
+      top:0!important;
+      z-index:95!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:0 1px 0 var(--border)!important;
+    }
+    .settings-panel,
+    .modal,
+    .entry-modal,
+    .entry-view-modal,
+    .templates-panel,
+    .search-modal{
+      background:var(--bg2)!important;
+    }
+    .calendar-pane.view-month .month-header,
+    .wt-header{
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+  }
+
 `; }
