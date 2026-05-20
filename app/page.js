@@ -327,10 +327,10 @@ const formatTaskPeriodLabel = (scope, date) => {
   if (scope === "week") {
     const start = weekStart(date);
     const end = addDaysSafe(start, 6);
-    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    return `${formatWithDisplayTimezone(start, { month: "short", day: "numeric" })} – ${formatWithDisplayTimezone(end, { month: "short", day: "numeric" })}`;
   }
-  if (scope === "month") return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  if (scope === "month") return formatWithDisplayTimezone(date, { month: "long", year: "numeric" });
+  return formatWithDisplayTimezone(date, { weekday: "short", month: "short", day: "numeric" });
 };
 const taskCompletionTargetKey = task => taskScopeOf(task) === "day" ? taskDayKey(task) : dateKey(new Date());
 const taskHasCompletionStamp = task => Boolean(task?.completedDate || task?.completedAt || task?.doneAt || task?.completed_at);
@@ -548,7 +548,7 @@ const buildWeeklyRecap = (tasks, journal, events, date = TODAY) => {
     focusHours: Math.round(focusMins / 60 * 10) / 10,
     avgScore,
     rank,
-    bestDayLabel: bestDate.toLocaleDateString("en-US", { weekday: "short" }),
+    bestDayLabel: formatWithDisplayTimezone(bestDate, { weekday: "short" }),
     bestDayScore: best.score,
     topCategory: topCat,
     daily: summaries,
@@ -612,7 +612,7 @@ const buildPersonalLeaderboard = (tasks, journal, events) => dateRangeKeys(120, 
   .filter(s => s.completed.length || s.journalDone || s.focusMins > 0 || s.score > 0)
   .sort((a,b) => b.score - a.score || b.completed.length - a.completed.length || b.focusMins - a.focusMins)
   .slice(0, 5)
-  .map((s, i) => ({ ...s, place: i + 1, label: (localDateFromKey(s.key) || TODAY).toLocaleDateString("en-US", { month: "short", day: "numeric" }) }));
+  .map((s, i) => ({ ...s, place: i + 1, label: formatWithDisplayTimezone((localDateFromKey(s.key) || TODAY), { month: "short", day: "numeric" }) }));
 const buildProductivityPersonality = (tasks, journal, events, skills) => {
   const completed = tasks.filter(t => t.done);
   const avgDur = completed.length ? completed.reduce((sum,t)=>sum + (Number(t.duration) || 0), 0) / completed.length : 0;
@@ -738,7 +738,7 @@ const buildMonthlyLifeGarden = (tasks, journal, events, date = TODAY) => {
   });
   const activeDays = cells.filter(Boolean).filter(c => !["empty","future"].includes(c.className)).length;
   const goldenDays = cells.filter(Boolean).filter(c => c.className === "gold").length;
-  return { label: new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }), cells, activeDays, goldenDays };
+  return { label: formatWithDisplayTimezone(new Date(year, month, 1), { month: "long", year: "numeric" }), cells, activeDays, goldenDays };
 };
 const calculateGameStats = (tasks, journal, events) => {
   const completed = tasks.filter(t => t.done);
@@ -1239,7 +1239,7 @@ function processMessage(input, events, tasks, pending) {
   if (/\b(this week|show week)\b/.test(msg)) {
     const mon = weekStart(TODAY);
     const lines = [];
-    for (let i = 0; i < 7; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); const evs = getEventsOnDay(events, d); if (evs.length) lines.push(`${d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}: ${evs.length} event${evs.length !== 1 ? "s" : ""}`); }
+    for (let i = 0; i < 7; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); const evs = getEventsOnDay(events, d); if (evs.length) lines.push(`${formatWithDisplayTimezone(d, { weekday: "short", month: "short", day: "numeric" })}: ${evs.length} event${evs.length !== 1 ? "s" : ""}`); }
     text = lines.length ? `🗓️ This week:\n\n${lines.join("\n")}` : "Nothing this week!";
     return { text, newEv, newTk, newP };
   }
@@ -2450,7 +2450,7 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
           const isT = day.toDateString() === TODAY.toDateString();
           return (
             <div key={i} className={`wt-day-header ${isT ? "wt-today" : ""}`} onClick={() => onDayClick(day)}>
-              <span className="wt-day-name">{day.toLocaleDateString("en-US", { weekday: "short" })}</span>
+              <span className="wt-day-name">{formatWithDisplayTimezone(day, { weekday: "short" })}</span>
               <span className={`wt-day-num ${isT ? "wt-today-num" : ""}`}>{day.getDate()}</span>
             </div>
           );
@@ -2502,60 +2502,97 @@ function WeekView({ events, calendars, categories, onEventClick, viewDate, onDay
 function MonthEventRow({ event, color, onOpen, onReschedule }) {
   const suppressClick = useRef(false);
   const ref = useRef(null);
+  const timerRef = useRef(null);
+  const dragRef = useRef(null);
+
+  function clearMonthDrag() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    const state = dragRef.current;
+    if (state?.ghost?.parentNode) state.ghost.remove();
+    if (state) {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+      document.removeEventListener("pointercancel", cancelMonthDrag);
+      window.removeEventListener("blur", cancelMonthDrag);
+    }
+    dragRef.current = null;
+  }
+
+  function cancelMonthDrag() {
+    clearMonthDrag();
+    setTimeout(() => { suppressClick.current = false; }, 80);
+  }
 
   function startPressDrag(e) {
-    if (event.fixed || e.button !== 0) return;
+    if (event.fixed) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     e.stopPropagation();
-    const sy = e.clientY, sx = e.clientX;
-    let started = false;
-    let ghost = null;
-    const timer = setTimeout(() => {
-      started = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    suppressClick.current = false;
+    dragRef.current = { startX, startY, started: false, ghost: null, pointerId: e.pointerId };
+
+    timerRef.current = setTimeout(() => {
+      const state = dragRef.current;
+      if (!state || !ref.current) return;
+      state.started = true;
       suppressClick.current = true;
-      if (!ref.current) return;
+      document.body.classList.add("dragging-event");
       const rect = ref.current.getBoundingClientRect();
-      ghost = ref.current.cloneNode(true);
-      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;z-index:10000;opacity:.82;box-shadow:var(--shadow-md);`;
+      const ghost = ref.current.cloneNode(true);
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;z-index:10000;opacity:.84;box-shadow:var(--shadow-md);transform:translate(0,0);`;
       document.body.appendChild(ghost);
+      state.ghost = ghost;
     }, EVENT_DRAG_HOLD_MS);
-    function cleanup() {
-      clearTimeout(timer);
-      document.removeEventListener("mousemove", mv);
-      document.removeEventListener("mouseup", up);
-      window.removeEventListener("blur", cleanup);
-      if (ghost?.parentNode) ghost.remove();
+
+    document.addEventListener("pointermove", handlePointerMove, { passive: false });
+    document.addEventListener("pointerup", handlePointerUp);
+    document.addEventListener("pointercancel", cancelMonthDrag);
+    window.addEventListener("blur", cancelMonthDrag);
+  }
+
+  function handlePointerMove(e) {
+    const state = dragRef.current;
+    if (!state) return;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+    if (!state.started && Math.hypot(dx, dy) > EVENT_DRAG_MOVE_CANCEL_PX) {
+      clearMonthDrag();
+      return;
     }
-    function mv(me) {
-      if (!started && Math.hypot(me.clientX - sx, me.clientY - sy) > EVENT_DRAG_MOVE_CANCEL_PX) { cleanup(); return; }
-      if (!started || !ghost) return;
-      ghost.style.transform = `translate(${me.clientX - sx}px, ${me.clientY - sy}px)`;
+    if (!state.started || !state.ghost) return;
+    e.preventDefault();
+    state.ghost.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+
+  function handlePointerUp(e) {
+    const state = dragRef.current;
+    const wasStarted = Boolean(state?.started);
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    clearMonthDrag();
+    document.body.classList.remove("dragging-event");
+    if (!wasStarted) return;
+    const target = document.elementFromPoint(clientX, clientY)?.closest?.("[data-month-date]");
+    const targetKey = target?.getAttribute("data-month-date");
+    const targetDate = targetKey ? localDateFromKey(targetKey) : null;
+    if (targetDate) {
+      const dur = event.end - event.start;
+      const ns = new Date(targetDate);
+      ns.setHours(event.start.getHours(), event.start.getMinutes(), 0, 0);
+      onReschedule(event.id, ns, new Date(ns.getTime() + dur));
     }
-    function up(ue) {
-      const wasStarted = started;
-      cleanup();
-      if (!wasStarted) return;
-      const target = document.elementFromPoint(ue.clientX, ue.clientY)?.closest?.("[data-month-date]");
-      const targetKey = target?.getAttribute("data-month-date");
-      const targetDate = targetKey ? localDateFromKey(targetKey) : null;
-      if (targetDate) {
-        const dur = event.end - event.start;
-        const ns = new Date(targetDate); ns.setHours(event.start.getHours(), event.start.getMinutes(), 0, 0);
-        onReschedule(event.id, ns, new Date(ns.getTime() + dur));
-      }
-      setTimeout(() => { suppressClick.current = false; }, 80);
-    }
-    document.addEventListener("mousemove", mv);
-    document.addEventListener("mouseup", up);
-    window.addEventListener("blur", cleanup);
+    setTimeout(() => { suppressClick.current = false; }, 120);
   }
 
   return (
-    <div ref={ref} className="month-event-row" onMouseDown={startPressDrag}
-      style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)", cursor: event.fixed ? "pointer" : "grab" }}
+    <div ref={ref} className="month-event-row" onPointerDown={startPressDrag}
+      style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)", cursor: event.fixed ? "pointer" : "grab", touchAction: "none", userSelect: "none" }}
       onClick={ev => { ev.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onOpen(event); }}
-      title={event.fixed ? "Fixed · Click to edit" : "Press and hold to drag · Click to edit"}>
+      title={event.fixed ? "Fixed · Click to edit" : "Tap to edit · Hold to move"}>
       <span className="month-event-time">{isAllDayEvent(event) ? "All day" : `${event.start.getHours()}:${String(event.start.getMinutes()).padStart(2,"0")}`}</span>
-      <span className="month-event-name">{event.title}</span>
+      <span className="month-event-name" style={{ color }}>{event.title}</span>
     </div>
   );
 }
@@ -3924,10 +3961,10 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
       <div className={`entry-modal memory-entry-modal memory-bg-${backgroundId}`} style={memoryBackgroundStyle(backgroundId)} onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
-            <div className="entry-modal-date">{date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
+            <div className="entry-modal-date">{formatWithDisplayTimezone(date, {weekday:"long",month:"long",day:"numeric"})}</div>
             <div className="entry-modal-sub">Add today’s memory page</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={requestClose}>✕</button>
         </div>
 
         <div className="entry-modal-body">
@@ -4113,7 +4150,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-modal-footer">
-          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-cancel" onClick={requestClose}>Cancel</button>
           <button className="tf-save" onClick={handleSave} disabled={uploading}>{uploading ? "Saving…" : "Save memory ✓"}</button>
         </div>
       </div>
@@ -4298,7 +4335,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
             <span>{m.emoji}</span><span className="mood-stat-count">{m.count}</span>
           </div>
         ))}
-        <span className="mood-stats-month">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</span>
+        <span className="mood-stats-month">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})}</span>
       </div>
 
       <div className="memory-search-section">
@@ -4312,7 +4349,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
             {throwbacks.map(([k,e]) => { const mem = normalizeMemoryEntry(e); const cover = memoryEntryCover(mem); const d = localDateFromKey(k) || new Date(TODAY); return (
               <button key={k} className="memory-throwback-card" onClick={() => setViewingKey(k)}>
                 {cover ? <img src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt="Throwback"/> : <span>📔</span>}
-                <strong>{d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</strong>
+                <strong>{formatWithDisplayTimezone(d, {month:"short",day:"numeric"})}</strong>
                 <small>{mem.note ? mem.note.slice(0,42) + (mem.note.length>42?"…":"") : "A memory from before"}</small>
               </button>
             );})}
@@ -4324,7 +4361,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
       <div className="memory-book-section">
         <div className="memory-book-head">
           <div>
-            <div className="memory-book-title">{calDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})} Memory Book</div>
+            <div className="memory-book-title">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})} Memory Book</div>
             <div className="memory-book-sub">{monthPages} page{monthPages !== 1 ? "s" : ""} • {monthPhotos} photo{monthPhotos !== 1 ? "s" : ""}</div>
           </div>
           <div className="memory-book-actions">
@@ -4384,7 +4421,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
                   {cover ? <img className="jec-cover" src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt={cover.caption || "Memory cover"} /> : (moodObj && <span className="jec-emoji" style={{"--mc":moodObj.color}}>{moodObj.emoji}</span>)}
                 </div>
                 <div className="jec-body">
-                  <div className="jec-date">{d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
+                  <div className="jec-date">{formatWithDisplayTimezone(d, {weekday:"short",month:"short",day:"numeric"})}</div>
                   {moodObj && <div className="jec-mood" style={{color:moodObj.color}}>{moodObj.label}</div>}
                   {acts.length>0 && <div className="jec-acts">{acts.slice(0,5).map(a=><span key={a.id}>{a.emoji}</span>)}</div>}
                   {mem.note && <div className="jec-note">{mem.note.slice(0,80)}{mem.note.length>80?"…":""}</div>}
@@ -4466,7 +4503,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
             <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
               <div className="entry-modal-header">
                 <div>
-                  <div className="entry-modal-date">{d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
+                  <div className="entry-modal-date">{formatWithDisplayTimezone(d, {weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
                   {moodObj && <div className="entry-view-mood" style={{color:moodObj.color}}>{moodObj.emoji} {moodObj.label}</div>}
                 </div>
                 <div style={{display:"flex",gap:8}}>
@@ -4619,7 +4656,7 @@ function SearchModal({ events, tasks, categories = CATEGORIES, onClose, onEventC
                       <div className="search-result-body">
                         <div className="search-result-title">{highlightMatch(e.title, q)}</div>
                         <div className="search-result-meta">
-                          {e.start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.start)}–{fmt(e.end)}
+                          {formatWithDisplayTimezone(e.start, { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.start)}–{fmt(e.end)}
                           {e._recurring && <span className="search-recurring-badge">↻ recurring</span>}
                         </div>
                         {e.notes && <div className="search-result-notes">{highlightMatch(e.notes.slice(0, 80), q)}</div>}
@@ -4728,38 +4765,6 @@ function SyncStatusPill({ syncStatus, onRetry }) {
   );
 }
 
-function QuickAddMenu({ open, onToggle, onClose, onAddEvent, onAddTask, onAddMemory, onAddFocus }) {
-  return (
-    <div className="quick-add-wrap">
-      {open && <div className="quick-add-menu" role="menu">
-        <button onClick={() => { onAddEvent(); onClose(); }}>📅 Event</button>
-        <button onClick={() => { onAddTask(); onClose(); }}>✅ Task</button>
-        <button onClick={() => { onAddMemory(); onClose(); }}>📔 Memory</button>
-        <button onClick={() => { onAddFocus(); onClose(); }}>🎯 Focus block</button>
-      </div>}
-      <button className="quick-add-fab" onClick={onToggle} aria-label="Quick add">{open ? "×" : "+"}</button>
-    </div>
-  );
-}
-
-function XPBreakdownCard({ gameStats }) {
-  const b = gameStats?.xpBreakdown || {};
-  const rows = [
-    ["Completed tasks", b.taskXP || 0],
-    ["Memory Book", b.journalXP || 0],
-    ["Daily quests", b.questXP || 0],
-    ["Weekly missions", b.missionXP || 0],
-    ["Combos", b.comboXP || 0],
-    ["Badges", b.badgeXP || 0],
-  ];
-  return (
-    <div className="game-card xp-breakdown-card">
-      <div className="game-card-title">Why did my XP change?</div>
-      <div className="xp-breakdown-list">{rows.map(([label, xp]) => <div key={label} className="xp-breakdown-row"><span>{label}</span><strong>+{xp} XP</strong></div>)}</div>
-    </div>
-  );
-}
-
 function BloomCollapse({ title, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   function toggle() {
@@ -4819,14 +4824,12 @@ export default function App() {
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
-  const [showAddEvent,  setShowAddEvent]  = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
   const cloudQueueRef = useRef(Promise.resolve());
   const [focusMode,    setFocusMode]    = useState(false);
@@ -5561,7 +5564,7 @@ export default function App() {
     if (!dayEvents.length) return;
     const tpl = {
       id: "tpl" + uid(),
-      label: `✨ ${base.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`,
+      label: `✨ ${formatWithDisplayTimezone(base, { weekday: "short", month: "short", day: "numeric" })}`,
       events: dayEvents.map(e => ({
         title: e.title,
         start: [e.start.getHours(), e.start.getMinutes()],
@@ -5579,7 +5582,16 @@ export default function App() {
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
   function deleteTemplate(id) { if (!window.confirm("Delete this day template?")) return; setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
-  function handleCarryOver(ids) { const tomorrow = addDaysSafe(TODAY, 1); setTasks(ts => ts.map(t => ids.includes(t.id) ? withTaskPeriod({ ...t, scope: "day", done: false, completedAt: null, completedDate: null }, tomorrow) : t)); setShowCarryOver(false); }
+  function handleCarryOver(ids) {
+    const tomorrow = addDaysSafe(TODAY, 1);
+    const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
+    pushUndo();
+    setTasks(ts => ts.map(t => ids.includes(t.id)
+      ? { ...t, scope: "day", done: false, completedAt: null, completedDate: null, ...tomorrowPatch }
+      : t));
+    setShowCarryOver(false);
+    setToast("Pushed selected tasks to tomorrow ✓");
+  }
   function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
 
   // Keyboard shortcuts
@@ -5675,14 +5687,13 @@ export default function App() {
   .task-card-empty{border:1.5px dashed var(--border);border-radius:16px;padding:18px 12px;text-align:center;color:var(--text3);font-size:12px;font-weight:800;background:var(--bg3);}
   .sync-pill{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;display:inline-flex;align-items:center;gap:5px;cursor:default;white-space:nowrap;}
   .sync-pill.sync-saving{color:#B07800;background:#FFF4D8;}.sync-pill.sync-saved{color:#2E8B57;background:#EAF7EF;}.sync-pill.sync-failed{color:#D44848;background:#FFF0F0;cursor:pointer;}.sync-pill.sync-offline{color:#A07090;background:var(--bg4);}
-  .quick-add-wrap{position:fixed;right:76px;bottom:20px;z-index:80;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}.quick-add-fab{width:52px;height:52px;border-radius:18px;border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:28px;font-weight:900;box-shadow:0 14px 32px rgba(var(--accent-rgb),.28);cursor:pointer;}.quick-add-menu{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;box-shadow:0 16px 40px rgba(0,0,0,.14);padding:8px;display:flex;flex-direction:column;gap:6px;min-width:170px;}.quick-add-menu button{border:0;background:var(--bg3);color:var(--text);border-radius:12px;padding:10px 12px;text-align:left;font-family:var(--font);font-weight:900;cursor:pointer;}.quick-add-menu button:hover{background:var(--bg4);color:var(--accent);}
   .tempo-toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#4A2840;color:white;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;z-index:120;box-shadow:0 12px 32px rgba(0,0,0,.18);animation:toastFade 2.4s ease forwards;}@keyframes toastFade{0%{opacity:0;transform:translate(-50%,8px)}15%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,8px)}}
   .hold-cue{position:absolute;right:8px;bottom:5px;font-size:9px;font-weight:900;color:var(--text3);opacity:.0;background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:2px 6px;transition:opacity .15s;}.event-block:hover .hold-cue,.event-block.hold-holding .hold-cue,.event-block.hold-dragging .hold-cue{opacity:.92}.event-block.hold-holding{box-shadow:0 0 0 2px var(--accent3),var(--shadow-sm)}.event-block.hold-dragging{opacity:.75;}
   .memory-upload-status{font-size:11px;font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-top:8px;}
   .memory-settings-modal{max-width:820px;width:min(92vw,820px);}.memory-settings-modal .entry-modal-body{max-height:72vh;overflow:auto;}
   .task-card-with-move{border-radius:14px;}.task-card-with-move .task-item{margin-bottom:4px;}.mini-move-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:4px 7px;font-size:10px;font-weight:900;margin:2px 3px 6px 0;cursor:pointer;}.mini-move-btn:hover{background:var(--bg4);color:var(--accent);}
   .xp-breakdown-list{display:flex;flex-direction:column;gap:7px}.xp-breakdown-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);font-weight:800}.xp-breakdown-row strong{color:var(--accent);font-family:var(--mono)}.bloom-collapse{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.bloom-collapse-head{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:900;padding:12px 14px;cursor:pointer}.bloom-collapse-body{padding:12px;display:flex;flex-direction:column;gap:12px}.bloom-collapse-body>.game-card{box-shadow:none;}
-  @media(max-width:768px){.quick-add-wrap{right:16px;bottom:84px}.quick-add-fab{width:50px;height:50px}.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}}
+  @media(max-width:768px){.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}}
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
 `}</style>
 
@@ -5693,7 +5704,7 @@ export default function App() {
           <div className="sidebar-logo"><div className="logo-icon">🌸</div><span>Tempo</span></div>
           <div className="sidebar-date">
             <div className="date-big">{TODAY.getDate()}</div>
-            {TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", year: "numeric" })}
+            {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
             <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
           </div>
@@ -5760,15 +5771,14 @@ export default function App() {
               {view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
                 const mon = new Date(viewDate); mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
                 const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-                return `${mon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${sun.toLocaleDateString("en-US",{month:"short",day:"numeric"})}`;
-              })() : viewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}
+                return `${formatWithDisplayTimezone(mon,{month:"short",day:"numeric"})} – ${formatWithDisplayTimezone(sun,{month:"short",day:"numeric"})}`;
+              })() : formatWithDisplayTimezone(viewDate,{month:"long",year:"numeric"})}
               {view === "day" && viewDate.toDateString() === TODAY.toDateString() && <span className="today-badge">{viewDayEvents.length} events</span>}
             </div>
             <div className="view-tabs">
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
             <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
-            <button className="topbar-btn add-event-btn" onClick={() => setQuickAddOpen(v => !v)}>+ Add</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
@@ -5845,7 +5855,6 @@ export default function App() {
 
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
-      {showAddEvent  && <AddEventModal onClose={() => setShowAddEvent(false)} onSave={addEvent} defaultDate={viewDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
@@ -7017,7 +7026,6 @@ function appCSS(cvars, fontScale) { return `
   .bloom-collapse .bloom-collapse-head{cursor:default;}
   .bloom-collapse .bloom-collapse-mark{display:none;}
   .xp-breakdown-card{display:none!important;}
-  .quick-add-wrap{display:none!important;}
 
   @media(max-width:768px){
     .bloom-collapse:not(.open) .bloom-collapse-body{display:none;}
