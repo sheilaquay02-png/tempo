@@ -18,8 +18,19 @@ export async function POST(request) {
     const { data, error } = await admin.from('push_subscriptions').select('endpoint,subscription').eq('user_id', userId);
     if (error) throw error;
     const payload = JSON.stringify({ title, body, url });
-    const results = await Promise.allSettled((data || []).map(row => webpush.sendNotification(row.subscription, payload)));
-    return Response.json({ ok: true, sent: results.filter(r => r.status === 'fulfilled').length, total: results.length });
+    const rows = data || [];
+    const results = await Promise.allSettled(rows.map(row => webpush.sendNotification(row.subscription, payload)));
+    const invalidEndpoints = [];
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const statusCode = result.reason?.statusCode;
+        if (statusCode === 404 || statusCode === 410) invalidEndpoints.push(rows[index].endpoint);
+      }
+    });
+    if (invalidEndpoints.length) {
+      await admin.from('push_subscriptions').delete().in('endpoint', invalidEndpoints);
+    }
+    return Response.json({ ok: true, sent: results.filter(r => r.status === 'fulfilled').length, total: results.length, cleaned: invalidEndpoints.length });
   } catch (err) {
     console.error('Push send failed', err);
     return Response.json({ error: err?.message || 'Push send failed' }, { status: 500 });
