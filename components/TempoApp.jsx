@@ -2089,30 +2089,54 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
 }
 
 function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining, onMoveRemainingToWeek, onSkipLowPriority, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
-  const [lockedIds, setLockedIds] = useState([]);
   const [selectedMode, setSelectedMode] = useState(normalizePlanningMode(plan?.mode));
-  useEffect(() => { setLockedIds([]); setSelectedMode(normalizePlanningMode(plan?.mode)); }, [plan?.generatedAt, plan?.mode]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState(() => plan?.selectedTaskIds || (plan?.allPlanningTasks || []).map(t => t.id));
+  useEffect(() => {
+    setSelectedMode(normalizePlanningMode(plan?.mode));
+    setSelectedTaskIds(plan?.selectedTaskIds || (plan?.allPlanningTasks || []).map(t => t.id));
+  }, [plan?.generatedAt, plan?.mode]);
   if (!plan) return null;
-  const toggleLock = id => setLockedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
-  const lockedSuggestions = (plan.suggestions || []).filter(item => lockedIds.includes(item.task.id));
   const modeMeta = planningModeMeta(selectedMode);
   const activeRules = normalizePlanningRules(plan.planningRules || planningRules);
   const remainingTasks = plan.remainingTasks || plan.unscheduled || [];
   const lifestyleBlocks = plan.lifestyleBlocks || [];
   const skippedLowPriority = plan.skippedLowPriority || [];
+  const allPlanningTasks = plan.allPlanningTasks || [];
+  const excludedByChoice = plan.excludedByChoice || [];
+  const selectedCount = selectedTaskIds.length;
   const energyMeta = plan.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === plan.energy) : null;
   const moodMeta = plan.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === plan.mood) : null;
+  const regenerateWithSelection = (nextIds = selectedTaskIds, nextMode = selectedMode, extra = {}) => {
+    onRegenerate?.(plan, [], nextMode, {
+      skipLowPriorityToday: Boolean(extra.skipLowPriorityToday ?? plan.skipLowPriorityToday),
+      includedTaskIds: nextIds,
+    });
+  };
   const handleMode = mode => {
     const nextMode = normalizePlanningMode(mode);
     setSelectedMode(nextMode);
-    onRegenerate?.(plan, lockedSuggestions, nextMode, { skipLowPriorityToday: Boolean(plan.skipLowPriorityToday) });
+    regenerateWithSelection(selectedTaskIds, nextMode);
+  };
+  const toggleTaskPlanning = id => {
+    const nextIds = selectedTaskIds.includes(id) ? selectedTaskIds.filter(x => x !== id) : [...selectedTaskIds, id];
+    setSelectedTaskIds(nextIds);
+    regenerateWithSelection(nextIds, selectedMode);
+  };
+  const selectAllTasks = () => {
+    const nextIds = allPlanningTasks.map(t => t.id);
+    setSelectedTaskIds(nextIds);
+    regenerateWithSelection(nextIds, selectedMode);
+  };
+  const clearSelectedTasks = () => {
+    setSelectedTaskIds([]);
+    regenerateWithSelection([], selectedMode);
   };
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan today">
       <div className="modal day-plan-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>✨ Plan Today</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div className="plan-summary">You have <strong>{plan.openCount}</strong> open task{plan.openCount === 1 ? "" : "s"} and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
+          <div className="plan-summary">Planning <strong>{selectedCount}</strong> of <strong>{allPlanningTasks.length}</strong> open task{allPlanningTasks.length === 1 ? "" : "s"} with <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
           <div className="plan-context-card">
             <div><strong>{modeMeta.emoji} {modeMeta.label}</strong><span>{modeMeta.desc}</span></div>
             <div><strong>{energyMeta ? `${energyMeta.emoji} ${energyMeta.label} energy` : "Energy not set"}</strong><span>{moodMeta ? `${moodMeta.emoji} Feeling ${moodMeta.label}` : "Add a check-in for smarter planning"}</span></div>
@@ -2120,16 +2144,23 @@ function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining,
           <div className="planning-mode-grid">
             {PLANNING_MODES.map(mode => <button key={mode.id} className={`planning-mode-btn ${selectedMode === mode.id ? "active" : ""}`} onClick={() => handleMode(mode.id)}><span>{mode.emoji}</span><strong>{mode.label}</strong><small>{mode.desc}</small></button>)}
           </div>
+          {allPlanningTasks.length > 0 && <div className="plan-task-picker">
+            <div className="plan-task-picker-head"><div><strong>Choose tasks to plan</strong><span>Tick what you want Tempo to schedule today.</span></div><div><button className="mini-move-btn" onClick={selectAllTasks} disabled={selectedCount === allPlanningTasks.length}>All</button><button className="mini-move-btn" onClick={clearSelectedTasks} disabled={selectedCount === 0}>None</button></div></div>
+            <div className="plan-task-picker-list">
+              {allPlanningTasks.map(task => {
+                const checked = selectedTaskIds.includes(task.id);
+                return <label key={task.id} className={`plan-task-choice ${checked ? "selected" : ""}`}><input type="checkbox" checked={checked} onChange={() => toggleTaskPlanning(task.id)} /><span><strong>{task.title}</strong><small>{task.priority || "medium"} priority · {taskDurationToMinutes(task.duration || 30)} min{task.deadline ? ` · due ${task.deadline}` : ""}</small></span></label>;
+              })}
+            </div>
+          </div>}
           <div className="plan-break-note">Protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "no meal breaks"}{lifestyleBlocks.length ? ` · ${lifestyleBlocks.length} ritual/habit block${lifestyleBlocks.length === 1 ? "" : "s"}` : ""}. Buffer: {activeRules.bufferMinutes} min. Capacity: {activeRules.maxPlanMinutes} min.</div>
-          {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => {
-            const locked = lockedIds.includes(item.task.id);
-            return <div key={item.task.id} className={`plan-row ${locked ? "locked" : ""}`}><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong><button className="mini-move-btn" onClick={() => toggleLock(item.task.id)}>{locked ? "🔒 Locked" : "Lock"}</button></div>;
-          })}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
+          {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">{selectedCount ? "No suitable free slots found for the selected tasks today." : "Tick at least one task for Tempo to plan today."}</div>}
           {lifestyleBlocks.length > 0 && <div className="plan-soft-blocks"><strong>Soft commitments protected</strong>{lifestyleBlocks.slice(0, 4).map(block => <span key={block.id}>{fmt(block.start)} · {block.title.replace(/^Ritual: |^Habit: /, "")}</span>)}{lifestyleBlocks.length > 4 && <span>+{lifestyleBlocks.length - 4} more</span>}</div>}
+          {excludedByChoice.length > 0 && <div className="plan-skip-note">Not planned by choice: {excludedByChoice.map(t => t.title).join(", ")}</div>}
           {remainingTasks.length > 0 && <div className="plan-warning">Could not fit: {remainingTasks.map(t => t.title).join(", ")}</div>}
           {skippedLowPriority.length > 0 && <div className="plan-skip-note">Skipped low-priority today: {skippedLowPriority.map(t => t.title).join(", ")}</div>}
         </div>
-        <div className="modal-footer day-plan-footer"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="tf-cancel" onClick={() => onRegenerate?.(plan, lockedSuggestions, selectedMode, { skipLowPriorityToday: Boolean(plan.skipLowPriorityToday) })}>Regenerate plan</button><button className="tf-cancel" onClick={() => onSkipLowPriority?.(plan, lockedSuggestions, selectedMode)} disabled={Boolean(plan.skipLowPriorityToday)}>Skip low-priority today</button>{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemaining?.(plan)}>Move remaining to tomorrow</button>}{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemainingToWeek?.(plan)}>Move remaining to this week</button>}</div><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div></div>
+        <div className="modal-footer day-plan-footer"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="tf-cancel" onClick={() => regenerateWithSelection(selectedTaskIds, selectedMode)}>Regenerate plan</button><button className="tf-cancel" onClick={() => onSkipLowPriority?.(plan, [], selectedMode, selectedTaskIds)} disabled={Boolean(plan.skipLowPriorityToday)}>Skip low-priority today</button>{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemaining?.(plan)}>Move remaining to tomorrow</button>}{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemainingToWeek?.(plan)}>Move remaining to this week</button>}</div><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div></div>
       </div>
     </div>
   );
@@ -4396,7 +4427,12 @@ export default function App() {
     const locked = (lockedSuggestions || []).map(item => ({ ...item, start: new Date(item.start), end: new Date(item.end) })).filter(item => item?.task?.id && sameDay(item.start, planDate));
     const lockedIds = new Set(locked.map(item => item.task.id));
     const lockedBlocks = locked.map(item => ({ id: `locked-${item.task.id}`, title: item.task.title, start: item.start, end: item.end, allDay: false, calendar: "work", category: item.task.category || "important", fixed: true }));
-    const planningPool = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
+    const allPlanningTasks = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
+    const hasManualSelection = Array.isArray(options.includedTaskIds);
+    const selectedTaskIds = hasManualSelection ? options.includedTaskIds.map(String) : allPlanningTasks.map(t => String(t.id));
+    const selectedTaskIdSet = new Set(selectedTaskIds);
+    const planningPool = allPlanningTasks.filter(t => selectedTaskIdSet.has(String(t.id)));
+    const excludedByChoice = hasManualSelection ? allPlanningTasks.filter(t => !selectedTaskIdSet.has(String(t.id))) : [];
     const skippedLowPriority = skipLowPriorityToday ? planningPool.filter(t => t.priority === "low") : [];
     const candidates = skipLowPriorityToday ? planningPool.filter(t => t.priority !== "low") : planningPool;
     let slots = freeSlotsForDate(planDate, lockedBlocks, rules);
@@ -4427,7 +4463,11 @@ export default function App() {
     return {
       date: planDate,
       freeMinutes,
-      openCount: planningPool.length + locked.length,
+      openCount: allPlanningTasks.length + locked.length,
+      selectedCount: planningPool.length + locked.length,
+      allPlanningTasks,
+      selectedTaskIds,
+      excludedByChoice,
       suggestions,
       unscheduled,
       skippedLowPriority,
@@ -4456,7 +4496,10 @@ export default function App() {
   }
 
   function regenerateDayPlan(plan, lockedSuggestions = [], mode = null, options = {}) {
-    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, { skipLowPriorityToday: Boolean(options.skipLowPriorityToday ?? plan?.skipLowPriorityToday) }));
+    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, {
+      skipLowPriorityToday: Boolean(options.skipLowPriorityToday ?? plan?.skipLowPriorityToday),
+      includedTaskIds: Array.isArray(options.includedTaskIds) ? options.includedTaskIds : plan?.selectedTaskIds,
+    }));
   }
 
   function planRemainingTasks(plan) {
@@ -4486,8 +4529,11 @@ export default function App() {
     setDayPlan(null);
   }
 
-  function skipLowPriorityInDayPlan(plan, lockedSuggestions = [], mode = null) {
-    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, { skipLowPriorityToday: true }));
+  function skipLowPriorityInDayPlan(plan, lockedSuggestions = [], mode = null, includedTaskIds = null) {
+    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, {
+      skipLowPriorityToday: true,
+      includedTaskIds: Array.isArray(includedTaskIds) ? includedTaskIds : plan?.selectedTaskIds,
+    }));
   }
 
   function scheduleTaskIntoCalendar(task, mode = "today") {
