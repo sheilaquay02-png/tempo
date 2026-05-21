@@ -62,6 +62,6 @@
 - [ ] Advanced Bloom sections are collapsed by default.
 
 ## Settings / Misc
-- [ ] Pomodoro notification wording is accurate.
+- [ ] Reminder notification wording is accurate.
 - [ ] Keyboard shortcuts hidden on mobile.
 - [ ] Quick-add FAB works on mobile and desktop.

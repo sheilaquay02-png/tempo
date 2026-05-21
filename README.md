@@ -85,13 +85,17 @@ For a native wrapper, start with the PWA/web app, then use the Capacitor notes i
 
 ## Automatic reminder checker
 
-This package includes a scheduled reminder route:
+This package includes the reminder route:
 
 ```txt
 GET /api/push/reminders
 ```
 
-`vercel.json` calls this route every 5 minutes using Vercel Cron.
+Vercel Hobby accounts cannot run frequent cron jobs, so `vercel.json` intentionally does **not** schedule this route. Use GitHub Actions or another external cron service for frequent reminder checks. See:
+
+```txt
+docs/external_cron_setup.md
+```
 
 Required additional environment variable:
 
@@ -99,7 +103,7 @@ Required additional environment variable:
 CRON_SECRET=your_long_random_secret
 ```
 
-Vercel sends this value as:
+External cron should call the route with:
 
 ```txt
 Authorization: Bearer <CRON_SECRET>
