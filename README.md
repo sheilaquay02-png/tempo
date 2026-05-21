@@ -55,6 +55,7 @@ After testing this package, split in this order:
 - Added drag reordering for Journal activities.
 - Added sticker drag-positioning inside scrapbook sticker blocks.
 - Added Phase 6 Habits foundation: habit creation, daily check-offs, weekly grid, streaks, reminders, Today dashboard cards, and sync-safe habit tombstones.
+- Added Phase 7 Habit Templates: starter habit templates, template filters, direct add, customize before saving, and safe duplicate-copy naming.
 
 ## External setup for closed-app push
 

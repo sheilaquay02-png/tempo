@@ -463,6 +463,129 @@ const DEFAULT_HABITS = [
   },
 ];
 
+const HABIT_TEMPLATES = [
+  {
+    id: "drink-water",
+    name: "Drink water",
+    emoji: "💧",
+    category: "wellness",
+    description: "A gentle daily hydration check-in that is easy to keep consistent.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 3,
+    unit: "glasses",
+    reminder: { type: "morning", time: "09:00" },
+  },
+  {
+    id: "journal",
+    name: "Journal",
+    emoji: "📓",
+    category: "mindset",
+    description: "Write a quick reflection so the day feels more intentional.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "entry",
+    reminder: { type: "evening", time: "21:00" },
+  },
+  {
+    id: "stretch",
+    name: "Stretch",
+    emoji: "🧘",
+    category: "wellness",
+    description: "A light reset for your body between work, study, or errands.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "session",
+    reminder: { type: "afternoon", time: "15:00" },
+  },
+  {
+    id: "read-10-minutes",
+    name: "Read 10 minutes",
+    emoji: "📖",
+    category: "learning",
+    description: "A small reading habit that feels achievable even on busy days.",
+    frequency: "weekdays",
+    repeatDays: [1,2,3,4,5],
+    targetCount: 1,
+    unit: "reading block",
+    reminder: { type: "evening", time: "20:30" },
+  },
+  {
+    id: "walk",
+    name: "Walk",
+    emoji: "🚶",
+    category: "wellness",
+    description: "A simple movement habit to add air and space into your day.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "walk",
+    reminder: { type: "afternoon", time: "17:30" },
+  },
+  {
+    id: "plan-tomorrow",
+    name: "Plan tomorrow",
+    emoji: "🌙",
+    category: "planning",
+    description: "Close the day by making tomorrow feel lighter before it starts.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "check-in",
+    reminder: { type: "evening", time: "20:30" },
+  },
+  {
+    id: "tidy-room",
+    name: "Tidy room",
+    emoji: "🧺",
+    category: "home",
+    description: "A quick space reset so your room feels calmer and cleaner.",
+    frequency: "weekdays",
+    repeatDays: [1,2,3,4,5],
+    targetCount: 1,
+    unit: "reset",
+    reminder: { type: "none", time: "" },
+  },
+  {
+    id: "gratitude",
+    name: "Gratitude",
+    emoji: "🌷",
+    category: "mindset",
+    description: "Write one small thing you appreciated today.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "note",
+    reminder: { type: "evening", time: "21:15" },
+  },
+  {
+    id: "sleep-routine",
+    name: "Sleep routine",
+    emoji: "🛏️",
+    category: "wellness",
+    description: "A gentle reminder to wind down and protect your rest window.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "wind down",
+    reminder: { type: "evening", time: "22:00" },
+  },
+  {
+    id: "no-phone-before-bed",
+    name: "No phone before bed",
+    emoji: "📵",
+    category: "wellness",
+    description: "Create a calmer night by putting the phone away before sleep.",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "night",
+    reminder: { type: "evening", time: "21:45" },
+  },
+];
+
 const HABIT_CATEGORIES = [
   { id: "mindset", label: "Mindset", emoji: "🌸" },
   { id: "wellness", label: "Wellness", emoji: "🌿" },
@@ -651,6 +774,7 @@ function normalizeHabit(habit, index = 0) {
   return {
     id: String(habit?.id || `habit-${uid()}`),
     name: String(habit?.name || fallback?.name || "New Habit").trim() || "New Habit",
+    templateId: habit?.templateId ? String(habit.templateId) : (fallback?.templateId ? String(fallback.templateId) : null),
     emoji: String(habit?.emoji || fallback?.emoji || "🌱").trim() || "🌱",
     category: String(habit?.category || fallback?.category || "personal"),
     frequency,
@@ -672,6 +796,35 @@ function normalizeHabits(value) {
     if (!h.id || seen.has(h.id)) return false;
     seen.add(h.id);
     return !h.deletedAt;
+  });
+}
+
+function habitNameWithCopySuffix(name, habits = []) {
+  const base = String(name || "New Habit").trim() || "New Habit";
+  const names = new Set(normalizeHabits(habits).map(h => String(h.name || "").trim().toLowerCase()).filter(Boolean));
+  if (!names.has(base.toLowerCase())) return base;
+  let i = 2;
+  while (names.has(`${base} ${i}`.toLowerCase())) i += 1;
+  return `${base} ${i}`;
+}
+
+function habitFromTemplate(template, habits = []) {
+  const now = new Date().toISOString();
+  return normalizeHabit({
+    id: `habit-${template.id}-${uid()}`,
+    templateId: template.id,
+    name: habitNameWithCopySuffix(template.name, habits),
+    emoji: template.emoji,
+    category: template.category,
+    frequency: template.frequency,
+    repeatDays: template.repeatDays,
+    targetCount: template.targetCount,
+    unit: template.unit,
+    reminder: template.reminder,
+    archived: false,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
@@ -2332,7 +2485,8 @@ function HabitReminderEditor({ value, onChange }) {
 }
 
 function HabitModal({ habit, onClose, onSave, onDelete, onArchive }) {
-  const isExistingHabit = Boolean(habit?.id);
+  const isTemplateDraft = Boolean(habit?._templateDraft);
+  const isExistingHabit = Boolean(habit?.id && !isTemplateDraft);
   const initial = habit ? normalizeHabit(habit) : normalizeHabit({ id: "habit-" + uid(), name: "New Habit", emoji: "🌱", category: "personal", frequency: "daily", repeatDays: [0,1,2,3,4,5,6], targetCount: 1, unit: "check-in", reminder: { type: "none", time: "" } });
   const [form, setForm] = useState(initial);
   const days = ["S","M","T","W","T","F","S"];
@@ -2351,7 +2505,7 @@ function HabitModal({ habit, onClose, onSave, onDelete, onArchive }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Habit editor">
       <div className="modal habit-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isExistingHabit ? "Edit Habit" : "Create Habit"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isTemplateDraft ? "Customize Template" : isExistingHabit ? "Edit Habit" : "Create Habit"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="ritual-form-title-row">
             <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🌱" }))} aria-label="Habit emoji" />
@@ -2408,6 +2562,53 @@ function HabitWeeklyGrid({ habits = [], completions = [] }) {
   );
 }
 
+function HabitTemplateLibrary({ habits = [], onUseTemplate, onCustomizeTemplate }) {
+  const [filter, setFilter] = useState("all");
+  const normalized = normalizeHabits(habits);
+  const categories = ["all", ...HABIT_CATEGORIES.map(c => c.id)];
+  const filtered = HABIT_TEMPLATES.filter(t => filter === "all" || t.category === filter);
+  const hasTemplate = template => normalized.some(h => !h.deletedAt && !h.archived && (h.templateId === template.id || String(h.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase()));
+  return (
+    <div className="phase-card phase-wide-card ritual-section-card ritual-template-section habit-template-section">
+      <div className="phase-card-head ritual-template-head">
+        <div><span>Template Library</span><small>Pick starter habits, then customize them to fit your rhythm.</small></div>
+        <div className="ritual-template-filters">
+          {categories.map(id => {
+            const cat = HABIT_CATEGORIES.find(c => c.id === id);
+            return <button key={id} className={`mini-pill ${filter === id ? "active" : ""}`} onClick={() => setFilter(id)}>{id === "all" ? "All" : `${cat?.emoji || "✨"} ${cat?.label || id}`}</button>;
+          })}
+        </div>
+      </div>
+      <div className="ritual-template-grid habit-template-grid">
+        {filtered.map(template => {
+          const cat = HABIT_CATEGORIES.find(c => c.id === template.category);
+          const alreadyAdded = hasTemplate(template);
+          const reminder = normalizeHabitReminder(template.reminder);
+          return (
+            <div key={template.id} className={`ritual-template-card habit-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
+              <div className="ritual-template-top">
+                <div className="ritual-template-emoji">{template.emoji}</div>
+                <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Habit"} · {template.frequency === "daily" ? "Daily" : template.frequency === "weekdays" ? "Weekdays" : template.frequency === "weekends" ? "Weekends" : "Custom"}</p></div>
+              </div>
+              <div className="ritual-template-desc">{template.description}</div>
+              <div className="ritual-template-steps">
+                <span>✓ Target: {template.targetCount || 1} {template.unit || "check-in"}</span>
+                <span>✓ Reminder: {reminder.type === "none" ? "No reminder" : reminder.time}</span>
+                <span>✓ Repeat: {template.repeatDays?.length === 7 ? "Every day" : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => template.repeatDays?.includes(i)).join(" · ")}</span>
+              </div>
+              {alreadyAdded && <div className="template-added-badge">Already in your habits</div>}
+              <div className="ritual-template-actions">
+                <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
+                <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggle, onIncrement }) {
   const [modalHabit, setModalHabit] = useState(null);
   const normalized = normalizeHabits(habits);
@@ -2418,6 +2619,8 @@ function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, on
     habit.id && habits.some(h => h.id === habit.id) ? onEdit(habit.id, habit) : onAdd(habit);
     setModalHabit(null);
   };
+  const useTemplate = template => onAdd(habitFromTemplate(template, habits));
+  const customizeTemplate = template => setModalHabit({ ...habitFromTemplate(template, habits), _templateDraft: true });
   const deleteHabit = habit => { onDelete(habit); setModalHabit(null); };
   return (
     <div className="phase-page habits-page">
@@ -2441,8 +2644,9 @@ function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, on
           return <div key={h.id} className="ritual-list-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>{days || "No repeat days"}{reminder.type !== "none" ? ` · ${reminder.time}` : ""}</small></div><button className="tf-cancel" onClick={() => setModalHabit(h)}>Edit</button></div>;
         })}</div> : <div className="phase-empty">No habits yet.</div>}
       </div>
+      <HabitTemplateLibrary habits={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
       {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(h => <div key={h.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(h, false)}>Restore</button></div>)}</div></div>}
-      {modalHabit !== null && <HabitModal habit={modalHabit?.id ? modalHabit : null} onClose={() => setModalHabit(null)} onSave={saveHabit} onDelete={deleteHabit} onArchive={(habit, archived) => { onArchive(habit, archived); setModalHabit(null); }} />}
+      {modalHabit !== null && <HabitModal habit={modalHabit?.id || modalHabit?._templateDraft ? modalHabit : null} onClose={() => setModalHabit(null)} onSave={saveHabit} onDelete={deleteHabit} onArchive={(habit, archived) => { onArchive(habit, archived); setModalHabit(null); }} />}
     </div>
   );
 }

@@ -93,3 +93,11 @@ Template-created rituals receive fresh IDs and sync like normal rituals. Existin
 - Added habit repeat days and reminder presets.
 - Added Today dashboard habit cards.
 - Added habit reminders to the push reminder cron route.
+
+## Phase 7 — Habit Templates
+
+- Added a Habit Template Library below All Habits on the Habits page.
+- Added starter templates for Drink water, Journal, Stretch, Read 10 minutes, Walk, Plan tomorrow, Tidy room, Gratitude, Sleep routine, and No phone before bed.
+- Users can use a template immediately or customize it before saving.
+- Template-created habits receive fresh IDs, `templateId` references, reminder settings, repeat days, targets, and normal sync-safe timestamps.
+- Existing habits are not overwritten; adding the same template again creates a copy with a safe name suffix.
