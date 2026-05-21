@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -164,27 +164,84 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   );
 }
 
-// ─── Carry Over ───────────────────────────────────────────────────────────────
-function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMoveWeek, onDrop, onDismiss }) {
-  const [sel, setSel] = useState(tasks.map(t => t.id));
-  const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  const selectedCount = sel.length;
+// ─── Tomorrow Reset ───────────────────────────────────────────────────────────
+function CarryOverPrompt({ tasks, latestReset = null, gameStats, onCompleteReset, onDismiss }) {
+  const actionById = useMemo(() => {
+    const initial = {};
+    tasks.forEach(t => { initial[t.id] = "tomorrow"; });
+    return initial;
+  }, [tasks]);
+  const [actions, setActions] = useState(actionById);
+  const [reflection, setReflection] = useState(() => ({
+    wentWell: latestReset?.reflection?.wentWell || "",
+    difficult: latestReset?.reflection?.difficult || "",
+    moveTomorrow: latestReset?.reflection?.moveTomorrow || "",
+    tomorrowMainThing: latestReset?.reflection?.tomorrowMainThing || "",
+    gratitude: latestReset?.reflection?.gratitude || "",
+  }));
+  const [showPrevious, setShowPrevious] = useState(Boolean(latestReset));
+  useEffect(() => { setActions(actionById); }, [actionById]);
+  const setTaskAction = (id, action) => setActions(prev => ({ ...prev, [id]: action }));
+  const setAll = action => setActions(Object.fromEntries(tasks.map(t => [t.id, action])));
+  const summary = TOMORROW_RESET_TASK_ACTIONS.map(action => ({ ...action, count: tasks.filter(t => actions[t.id] === action.id).length }));
+  const hasReflection = Object.values(reflection).some(v => String(v || "").trim());
+  const canSave = tasks.length > 0 || hasReflection;
   return (
     <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="Tomorrow Reset">
-      <div className="carryover-card" onClick={e => e.stopPropagation()}>
-        <div className="carryover-title">🌙 Tomorrow Reset</div>
-        <div className="settings-section-desc">You have {tasks.length} unfinished task{tasks.length === 1 ? "" : "s"}. Move selected tasks forward or drop the noise.</div>
-        {gameStats && <div className="eod-rank-card">
+      <div className="tomorrow-reset-card" onClick={e => e.stopPropagation()}>
+        <div className="tomorrow-reset-head">
+          <div>
+            <div className="phase-kicker">Tomorrow Reset</div>
+            <h2>🌙 Close today calmly</h2>
+            <p>{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one.` : "No unfinished tasks today. You can still write a quick reflection."}</p>
+          </div>
+          <button className="modal-close" onClick={onDismiss}>✕</button>
+        </div>
+        {latestReset && showPrevious && (
+          <div className="tomorrow-reset-previous">
+            <div><strong>Saved today</strong><span>{latestReset.completedAt ? new Date(latestReset.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Earlier"}</span></div>
+            <button className="tf-cancel" onClick={() => setShowPrevious(false)}>Edit another reset</button>
+          </div>
+        )}
+        {gameStats && <div className="eod-rank-card tomorrow-reset-rhythm">
           <div className="eod-rank-main"><strong>{gameStats.today.rank} Rank</strong><span>{gameStats.today.score}/100 Tempo Score</span></div>
           <div className="eod-rank-meta"><span>+{gameStats.quests.filter(q => q.done).reduce((sum,q)=>sum+q.xp,0)} quest XP</span><span>{gameStats.unlockedBadges?.length || 0} badges unlocked</span></div>
           <div className="eod-rank-note">{gameStats.today.rank === "S" ? "Perfect bloom day ✨" : gameStats.today.score >= 70 ? "Strong rhythm today 🌸" : "Gentle reset. Carry what matters into the next plan 🌱"}</div>
         </div>}
-        <div className="carryover-list">{tasks.map(t => <label key={t.id} className="carryover-item"><input type="checkbox" checked={sel.includes(t.id)} onChange={() => toggle(t.id)} /><span>{t.title}</span><span className="co-dur">{formatTaskDuration(t.duration)}</span></label>)}</div>
-        <div className="carryover-actions carryover-actions-wrap">
-          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onDrop(sel)}>Drop selected</button>
-          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onMoveWeek(sel)}>Move to this week</button>
-          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onMoveToday(sel)}>Move to today</button>
-          <button className="tf-save" disabled={!selectedCount} onClick={() => onMoveTomorrow(sel)}>Move to tomorrow →</button>
+        <div className="tomorrow-reset-section">
+          <div className="tomorrow-reset-section-head"><strong>Unfinished tasks</strong><div className="reset-quick-actions"><button onClick={() => setAll("tomorrow")}>All tomorrow</button><button onClick={() => setAll("week")}>All this week</button><button onClick={() => setAll("keep")}>Keep all</button></div></div>
+          {tasks.length ? (
+            <div className="tomorrow-reset-task-list">
+              {tasks.map(t => {
+                const selectedAction = actions[t.id] || "tomorrow";
+                return (
+                  <div key={t.id} className="tomorrow-reset-task">
+                    <div className="tomorrow-reset-task-main"><strong>{t.title}</strong><span>{formatTaskDuration(t.duration)} · {t.priority || "medium"}</span></div>
+                    <select className="modal-select tomorrow-reset-action-select" value={selectedAction} onChange={e => setTaskAction(t.id, e.target.value)}>
+                      {TOMORROW_RESET_TASK_ACTIONS.map(action => <option key={action.id} value={action.id}>{action.emoji} {action.label}</option>)}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <div className="phase-empty">Nothing to process. That is a clean close.</div>}
+          <div className="tomorrow-reset-summary-row">
+            {summary.map(item => <span key={item.id} className={`tomorrow-reset-summary-chip ${item.count ? "active" : ""}`}>{item.emoji} {item.shortLabel}: {item.count}</span>)}
+          </div>
+        </div>
+        <div className="tomorrow-reset-section">
+          <div className="tomorrow-reset-section-head"><strong>Reflection</strong><span>Saved into Journal / Bloom Room</span></div>
+          <div className="tomorrow-reset-reflection-grid">
+            <label><span>What went well today?</span><textarea value={reflection.wentWell} onChange={e => setReflection(r => ({ ...r, wentWell: e.target.value }))} placeholder="Small wins, clear moments, anything worth keeping." /></label>
+            <label><span>What felt difficult?</span><textarea value={reflection.difficult} onChange={e => setReflection(r => ({ ...r, difficult: e.target.value }))} placeholder="Name the friction without judging it." /></label>
+            <label><span>What should move to tomorrow?</span><textarea value={reflection.moveTomorrow} onChange={e => setReflection(r => ({ ...r, moveTomorrow: e.target.value }))} placeholder="Anything your future self should remember." /></label>
+            <label><span>Tomorrow’s main thing</span><textarea value={reflection.tomorrowMainThing} onChange={e => setReflection(r => ({ ...r, tomorrowMainThing: e.target.value }))} placeholder="One clear priority for tomorrow." /></label>
+            <label className="wide"><span>One gratitude</span><textarea value={reflection.gratitude} onChange={e => setReflection(r => ({ ...r, gratitude: e.target.value }))} placeholder="One thing you are grateful for today." /></label>
+          </div>
+        </div>
+        <div className="tomorrow-reset-footer">
+          <button className="tf-cancel" onClick={onDismiss}>Cancel</button>
+          <button className="tf-save" disabled={!canSave} onClick={() => onCompleteReset({ taskActions: actions, reflection })}>Save reset →</button>
         </div>
       </div>
     </div>
@@ -1601,7 +1658,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, dailyCheckIns = [], onOpenCheckIn, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, dailyCheckIns = [], tomorrowResets = [], onOpenCheckIn, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -1645,6 +1702,8 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
   const todayCheckInMood = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === todayCheckIn.mood) : null;
   const todayCheckInEnergy = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === todayCheckIn.energy) : null;
   const monthCheckIns = normalizeDailyCheckIns(dailyCheckIns).filter(c => String(c.date || "").startsWith(monthPrefix));
+  const latestTomorrowReset = tomorrowResetForDate(tomorrowResets, TODAY);
+  const monthTomorrowResets = normalizeTomorrowResets(tomorrowResets).filter(r => String(r.date || "").startsWith(monthPrefix));
   const query = memorySearch.trim().toLowerCase();
   const memorySearchText = (key, entry) => {
     const mem = normalizeMemoryEntry(entry);
@@ -1798,6 +1857,21 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
           <button className="tf-save journal-today-btn" onClick={onOpenCheckIn}>{todayCheckIn ? "Edit check-in" : "Check in"}</button>
         </div>
       </div>
+
+      {latestTomorrowReset && (
+        <div className="journal-reset-card">
+          <div className="journal-reset-main">
+            <span>🌙</span>
+            <div>
+              <strong>Tomorrow Reset saved</strong>
+              <p>{latestTomorrowReset.reflection?.tomorrowMainThing ? `Tomorrow’s main thing: ${latestTomorrowReset.reflection.tomorrowMainThing}` : `${latestTomorrowReset.summary?.movedTomorrow || 0} moved to tomorrow · ${latestTomorrowReset.summary?.movedWeek || 0} kept this week`}</p>
+            </div>
+          </div>
+          <div className="journal-checkin-actions">
+            <span>{monthTomorrowResets.length} reset{monthTomorrowResets.length === 1 ? "" : "s"} this month</span>
+          </div>
+        </div>
+      )}
 
       <div className="memory-search-section">
         <input className="memory-search-input" value={memorySearch} onChange={e=>setMemorySearch(e.target.value)} placeholder="Search memories, tags, gratitude, captions…" />
@@ -2940,6 +3014,7 @@ export default function App() {
   const [habits, setHabitsRaw] = useState(() => normalizeHabits(load(`${uk}_habits`, DEFAULT_HABITS)));
   const [habitCompletions, setHabitCompletionsRaw] = useState(() => normalizeHabitCompletions(load(`${uk}_habit_completions`, [])));
   const [dailyCheckIns, setDailyCheckInsRaw] = useState(() => normalizeDailyCheckIns(load(`${uk}_daily_checkins`, [])));
+  const [tomorrowResets, setTomorrowResetsRaw] = useState(() => normalizeTomorrowResets(load(`${uk}_tomorrow_resets`, [])));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -3032,6 +3107,7 @@ export default function App() {
       setHabitsRaw([]);
       setHabitCompletionsRaw([]);
       setDailyCheckInsRaw([]);
+      setTomorrowResetsRaw([]);
       return;
     }
 
@@ -3053,6 +3129,7 @@ export default function App() {
     setHabitsRaw(normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)));
     setHabitCompletionsRaw(normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])));
     setDailyCheckInsRaw(normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])));
+    setTomorrowResetsRaw(normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -3091,6 +3168,7 @@ export default function App() {
         habits: normalizeHabits(safeSettings.habits ?? load(`${userKey}_habits`, DEFAULT_HABITS)),
         habitCompletions: normalizeHabitCompletions(safeSettings.habitCompletions ?? load(`${userKey}_habit_completions`, [])),
         dailyCheckIns: normalizeDailyCheckIns(safeSettings.dailyCheckIns ?? load(`${userKey}_daily_checkins`, [])),
+        tomorrowResets: normalizeTomorrowResets(safeSettings.tomorrowResets ?? load(`${userKey}_tomorrow_resets`, [])),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -3118,6 +3196,7 @@ export default function App() {
       setHabitsRaw(normalizeHabits(nextSettings.habits));
       setHabitCompletionsRaw(normalizeHabitCompletions(nextSettings.habitCompletions));
       setDailyCheckInsRaw(normalizeDailyCheckIns(nextSettings.dailyCheckIns));
+      setTomorrowResetsRaw(normalizeTomorrowResets(nextSettings.tomorrowResets));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -3138,6 +3217,7 @@ export default function App() {
       save(`${userKey}_habits`, normalizeHabits(nextSettings.habits));
       save(`${userKey}_habit_completions`, normalizeHabitCompletions(nextSettings.habitCompletions));
       save(`${userKey}_daily_checkins`, normalizeDailyCheckIns(nextSettings.dailyCheckIns));
+      save(`${userKey}_tomorrow_resets`, normalizeTomorrowResets(nextSettings.tomorrowResets));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -3182,6 +3262,7 @@ export default function App() {
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
+          tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3230,6 +3311,7 @@ export default function App() {
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
+          tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -3275,6 +3357,7 @@ export default function App() {
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
+          tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -3307,6 +3390,7 @@ export default function App() {
           habits: normalizeHabits(DEFAULT_HABITS),
           habitCompletions: [],
           dailyCheckIns: [],
+          tomorrowResets: [],
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -3345,6 +3429,7 @@ export default function App() {
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
+          tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3398,6 +3483,7 @@ export default function App() {
     habits: normalizeHabits(habits),
     habitCompletions: normalizeHabitCompletions(habitCompletions),
     dailyCheckIns: normalizeDailyCheckIns(dailyCheckIns),
+    tomorrowResets: normalizeTomorrowResets(tomorrowResets),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -3458,6 +3544,7 @@ export default function App() {
         habits: normalizeHabits(nextSettings?.habits || habits),
         habitCompletions: normalizeHabitCompletions(nextSettings?.habitCompletions || habitCompletions),
         dailyCheckIns: normalizeDailyCheckIns(nextSettings?.dailyCheckIns || dailyCheckIns),
+        tomorrowResets: normalizeTomorrowResets(nextSettings?.tomorrowResets || tomorrowResets),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -3492,6 +3579,7 @@ export default function App() {
       setHabitsRaw(normalizeHabits(normalizedSettings.habits));
       setHabitCompletionsRaw(normalizeHabitCompletions(normalizedSettings.habitCompletions));
       setDailyCheckInsRaw(normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
+      setTomorrowResetsRaw(normalizeTomorrowResets(normalizedSettings.tomorrowResets));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -3521,6 +3609,7 @@ export default function App() {
       save(`${uk}_habits`, normalizeHabits(normalizedSettings.habits));
       save(`${uk}_habit_completions`, normalizeHabitCompletions(normalizedSettings.habitCompletions));
       save(`${uk}_daily_checkins`, normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
+      save(`${uk}_tomorrow_resets`, normalizeTomorrowResets(normalizedSettings.tomorrowResets));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -3656,6 +3745,7 @@ export default function App() {
     save(`${uk}_habits`, normalizeHabits(next.habits));
     save(`${uk}_habit_completions`, normalizeHabitCompletions(next.habitCompletions));
     save(`${uk}_daily_checkins`, normalizeDailyCheckIns(next.dailyCheckIns));
+    save(`${uk}_tomorrow_resets`, normalizeTomorrowResets(next.tomorrowResets));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -3874,6 +3964,86 @@ export default function App() {
       return existing ? cleanList.map(entry => entry.id === existing.id ? next : entry) : [next, ...cleanList];
     });
     setToast({ text: "Daily check-in saved ✓", ts: Date.now() });
+  }
+
+
+  const setTomorrowResets = v => {
+    const n = normalizeTomorrowResets(typeof v === "function" ? v(tomorrowResets) : v);
+    setTomorrowResetsRaw(n);
+    save(`${uk}_tomorrow_resets`, n);
+    persistSettings({ tomorrowResets: n });
+  };
+
+  function saveTomorrowReset({ taskActions = {}, reflection = {} } = {}) {
+    const now = new Date().toISOString();
+    const todayKey = dateKey(TODAY);
+    const tomorrow = addDaysSafe(TODAY, 1);
+    const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
+    const weekPatch = taskPeriodPatchForScope("week", TODAY);
+    const unfinished = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
+    const actionRows = unfinished.map(t => {
+      const action = TOMORROW_RESET_TASK_ACTIONS.some(a => a.id === taskActions[t.id]) ? taskActions[t.id] : "tomorrow";
+      return { taskId: t.id, taskTitle: t.title, action, duration: taskDurationToMinutes(t), category: t.category };
+    });
+    const dropIds = new Set(actionRows.filter(row => row.action === "drop").map(row => row.taskId));
+    const tomorrowIds = new Set(actionRows.filter(row => row.action === "tomorrow").map(row => row.taskId));
+    const weekIds = new Set(actionRows.filter(row => row.action === "week").map(row => row.taskId));
+    const keepIds = new Set(actionRows.filter(row => row.action === "keep").map(row => row.taskId));
+
+    pushUndo();
+    setTasks(ts => ts
+      .filter(t => !dropIds.has(t.id))
+      .map(t => {
+        if (tomorrowIds.has(t.id)) return touchRecord({ ...t, scope: "day", done: false, completedAt: null, completedDate: null, scheduledEventId: null, scheduledStart: null, scheduledEnd: null, ...tomorrowPatch });
+        if (weekIds.has(t.id)) return touchRecord({ ...t, scope: "week", done: false, completedAt: null, completedDate: null, scheduledEventId: null, scheduledStart: null, scheduledEnd: null, ...weekPatch });
+        if (keepIds.has(t.id)) {
+          const { scheduledEventId, scheduledStart, scheduledEnd, ...rest } = t;
+          return touchRecord({ ...rest, done: false, completedAt: null, completedDate: null });
+        }
+        return t;
+      }));
+
+    const resetEntry = normalizeTomorrowReset({
+      id: `reset-${todayKey}`,
+      date: todayKey,
+      completedAt: now,
+      taskActions: actionRows,
+      reflection,
+      createdAt: tomorrowResetForDate(tomorrowResets, todayKey)?.createdAt || now,
+      updatedAt: now,
+    });
+    setTomorrowResets(list => {
+      const cleanList = normalizeTomorrowResets(list);
+      const existing = cleanList.find(entry => entry.date === todayKey);
+      return existing ? cleanList.map(entry => entry.id === existing.id ? resetEntry : entry) : [resetEntry, ...cleanList];
+    });
+
+    const nextJournalEntry = normalizeMemoryEntry(journal[todayKey] || {});
+    const resetNoteParts = [
+      reflection.wentWell ? `What went well: ${reflection.wentWell}` : "",
+      reflection.difficult ? `What felt difficult: ${reflection.difficult}` : "",
+      reflection.moveTomorrow ? `Move to tomorrow: ${reflection.moveTomorrow}` : "",
+      reflection.tomorrowMainThing ? `Tomorrow's main thing: ${reflection.tomorrowMainThing}` : "",
+      reflection.gratitude ? `Gratitude: ${reflection.gratitude}` : "",
+    ].filter(Boolean);
+    if (resetNoteParts.length) {
+      setJournal(j => ({
+        ...j,
+        [todayKey]: sanitizeMemoryEntryForStorage({
+          ...nextJournalEntry,
+          note: [nextJournalEntry.note, resetNoteParts.join("\n")].filter(Boolean).join("\n\n"),
+          gratitude: reflection.gratitude ? [...(nextJournalEntry.gratitude || []), reflection.gratitude].filter(Boolean).slice(-5) : (nextJournalEntry.gratitude || []),
+          highlights: { ...(nextJournalEntry.highlights || {}), tomorrowMainThing: reflection.tomorrowMainThing || nextJournalEntry.highlights?.tomorrowMainThing || "" },
+          updatedAt: now,
+        }),
+      }));
+    }
+
+    setShowCarryOver(false);
+    const movedTomorrow = actionRows.filter(row => row.action === "tomorrow").length;
+    const movedWeek = actionRows.filter(row => row.action === "week").length;
+    const dropped = actionRows.filter(row => row.action === "drop").length;
+    setToast({ text: `Tomorrow Reset saved · ${movedTomorrow} tomorrow · ${movedWeek} this week${dropped ? ` · ${dropped} dropped` : ""} ✓`, ts: Date.now() });
   }
 
   function addHabit(habit) {
@@ -5046,11 +5216,11 @@ export default function App() {
           {page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
-            <BloomRoomPage gameStats={gameStats} dailyCheckIns={dailyCheckIns} />
+            <BloomRoomPage gameStats={gameStats} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} />
           ) : page === "rituals" ? (
             <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
@@ -5177,7 +5347,7 @@ export default function App() {
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
-      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onMoveToday={handleCarryToday} onMoveTomorrow={handleCarryOver} onMoveWeek={handleCarryWeek} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
+      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (
