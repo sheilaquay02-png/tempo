@@ -185,3 +185,31 @@ Added in this build:
 Not included yet:
 
 - Google Calendar live OAuth sync is intentionally left as a separate integration sprint because it requires Google Cloud OAuth setup, redirect URI configuration, token storage/refresh handling, and a careful conflict model against existing Tempo events.
+
+## Google Calendar OAuth readiness audit
+
+Added preparation files for the Google Calendar live OAuth sprint:
+
+- `.env.example`
+- `supabase/user_data_setup.sql`
+- `supabase/google_calendar_sync_setup.sql`
+- `docs/google_calendar_setup_checklist.md`
+- `docs/google_calendar_live_oauth_sync_plan.md`
+
+Readiness decision:
+
+- Build is passing.
+- Existing Tempo sync has the necessary foundations: tombstones, field-level settings merge, Realtime pull, force sync, pending-change UI, and reminder/push infrastructure.
+- Google OAuth tokens should not be stored in `user_data.settings`; use the new server-only `google_calendar_connections` table instead.
+
+
+## Vercel npm install hotfix
+
+Fixed deployment instability where Vercel failed during `npm install` with `Exit handler never called`.
+
+Changes:
+- Added `packageManager: npm@10.9.2` to pin npm.
+- Added `engines` to use Node 20.x and npm 10.x on Vercel.
+- Added `.npmrc` with stable npm install settings.
+- Added `installCommand: npm ci --no-audit --no-fund` in `vercel.json` so Vercel uses the lockfile instead of a floating `npm install`.
+- Kept Vercel Hobby cron-safe setup. No frequent cron is configured in `vercel.json`.
