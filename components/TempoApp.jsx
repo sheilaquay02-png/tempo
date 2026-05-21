@@ -141,7 +141,7 @@ function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
   const progressMins = Number(task?.focusProgressMins || 0);
   const taskMins = Math.max(1, taskDurationToMinutes(task?.duration || 30));
   const taskPct = Math.min(100, Math.round((progressMins / taskMins) * 100));
-  const isBoss = task?.priority === "high" || taskMins >= 90;
+  const isBoss = task?.category === "boss";
   const bossHp = Math.max(0, 100 - taskPct);
   const r = 34; const circ = 2 * Math.PI * r;
   return (
@@ -3203,7 +3203,7 @@ export default function App() {
     events: getEventsOnDay(visibleEvents, TODAY).length,
     tasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length,
     freeHours: Math.round(dayFreeMinutes / 60 * 10) / 10,
-    bossTasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && (t.priority === "high" || taskDurationToMinutes(t.duration || 0) >= 90)).length,
+    bossTasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && t.category === "boss").length,
     firstFocus: firstFocusEvent ? fmt(firstFocusEvent.start) : null,
   };
   const memoAppCSS    = appCSS(cvars, fontScale);
@@ -3273,7 +3273,6 @@ export default function App() {
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
             <div className="nav-item" onClick={() => { setShowFocusLog(true); closeSidebarOnMobile(); }}><span className="nav-icon">⏱</span>Focus Log</div>
             <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
-            <div className="nav-item desktop-sync-nav-item" onClick={() => { forceSyncNow(); closeSidebarOnMobile(); }}><span className="nav-icon">↻</span>Sync Now</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
             <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>

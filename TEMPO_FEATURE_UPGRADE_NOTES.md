@@ -213,3 +213,11 @@ Changes:
 - Added `.npmrc` with stable npm install settings.
 - Added `installCommand: npm ci --no-audit --no-fund` in `vercel.json` so Vercel uses the lockfile instead of a floating `npm install`.
 - Kept Vercel Hobby cron-safe setup. No frequent cron is configured in `vercel.json`.
+
+## Desktop/menu/task panel polish hotfix
+
+- Removed the sidebar **Sync Now** menu item on desktop. The topbar Sync button and mobile menu sync button remain available.
+- Fixed the task panel **✕** button so it collapses/closes the desktop calendar task panel instead of only closing the mobile sheet.
+- Updated Today’s Plan boss task count to count only tasks in the **Boss Battle** category.
+- Aligned Focus Mode boss HP/label behavior with the Boss Battle category.
+

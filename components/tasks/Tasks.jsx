@@ -202,6 +202,19 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
     window.addEventListener("pointercancel", stopResize);
   }
 
+  function handlePanelClose() {
+    const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+      return;
+    }
+    if (!standalone) {
+      setCollapsed(true);
+      return;
+    }
+    onMobileClose?.();
+  }
+
   const taskPanelStyle = !standalone && !collapsed ? { width: `${panelWidth}px` } : undefined;
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, scope, periodDate));
   const openTasks = filtered.filter(t => !t.done);
@@ -225,7 +238,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
           {!standalone && <div className="scope-tabs">{["day","week","month"].map(s => <button key={s} className={`scope-tab ${scope === s ? "active" : ""}`} onClick={() => setScope(s)}>{s}</button>)}</div>}
           {standalone && <div className="scope-tabs">{["day","week","month"].map(s => <button key={s} className={`scope-tab ${scope === s ? "active" : ""}`} onClick={() => setScope(s)}>{s}</button>)}</div>}
           <button className="add-btn" onClick={() => setAdding(v => !v)}>+</button>
-          {onMobileClose && <button className="add-btn" onClick={onMobileClose}>✕</button>}
+          {!standalone && <button className="add-btn" onClick={handlePanelClose} title="Close task panel" aria-label="Close task panel">✕</button>}
         </div>
         <div className="task-period-nav">
           <button className="period-btn" onClick={() => setPeriodDate(d => shiftTaskPeriodDate(d, scope, -1))}>‹</button>
