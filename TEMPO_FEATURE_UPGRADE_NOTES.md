@@ -101,3 +101,9 @@ Template-created rituals receive fresh IDs and sync like normal rituals. Existin
 - Users can use a template immediately or customize it before saving.
 - Template-created habits receive fresh IDs, `templateId` references, reminder settings, repeat days, targets, and normal sync-safe timestamps.
 - Existing habits are not overwritten; adding the same template again creates a copy with a safe name suffix.
+
+## Phase 7 desktop layout hotfix
+
+- Expanded Rituals and Habits desktop cards to use the full available content width.
+- Removed the narrow 900px/1080px visual cap from phase cards on lifestyle pages.
+- Updated ritual, habit, and template grids to auto-fill columns based on desktop width, while preserving single-column mobile behavior.
