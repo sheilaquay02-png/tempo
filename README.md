@@ -181,3 +181,7 @@ Tempo now includes Rituals as the soft routine layer for Morning Reset, Night Wi
 Tempo now includes a Ritual Template Library inside the Rituals page. Users can start from ready-made templates such as Morning Reset, Night Wind Down, Sunday Reset, Workday Start, Study Reset, Room Reset, Digital Declutter, Weekly Planning, Meal Prep Reset, and Clean Desk Reset.
 
 Templates are not stored as user records until the user chooses them. Users can either add a template immediately or customize it first in the ritual editor. Adding a template always creates a new ritual with a fresh ID, so existing rituals are not overwritten.
+
+## Phase 8: Today Dashboard Revamp
+
+Today is now the main daily rhythm dashboard. It includes a greeting hero, check-in card, rhythm summary strip, Top 3 tasks, today's calendar preview, today's rituals, today's habits, a journal prompt, and Tomorrow Reset shortcut. The dashboard uses today's expanded events directly so it is accurate even when the calendar view is on another week or month.

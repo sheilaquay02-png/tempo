@@ -107,3 +107,15 @@ Template-created rituals receive fresh IDs and sync like normal rituals. Existin
 - Expanded Rituals and Habits desktop cards to use the full available content width.
 - Removed the narrow 900px/1080px visual cap from phase cards on lifestyle pages.
 - Updated ritual, habit, and template grids to auto-fill columns based on desktop width, while preserving single-column mobile behavior.
+
+## Phase 8 — Today Dashboard Revamp
+
+- Upgraded Today into the main daily rhythm dashboard.
+- Added a larger greeting hero with Plan Today and Tomorrow Reset actions.
+- Added a check-in card that shows today’s Journal mood when available.
+- Added a rhythm summary strip for events, tasks, rituals, habits, and free time.
+- Added interactive Top 3 tasks with mark-done and edit actions.
+- Added today-specific calendar preview, using events expanded for today instead of the current calendar view range.
+- Added Today’s Rituals and Today’s Habits sections wired to existing completion controls.
+- Added a Journal Prompt card and a daily loop card.
+- Kept deeper mood/energy check-in data model for the next phase.
