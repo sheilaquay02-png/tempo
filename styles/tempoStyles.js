@@ -1121,4 +1121,139 @@ export function appCSS(cvars, fontScale) { return `
     .dark .bloom-room-page .journal-header{background:var(--bg2)!important;}
   }
 
+
+  /* ── Phase 9: mood and energy check-in ─────────────────────────────── */
+  .checkin-modal{
+    width:min(680px,calc(100vw - 28px));
+    max-height:min(88vh,820px);
+    overflow:auto;
+    background:var(--bg2);
+    border:1px solid var(--border);
+    border-radius:28px;
+    box-shadow:var(--shadow-lg);
+    padding:22px;
+  }
+  .checkin-modal-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:18px;
+  }
+  .checkin-modal-head h2{margin:4px 0 6px;font-size:28px;line-height:1.05;letter-spacing:-.04em;color:var(--text);}
+  .checkin-modal-head p{margin:0;color:var(--text2);font-size:14px;line-height:1.45;max-width:520px;}
+  .checkin-section{margin-top:18px;}
+  .checkin-section-title{font-size:12px;font-weight:950;text-transform:uppercase;letter-spacing:.12em;color:var(--text2);margin-bottom:10px;display:flex;gap:8px;align-items:center;}
+  .checkin-section-title span{font-size:11px;text-transform:none;letter-spacing:0;color:var(--text3);font-weight:800;}
+  .checkin-option-grid{display:grid;gap:10px;}
+  .mood-options-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .energy-options-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .checkin-option{
+    border:1.5px solid var(--border);
+    background:rgba(255,255,255,.7);
+    border-radius:20px;
+    min-height:92px;
+    padding:14px 12px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+    gap:8px;
+    text-align:left;
+    cursor:pointer;
+    color:var(--text);
+    transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+  }
+  .checkin-option:hover{transform:translateY(-1px);border-color:rgba(184,111,143,.38);box-shadow:var(--shadow-sm);}
+  .checkin-option.selected{
+    border-color:var(--checkin-color,var(--accent));
+    background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(255,247,250,.86));
+    box-shadow:0 12px 28px rgba(184,111,143,.16);
+  }
+  .checkin-option.energy{min-height:104px;}
+  .checkin-option.energy.selected{border-color:var(--accent);}
+  .checkin-option-emoji{font-size:24px;line-height:1;}
+  .checkin-option strong{font-size:14px;font-weight:950;}
+  .checkin-option small{display:block;margin-top:3px;font-size:11px;line-height:1.3;color:var(--text3);font-weight:800;}
+  .checkin-note-input{
+    width:100%;
+    border:1.5px solid var(--border);
+    border-radius:20px;
+    background:rgba(255,255,255,.72);
+    color:var(--text);
+    padding:14px 16px;
+    resize:vertical;
+    outline:none;
+    font:inherit;
+    line-height:1.45;
+  }
+  .checkin-note-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(184,111,143,.12);}
+  .checkin-preview-card{
+    margin-top:18px;
+    border:1px solid rgba(184,111,143,.20);
+    border-radius:22px;
+    padding:14px;
+    background:linear-gradient(135deg,rgba(255,248,251,.9),rgba(255,255,255,.72));
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+  }
+  .checkin-preview-card>span{font-size:26px;}
+  .checkin-preview-card strong{display:block;font-size:14px;color:var(--text);}
+  .checkin-preview-card p{margin:4px 0 0;color:var(--text2);font-size:13px;line-height:1.4;}
+
+  .journal-checkin-card{
+    margin:14px 0;
+    border:1px solid rgba(184,111,143,.18);
+    border-radius:22px;
+    background:linear-gradient(135deg,rgba(255,250,252,.88),rgba(255,255,255,.70));
+    box-shadow:var(--shadow-sm);
+    padding:14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+  }
+  .journal-checkin-main{display:flex;align-items:center;gap:12px;min-width:0;}
+  .journal-checkin-main>span{font-size:28px;line-height:1;}
+  .journal-checkin-main strong{display:block;color:var(--text);font-size:14px;}
+  .journal-checkin-main p{margin:3px 0 0;color:var(--text2);font-size:12px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .journal-checkin-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .journal-checkin-actions>span{font-size:11px;color:var(--text3);font-weight:900;white-space:nowrap;}
+
+  .checkin-rhythm-card{
+    border:1px solid rgba(184,111,143,.18);
+    border-radius:24px;
+    background:linear-gradient(135deg,rgba(255,250,252,.9),rgba(255,255,255,.72));
+    box-shadow:var(--shadow-sm);
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .checkin-rhythm-current{display:flex;align-items:center;gap:12px;margin-top:12px;}
+  .checkin-rhythm-current .big-emoji{font-size:32px;line-height:1;width:46px;height:46px;border-radius:16px;background:rgba(255,255,255,.72);display:grid;place-items:center;border:1px solid var(--border);}
+  .checkin-rhythm-current strong{display:block;font-size:15px;color:var(--text);}
+  .checkin-rhythm-current p{margin:3px 0 0;color:var(--text2);font-size:12px;line-height:1.35;}
+  .checkin-rhythm-trail{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .checkin-rhythm-dot{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;border:1px solid var(--border);background:rgba(255,255,255,.72);font-size:16px;}
+  .checkin-rhythm-dot.empty{color:var(--text3);font-size:13px;font-weight:900;}
+
+  .dark .checkin-modal,
+  .dark .checkin-note-input,
+  .dark .checkin-option,
+  .dark .checkin-preview-card,
+  .dark .journal-checkin-card,
+  .dark .checkin-rhythm-card,
+  .dark .checkin-rhythm-current .big-emoji,
+  .dark .checkin-rhythm-dot{background:var(--bg2);}
+
+  @media(max-width:768px){
+    .checkin-modal{width:100vw;max-height:92vh;border-radius:26px 26px 0 0;padding:18px;margin-top:auto;}
+    .checkin-modal-head h2{font-size:24px;}
+    .mood-options-grid,.energy-options-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .checkin-option{min-height:82px;}
+    .journal-checkin-card{align-items:flex-start;flex-direction:column;}
+    .journal-checkin-actions{width:100%;justify-content:space-between;}
+    .journal-checkin-actions .tf-save{padding-inline:14px;}
+  }
+
 `; }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -1567,7 +1567,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, dailyCheckIns = [], onOpenCheckIn, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -1607,6 +1607,10 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
   const monthPhotos = monthEntries.reduce((sum, [,e]) => sum + normalizeMemoryEntry(e).photos.length, 0);
   const monthPages = monthEntries.filter(([,e]) => hasJournalEntryForKey({ tmp: e }, "tmp")).length;
   const moodCounts = JOURNAL_MOODS.map(m => ({ ...m, count: monthEntries.filter(([,e]) => e.mood===m.id).length }));
+  const todayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const todayCheckInMood = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === todayCheckIn.mood) : null;
+  const todayCheckInEnergy = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === todayCheckIn.energy) : null;
+  const monthCheckIns = normalizeDailyCheckIns(dailyCheckIns).filter(c => String(c.date || "").startsWith(monthPrefix));
   const query = memorySearch.trim().toLowerCase();
   const memorySearchText = (key, entry) => {
     const mem = normalizeMemoryEntry(entry);
@@ -1745,6 +1749,20 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
           </div>
         ))}
         <span className="mood-stats-month">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})}</span>
+      </div>
+
+      <div className="journal-checkin-card">
+        <div className="journal-checkin-main">
+          <span>{todayCheckInMood?.emoji || "🌿"}</span>
+          <div>
+            <strong>{todayCheckInMood ? `Feeling ${todayCheckInMood.label}` : "No check-in yet"}</strong>
+            <p>{todayCheckInEnergy ? `${todayCheckInEnergy.emoji} ${todayCheckInEnergy.label} energy` : "Add today’s energy level"}{todayCheckIn?.note ? ` · ${todayCheckIn.note.slice(0, 80)}` : ""}</p>
+          </div>
+        </div>
+        <div className="journal-checkin-actions">
+          <span>{monthCheckIns.length} check-in{monthCheckIns.length === 1 ? "" : "s"} this month</span>
+          <button className="tf-save journal-today-btn" onClick={onOpenCheckIn}>{todayCheckIn ? "Edit check-in" : "Check in"}</button>
+        </div>
       </div>
 
       <div className="memory-search-section">
@@ -2212,6 +2230,76 @@ function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAd
 }
 
 
+
+function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
+  const key = dateKey(date);
+  const [mood, setMood] = useState(checkIn?.mood || "");
+  const [energy, setEnergy] = useState(checkIn?.energy || "");
+  const [note, setNote] = useState(checkIn?.note || "");
+  const selectedMood = DAILY_CHECKIN_MOODS.find(m => m.id === mood);
+  const selectedEnergy = DAILY_CHECKIN_ENERGIES.find(e => e.id === energy);
+  function saveCheckIn() {
+    onSave?.({ date: key, mood: mood || null, energy: energy || null, note });
+    onClose?.();
+  }
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily check-in">
+      <div className="checkin-modal" onClick={e => e.stopPropagation()}>
+        <div className="checkin-modal-head">
+          <div>
+            <div className="phase-kicker">Daily Check-in</div>
+            <h2>How are you feeling today?</h2>
+            <p>Mood and energy help Tempo shape a calmer plan around your real capacity.</p>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="checkin-section">
+          <div className="checkin-section-title">Mood</div>
+          <div className="checkin-option-grid mood-options-grid">
+            {DAILY_CHECKIN_MOODS.map(option => (
+              <button key={option.id} type="button" className={`checkin-option ${mood === option.id ? "selected" : ""}`} style={{ "--checkin-color": option.color }} onClick={() => setMood(option.id)}>
+                <span className="checkin-option-emoji">{option.emoji}</span>
+                <strong>{option.label}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="checkin-section">
+          <div className="checkin-section-title">Energy</div>
+          <div className="checkin-option-grid energy-options-grid">
+            {DAILY_CHECKIN_ENERGIES.map(option => (
+              <button key={option.id} type="button" className={`checkin-option energy ${energy === option.id ? "selected" : ""}`} onClick={() => setEnergy(option.id)}>
+                <span className="checkin-option-emoji">{option.emoji}</span>
+                <div><strong>{option.label}</strong><small>{option.description}</small></div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="checkin-section">
+          <div className="checkin-section-title">Note <span>optional</span></div>
+          <textarea className="checkin-note-input" rows={4} value={note} onChange={e => setNote(e.target.value)} placeholder="Anything affecting your rhythm today?" />
+        </div>
+
+        <div className="checkin-preview-card">
+          <span>{selectedMood?.emoji || "🌿"}</span>
+          <div>
+            <strong>{selectedMood ? `Feeling ${selectedMood.label}` : "Mood not set yet"}{selectedEnergy ? ` · ${selectedEnergy.label} energy` : ""}</strong>
+            <p>{note.trim() || "A small check-in is enough. You can always edit this later today."}</p>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-save" disabled={!mood && !energy && !note.trim()} onClick={saveCheckIn}>{checkIn ? "Update check-in" : "Save check-in"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
   const status = syncStatus?.status || "saved";
   const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
@@ -2224,7 +2312,7 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
-function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
   const todayKey = dateKey(TODAY);
   const nowHour = new Date().getHours();
   const greeting = nowHour < 12 ? "Good morning" : nowHour < 18 ? "Good afternoon" : "Good evening";
@@ -2237,8 +2325,9 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
   };
   const topTasks = [...todayTasks].sort((a, b) => taskRank(a) - taskRank(b)).slice(0, 3);
   const todayEvents = getEventsOnDay(events, TODAY).sort((a, b) => a.start - b.start).slice(0, 5);
-  const moodEntry = journal?.[todayKey];
-  const mood = moodEntry?.mood ? JOURNAL_MOODS.find(m => m.id === moodEntry.mood) : null;
+  const checkIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const mood = checkIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === checkIn.mood) : null;
+  const energy = checkIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === checkIn.energy) : null;
   const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
   const catFor = id => categories.find(c => c.id === id) || categories.find(c => Core.categoryIs?.(id, c.id)) || { label: "Task", icon: "□", color: "var(--accent)" };
   const todayRitualsAll = normalizeRituals(rituals).filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
@@ -2266,10 +2355,10 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
           </div>
         </div>
         <div className="today-checkin-card">
-          <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenJournal}>{mood ? "Update" : "Add"}</button></div>
-          <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No mood yet</strong></>}</div>
-          <div className="today-energy-row"><span>Energy</span><strong>{moodEntry?.energy || "Coming next"}</strong></div>
-          <p>{moodEntry?.note ? moodEntry.note.slice(0, 90) : "Start with a quick journal check-in, then let Tempo help you shape the day."}</p>
+          <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenCheckIn}>{checkIn ? "Update" : "Add"}</button></div>
+          <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No check-in yet</strong></>}</div>
+          <div className="today-energy-row"><span>Energy</span><strong>{energy ? `${energy.emoji} ${energy.label}` : "Not set"}</strong></div>
+          <p>{checkIn?.note ? checkIn.note.slice(0, 90) : "Start with a quick mood and energy check-in, then let Tempo help you shape the day."}</p>
         </div>
       </div>
 
@@ -2763,11 +2852,13 @@ export default function App() {
   const [ritualCompletions, setRitualCompletionsRaw] = useState(() => normalizeRitualCompletions(load(`${uk}_ritual_completions`, [])));
   const [habits, setHabitsRaw] = useState(() => normalizeHabits(load(`${uk}_habits`, DEFAULT_HABITS)));
   const [habitCompletions, setHabitCompletionsRaw] = useState(() => normalizeHabitCompletions(load(`${uk}_habit_completions`, [])));
+  const [dailyCheckIns, setDailyCheckInsRaw] = useState(() => normalizeDailyCheckIns(load(`${uk}_daily_checkins`, [])));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
@@ -2853,6 +2944,7 @@ export default function App() {
       setRitualCompletionsRaw([]);
       setHabitsRaw([]);
       setHabitCompletionsRaw([]);
+      setDailyCheckInsRaw([]);
       return;
     }
 
@@ -2873,6 +2965,7 @@ export default function App() {
     setRitualCompletionsRaw(normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])));
     setHabitsRaw(normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)));
     setHabitCompletionsRaw(normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])));
+    setDailyCheckInsRaw(normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -2910,6 +3003,7 @@ export default function App() {
         ritualCompletions: normalizeRitualCompletions(safeSettings.ritualCompletions ?? load(`${userKey}_ritual_completions`, [])),
         habits: normalizeHabits(safeSettings.habits ?? load(`${userKey}_habits`, DEFAULT_HABITS)),
         habitCompletions: normalizeHabitCompletions(safeSettings.habitCompletions ?? load(`${userKey}_habit_completions`, [])),
+        dailyCheckIns: normalizeDailyCheckIns(safeSettings.dailyCheckIns ?? load(`${userKey}_daily_checkins`, [])),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -2936,6 +3030,7 @@ export default function App() {
       setRitualCompletionsRaw(normalizeRitualCompletions(nextSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(nextSettings.habits));
       setHabitCompletionsRaw(normalizeHabitCompletions(nextSettings.habitCompletions));
+      setDailyCheckInsRaw(normalizeDailyCheckIns(nextSettings.dailyCheckIns));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -2955,6 +3050,7 @@ export default function App() {
       save(`${userKey}_ritual_completions`, normalizeRitualCompletions(nextSettings.ritualCompletions));
       save(`${userKey}_habits`, normalizeHabits(nextSettings.habits));
       save(`${userKey}_habit_completions`, normalizeHabitCompletions(nextSettings.habitCompletions));
+      save(`${userKey}_daily_checkins`, normalizeDailyCheckIns(nextSettings.dailyCheckIns));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -2998,6 +3094,7 @@ export default function App() {
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
+          dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3045,6 +3142,7 @@ export default function App() {
             ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
+          dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -3089,6 +3187,7 @@ export default function App() {
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
+          dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -3120,6 +3219,7 @@ export default function App() {
           ritualCompletions: [],
           habits: normalizeHabits(DEFAULT_HABITS),
           habitCompletions: [],
+          dailyCheckIns: [],
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -3157,6 +3257,7 @@ export default function App() {
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
           habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
+          dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3209,6 +3310,7 @@ export default function App() {
     ritualCompletions: normalizeRitualCompletions(ritualCompletions),
     habits: normalizeHabits(habits),
     habitCompletions: normalizeHabitCompletions(habitCompletions),
+    dailyCheckIns: normalizeDailyCheckIns(dailyCheckIns),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -3268,6 +3370,7 @@ export default function App() {
         ritualCompletions: normalizeRitualCompletions(nextSettings?.ritualCompletions || ritualCompletions),
         habits: normalizeHabits(nextSettings?.habits || habits),
         habitCompletions: normalizeHabitCompletions(nextSettings?.habitCompletions || habitCompletions),
+        dailyCheckIns: normalizeDailyCheckIns(nextSettings?.dailyCheckIns || dailyCheckIns),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -3301,6 +3404,7 @@ export default function App() {
       setRitualCompletionsRaw(normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(normalizedSettings.habits));
       setHabitCompletionsRaw(normalizeHabitCompletions(normalizedSettings.habitCompletions));
+      setDailyCheckInsRaw(normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -3329,6 +3433,7 @@ export default function App() {
       save(`${uk}_ritual_completions`, normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       save(`${uk}_habits`, normalizeHabits(normalizedSettings.habits));
       save(`${uk}_habit_completions`, normalizeHabitCompletions(normalizedSettings.habitCompletions));
+      save(`${uk}_daily_checkins`, normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -3463,6 +3568,7 @@ export default function App() {
     save(`${uk}_ritual_completions`, normalizeRitualCompletions(next.ritualCompletions));
     save(`${uk}_habits`, normalizeHabits(next.habits));
     save(`${uk}_habit_completions`, normalizeHabitCompletions(next.habitCompletions));
+    save(`${uk}_daily_checkins`, normalizeDailyCheckIns(next.dailyCheckIns));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -3662,6 +3768,26 @@ export default function App() {
     save(`${uk}_habit_completions`, n);
     persistSettings({ habitCompletions: n });
   };
+
+  const setDailyCheckIns = v => {
+    const n = normalizeDailyCheckIns(typeof v === "function" ? v(dailyCheckIns) : v);
+    setDailyCheckInsRaw(n);
+    save(`${uk}_daily_checkins`, n);
+    persistSettings({ dailyCheckIns: n });
+  };
+
+  function saveDailyCheckIn(patch) {
+    const now = new Date().toISOString();
+    const targetDate = patch?.date || dateKey(TODAY);
+    setDailyCheckIns(list => {
+      const cleanList = normalizeDailyCheckIns(list);
+      const existing = cleanList.find(entry => entry.date === targetDate);
+      const base = existing || { id: `checkin-${targetDate}`, date: targetDate, mood: null, energy: null, note: "", createdAt: now, updatedAt: now };
+      const next = normalizeDailyCheckIn({ ...base, ...patch, id: base.id, date: targetDate, createdAt: base.createdAt || now, updatedAt: now });
+      return existing ? cleanList.map(entry => entry.id === existing.id ? next : entry) : [next, ...cleanList];
+    });
+    setToast({ text: "Daily check-in saved ✓", ts: Date.now() });
+  }
 
   function addHabit(habit) {
     const now = new Date().toISOString();
@@ -4698,7 +4824,7 @@ export default function App() {
             </div>
             <button type="button" className="mobile-menu-sync-btn" onClick={forceSyncNow}>↻ Sync now</button>
           </div>
-          {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
+          {(() => { const todayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY); const m = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x=>x.id===todayCheckIn.mood) : null; const e = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x=>x.id===todayCheckIn.energy) : null; return m ? <div className="mood-bar" onClick={() => { setShowCheckIn(true); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}{e ? ` · ${e.label} energy` : ""}</div> : null; })()}
           <LevelBar gameStats={gameStats} />
           <nav className="sidebar-nav">
             <div className="nav-section-label">Main</div>
@@ -4742,13 +4868,13 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
-            <BloomRoomPage gameStats={gameStats} />
+            <BloomRoomPage gameStats={gameStats} dailyCheckIns={dailyCheckIns} />
           ) : page === "rituals" ? (
             <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
@@ -4863,6 +4989,7 @@ export default function App() {
       )}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
+      {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
