@@ -57,3 +57,9 @@ The previous timer-centric features remain removed so the app can move toward ro
 - Replaced event overlap browser confirmation with an in-app modal.
 - Replaced recurring task browser prompts with in-app modals.
 - Added grouped sticker pack support for Lola, Luna, Sugar, and Truffle, with expected assets named 1.png through 9.png.
+
+## Phase 4 Task Date Editor Hotfix
+
+- Fixed task date editing after a task has already been assigned to a date.
+- The edit modal now saves the selected day/week/month explicitly instead of letting the previous period anchor override it.
+- Task drag/move and recurring task reschedule also use explicit period patches.

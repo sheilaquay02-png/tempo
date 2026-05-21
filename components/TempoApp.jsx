@@ -3163,7 +3163,13 @@ export default function App() {
   }
   function moveTaskToPeriod(id, scope, anchorDate) {
     pushUndo();
-    setTasks(ts => ts.map(t => t.id === id ? touchRecord(withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate)) : t));
+    const periodPatch = taskPeriodPatchForScope(scope, anchorDate);
+    setTasks(ts => ts.map(t => t.id === id ? touchRecord({
+      ...t,
+      scope,
+      ...periodPatch,
+      completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate,
+    }) : t));
   }
   async function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !(await confirmEventPlacement(ev, ev.id, "Add event"))) return false; pushUndo(); setEvents(es => [...es, touchRecord(ev, { createdAt: ev.createdAt || new Date().toISOString() })]); return true; }
 
@@ -3560,7 +3566,8 @@ export default function App() {
             .filter(t => t.id !== id)
             .concat(parent ? [moved] : []);
         }
-        return ts.map(t => t.id === id ? touchRecord(withTaskPeriod(t, nextDate)) : t);
+        const periodPatch = taskPeriodPatchForScope(taskScopeOf(target), nextDate);
+        return ts.map(t => t.id === id ? touchRecord({ ...t, ...periodPatch }) : t);
       });
       setSelectedTask(null);
       return;

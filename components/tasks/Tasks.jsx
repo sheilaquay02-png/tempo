@@ -312,11 +312,15 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
     if (!form.title.trim()) return;
     const becameDone = Boolean(form.done) && !Boolean(task.done);
     const stayedDone = Boolean(form.done) && Boolean(task.done);
-    const perioded = withTaskPeriod({
+    // Force the selected task period to the date/week/month chosen in the editor.
+    // Do not let the task's previous taskDate/weekKey/monthKey or deadline override it.
+    const nextScope = taskScopeOf(form);
+    const perioded = {
       ...form,
       title: form.title.trim(),
       duration: taskDurationToMinutes(durationDraft.amount, durationDraft.unit),
-    }, periodDate);
+      ...taskPeriodPatchForScope(nextScope, periodDate),
+    };
     const completionKey = taskCompletionTargetKey(perioded);
     onSave({
       ...perioded,
