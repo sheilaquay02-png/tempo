@@ -14,6 +14,7 @@ export function appCSS(cvars, fontScale) { return `
   .sidebar-user{margin-top:6px;font-size:10px;color:var(--text3);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sidebar-daily-stats-btn{margin:8px 0 6px;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--border);background:var(--bg2);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-size:11px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-sm);}
   .sidebar-daily-stats-btn:hover{background:var(--bg4);border-color:var(--accent3);}
+  .sidebar-sync-menu-pill{display:none;margin-top:6px;}
   @media(min-width:769px){.desktop-hidden-menu-item{display:none!important;}}
   /* mood-bar used by journal mood display in sidebar */
   .mood-bar{padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;}
@@ -1112,5 +1113,31 @@ export function appCSS(cvars, fontScale) { return `
   .scrapbook-sticker-stage .scrapbook-sticker-view{position:absolute;transform:translate(-50%,-50%);font-size:52px;margin:0;}
   .scrapbook-sticker-stage .scrapbook-sticker-view.asset img{width:min(150px,46vw);}
   @media(max-width:768px){.sticker-position-pad{height:150px}.scrapbook-sticker-stage{height:170px}.sticker-position-preview img{width:76px}.scrapbook-sticker-stage .scrapbook-sticker-view.asset img{width:min(120px,44vw)}}
+
+
+  /* Mobile standalone page headers: extend to phone edges and stay fully opaque */
+  @media(max-width:768px){
+    .sidebar-sync-menu-pill{display:block;}
+    .tasks-page{padding:0 12px calc(74px + env(safe-area-inset-bottom))!important;background:var(--bg)!important;}
+    .tasks-page > .journal-header{
+      margin:0 -12px 12px!important;
+      width:calc(100% + 24px)!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:0 1px 0 var(--border), var(--shadow-sm)!important;
+    }
+    .bloom-room-page{padding-top:0!important;background:var(--bg)!important;}
+    .bloom-room-page .journal-header{
+      margin:0 -10px 10px!important;
+      width:calc(100% + 20px)!important;
+      background:var(--bg2)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      box-shadow:0 1px 0 var(--border), var(--shadow-sm)!important;
+    }
+    .dark .tasks-page > .journal-header,
+    .dark .bloom-room-page .journal-header{background:var(--bg2)!important;}
+  }
 
 `; }

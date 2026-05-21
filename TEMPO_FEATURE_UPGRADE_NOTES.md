@@ -248,3 +248,11 @@ Changes:
 - Removed Focus Log from the sidebar menu.
 - Moved Daily Stats into a smaller button above the sync status pill in the sidebar/menu.
 - Verified production build with `npm run build`.
+
+## Desktop menu + mobile header polish hotfix
+
+- Removed the sidebar/menu sync status pill on desktop so "Updated from cloud" no longer appears in the desktop menu.
+- Kept the sidebar sync status and "↻ Sync now" control available on mobile.
+- Made the Tasks page header extend edge-to-edge on mobile with a fully opaque background.
+- Made the Bloom Room header extend edge-to-edge on mobile with a fully opaque background.
+- Production build check passed with `npm run build`.
