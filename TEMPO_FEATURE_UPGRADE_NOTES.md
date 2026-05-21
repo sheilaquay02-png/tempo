@@ -233,3 +233,10 @@ Changes:
 - Added calendar removal. Existing events are reassigned to the first remaining calendar before the calendar is removed.
 - Synced custom calendars and hidden calendar visibility through Supabase settings, so desktop and mobile stay aligned.
 - `npm run build` passes.
+
+## Focus mode and sidebar menu hotfix
+
+- Fixed the Focus Mode task progress bar so it moves live during an active focus session, not only after the session is completed.
+- Added the Focus Log directly inside Focus Mode, below Today's Tasks.
+- Moved Tasks, Plan My Day, and End of Day under the Calendar section in the sidebar menu.
+- Made the sidebar/menu scrollable so calendar lists and menu items remain accessible on smaller screens.

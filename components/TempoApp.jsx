@@ -138,9 +138,12 @@ function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
   const s     = (state.remaining % 60).toString().padStart(2, "0");
   const total = state.mode === "work" ? POMODORO_WORK_SECS : POMODORO_BREAK_SECS;
   const pct   = Math.max(0, Math.min(100, (1 - state.remaining / total) * 100));
-  const progressMins = Number(task?.focusProgressMins || 0);
+  const savedProgressMins = Number(task?.focusProgressMins || 0);
+  const liveWorkSeconds = state.mode === "work" ? Math.max(0, total - state.remaining) : 0;
+  const liveProgressSeconds = Math.max(0, savedProgressMins * 60 + liveWorkSeconds);
+  const progressMins = Math.floor(liveProgressSeconds / 60);
   const taskMins = Math.max(1, taskDurationToMinutes(task?.duration || 30));
-  const taskPct = Math.min(100, Math.round((progressMins / taskMins) * 100));
+  const taskPct = Math.min(100, Math.round((liveProgressSeconds / (taskMins * 60)) * 1000) / 10);
   const isBoss = task?.category === "boss";
   const bossHp = Math.max(0, 100 - taskPct);
   const r = 34; const circ = 2 * Math.PI * r;
@@ -222,7 +225,7 @@ function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMove
 }
 
 // ─── Focus Mode ───────────────────────────────────────────────────────────────
-function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume, onStop, onExit }) {
+function FocusMode({ tasks, events, categories, pomodoro, onStartPomodoro, onPause, onResume, onStop, onExit }) {
   const now  = new Date(); const next = events.filter(e => e.start > now).sort((a, b) => a.start - b.start)[0];
   const open = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
   return (
@@ -248,7 +251,9 @@ function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume
               <button className="focus-start-btn" onClick={() => onStartPomodoro(t.id)}>▶</button>
             </div>
           ))}
+          {open.length === 0 && <div className="task-card-empty">No open tasks for today.</div>}
         </div>
+        <FocusLogInline events={events} categories={categories} />
       </div>
     </div>
   );
@@ -352,7 +357,7 @@ function focusEventsInRange(events, start, end) {
     .sort((a, b) => b.start - a.start);
 }
 
-function FocusLogModal({ events, categories, onClose }) {
+function buildFocusLogData(events, categories) {
   const todayStart = dayStart(TODAY);
   const tomorrow = addDaysSafe(todayStart, 1);
   const week = weekStart(TODAY);
@@ -365,17 +370,44 @@ function FocusLogModal({ events, categories, onClose }) {
   const admin = weekFocus.filter(e => (e.category || "") === "admin");
   const meetings = expandRecurring(events, week, weekEnd).filter(e => e.category === "meeting");
   const fmtHours = m => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  const rows = todayFocus.map(e => ({
+    event: e,
+    cat: categories.find(c => c.id === e.category),
+    minutes: mins(e),
+    title: String(e.title || "Focus").replace(/^Focus:\s*/, ""),
+  }));
+  return { todayFocus, weekFocus, rows, total, deep, admin, meetings, fmtHours };
+}
+
+function FocusLogInline({ events, categories }) {
+  const data = buildFocusLogData(events, categories);
+  return (
+    <div className="focus-log-inline">
+      <div className="focus-tasks-title">Focus log</div>
+      <div className="focus-stats-grid focus-stats-grid-compact">
+        <div><strong>{data.fmtHours(data.total(data.todayFocus))}</strong><span>today</span></div>
+        <div><strong>{data.fmtHours(data.total(data.weekFocus))}</strong><span>week</span></div>
+        <div><strong>{data.weekFocus.length}</strong><span>sessions</span></div>
+      </div>
+      <div className="focus-log-list focus-log-list-compact">{data.rows.length ? data.rows.slice(0, 4).map(({ event, cat, minutes, title }) => (
+        <div key={event.id} className="focus-log-row"><span>{fmt(event.start)} — {title}</span><strong>{minutes} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>
+      )) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
+    </div>
+  );
+}
+
+function FocusLogModal({ events, categories, onClose }) {
+  const data = buildFocusLogData(events, categories);
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Focus log">
       <div className="modal focus-log-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>⏱ Focus Log</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>Today and this week</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div className="focus-stats-grid"><div><strong>{fmtHours(total(todayFocus))}</strong><span>today focus</span></div><div><strong>{fmtHours(total(weekFocus))}</strong><span>week focus</span></div><div><strong>{weekFocus.length}</strong><span>sessions</span></div></div>
-          <div className="settings-section-desc">Weekly breakdown: Deep Work {fmtHours(total(deep))} · Admin {fmtHours(total(admin))} · Meetings {fmtHours(total(meetings))}</div>
-          <div className="focus-log-list">{todayFocus.length ? todayFocus.map(e => {
-            const cat = categories.find(c => c.id === e.category);
-            return <div key={e.id} className="focus-log-row"><span>{fmt(e.start)} — {e.title.replace(/^Focus:\s*/, "")}</span><strong>{mins(e)} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>;
-          }) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
+          <div className="focus-stats-grid"><div><strong>{data.fmtHours(data.total(data.todayFocus))}</strong><span>today focus</span></div><div><strong>{data.fmtHours(data.total(data.weekFocus))}</strong><span>week focus</span></div><div><strong>{data.weekFocus.length}</strong><span>sessions</span></div></div>
+          <div className="settings-section-desc">Weekly breakdown: Deep Work {data.fmtHours(data.total(data.deep))} · Admin {data.fmtHours(data.total(data.admin))} · Meetings {data.fmtHours(data.total(data.meetings))}</div>
+          <div className="focus-log-list">{data.rows.length ? data.rows.map(({ event, cat, minutes, title }) => (
+            <div key={event.id} className="focus-log-row"><span>{fmt(event.start)} — {title}</span><strong>{minutes} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>
+          )) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
         </div>
         <div className="modal-footer"><div/><button className="tf-save" onClick={onClose}>Done</button></div>
       </div>
@@ -3323,7 +3355,7 @@ export default function App() {
   .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
-      {focusMode && <FocusMode tasks={tasks} events={events} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} onExit={() => setFocusMode(false)} />}
+      {focusMode && <FocusMode tasks={tasks} events={events} categories={categories} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} onExit={() => setFocusMode(false)} />}
 
       <div className="app">
         <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
@@ -3342,15 +3374,15 @@ export default function App() {
             {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌙",label:"Month"}].map(n => (
               <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); closeSidebarOnMobile(); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
             ))}
+            <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
+            <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
+            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Memory Book</div>
-            <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
             <div className="nav-item" onClick={() => { setShowFocusLog(true); closeSidebarOnMobile(); }}><span className="nav-icon">⏱</span>Focus Log</div>
-            <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
-            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">

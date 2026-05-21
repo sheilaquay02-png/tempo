@@ -4,7 +4,7 @@ export function appCSS(cvars, fontScale) { return `
   :root{${cvars}--mint:#B8F0E0;--radius:16px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow:0 2px 16px rgba(0,0,0,0.08);--shadow-md:0 4px 24px rgba(0,0,0,0.12);--fs:${fontScale};--accent-rgb:255,123,172;}
   body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
   .app{display:flex;height:100vh;overflow:hidden;}
-  .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow:hidden;}
+  .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow-y:auto;overflow-x:hidden;min-height:0;}
   .sidebar.closed{width:0;}
   .sidebar-logo{padding:20px;border-bottom:1px solid var(--border);font-size:20px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:8px;}
   .sidebar-logo .logo-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:16px;}
@@ -14,12 +14,12 @@ export function appCSS(cvars, fontScale) { return `
   .sidebar-user{margin-top:6px;font-size:10px;color:var(--text3);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* mood-bar used by journal mood display in sidebar */
   .mood-bar{padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;}
-  .mood-bar:hover{background:var(--bg3);}.sidebar-nav{padding:12px 10px;flex:1;}
+  .mood-bar:hover{background:var(--bg3);}.sidebar-nav{padding:12px 10px;flex:0 0 auto;}
   .nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);transition:all .2s;margin-bottom:3px;}
   .nav-item:hover{background:var(--bg3);color:var(--text);}
   .nav-item.active{background:var(--bg4);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent3);}
   .nav-icon{font-size:16px;width:22px;text-align:center;}
-  .sidebar-cals{padding:12px 20px 16px;border-top:1px solid var(--border);}
+  .sidebar-cals{padding:12px 20px 16px;border-top:1px solid var(--border);flex-shrink:0;}
   .cal-label{font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:10px;}
   .cal-item{display:flex;align-items:center;font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;}
   .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
@@ -254,15 +254,20 @@ export function appCSS(cvars, fontScale) { return `
   .carryover-item input{accent-color:var(--accent);}
   .co-dur{margin-left:auto;font-size:10px;font-family:var(--mono);color:var(--text3);}
   .carryover-actions{display:flex;gap:8px;justify-content:flex-end;}
-  .focus-overlay{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeIn .3s ease;background:var(--bg);}
+  .focus-overlay{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeIn .3s ease;background:var(--bg);overflow-y:auto;padding:24px 0;}
   .focus-exit{position:absolute;top:20px;right:20px;background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;}
-  .focus-content{display:flex;flex-direction:column;align-items:center;gap:20px;max-width:400px;width:100%;padding:20px;}
+  .focus-content{display:flex;flex-direction:column;align-items:center;gap:20px;max-width:400px;width:100%;padding:20px;max-height:100%;overflow-y:auto;}
   .focus-logo{font-size:32px;font-weight:900;color:var(--accent);}
   .focus-date{font-size:14px;color:var(--text2);font-family:var(--mono);}
   .focus-idle{text-align:center;}
   .focus-idle-msg{font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px;}
   .focus-next{font-size:13px;color:var(--text2);font-family:var(--mono);}
   .focus-tasks{width:100%;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:16px;}
+  .focus-log-inline{width:100%;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:16px;}
+  .focus-stats-grid-compact{grid-template-columns:repeat(3,1fr);margin-bottom:10px;}
+  .focus-stats-grid-compact>div{padding:9px 8px;}
+  .focus-stats-grid-compact strong{font-size:15px;}
+  .focus-log-list-compact{max-height:190px;overflow-y:auto;padding-right:2px;}
   .focus-tasks-title{font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
   .focus-task-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .focus-task-row:last-child{border-bottom:none;}
