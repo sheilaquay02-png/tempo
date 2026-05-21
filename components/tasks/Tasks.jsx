@@ -36,6 +36,15 @@ function TaskRecurrenceSelect({ value, onChange, anchorDate = TODAY, compact = f
   );
 }
 
+function TaskPeriodDateControl({ scope = "day", value, onChange, compact = false }) {
+  const safeDate = value instanceof Date && !Number.isNaN(value.getTime()) ? value : TODAY;
+  const cls = compact ? "tf-input tf-date" : "modal-select";
+  if (scope === "month") {
+    return <input type="month" className={cls} value={monthKey(safeDate)} onChange={e => onChange(localDateFromMonthKey(e.target.value) || new Date(TODAY))} />;
+  }
+  return <input type="date" className={cls} value={dateKey(safeDate)} onChange={e => onChange(localDateFromKey(e.target.value) || new Date(TODAY))} />;
+}
+
 // ─── Task Item ────────────────────────────────────────────────────────────────
 export function TaskItem({ task, onToggle, categories, onEdit, onScheduleTask }) {
   const [expanded, setExpanded] = useState(false);
@@ -144,10 +153,14 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onSchedu
   const [panelWidth, setPanelWidth] = useState(TASK_PANEL_DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
+  const [formPeriodDate, setFormPeriodDate] = useState(periodDate);
   const [form, setForm]           = useState({ title: "", duration: 30, category: "important", scope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
   useEffect(() => {
-    if (adding) setForm(f => ({ ...f, scope }));
-  }, [adding, scope]);
+    if (adding) {
+      setForm(f => ({ ...f, scope }));
+      setFormPeriodDate(periodDate);
+    }
+  }, [adding, scope, periodDate]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -221,8 +234,9 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onSchedu
   function handleAdd() {
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
-    onAdd(withTaskPeriod({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null }, periodDate));
+    onAdd(withTaskPeriod({ ...form, title: form.title.trim(), duration, id: "t" + uid(), done: false, completedAt: null, completedDate: null }, formPeriodDate));
     setForm({ title: "", duration: 30, category: "important", scope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
+    setFormPeriodDate(periodDate);
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
   }
@@ -251,7 +265,11 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onSchedu
             <select className="tf-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select>
             <select className="tf-select" value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select>
           </div>
-          <div className="task-period-hint">Saving to {form.scope === "week" ? "week" : form.scope === "month" ? "month" : "day"}: {formatTaskPeriodLabel(form.scope, periodDate)}</div>
+          <div className="task-period-hint">Saving to {form.scope === "week" ? "week" : form.scope === "month" ? "month" : "day"}: {formatTaskPeriodLabel(form.scope, formPeriodDate)}</div>
+          <div className="tf-row task-date-row">
+            <label className="tf-label">{form.scope === "week" ? "Week" : form.scope === "month" ? "Month" : "Task date"}</label>
+            <TaskPeriodDateControl compact scope={form.scope} value={formPeriodDate} onChange={setFormPeriodDate} />
+          </div>
           <div className="tf-row">
             <select className="tf-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select>
             <input type="date" className="tf-input tf-date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
@@ -287,7 +305,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onSchedu
 
 export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   const initial = splitTaskDuration(task.duration);
-  const [form, setForm] = useState({ ...task, deadline: task.deadline || "", recurrence: task.recurrence || null, reminder: Core.normalizeTaskReminder(task.reminder) });
+  const [form, setForm] = useState({ ...task, scope: taskScopeOf(task), deadline: task.deadline || "", recurrence: task.recurrence || null, reminder: Core.normalizeTaskReminder(task.reminder) });
   const [durationDraft, setDurationDraft] = useState(initial);
   const [periodDate, setPeriodDate] = useState(taskAnchorDate(task, TODAY));
   function saveTask() {
@@ -317,7 +335,7 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
         <div className="modal-body">
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           <div className="modal-row"><label>Scope</label><select className="modal-select" value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></div>
-          <div className="modal-row"><label>{form.scope === "week" ? "Week" : form.scope === "month" ? "Month" : "Day"}</label>{form.scope === "month" ? <input type="month" className="modal-select" value={monthKey(periodDate)} onChange={e => setPeriodDate(localDateFromMonthKey(e.target.value) || new Date(TODAY))}/> : <input type="date" className="modal-select" value={dateKey(periodDate)} onChange={e => setPeriodDate(localDateFromKey(e.target.value) || new Date(TODAY))}/>}</div>
+          <div className="modal-row"><label>{form.scope === "week" ? "Week" : form.scope === "month" ? "Month" : "Task date"}</label><TaskPeriodDateControl scope={form.scope} value={periodDate} onChange={setPeriodDate} /></div>
           <div className="modal-row"><label>Priority</label><select className="modal-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select></div>
           <div className="modal-row"><label>Duration</label><input type="number" className="modal-select modal-time" min={1} value={durationDraft.amount} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="modal-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">minutes</option><option value="hours">hours</option><option value="days">days</option></select></div>
           <div className="modal-row"><label>Deadline</label><input type="date" className="modal-select" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}/></div>
@@ -336,7 +354,9 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
   const [isOver, setIsOver] = useState(false);
   const [adding, setAdding] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
+  const [formPeriodDate, setFormPeriodDate] = useState(periodDate);
   const [form, setForm] = useState({ title: "", category: "important", priority: "medium", deadline: "", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
+  useEffect(() => { if (adding) setFormPeriodDate(periodDate); }, [adding, periodDate]);
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, cardScope, periodDate));
   const sorted = [...filtered].sort((a, b) => Number(a.done) - Number(b.done) || (({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)));
   const openCount = filtered.filter(t => !t.done).length;
@@ -344,8 +364,9 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
   function addCardTask() {
     if (!form.title.trim()) return;
     const duration = taskDurationToMinutes(durationDraft.amount, durationDraft.unit);
-    onAdd(withTaskPeriod({ ...form, id: "t" + uid(), title: form.title.trim(), duration, scope: cardScope, done: false, completedAt: null, completedDate: null }, periodDate));
+    onAdd(withTaskPeriod({ ...form, id: "t" + uid(), title: form.title.trim(), duration, scope: cardScope, done: false, completedAt: null, completedDate: null }, formPeriodDate));
     setForm({ title: "", category: "important", priority: "medium", deadline: "", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
+    setFormPeriodDate(periodDate);
     setDurationDraft({ amount: 30, unit: "minutes" });
     setAdding(false);
   }
@@ -379,6 +400,10 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
           <div className="tf-row">
             <select className="tf-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select>
             <select className="tf-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</select>
+          </div>
+          <div className="tf-row task-date-row">
+            <label className="tf-label">{cardScope === "week" ? "Week" : cardScope === "month" ? "Month" : "Task date"}</label>
+            <TaskPeriodDateControl compact scope={cardScope} value={formPeriodDate} onChange={setFormPeriodDate} />
           </div>
           <div className="tf-row">
             <div className="tf-duration"><span>⏱</span><input type="number" className="tf-num" value={durationDraft.amount} min={1} step={durationDraft.unit === "minutes" ? 5 : 1} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="tf-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></div>

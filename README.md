@@ -168,3 +168,8 @@ health -> wellness
 ```
 
 This keeps existing user events/tasks safe while moving the app to the softer daily-rhythm language.
+
+
+## Phase 4: Rituals Foundation
+
+Tempo now includes Rituals as the soft routine layer for Morning Reset, Night Wind Down, and other repeatable checklist routines. Rituals are stored in Supabase under user settings and include completion history, repeat days, reminders, and sync-safe deletion tombstones.

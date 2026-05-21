@@ -144,6 +144,63 @@ function normalizeTaskReminder(reminder) {
   return { type, time: reminder.time || TASK_REMINDER_TIMES[type] || '09:00' };
 }
 
+function normalizeRitualReminder(reminder) {
+  if (reminder === null) return { type: 'none', minutesBefore: null };
+  if (typeof reminder === 'number') return reminder < 0 ? { type: 'none', minutesBefore: null } : { type: 'minutes', minutesBefore: reminder };
+  if (!reminder) return { type: 'at', minutesBefore: 0 };
+  const type = reminder.type || reminder.mode || reminder.id || 'at';
+  if (type === 'none') return { type: 'none', minutesBefore: null };
+  if (type === 'at') return { type: 'at', minutesBefore: 0 };
+  const minutes = Number(reminder.minutesBefore ?? reminder.minutes ?? reminder.offsetMinutes ?? reminder.value ?? 0);
+  return { type: type === 'custom' ? 'custom' : 'minutes', minutesBefore: Math.max(0, Number.isFinite(minutes) ? minutes : 0) };
+}
+
+function ritualReminderMinutes(reminder) {
+  const r = normalizeRitualReminder(reminder);
+  return r.type === 'none' ? null : Math.max(0, Number(r.minutesBefore) || 0);
+}
+
+function localDateForParts(parts) {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 0, 0, 0, 0));
+}
+
+function ritualRunsOnLocalDate(ritual, parts) {
+  if (!ritual || ritual.archived || ritual.deletedAt) return false;
+  const days = Array.isArray(ritual.repeatDays) ? ritual.repeatDays.map(Number) : [];
+  const d = localDateForParts(parts);
+  return days.includes(d.getUTCDay());
+}
+
+function ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
+  const timeZone = settings?.timezone || 'Asia/Singapore';
+  const parts = localTimeParts(now, timeZone);
+  const list = Array.isArray(settings?.rituals) ? settings.rituals : [];
+  const candidates = [];
+  for (const ritual of list) {
+    if (!ritualRunsOnLocalDate(ritual, parts)) continue;
+    const minutesBefore = ritualReminderMinutes(ritual.reminder);
+    if (minutesBefore === null) continue;
+    const clock = parseClock(ritual.scheduledTime || ritual.time || '08:30');
+    if (!clock) continue;
+    const dueMs = Date.UTC(parts.year, parts.month - 1, parts.day, clock.hour, clock.minute, 0, 0) - minutesBefore * 60000;
+    const nowMs = localDateTimeMs(parts);
+    if (dueMs < nowMs - lookbackMinutes * 60000 || dueMs > nowMs + lookaheadMinutes * 60000) continue;
+    const label = minutesBefore === 0 ? 'now' : `${minutesBefore} minutes before`;
+    candidates.push({
+      type: 'ritual',
+      key: `ritual:${ritual.id || ritual.name}:${parts.dateKey}:${ritual.scheduledTime || ''}:${minutesBefore}m`,
+      title: 'Ritual reminder 🕯️',
+      body: minutesBefore === 0 ? `${ritual.emoji || '🕯️'} ${ritual.name || 'Your ritual'} is ready.` : `${ritual.emoji || '🕯️'} ${ritual.name || 'Your ritual'} starts ${label}.`,
+      url: '/?page=rituals',
+      start: new Date(dueMs),
+      count: 1,
+      sourceId: ritual.id || null,
+      sourceType: 'ritual',
+    });
+  }
+  return candidates;
+}
+
 function parseClock(time) {
   const [h, m] = String(time || '').split(':').map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -476,8 +533,9 @@ async function runReminderCheck(request) {
         sourceId: reminder.id || null,
       }));
       const taskCandidates = taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes);
+      const ritualCandidates = ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
       const snoozeCandidates = snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
-      const allCandidates = [...snoozeCandidates, ...eventCandidates, ...taskCandidates];
+      const allCandidates = [...snoozeCandidates, ...eventCandidates, ...taskCandidates, ...ritualCandidates];
       candidates += allCandidates.length;
 
       const sentSnoozeIds = [];

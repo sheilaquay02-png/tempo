@@ -1,3 +1,14 @@
+
+## Phase 4 — Rituals Foundation
+
+- Added Rituals page.
+- Added create/edit/delete ritual flow.
+- Added repeat days, checklist steps, scheduled time, duration, category, color, and reminder fields.
+- Added daily ritual completion tracking.
+- Added Today dashboard ritual cards.
+- Added ritual reminder support to the push reminder cron route.
+- Added sync-safe ritual storage and ritual tombstones.
+
 # Tempo Current Changelog
 
 ## Phase 3 — Terminology Rebrand
@@ -39,3 +50,10 @@ The previous timer-centric features remain removed so the app can move toward ro
 - Vercel Hobby-safe: frequent Vercel Cron is not used.
 - Frequent reminders should be triggered by GitHub Actions or an external cron provider.
 - Node engine remains set to Node 24.x for Vercel.
+
+## Phase 4 Debug Hotfix
+
+- Added explicit task date/week/month selection to task creation and editing flows.
+- Replaced event overlap browser confirmation with an in-app modal.
+- Replaced recurring task browser prompts with in-app modals.
+- Added grouped sticker pack support for Lola, Luna, Sugar, and Truffle, with expected assets named 1.png through 9.png.

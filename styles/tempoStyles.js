@@ -204,6 +204,19 @@ export function appCSS(cvars, fontScale) { return `
   .chat-fab{position:fixed;bottom:24px;right:24px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:white;font-size:22px;cursor:pointer;box-shadow:0 8px 28px rgba(255,123,172,.45);z-index:100;display:flex;align-items:center;justify-content:center;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .15s;}
   .chat-fab:hover{transform:scale(1.1);}
   .modal-overlay{position:fixed;inset:0;background:rgba(74,40,64,.25);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease;}
+
+  .app-choice-modal .modal-body{display:grid;gap:10px;}
+  .choice-modal-copy{font-size:13px;line-height:1.45;color:var(--text2);font-family:var(--font);}
+  .choice-row{width:100%;text-align:left;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.72);padding:11px 12px;display:grid;gap:3px;cursor:pointer;font-family:var(--font);color:var(--text);}
+  .choice-row:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.1);box-shadow:0 6px 18px rgba(var(--accent-rgb),.12);}
+  .choice-row strong{font-size:13px;}
+  .choice-row span{font-size:11px;color:var(--text2);line-height:1.3;}
+  .overlap-list{display:grid;gap:8px;max-height:180px;overflow:auto;}
+  .overlap-item{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:9px 10px;display:grid;gap:3px;font-family:var(--font);}
+  .overlap-item strong{font-size:13px;color:var(--text);}
+  .overlap-item span{font-size:11px;color:var(--text2);}
+  .tf-label{font-size:11px;font-weight:900;color:var(--text2);align-self:center;white-space:nowrap;}
+  .task-date-row{align-items:center;}
   @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
   .modal{width:420px;max-width:calc(100vw - 32px);background:var(--bg2);border-radius:20px;border:1.5px solid var(--border);box-shadow:0 24px 64px rgba(255,123,172,.18);overflow:hidden;animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
   @keyframes popIn{from{opacity:0;transform:scale(.93) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}
@@ -936,6 +949,12 @@ export function appCSS(cvars, fontScale) { return `
   .sticker-asset-picker-row button{height:54px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.65);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:5px;}
   .sticker-asset-picker-row button.selected{border-color:var(--accent);background:rgba(var(--accent-rgb),.12);box-shadow:0 6px 18px rgba(var(--accent-rgb),.14);}
   .sticker-asset-picker-row img{max-width:100%;max-height:100%;object-fit:contain;display:block;}
+  .sticker-pack-list{display:grid;gap:10px;margin:8px 0;}
+  .sticker-pack-section{display:grid;gap:6px;}
+  .sticker-pack-title{font-size:11px;font-weight:900;color:var(--text2);letter-spacing:.02em;text-transform:uppercase;}
+  .sticker-preview-chip{height:54px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.65);display:flex;align-items:center;justify-content:center;padding:5px;position:relative;}
+  .sticker-asset-picker-row button,.sticker-preview-chip{position:relative;overflow:hidden;}
+  .sticker-choice-label{position:absolute;right:5px;bottom:4px;min-width:16px;height:16px;border-radius:999px;background:rgba(255,255,255,.86);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:var(--text2);line-height:1;}
   .scrapbook-sticker-view.asset{font-size:0;display:flex;justify-content:center;}
   .scrapbook-sticker-view.asset img{width:min(140px,45vw);height:auto;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(74,40,64,.12));}
   .memory-search-section,.memory-throwback-section{padding:12px 16px;border-bottom:1px solid var(--border);}

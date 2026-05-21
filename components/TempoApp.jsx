@@ -99,11 +99,11 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
       setForm(f => ({ ...f, allDay: false, start: st, end: en }));
     }
   }
-  function saveForm() {
+  async function saveForm() {
     if (!form.title.trim()) return;
     if (form.end <= form.start) return;
-    onSave({ ...form, title: form.title.trim() });
-    onClose();
+    const saved = await onSave({ ...form, title: form.title.trim() });
+    if (saved !== false) onClose();
   }
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Edit event">
@@ -218,6 +218,171 @@ const DEFAULT_PLANNING_RULES = {
   afterMealBufferMinutes: 15,
 };
 
+const DEFAULT_RITUALS = [
+  {
+    id: "ritual-morning-reset",
+    name: "Morning Reset",
+    emoji: "☀️",
+    category: "morning",
+    steps: [
+      { id: "drink-water", text: "Drink water" },
+      { id: "check-calendar", text: "Check today’s calendar" },
+      { id: "top-3", text: "Choose your top 3 tasks" },
+      { id: "intention", text: "Write one simple intention" },
+    ],
+    estimatedMinutes: 15,
+    scheduledTime: "08:30",
+    repeatDays: [1,2,3,4,5],
+    reminder: { type: "at", minutesBefore: 0 },
+    color: "#FFB870",
+    archived: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "ritual-night-wind-down",
+    name: "Night Wind Down",
+    emoji: "🌙",
+    category: "night",
+    steps: [
+      { id: "review-day", text: "Review what got done" },
+      { id: "move-tasks", text: "Move unfinished tasks" },
+      { id: "prepare-tomorrow", text: "Prepare tomorrow’s main thing" },
+      { id: "gratitude", text: "Write one gratitude" },
+    ],
+    estimatedMinutes: 20,
+    scheduledTime: "21:30",
+    repeatDays: [0,1,2,3,4,5,6],
+    reminder: { type: "at", minutesBefore: 0 },
+    color: "#B08AE0",
+    archived: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+const RITUAL_CATEGORIES = [
+  { id: "morning", label: "Morning", emoji: "☀️" },
+  { id: "night", label: "Night", emoji: "🌙" },
+  { id: "reset", label: "Reset", emoji: "🧺" },
+  { id: "wellness", label: "Wellness", emoji: "🌿" },
+  { id: "work", label: "Work", emoji: "💼" },
+  { id: "home", label: "Home", emoji: "🏡" },
+  { id: "personal", label: "Personal", emoji: "✨" },
+];
+
+const RITUAL_REMINDER_PRESETS = [
+  { id: "none", label: "No reminder", minutesBefore: null },
+  { id: "at", label: "At ritual time", minutesBefore: 0 },
+  { id: "5", label: "5 minutes before", minutesBefore: 5 },
+  { id: "10", label: "10 minutes before", minutesBefore: 10 },
+  { id: "30", label: "30 minutes before", minutesBefore: 30 },
+  { id: "custom", label: "Custom", minutesBefore: 15 },
+];
+
+function normalizeRitualReminder(reminder) {
+  if (reminder === null) return { type: "none", minutesBefore: null };
+  if (typeof reminder === "number") return reminder < 0 ? { type: "none", minutesBefore: null } : { type: "minutes", minutesBefore: reminder };
+  if (!reminder) return { type: "at", minutesBefore: 0 };
+  const type = reminder.type || reminder.mode || reminder.id || "at";
+  if (type === "none") return { type: "none", minutesBefore: null };
+  if (type === "at") return { type: "at", minutesBefore: 0 };
+  const minutes = Number(reminder.minutesBefore ?? reminder.minutes ?? reminder.offsetMinutes ?? reminder.value ?? 15);
+  return { type: type === "custom" ? "custom" : "minutes", minutesBefore: Math.max(0, Number.isFinite(minutes) ? minutes : 15) };
+}
+
+function ritualReminderPresetId(reminder) {
+  const r = normalizeRitualReminder(reminder);
+  if (r.type === "none") return "none";
+  if (r.minutesBefore === 0) return "at";
+  const match = RITUAL_REMINDER_PRESETS.find(p => p.minutesBefore === r.minutesBefore && !["custom", "none", "at"].includes(p.id));
+  return match?.id || "custom";
+}
+
+function normalizeRitualStep(step, index = 0) {
+  if (typeof step === "string") return { id: `step-${index + 1}`, text: step.trim() || `Step ${index + 1}` };
+  return {
+    id: String(step?.id || `step-${index + 1}`).trim() || `step-${index + 1}`,
+    text: String(step?.text || step?.label || `Step ${index + 1}`).trim() || `Step ${index + 1}`,
+  };
+}
+
+function normalizeRitual(ritual, index = 0) {
+  const now = new Date().toISOString();
+  const fallback = DEFAULT_RITUALS[index % DEFAULT_RITUALS.length] || DEFAULT_RITUALS[0];
+  const repeatDays = Array.isArray(ritual?.repeatDays) ? ritual.repeatDays.map(Number).filter(d => d >= 0 && d <= 6) : (fallback?.repeatDays || [1,2,3,4,5]);
+  const rawSteps = Array.isArray(ritual?.steps) && ritual.steps.length ? ritual.steps : (fallback?.steps || []);
+  return {
+    id: String(ritual?.id || `ritual-${uid()}`),
+    name: String(ritual?.name || fallback?.name || "New Ritual").trim() || "New Ritual",
+    emoji: String(ritual?.emoji || fallback?.emoji || "🕯️").trim() || "🕯️",
+    category: String(ritual?.category || fallback?.category || "personal"),
+    steps: rawSteps.map(normalizeRitualStep),
+    estimatedMinutes: Math.max(1, Math.min(360, Number(ritual?.estimatedMinutes || ritual?.duration || fallback?.estimatedMinutes || 15))),
+    scheduledTime: validTimeString(ritual?.scheduledTime || ritual?.time || fallback?.scheduledTime || "08:30", "08:30"),
+    repeatDays: repeatDays.length ? [...new Set(repeatDays)].sort((a,b) => a-b) : [1,2,3,4,5],
+    reminder: normalizeRitualReminder(ritual?.reminder ?? fallback?.reminder),
+    color: /^#[0-9a-f]{6}$/i.test(String(ritual?.color || "")) ? ritual.color : (fallback?.color || "#FF7BAC"),
+    archived: Boolean(ritual?.archived),
+    deletedAt: ritual?.deletedAt || null,
+    createdAt: ritual?.createdAt || now,
+    updatedAt: ritual?.updatedAt || ritual?.createdAt || now,
+  };
+}
+
+function normalizeRituals(value) {
+  const source = Array.isArray(value) ? value : DEFAULT_RITUALS;
+  const seen = new Set();
+  return source.map(normalizeRitual).filter(r => {
+    if (!r.id || seen.has(r.id)) return false;
+    seen.add(r.id);
+    return !r.deletedAt;
+  });
+}
+
+function normalizeRitualCompletion(completion) {
+  const now = new Date().toISOString();
+  return {
+    id: String(completion?.id || `${completion?.ritualId || "ritual"}:${completion?.date || dateKey(TODAY)}`),
+    ritualId: String(completion?.ritualId || ""),
+    date: String(completion?.date || dateKey(TODAY)),
+    completedSteps: Array.isArray(completion?.completedSteps) ? completion.completedSteps.map(String) : [],
+    completedAt: completion?.completedAt || null,
+    skippedAt: completion?.skippedAt || null,
+    note: String(completion?.note || ""),
+    createdAt: completion?.createdAt || now,
+    updatedAt: completion?.updatedAt || completion?.createdAt || now,
+  };
+}
+
+function normalizeRitualCompletions(value) {
+  const source = Array.isArray(value) ? value : [];
+  const map = new Map();
+  source.map(normalizeRitualCompletion).filter(c => c.ritualId && c.date).forEach(c => {
+    const prev = map.get(c.id);
+    if (!prev || new Date(c.updatedAt || 0) >= new Date(prev.updatedAt || 0)) map.set(c.id, c);
+  });
+  return [...map.values()];
+}
+
+function ritualRunsOnDate(ritual, date = TODAY) {
+  if (!ritual || ritual.archived || ritual.deletedAt) return false;
+  const repeatDays = Array.isArray(ritual.repeatDays) ? ritual.repeatDays.map(Number) : [];
+  return repeatDays.includes(dayStart(date).getDay());
+}
+
+function ritualCompletionFor(completions, ritualId, date = TODAY) {
+  const key = dateKey(date);
+  return (Array.isArray(completions) ? completions : []).find(c => c.ritualId === ritualId && c.date === key) || null;
+}
+
+function ritualProgress(ritual, completions, date = TODAY) {
+  const completion = ritualCompletionFor(completions, ritual.id, date);
+  const total = Math.max(1, ritual.steps?.length || 0);
+  const done = completion?.skippedAt ? 0 : (completion?.completedSteps || []).filter(id => ritual.steps.some(s => s.id === id)).length;
+  return { completion, done, total, percent: Math.min(100, Math.round(done / total * 100)), completed: Boolean(completion?.completedAt), skipped: Boolean(completion?.skippedAt) };
+}
+
 function normalizePlanningRules(value) {
   const source = value && typeof value === "object" ? value : {};
   const clamp = (v, min, max, fb) => {
@@ -239,13 +404,13 @@ function normalizeSettingsUpdatedAt(value) {
 function normalizeDeletedRecords(value) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
-  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars) };
+  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals) };
 }
 
 function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
   const current = normalizeDeletedRecords(records);
-  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars } };
-  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : "events";
+  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals } };
+  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : "events";
   (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
   return next;
 }
@@ -490,6 +655,29 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     highlights: normalized.highlights,
   }), [entry]);
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
+  const stickerPacks = Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }];
+  const renderStickerPackPicker = (selectedSrc, onPick, { previewOnly = false } = {}) => (
+    <div className="sticker-pack-list">
+      {stickerPacks.map(pack => (
+        <div key={pack.id} className="sticker-pack-section">
+          <div className="sticker-pack-title">{pack.label}</div>
+          <div className="sticker-asset-picker-row">
+            {(pack.stickers || []).map(st => {
+              const content = (
+                <>
+                  <img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} />
+                  <span className="sticker-choice-label">{st.number || st.label}</span>
+                </>
+              );
+              return previewOnly
+                ? <span key={st.id} className="sticker-preview-chip">{content}</span>
+                : <button key={st.id} type="button" className={selectedSrc === st.src ? "selected" : ""} title={st.label} onClick={() => onPick(st)}>{content}</button>;
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
   const visibleActivitiesCatalog = (activitiesCatalog || []).filter(a => !a.archived);
   const groups = [...new Set(visibleActivitiesCatalog.map(a => a.group || "Custom"))];
   const [showActivityManager, setShowActivityManager] = useState(false);
@@ -843,9 +1031,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 {b.type === "text" && <textarea className="journal-textarea" rows={3} placeholder="Scrapbook note…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
                 {b.type === "quote" && <input className="gratitude-input" placeholder="Quote of the day…" value={b.text || ""} onChange={e => updateBlock(b.id,{text:e.target.value})} />}
                 {b.type === "sticker" && <>
-                  <div className="sticker-asset-picker-row">
-                    {COZY_STICKER_PACK.map(st => <button key={st.id} type="button" className={b.stickerAsset===st.src?"selected":""} onClick={() => updateBlock(b.id,{stickerAsset:st.src})}><img src={st.src} alt={st.label}/></button>)}
-                  </div>
+                  {renderStickerPackPicker(b.stickerAsset, st => updateBlock(b.id,{ stickerAsset: st.src, sticker: st.label }))}
                   <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={!b.stickerAsset && b.sticker===st?"selected":""} onClick={() => updateBlock(b.id,{sticker:st, stickerAsset:null})}>{st}</button>)}</div>
                   <div className="sticker-position-pad" onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); updateStickerPosition(b.id, e); }} onPointerMove={e => { if (e.buttons) updateStickerPosition(b.id, e); }}>
                     <span className="sticker-position-help">Drag the sticker into place</span>
@@ -1200,7 +1386,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
                 ))}
               </div>
               <div className="entry-section"><div className="entry-section-title">Backgrounds</div><div className="memory-background-picker">{MEMORY_BACKGROUNDS.map(bg => <span key={bg.id} className="memory-bg-choice"><span className="memory-bg-swatch" style={bg.src ? {backgroundImage:`url(${bg.src})`} : {}} /> <span>{bg.label}</span></span>)}</div></div>
-              <div className="entry-section"><div className="entry-section-title">Stickers</div><div className="sticker-asset-picker-row">{COZY_STICKER_PACK.map(st => <span key={st.id}><img src={st.src} alt={st.label}/></span>)}</div></div>
+              <div className="entry-section"><div className="entry-section-title">Stickers</div>{renderStickerPackPicker(null, null, { previewOnly: true })}</div>
             </div>
           </div>
         </div>
@@ -1284,13 +1470,13 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
     calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
   });
   const [err, setErr] = useState("");
-  function handleSave() {
+  async function handleSave() {
     if (!form.title.trim()) { setErr("Please enter a title."); return; }
     const start = form.allDay ? applyDateAndTime(form.startDate, "00:00") : applyDateAndTime(form.startDate, form.startTime);
     const endBase = form.allDay ? endOfDay(applyDateAndTime(form.endDate, "00:00")) : applyDateAndTime(form.endDate, form.endTime);
     if (endBase <= start) { setErr("End must be after start."); return; }
-    onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence, reminder:form.reminder });
-    onClose();
+    const placed = await onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence, reminder:form.reminder });
+    if (placed !== false) onClose();
   }
   const COLORS=["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
   return (
@@ -1531,7 +1717,7 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
-function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, onOpenCalendar, onOpenTasks, onOpenJournal, onPlanToday, onTomorrowReset }) {
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, rituals = [], ritualCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenRituals, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual }) {
   const todayKey = dateKey(TODAY);
   const todayTasks = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
   const topTasks = [...todayTasks].sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, medium: 1, low: 2 }[b.priority] ?? 1)).slice(0, 3);
@@ -1539,6 +1725,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
   const moodEntry = journal?.[todayKey];
   const mood = moodEntry?.mood ? JOURNAL_MOODS.find(m => m.id === moodEntry.mood) : null;
   const catLabel = id => categories.find(c => c.id === id)?.label || "Task";
+  const todayRituals = normalizeRituals(rituals).filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime))).slice(0, 3);
   return (
     <div className="phase-page today-lite-page">
       <div className="phase-hero">
@@ -1564,9 +1751,9 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
           <div className="phase-card-head"><span>Calendar</span><button onClick={onOpenCalendar}>Open calendar</button></div>
           {todayEvents.length ? todayEvents.map(e => <div key={e.id} className="phase-list-row"><span>{fmt(e.start)} — {e.title}</span><small>{e.allDay ? "All day" : `${fmt(e.end)}`}</small></div>) : <div className="phase-empty">No events scheduled yet.</div>}
         </section>
-        <section className="phase-card phase-placeholder-card">
-          <div className="phase-card-head"><span>Rituals</span><small>Phase 3</small></div>
-          <div className="phase-empty">Morning Reset and Night Wind Down will appear here after the Rituals build.</div>
+        <section className="phase-card">
+          <div className="phase-card-head"><span>Rituals</span><button onClick={onOpenRituals}>Open rituals</button></div>
+          {todayRituals.length ? <div className="today-ritual-stack">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(ritualCompletions, r.id, TODAY)} progress={ritualProgress(r, ritualCompletions, TODAY)} onToggleStep={onToggleRitualStep} onSkip={onSkipRitual} onComplete={onCompleteRitual} onEdit={onOpenRituals} compact />)}</div> : <div className="phase-empty">No rituals scheduled today. Create one in Rituals.</div>}
         </section>
         <section className="phase-card phase-placeholder-card">
           <div className="phase-card-head"><span>Habits</span><small>Phase 5</small></div>
@@ -1578,6 +1765,143 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
         <p className="phase-copy">Use Journal / Bloom Room to track how the day feels. Mood and energy check-ins will become a deeper Today feature in a later phase.</p>
         <button className="tf-cancel" onClick={onTomorrowReset}>🌙 Tomorrow Reset</button>
       </div>
+    </div>
+  );
+}
+
+function RitualReminderEditor({ value, onChange }) {
+  const reminder = normalizeRitualReminder(value);
+  const presetId = ritualReminderPresetId(reminder);
+  const setPreset = id => {
+    const preset = RITUAL_REMINDER_PRESETS.find(p => p.id === id);
+    if (id === "none") return onChange({ type: "none", minutesBefore: null });
+    if (id === "at") return onChange({ type: "at", minutesBefore: 0 });
+    if (id === "custom") return onChange({ type: "custom", minutesBefore: reminder.minutesBefore ?? 15 });
+    return onChange({ type: "minutes", minutesBefore: preset?.minutesBefore ?? 10 });
+  };
+  return (
+    <div className="reminder-editor">
+      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
+        {RITUAL_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+      </select>
+      {presetId === "custom" && (
+        <div className="modal-row reminder-custom-row">
+          <input type="number" min={0} className="modal-select modal-time" value={reminder.minutesBefore ?? 15} onChange={e => onChange({ type: "custom", minutesBefore: Math.max(0, Number(e.target.value) || 0) })} />
+          <span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>minutes before</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
+  const initial = ritual ? normalizeRitual(ritual) : normalizeRitual({ id: "ritual-" + uid(), name: "New Ritual", emoji: "🕯️", category: "personal", steps: [{ id: "step-1", text: "First step" }], scheduledTime: "08:30", repeatDays: [1,2,3,4,5], estimatedMinutes: 15, reminder: { type: "at", minutesBefore: 0 }, color: "#FF7BAC" });
+  const [form, setForm] = useState(initial);
+  const days = ["S","M","T","W","T","F","S"];
+  const updateStep = (id, text) => setForm(f => ({ ...f, steps: f.steps.map(s => s.id === id ? { ...s, text } : s) }));
+  const addStep = () => setForm(f => ({ ...f, steps: [...f.steps, { id: "step-" + uid(), text: "" }] }));
+  const removeStep = id => setForm(f => ({ ...f, steps: f.steps.length <= 1 ? f.steps : f.steps.filter(s => s.id !== id) }));
+  const toggleDay = day => setForm(f => {
+    const set = new Set(f.repeatDays || []);
+    if (set.has(day)) set.delete(day); else set.add(day);
+    const next = [...set].sort((a,b) => a-b);
+    return { ...f, repeatDays: next.length ? next : [day] };
+  });
+  const saveForm = () => {
+    const clean = normalizeRitual({ ...form, steps: form.steps.map((s, i) => ({ ...s, text: String(s.text || "").trim() || `Step ${i + 1}` })) });
+    if (!clean.name.trim()) return;
+    onSave(clean);
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ritual editor">
+      <div className="modal ritual-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><span style={{ fontWeight: 900 }}>{ritual ? "Edit Ritual" : "Create Ritual"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="ritual-form-title-row">
+            <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🕯️" }))} aria-label="Ritual emoji" />
+            <input className="modal-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ritual name" />
+          </div>
+          <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{RITUAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
+          <div className="modal-row"><label>Time</label><input type="time" className="modal-select" value={form.scheduledTime} onChange={e => setForm(f => ({ ...f, scheduledTime: e.target.value }))}/></div>
+          <div className="modal-row"><label>Duration</label><input type="number" min={1} max={360} className="modal-select" value={form.estimatedMinutes} onChange={e => setForm(f => ({ ...f, estimatedMinutes: Math.max(1, Number(e.target.value) || 15) }))}/></div>
+          <div className="modal-row"><label>Color</label><input type="color" className="modal-select" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}/></div>
+          <div className="modal-row modal-row-full"><label>Repeat days</label><div className="weekday-picker ritual-weekday-picker">{days.map((d,i) => <button type="button" key={i} className={`weekday-btn ${form.repeatDays?.includes(i) ? "active" : ""}`} onClick={() => toggleDay(i)}>{d}</button>)}</div></div>
+          <div className="modal-row"><label>Reminder</label><RitualReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
+          <div className="ritual-steps-editor">
+            <div className="phase-card-head"><span>Checklist steps</span><button type="button" onClick={addStep}>＋ Add step</button></div>
+            {form.steps.map((step, index) => (
+              <div key={step.id} className="ritual-step-edit-row">
+                <span>{index + 1}</span>
+                <input className="modal-input" value={step.text} onChange={e => updateStep(step.id, e.target.value)} placeholder="Step" />
+                <button type="button" className="mini-move-btn" onClick={() => removeStep(step.id)} disabled={form.steps.length <= 1}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="modal-actions">
+          {ritual && <button className="tf-cancel" onClick={() => onArchive(ritual, !ritual.archived)}>{ritual.archived ? "Restore" : "Archive"}</button>}
+          {ritual && <button className="tf-delete" onClick={() => onDelete(ritual)}>Delete</button>}
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-save" onClick={saveForm}>Save Ritual</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RitualCard({ ritual, completion, progress, onToggleStep, onSkip, onComplete, onEdit, compact = false }) {
+  const category = RITUAL_CATEGORIES.find(c => c.id === ritual.category);
+  return (
+    <div className={`ritual-card ${progress.completed ? "ritual-complete" : ""} ${progress.skipped ? "ritual-skipped" : ""}`} style={{ "--ritual-color": ritual.color || "var(--accent)" }}>
+      <div className="ritual-card-top">
+        <div className="ritual-title-wrap"><div className="ritual-emoji">{ritual.emoji}</div><div><h3>{ritual.name}</h3><p>{category?.emoji || "✨"} {category?.label || "Ritual"} · {ritual.scheduledTime} · {ritual.estimatedMinutes} min</p></div></div>
+        {!compact && <button className="tf-cancel ritual-edit-btn" onClick={() => onEdit(ritual)}>Edit</button>}
+      </div>
+      <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
+      <div className="ritual-progress-label">{progress.skipped ? "Skipped today" : progress.completed ? "Complete for today ✨" : `${progress.done}/${progress.total} steps done`}</div>
+      <div className="ritual-step-list">
+        {(compact ? ritual.steps.slice(0, 3) : ritual.steps).map(step => {
+          const checked = (completion?.completedSteps || []).includes(step.id);
+          return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
+        })}
+        {compact && ritual.steps.length > 3 && <div className="ritual-more">+{ritual.steps.length - 3} more steps</div>}
+      </div>
+      {!compact && <div className="ritual-card-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-save" onClick={() => onComplete(ritual)}>Mark complete</button></div>}
+    </div>
+  );
+}
+
+function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggleStep, onSkip, onComplete }) {
+  const [modalRitual, setModalRitual] = useState(null);
+  const normalized = normalizeRituals(rituals);
+  const active = normalized.filter(r => !r.archived && !r.deletedAt);
+  const archived = normalized.filter(r => r.archived && !r.deletedAt);
+  const todayRituals = active.filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
+  const otherRituals = active.filter(r => !ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
+  const saveRitual = ritual => {
+    ritual.id && rituals.some(r => r.id === ritual.id) ? onEdit(ritual.id, ritual) : onAdd(ritual);
+    setModalRitual(null);
+  };
+  const deleteRitual = ritual => { onDelete(ritual); setModalRitual(null); };
+  return (
+    <div className="phase-page rituals-page">
+      <div className="phase-hero ritual-hero">
+        <div><div className="phase-kicker">Rituals</div><h1>🕯️ Build your daily rhythm</h1><p>Create soft repeatable routines for mornings, nights, resets, and weekly planning.</p></div>
+        <button className="tf-save phase-primary" onClick={() => setModalRitual({})}>＋ Create Ritual</button>
+      </div>
+      <div className="phase-card phase-wide-card ritual-section-card">
+        <div className="phase-card-head"><span>Today’s Rituals</span><small>{todayRituals.length} scheduled today</small></div>
+        {todayRituals.length ? <div className="ritual-grid">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(completions, r.id, TODAY)} progress={ritualProgress(r, completions, TODAY)} onToggleStep={onToggleStep} onSkip={onSkip} onComplete={onComplete} onEdit={setModalRitual} />)}</div> : <div className="phase-empty">No rituals scheduled today. Create a Morning Reset or Night Wind Down to start gently.</div>}
+      </div>
+      <div className="phase-card phase-wide-card ritual-section-card">
+        <div className="phase-card-head"><span>All Rituals</span><small>{active.length} active</small></div>
+        {active.length ? <div className="ritual-list-compact">{[...todayRituals, ...otherRituals].map(r => {
+          const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => r.repeatDays.includes(i)).join(" · ");
+          return <div key={r.id} className="ritual-list-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>{r.scheduledTime} · {days || "No repeat days"}</small></div><button className="tf-cancel" onClick={() => setModalRitual(r)}>Edit</button></div>;
+        })}</div> : <div className="phase-empty">No rituals yet.</div>}
+      </div>
+      {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(r => <div key={r.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(r, false)}>Restore</button></div>)}</div></div>}
+      {modalRitual !== null && <RitualModal ritual={modalRitual?.id ? modalRitual : null} onClose={() => setModalRitual(null)} onSave={saveRitual} onDelete={deleteRitual} onArchive={(ritual, archived) => { onArchive(ritual, archived); setModalRitual(null); }} />}
     </div>
   );
 }
@@ -1648,6 +1972,8 @@ export default function App() {
   const [templates, setTplRaw] = useState(() => load(`${uk}_templates`, DAY_TEMPLATES));
   const [journalActivities, setJournalActivitiesRaw] = useState(() => load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
   const [memoryTags, setMemoryTagsRaw] = useState(() => load(`${uk}_memory_tags`, MEMORY_TAGS));
+  const [rituals, setRitualsRaw] = useState(() => normalizeRituals(load(`${uk}_rituals`, DEFAULT_RITUALS)));
+  const [ritualCompletions, setRitualCompletionsRaw] = useState(() => normalizeRitualCompletions(load(`${uk}_ritual_completions`, [])));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -1674,6 +2000,15 @@ export default function App() {
   const closeSidebarOnMobile = () => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedPage = params.get("page");
+    if (["today", "calendar", "tasks", "journal", "bloom", "rituals", "habits", "affirmations", "weekly-reset"].includes(requestedPage)) {
+      setPage(requestedPage);
+    }
+  }, []);
 
   useEffect(() => {
     if (!dataReady || !auth.user?.id) return;
@@ -1725,6 +2060,8 @@ export default function App() {
       setEvRaw([]);
       setTkRaw([]);
       setJournalRaw({});
+      setRitualsRaw([]);
+      setRitualCompletionsRaw([]);
       return;
     }
 
@@ -1741,6 +2078,8 @@ export default function App() {
     setJournalRaw({});
     setJournalActivitiesRaw(load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES));
     setMemoryTagsRaw(load(`${userKey}_memory_tags`, MEMORY_TAGS));
+    setRitualsRaw(normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)));
+    setRitualCompletionsRaw(normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -1774,6 +2113,8 @@ export default function App() {
         templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
         journalActivities: safeSettings.journalActivities ?? load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
         memoryTags: safeSettings.memoryTags ?? load(`${userKey}_memory_tags`, MEMORY_TAGS),
+        rituals: normalizeRituals(safeSettings.rituals ?? load(`${userKey}_rituals`, DEFAULT_RITUALS)),
+        ritualCompletions: normalizeRitualCompletions(safeSettings.ritualCompletions ?? load(`${userKey}_ritual_completions`, [])),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -1796,8 +2137,25 @@ export default function App() {
       setTplRaw(nextSettings.templates);
       setJournalActivitiesRaw(nextSettings.journalActivities);
       setMemoryTagsRaw(nextSettings.memoryTags || MEMORY_TAGS);
+      setRitualsRaw(normalizeRituals(nextSettings.rituals));
+      setRitualCompletionsRaw(normalizeRitualCompletions(nextSettings.ritualCompletions));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
+      save(`${userKey}_fs`, nextSettings.fontSize);
+      save(`${userKey}_dm`, Boolean(nextSettings.darkMode));
+      save(`${userKey}_th`, nextSettings.theme);
+      save(`${userKey}_ws`, Number(nextSettings.workStart));
+      save(`${userKey}_we`, Number(nextSettings.workEnd));
+      save(`${userKey}_meal_breaks`, normalizeMealBreaks(nextSettings.mealBreaks));
+      save(`${userKey}_nf`, Boolean(nextSettings.notifs));
+      save(`${userKey}_push_enabled`, Boolean(nextSettings.pushEnabled));
+      save(`${userKey}_tz`, nextSettings.timezone);
+      save(`${userKey}_categories`, normalizeCategories(nextSettings.categories));
+      save(`${userKey}_templates`, nextSettings.templates);
+      save(`${userKey}_journal_activities`, nextSettings.journalActivities);
+      save(`${userKey}_memory_tags`, nextSettings.memoryTags || MEMORY_TAGS);
+      save(`${userKey}_rituals`, normalizeRituals(nextSettings.rituals));
+      save(`${userKey}_ritual_completions`, normalizeRitualCompletions(nextSettings.ritualCompletions));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -1837,6 +2195,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
+          ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -1880,6 +2240,8 @@ export default function App() {
             templates: load(`${userKey}_templates`, DAY_TEMPLATES),
             journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
             memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+            rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
+            ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -1920,6 +2282,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
+          ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -1947,6 +2311,8 @@ export default function App() {
           templates: DAY_TEMPLATES,
           journalActivities: JOURNAL_ACTIVITIES,
           memoryTags: MEMORY_TAGS,
+          rituals: normalizeRituals(DEFAULT_RITUALS),
+          ritualCompletions: [],
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -1980,6 +2346,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
+          ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -2028,6 +2396,8 @@ export default function App() {
     templates,
     journalActivities,
     memoryTags,
+    rituals: normalizeRituals(rituals),
+    ritualCompletions: normalizeRitualCompletions(ritualCompletions),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -2083,6 +2453,8 @@ export default function App() {
         templates: nextSettings?.templates || templates,
         journalActivities: nextSettings?.journalActivities || journalActivities,
         memoryTags: nextSettings?.memoryTags || memoryTags,
+        rituals: normalizeRituals(nextSettings?.rituals || rituals),
+        ritualCompletions: normalizeRitualCompletions(nextSettings?.ritualCompletions || ritualCompletions),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -2112,6 +2484,8 @@ export default function App() {
       setTplRaw(normalizedSettings.templates);
       setJournalActivitiesRaw(normalizedSettings.journalActivities);
       setMemoryTagsRaw(normalizedSettings.memoryTags || MEMORY_TAGS);
+      setRitualsRaw(normalizeRituals(normalizedSettings.rituals));
+      setRitualCompletionsRaw(normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -2136,6 +2510,8 @@ export default function App() {
       save(`${uk}_templates`, normalizedSettings.templates);
       save(`${uk}_journal_activities`, normalizedSettings.journalActivities);
       save(`${uk}_memory_tags`, normalizedSettings.memoryTags || MEMORY_TAGS);
+      save(`${uk}_rituals`, normalizeRituals(normalizedSettings.rituals));
+      save(`${uk}_ritual_completions`, normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -2266,6 +2642,8 @@ export default function App() {
     save(`${uk}_templates`, next.templates);
     save(`${uk}_journal_activities`, next.journalActivities);
     save(`${uk}_memory_tags`, next.memoryTags || MEMORY_TAGS);
+    save(`${uk}_rituals`, normalizeRituals(next.rituals));
+    save(`${uk}_ritual_completions`, normalizeRitualCompletions(next.ritualCompletions));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -2375,6 +2753,82 @@ export default function App() {
     save(`${uk}_memory_tags`, n);
     persistSettings({ memoryTags: n });
   };
+  const setRituals = v => {
+    const n = normalizeRituals(typeof v === "function" ? v(rituals) : v);
+    setRitualsRaw(n);
+    save(`${uk}_rituals`, n);
+    persistSettings({ rituals: n });
+  };
+
+  const setRitualCompletions = v => {
+    const n = normalizeRitualCompletions(typeof v === "function" ? v(ritualCompletions) : v);
+    setRitualCompletionsRaw(n);
+    save(`${uk}_ritual_completions`, n);
+    persistSettings({ ritualCompletions: n });
+  };
+
+  function addRitual(ritual) {
+    const now = new Date().toISOString();
+    const clean = normalizeRitual({ ...ritual, id: ritual.id || "ritual-" + uid(), createdAt: ritual.createdAt || now, updatedAt: now });
+    setRituals(list => [...list, clean]);
+    setToast({ text: `Created ritual “${clean.name}” ✓`, ts: Date.now() });
+  }
+
+  function editRitual(id, patch) {
+    const now = new Date().toISOString();
+    setRituals(list => list.map(r => r.id === id ? normalizeRitual({ ...r, ...patch, id, updatedAt: now }) : r));
+    setToast({ text: "Ritual updated ✓", ts: Date.now() });
+  }
+
+  function archiveRitual(ritual, archived = true) {
+    if (!ritual?.id) return;
+    editRitual(ritual.id, { archived: Boolean(archived) });
+    setToast({ text: archived ? "Ritual archived ✓" : "Ritual restored ✓", ts: Date.now() });
+  }
+
+  function deleteRitual(ritual) {
+    if (!ritual?.id) return;
+    if (!window.confirm(`Delete ritual "${ritual.name}"? Past check-ins will stay in your history.`)) return;
+    const now = new Date().toISOString();
+    const nextDeletedRecords = addDeletedRecords(deletedRecords, "rituals", ritual.id, now);
+    setDeletedRecordsRaw(nextDeletedRecords);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    setRitualsRaw(rituals.filter(r => r.id !== ritual.id));
+    save(`${uk}_rituals`, rituals.filter(r => r.id !== ritual.id));
+    persistSettings({ rituals: rituals.filter(r => r.id !== ritual.id), deletedRecords: nextDeletedRecords });
+    setToast({ text: "Ritual deleted ✓", ts: Date.now() });
+  }
+
+  function upsertRitualCompletion(ritual, updater) {
+    const today = dateKey(TODAY);
+    const now = new Date().toISOString();
+    setRitualCompletions(list => {
+      const cleanList = normalizeRitualCompletions(list);
+      const existing = cleanList.find(c => c.ritualId === ritual.id && c.date === today);
+      const base = existing || { id: `${ritual.id}:${today}`, ritualId: ritual.id, date: today, completedSteps: [], completedAt: null, skippedAt: null, note: "", createdAt: now, updatedAt: now };
+      const next = normalizeRitualCompletion({ ...updater(base), updatedAt: now });
+      return existing ? cleanList.map(c => c.id === existing.id ? next : c) : [...cleanList, next];
+    });
+  }
+
+  function toggleRitualStep(ritual, stepId) {
+    upsertRitualCompletion(ritual, current => {
+      const set = new Set(current.completedSteps || []);
+      if (set.has(stepId)) set.delete(stepId); else set.add(stepId);
+      const completedSteps = [...set];
+      const allDone = ritual.steps.every(step => completedSteps.includes(step.id));
+      return { ...current, completedSteps, skippedAt: null, completedAt: allDone ? (current.completedAt || new Date().toISOString()) : null };
+    });
+  }
+
+  function skipRitualToday(ritual) {
+    upsertRitualCompletion(ritual, current => current.skippedAt ? { ...current, skippedAt: null } : { ...current, skippedAt: new Date().toISOString(), completedAt: null });
+  }
+
+  function completeRitualToday(ritual) {
+    upsertRitualCompletion(ritual, current => ({ ...current, completedSteps: ritual.steps.map(s => s.id), skippedAt: null, completedAt: current.completedAt || new Date().toISOString() }));
+  }
+
   function addJournalActivity(label, group = "Custom", emoji = "✨") {
     const activity = { id: createCategoryId(label) + "-" + uid(), emoji, label, group };
     setJournalActivities(a => [...a, activity]);
@@ -2525,12 +2979,31 @@ export default function App() {
     persistSettings({ theme: v });
   };
 
-  // Recurrence scope modal state
+  // App modal states for confirmations and recurrence choices.
   const [recurringPrompt, setRecurringPrompt] = useState(null); // { resolve, action }
+  const [eventConflictPrompt, setEventConflictPrompt] = useState(null); // { resolve, action, conflicts }
+  const [recurringTaskPrompt, setRecurringTaskPrompt] = useState(null); // { resolve, task }
+  const [taskReschedulePrompt, setTaskReschedulePrompt] = useState(null); // { resolve, task, defaultDate }
 
   function chooseRecurrenceScope(action) {
     return new Promise(resolve => {
       setRecurringPrompt({ resolve, action });
+    });
+  }
+
+  function chooseRecurringTaskAction(task) {
+    return new Promise(resolve => {
+      setRecurringTaskPrompt({ resolve, task });
+    });
+  }
+
+  function chooseTaskRescheduleDate(task) {
+    return new Promise(resolve => {
+      setTaskReschedulePrompt({
+        resolve,
+        task,
+        defaultDate: dateKey(addDaysSafe(taskAnchorDate(task, TODAY), 1)),
+      });
     });
   }
 
@@ -2550,6 +3023,99 @@ export default function App() {
             <button className="tf-save" style={{ width: "100%", marginBottom: 0 }} onClick={() => pick("single")}>This event only</button>
             <button className="tf-cancel" style={{ width: "100%", marginBottom: 0 }} onClick={() => pick("following")}>This and following events</button>
             <button className="tf-cancel" style={{ width: "100%", marginBottom: 0 }} onClick={() => pick("all")}>All events in series</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  function EventConflictModal() {
+    if (!eventConflictPrompt) return null;
+    const pick = ok => {
+      setEventConflictPrompt(null);
+      eventConflictPrompt.resolve(Boolean(ok));
+    };
+    return (
+      <div className="modal-overlay" onClick={() => pick(false)} role="dialog" aria-modal="true" aria-label="Event overlap warning">
+        <div className="modal app-choice-modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <span style={{ fontWeight: 800 }}>⚠️ Event overlap</span>
+            <button className="modal-close" onClick={() => pick(false)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <div className="choice-modal-copy">{eventConflictPrompt.action || "This event"} overlaps with:</div>
+            <div className="overlap-list">
+              {(eventConflictPrompt.conflicts || []).map(e => (
+                <div key={e.id} className="overlap-item">
+                  <strong>{e.title}</strong>
+                  <span>{fmt(e.start)}–{fmt(e.end)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="choice-modal-copy">Place it anyway?</div>
+          </div>
+          <div className="modal-footer">
+            <button className="tf-cancel" onClick={() => pick(false)}>Cancel</button>
+            <button className="tf-save" onClick={() => pick(true)}>Place anyway</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function RecurringTaskScopeModal() {
+    if (!recurringTaskPrompt) return null;
+    const task = recurringTaskPrompt.task || {};
+    const pick = choice => {
+      setRecurringTaskPrompt(null);
+      recurringTaskPrompt.resolve(choice);
+    };
+    return (
+      <div className="modal-overlay" onClick={() => pick(null)} role="dialog" aria-modal="true" aria-label="Recurring task options">
+        <div className="modal app-choice-modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <span style={{ fontWeight: 800 }}>🔄 Recurring task</span>
+            <button className="modal-close" onClick={() => pick(null)}>✕</button>
+          </div>
+          <div className="modal-body" style={{ gap: 8 }}>
+            <div className="choice-modal-copy"><strong>{task.title}</strong><br/>Choose how to apply this action.</div>
+            <button className="choice-row" onClick={() => pick("single")}><strong>This task only</strong><span>Delete or skip only this occurrence.</span></button>
+            <button className="choice-row" onClick={() => pick("future")}><strong>This and future tasks</strong><span>Keep earlier tasks and stop the series from here.</span></button>
+            <button className="choice-row" onClick={() => pick("series")}><strong>Entire recurring series</strong><span>Remove the root task and generated tasks.</span></button>
+            <button className="choice-row" onClick={() => pick("skip")}><strong>Skip this occurrence</strong><span>Hide this occurrence but keep the series going.</span></button>
+            <button className="choice-row" onClick={() => pick("reschedule")}><strong>Reschedule this occurrence</strong><span>Move this task to another date.</span></button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function TaskRescheduleDateModal() {
+    const [draftDate, setDraftDate] = useState(taskReschedulePrompt?.defaultDate || dateKey(TODAY));
+    useEffect(() => {
+      if (taskReschedulePrompt?.defaultDate) setDraftDate(taskReschedulePrompt.defaultDate);
+    }, [taskReschedulePrompt?.defaultDate]);
+    if (!taskReschedulePrompt) return null;
+    const task = taskReschedulePrompt.task || {};
+    const pick = date => {
+      setTaskReschedulePrompt(null);
+      taskReschedulePrompt.resolve(date);
+    };
+    return (
+      <div className="modal-overlay" onClick={() => pick(null)} role="dialog" aria-modal="true" aria-label="Reschedule recurring task">
+        <div className="modal app-choice-modal" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <span style={{ fontWeight: 800 }}>📅 Reschedule task</span>
+            <button className="modal-close" onClick={() => pick(null)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <div className="choice-modal-copy"><strong>{task.title}</strong><br/>Choose the new date for this occurrence.</div>
+            <input type="date" className="modal-select" value={draftDate} onChange={e => setDraftDate(e.target.value)} />
+          </div>
+          <div className="modal-footer">
+            <button className="tf-cancel" onClick={() => pick(null)}>Cancel</button>
+            <button className="tf-save" onClick={() => pick(draftDate)}>Move task</button>
           </div>
         </div>
       </div>
@@ -2590,15 +3156,16 @@ export default function App() {
   }
   function confirmEventPlacement(candidate, skipId = null, action = "Place event") {
     const conflicts = eventConflictsFor(candidate, skipId);
-    if (!conflicts.length) return true;
-    const lines = conflicts.map(e => `• ${e.title}, ${fmt(e.start)}–${fmt(e.end)}`).join("\n");
-    return window.confirm(`${action} overlaps with:\n${lines}\n\nPlace anyway?`);
+    if (!conflicts.length) return Promise.resolve(true);
+    return new Promise(resolve => {
+      setEventConflictPrompt({ resolve, action, conflicts });
+    });
   }
   function moveTaskToPeriod(id, scope, anchorDate) {
     pushUndo();
     setTasks(ts => ts.map(t => t.id === id ? touchRecord(withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate)) : t));
   }
-  function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !confirmEventPlacement(ev, ev.id, "Add event")) return false; pushUndo(); setEvents(es => [...es, touchRecord(ev, { createdAt: ev.createdAt || new Date().toISOString() })]); return true; }
+  async function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !(await confirmEventPlacement(ev, ev.id, "Add event"))) return false; pushUndo(); setEvents(es => [...es, touchRecord(ev, { createdAt: ev.createdAt || new Date().toISOString() })]); return true; }
 
 
   function taskCalendarFor(task) {
@@ -2835,18 +3402,18 @@ export default function App() {
     };
   }
 
-  function pasteCopiedEvent(targetDate, options = {}) {
+  async function pasteCopiedEvent(targetDate, options = {}) {
     const ev = buildPastedEvent(targetDate, options);
     if (!ev) return false;
-    if (!confirmEventPlacement(ev, ev.id, "Paste event")) return false;
-    addEvent(ev, { skipConflictCheck: true });
+    if (!(await confirmEventPlacement(ev, ev.id, "Paste event"))) return false;
+    await addEvent(ev, { skipConflictCheck: true });
     setToast({ text: `Copied event pasted to ${fmt(ev.start)} ✓`, ts: Date.now() });
     return true;
   }
 
-  function handleCalendarSlotClick(date, options = {}) {
+  async function handleCalendarSlotClick(date, options = {}) {
     if (copiedEvent) {
-      pasteCopiedEvent(date, options);
+      await pasteCopiedEvent(date, options);
       return;
     }
     setQuickAddDate(date);
@@ -2856,7 +3423,7 @@ export default function App() {
     const baseId = getBaseEventId(id);
     const base = events.find(e => e.id === baseId);
     if (!base) return;
-    if (!confirmEventPlacement({ ...base, id: baseId, start: ns, end: ne }, baseId, "Move event")) return;
+    if (!(await confirmEventPlacement({ ...base, id: baseId, start: ns, end: ne }, baseId, "Move event"))) return;
     const occurrenceDate = String(id).includes("_r_") ? id.split("_r_")[1] : dateKey(base.start);
     const needsScope = isRecurringEvent(base);
     const scope = needsScope ? await chooseRecurrenceScope("Move") : "all";
@@ -2875,7 +3442,8 @@ export default function App() {
   async function saveEvent(ev) {
     const baseId = getBaseEventId(ev.id);
     const base = events.find(e => e.id === baseId);
-    if (!base) return;
+    if (!base) return false;
+    if (!(await confirmEventPlacement({ ...stripOccurrenceMeta(ev), id: baseId }, baseId, "Edit event"))) return false;
     const needsScope = isOccurrence(ev) || isRecurringEvent(base);
     const scope = needsScope ? await chooseRecurrenceScope("Edit") : "all";
     const occurrenceDate = ev._occurrenceDate || String(ev.id).split("_r_")[1] || dateKey(ev.start);
@@ -2890,6 +3458,7 @@ export default function App() {
       }
       return es.map(e => e.id === baseId ? touchRecord(modifySingleOccurrence(e, new Date(occurrenceDate), touchRecord(ev))) : e);
     });
+    return true;
   }
 
   function persistDeletedRecords(kind, ids, timestamp = new Date().toISOString()) {
@@ -2964,24 +3533,20 @@ export default function App() {
     return dayStart(d).getTime();
   }
 
-  function recurringTaskActionChoice(task) {
+  async function recurringTaskActionChoice(task) {
     if (!task?.recurrence && !task?.parentTaskId) return "series";
-    const raw = window.prompt(
-      `Recurring task: ${task.title}\n\nChoose an option:\n1 = Delete/skip this task only\n2 = Delete this and future tasks\n3 = Delete entire recurring series\n4 = Skip this occurrence\n5 = Reschedule this occurrence only`,
-      "1"
-    );
-    return ({ "1": "single", "2": "future", "3": "series", "4": "skip", "5": "reschedule" })[String(raw || "").trim()] || null;
+    return chooseRecurringTaskAction(task);
   }
 
-  function deleteTask(id) {
+  async function deleteTask(id) {
     const target = tasks.find(t => t.id === id);
     if (!target) return;
     const isRecurringTask = Boolean(target.recurrence || target.parentTaskId);
-    const choice = isRecurringTask ? recurringTaskActionChoice(target) : "series";
+    const choice = isRecurringTask ? await recurringTaskActionChoice(target) : "series";
     if (!choice) return;
 
     if (choice === "reschedule") {
-      const rawDate = window.prompt("Move this occurrence to which date? Use YYYY-MM-DD.", dateKey(addDaysSafe(taskAnchorDate(target, TODAY), 1)));
+      const rawDate = await chooseTaskRescheduleDate(target);
       const nextDate = localDateFromKey(rawDate);
       if (!nextDate) return;
       pushUndo();
@@ -3208,6 +3773,7 @@ export default function App() {
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
   .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.planning-rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.planning-rule-grid label{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:space-between}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
   @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}.planning-rule-grid{grid-template-columns:1fr}}
+  .ritual-modal{max-width:720px;width:min(94vw,720px);}.ritual-modal .modal-body{max-height:72vh;overflow:auto;}.ritual-form-title-row{display:grid;grid-template-columns:74px 1fr;gap:10px;}.ritual-emoji-input{text-align:center;font-size:28px;padding:8px!important;}.modal-row-full{align-items:start!important}.ritual-weekday-picker{justify-content:flex-start;}.ritual-steps-editor{background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:12px;}.ritual-step-edit-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;margin-top:8px;}.ritual-step-edit-row>span{height:28px;width:28px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--text3)}.ritual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ritual-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-left:5px solid var(--ritual-color);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.ritual-complete{border-left-color:#70C8A0}.ritual-skipped{opacity:.68}.ritual-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.ritual-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.ritual-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.ritual-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-edit-btn{padding:5px 9px!important;margin:0!important}.ritual-progress-track{height:7px;border-radius:999px;background:var(--border);overflow:hidden}.ritual-progress-track i{display:block;height:100%;border-radius:999px;background:var(--ritual-color);transition:width .2s ease}.ritual-progress-label{font-size:11px;font-weight:900;color:var(--text2)}.ritual-step-list{display:flex;flex-direction:column;gap:6px}.ritual-step{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:850;color:var(--text);cursor:pointer}.ritual-step input{accent-color:var(--accent)}.ritual-step.checked span{text-decoration:line-through;color:var(--text3)}.ritual-more{font-size:11px;font-weight:900;color:var(--text3);padding-left:4px}.ritual-card-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.ritual-list-compact{display:flex;flex-direction:column;gap:8px}.ritual-list-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.ritual-list-emoji{width:42px;height:42px;border-radius:14px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:23px}.ritual-list-row strong{display:block;font-size:13px;color:var(--text)}.ritual-list-row small{display:block;font-size:11px;color:var(--text2);font-weight:850;margin-top:2px}.today-ritual-stack{display:flex;flex-direction:column;gap:10px}.today-ritual-stack .ritual-card{box-shadow:none;border-radius:18px;padding:12px}.today-ritual-stack .ritual-title-wrap h3{font-size:14px}.today-ritual-stack .ritual-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.today-ritual-stack .ritual-step{padding:7px 8px;font-size:11px}.ritual-section-card{width:min(100%,1080px)}@media(max-width:900px){.ritual-grid{grid-template-columns:1fr}}@media(max-width:560px){.ritual-form-title-row{grid-template-columns:58px 1fr}.ritual-list-row{grid-template-columns:38px 1fr}.ritual-list-row button{grid-column:2}.ritual-card-top{flex-direction:column}.ritual-modal .modal-actions{flex-wrap:wrap}.ritual-steps-editor .phase-card-head{align-items:flex-start;flex-direction:column}}
   .phase-page{height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px;background:var(--bg);}.phase-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow-sm);}.phase-kicker{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:4px;}.phase-hero h1{font-size:30px;line-height:1.05;margin:0 0 6px;color:var(--text);}.phase-hero p,.phase-copy{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.55;}.phase-primary{white-space:nowrap;}.phase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}.phase-summary-grid button{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:14px 12px;text-align:left;cursor:pointer;box-shadow:var(--shadow-sm);font-family:var(--font);}.phase-summary-grid strong{display:block;color:var(--accent);font-size:24px;line-height:1;font-weight:900;}.phase-summary-grid span{font-size:11px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}.phase-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow-sm);}.phase-wide-card{max-width:900px;}.phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}.phase-card-head span{font-size:15px;font-weight:900;color:var(--text);}.phase-card-head button{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer;}.phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}.phase-list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px;font-weight:850;color:var(--text);}.phase-list-row:first-child{border-top:0;}.phase-list-row small{color:var(--text3);font-weight:900;white-space:nowrap;}.phase-empty{font-size:13px;font-weight:800;color:var(--text2);line-height:1.5;background:var(--bg3);border:1px dashed var(--border);border-radius:16px;padding:14px;}.phase-placeholder-card{opacity:.92;}.phase-bullet-list{display:flex;flex-direction:column;}.coming-soon-page .phase-wide-card{width:min(720px,100%);}@media(max-width:768px){.phase-page{padding:14px 12px 90px;}.phase-hero{align-items:flex-start;flex-direction:column;border-radius:22px;padding:18px;}.phase-hero h1{font-size:24px;}.phase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.phase-grid-two{grid-template-columns:1fr;}.phase-card{border-radius:18px;padding:14px;}}.reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
@@ -3268,7 +3834,7 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={visibleEvents} tasks={tasks} journal={journal} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} />
+            <TodayLitePage summary={dailyStartupSummary} events={visibleEvents} tasks={tasks} journal={journal} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenRituals={() => setPage("rituals")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
@@ -3276,7 +3842,7 @@ export default function App() {
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
           ) : page === "rituals" ? (
-            <ComingSoonPage icon="🕯️" title="Rituals" phase="Next phase" description="Rituals will become the soft routine space for Morning Reset, Night Wind Down, and Weekly Planning." bullets={["Create ritual checklists", "Set repeat days and reminders", "Complete or skip today’s ritual", "Show ritual progress on Today"]} />
+            <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
             <ComingSoonPage icon="🌱" title="Habits" phase="Later phase" description="Habits will help users build consistency with simple daily check-ins and weekly streaks." bullets={["Daily habit checklist", "Weekly habit grid", "Gentle streaks", "Habit reminder defaults"]} />
           ) : page === "affirmations" ? (
@@ -3390,9 +3956,12 @@ export default function App() {
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
-      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
+      <EventConflictModal />
+      <RecurringTaskScopeModal />
+      <TaskRescheduleDateModal />
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
