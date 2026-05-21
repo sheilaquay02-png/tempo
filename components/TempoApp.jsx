@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
-import { LoginScreen, useAuth, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
+import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { LevelBar, BloomRoomPage } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
@@ -267,6 +267,49 @@ const DEFAULT_MEAL_BREAKS = [
   { id: "dinner", label: "Dinner", start: "18:00", end: "19:00", enabled: true },
 ];
 
+const DEFAULT_PLANNING_RULES = {
+  bufferMinutes: 10,
+  maxPlanMinutes: 300,
+  maxDeepWorkBlocks: 3,
+  afterMealBufferMinutes: 15,
+};
+
+function normalizePlanningRules(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const clamp = (v, min, max, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fb;
+  };
+  return {
+    bufferMinutes: clamp(source.bufferMinutes, 0, 60, DEFAULT_PLANNING_RULES.bufferMinutes),
+    maxPlanMinutes: clamp(source.maxPlanMinutes, 30, 720, DEFAULT_PLANNING_RULES.maxPlanMinutes),
+    maxDeepWorkBlocks: clamp(source.maxDeepWorkBlocks, 0, 12, DEFAULT_PLANNING_RULES.maxDeepWorkBlocks),
+    afterMealBufferMinutes: clamp(source.afterMealBufferMinutes, 0, 90, DEFAULT_PLANNING_RULES.afterMealBufferMinutes),
+  };
+}
+
+function normalizeSettingsUpdatedAt(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeDeletedRecords(value) {
+  const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
+  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks) };
+}
+
+function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
+  const current = normalizeDeletedRecords(records);
+  const next = { events: { ...current.events }, tasks: { ...current.tasks } };
+  const bucket = kind === "tasks" ? "tasks" : "events";
+  (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
+  return next;
+}
+
+function filterActiveRecords(records) {
+  return Array.isArray(records) ? records.filter(r => !r?.deletedAt) : [];
+}
+
 function validTimeString(value, fallback = "00:00") {
   return /^\d{2}:\d{2}$/.test(String(value || "")) ? value : fallback;
 }
@@ -294,7 +337,7 @@ function normalizeMealBreaks(value) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, focusStart, setFocusStart, focusEnd, setFocusEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
@@ -317,6 +360,9 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
   function removeCategory(id) { if (categories.length <= 1) return; setCategories(cs => cs.filter(c => c.id !== id)); }
   function updateMealBreak(id, patch) {
     setMealBreaks(bs => normalizeMealBreaks(bs).map(b => b.id === id ? normalizeMealBreaks([{ ...b, ...patch }])[0] : b));
+  }
+  function updatePlanningRules(patch) {
+    setPlanningRules(rules => normalizePlanningRules({ ...rules, ...patch }));
   }
 
   // Common timezones list
@@ -1320,7 +1366,7 @@ function hourLabel(hour) {
   return `${display}${h < 12 ? "am" : "pm"}`;
 }
 
-function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19 }) {
+function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19, focusStart = workStart, focusEnd = workEnd }) {
   const [mode, setMode] = useState("today");
   const [focusOnly, setFocusOnly] = useState(false);
   return (
@@ -1329,7 +1375,7 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
         <div className="modal-header"><div><strong>📅 Schedule this task</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{task?.title}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="modal-row"><label>Find slot</label><select className="modal-select" value={mode} onChange={e => setMode(e.target.value)}><option value="today">Today</option><option value="week">This week</option><option value="deadline">Before deadline</option></select></div>
-          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{hourLabel(workStart)}–{hourLabel(workEnd)} from your Work Hours setting</span></div>
+          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{hourLabel(focusStart)}–{hourLabel(focusEnd)} from your Focus Hours setting</span></div>
         </div>
         <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={() => onSchedule(mode, focusOnly)}>Schedule task</button></div>
       </div>
@@ -1337,7 +1383,7 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
   );
 }
 
-function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREAKS }) {
+function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
   if (!plan) return null;
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan my day">
@@ -1345,7 +1391,7 @@ function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREA
         <div className="modal-header"><div><strong>✨ Plan My Day</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
-          <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}</div>
+          <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}. Buffer: {normalizePlanningRules(planningRules).bufferMinutes} min. Capacity: {normalizePlanningRules(planningRules).maxPlanMinutes} min.</div>
           {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
           {plan.unscheduled.length > 0 && <div className="plan-warning">Could not fit: {plan.unscheduled.map(t => t.title).join(", ")}</div>}
         </div>
@@ -1545,7 +1591,12 @@ export default function App() {
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
   const [workStart, setWSRaw]       = useState(() => load(`${uk}_ws`, 9));
   const [workEnd,   setWERaw]       = useState(() => load(`${uk}_we`, 19));
+  const [focusStart, setFocusStartRaw] = useState(() => load(`${uk}_focus_start`, load(`${uk}_ws`, 9)));
+  const [focusEnd,   setFocusEndRaw]   = useState(() => load(`${uk}_focus_end`, load(`${uk}_we`, 19)));
   const [mealBreaks, setMealBreaksRaw] = useState(() => normalizeMealBreaks(load(`${uk}_meal_breaks`, DEFAULT_MEAL_BREAKS)));
+  const [planningRules, setPlanningRulesRaw] = useState(() => normalizePlanningRules(load(`${uk}_planning_rules`, DEFAULT_PLANNING_RULES)));
+  const [settingsUpdatedAt, setSettingsUpdatedAtRaw] = useState(() => normalizeSettingsUpdatedAt(load(`${uk}_settings_updated_at`, {})));
+  const [deletedRecords, setDeletedRecordsRaw] = useState(() => normalizeDeletedRecords(load(`${uk}_deleted_records`, {})));
   const [timezone,   setTzRaw]        = useState(() => load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone));
   const [theme,     setThRaw]       = useState(() => load(`${uk}_th`, "tempo"));
   const [undoStack, setUndo]        = useState([]);
@@ -1572,6 +1623,7 @@ export default function App() {
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
   const cloudQueueRef = useRef(Promise.resolve());
+  const lastRealtimeSyncRef = useRef(0);
   const [focusMode,    setFocusMode]    = useState(false);
   const [dataReady,    setDataReady]    = useState(false);
   const [loadedUserId, setLoadedUserId] = useState(null);
@@ -1665,7 +1717,12 @@ export default function App() {
         theme: safeSettings.theme ?? load(`${userKey}_th`, "tempo"),
         workStart: safeSettings.workStart ?? load(`${userKey}_ws`, 9),
         workEnd: safeSettings.workEnd ?? load(`${userKey}_we`, 19),
+        focusStart: safeSettings.focusStart ?? load(`${userKey}_focus_start`, safeSettings.workStart ?? load(`${userKey}_ws`, 9)),
+        focusEnd: safeSettings.focusEnd ?? load(`${userKey}_focus_end`, safeSettings.workEnd ?? load(`${userKey}_we`, 19)),
         mealBreaks: normalizeMealBreaks(safeSettings.mealBreaks ?? load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
+        planningRules: normalizePlanningRules(safeSettings.planningRules ?? load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
+        settingsUpdatedAt: normalizeSettingsUpdatedAt(safeSettings.settingsUpdatedAt ?? load(`${userKey}_settings_updated_at`, {})),
+        deletedRecords: normalizeDeletedRecords(safeSettings.deletedRecords ?? load(`${userKey}_deleted_records`, {})),
         notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
         pushEnabled: safeSettings.pushEnabled ?? load(`${userKey}_push_enabled`, false),
         timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1682,7 +1739,12 @@ export default function App() {
       setThRaw(nextSettings.theme);
       setWSRaw(Number(nextSettings.workStart));
       setWERaw(Number(nextSettings.workEnd));
+      setFocusStartRaw(Number(nextSettings.focusStart ?? nextSettings.workStart));
+      setFocusEndRaw(Number(nextSettings.focusEnd ?? nextSettings.workEnd));
       setMealBreaksRaw(normalizeMealBreaks(nextSettings.mealBreaks));
+      setPlanningRulesRaw(normalizePlanningRules(nextSettings.planningRules));
+      setSettingsUpdatedAtRaw(normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
+      setDeletedRecordsRaw(normalizeDeletedRecords(nextSettings.deletedRecords));
       setNfRaw(Boolean(nextSettings.notifs));
       setPushEnabledRaw(Boolean(nextSettings.pushEnabled));
       setTzRaw(nextSettings.timezone);
@@ -1693,6 +1755,11 @@ export default function App() {
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
+      save(`${userKey}_focus_start`, nextSettings.focusStart ?? nextSettings.workStart);
+      save(`${userKey}_focus_end`, nextSettings.focusEnd ?? nextSettings.workEnd);
+      save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
+      save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
+      save(`${userKey}_deleted_records`, normalizeDeletedRecords(nextSettings.deletedRecords));
       saveJournalLocal(userKey, userId, nextSettings.journal || {});
       setWorkHoursCtx(Number(nextSettings.workStart), Number(nextSettings.workEnd));
       setStreak(computeAndSaveStreak(userKey));
@@ -1713,7 +1780,12 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
+          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
+          planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
+          settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
+          deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1751,7 +1823,12 @@ export default function App() {
             theme: load(`${userKey}_th`, "tempo"),
             workStart: load(`${userKey}_ws`, 9),
             workEnd: load(`${userKey}_we`, 19),
+            focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
+            focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
             mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
+            planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
+            settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
+            deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
             notifs: load(`${userKey}_nf`, false),
             pushEnabled: load(`${userKey}_push_enabled`, false),
             timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1785,7 +1862,12 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
+          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
+          planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
+          settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
+          deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1807,7 +1889,12 @@ export default function App() {
           theme: "tempo",
           workStart: 9,
           workEnd: 19,
+          focusStart: 9,
+          focusEnd: 19,
           mealBreaks: normalizeMealBreaks(DEFAULT_MEAL_BREAKS),
+          planningRules: normalizePlanningRules(DEFAULT_PLANNING_RULES),
+          settingsUpdatedAt: {},
+          deletedRecords: normalizeDeletedRecords({}),
           notifs: false,
           pushEnabled: false,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1835,7 +1922,12 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
+          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
+          planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
+          settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
+          deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1866,7 +1958,12 @@ export default function App() {
     theme,
     workStart,
     workEnd,
+    focusStart,
+    focusEnd,
     mealBreaks: normalizeMealBreaks(mealBreaks),
+    planningRules: normalizePlanningRules(planningRules),
+    settingsUpdatedAt: normalizeSettingsUpdatedAt(settingsUpdatedAt),
+    deletedRecords: normalizeDeletedRecords(deletedRecords),
     notifs,
     pushEnabled,
     timezone,
@@ -1913,11 +2010,10 @@ export default function App() {
       const cloud = await loadFromCloud(auth.user.id);
       const localUpdatedAt = load(`${uk}_updated_at`, null);
       const cloudUpdatedAt = cloud?.updated_at ?? null;
-      const cloudIsNewer = cloudUpdatedAt && (!localUpdatedAt || new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime() + 1000);
       const localSnapshot = { events, tasks, settings: currentSettings(), updated_at: localUpdatedAt };
-      // If cloud is newer than this device, treat cloud as the source of truth.
-      // Otherwise, do a two-way merge so unsaved local additions are preserved.
-      const merged = cloud ? (cloudIsNewer ? cloud : mergeTempoData(cloud, localSnapshot)) : localSnapshot;
+      // Always run the conflict-safe merge so delete tombstones and field-level settings timestamps
+      // are respected across desktop, browser, and PWA sessions.
+      const merged = cloud ? mergeTempoData(cloud, localSnapshot) : localSnapshot;
       const nextSettings = merged.settings;
       const nextEvents = reviveEvents(merged.events || []);
       const nextTasks = normalizeTasks(merged.tasks || []);
@@ -1928,7 +2024,12 @@ export default function App() {
         templates: nextSettings?.templates || templates,
         journalActivities: nextSettings?.journalActivities || journalActivities,
         memoryTags: nextSettings?.memoryTags || memoryTags,
+        focusStart: Number(nextSettings?.focusStart ?? focusStart ?? workStart),
+        focusEnd: Number(nextSettings?.focusEnd ?? focusEnd ?? workEnd),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
+        planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
+        settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
+        deletedRecords: normalizeDeletedRecords(nextSettings?.deletedRecords || deletedRecords),
         journal: nextSettings?.journal || journal,
       };
 
@@ -1939,7 +2040,12 @@ export default function App() {
       setThRaw(normalizedSettings.theme || theme);
       setWSRaw(Number(normalizedSettings.workStart ?? workStart));
       setWERaw(Number(normalizedSettings.workEnd ?? workEnd));
+      setFocusStartRaw(Number(normalizedSettings.focusStart ?? normalizedSettings.workStart ?? workStart));
+      setFocusEndRaw(Number(normalizedSettings.focusEnd ?? normalizedSettings.workEnd ?? workEnd));
       setMealBreaksRaw(normalizedSettings.mealBreaks);
+      setPlanningRulesRaw(normalizedSettings.planningRules);
+      setSettingsUpdatedAtRaw(normalizedSettings.settingsUpdatedAt);
+      setDeletedRecordsRaw(normalizedSettings.deletedRecords);
       setNfRaw(Boolean(normalizedSettings.notifs));
       setPushEnabledRaw(Boolean(normalizedSettings.pushEnabled));
       setTzRaw(normalizedSettings.timezone || timezone);
@@ -1958,7 +2064,12 @@ export default function App() {
       save(`${uk}_th`, normalizedSettings.theme);
       save(`${uk}_ws`, normalizedSettings.workStart);
       save(`${uk}_we`, normalizedSettings.workEnd);
+      save(`${uk}_focus_start`, normalizedSettings.focusStart);
+      save(`${uk}_focus_end`, normalizedSettings.focusEnd);
       save(`${uk}_meal_breaks`, normalizedSettings.mealBreaks);
+      save(`${uk}_planning_rules`, normalizedSettings.planningRules);
+      save(`${uk}_settings_updated_at`, normalizedSettings.settingsUpdatedAt);
+      save(`${uk}_deleted_records`, normalizedSettings.deletedRecords);
       save(`${uk}_nf`, normalizedSettings.notifs);
       save(`${uk}_push_enabled`, Boolean(normalizedSettings.pushEnabled));
       save(`${uk}_tz`, normalizedSettings.timezone);
@@ -1971,9 +2082,11 @@ export default function App() {
 
       const stampedAt = new Date().toISOString();
       save(`${uk}_updated_at`, stampedAt);
-      const ok = await saveToCloud(auth.user.id, nextEvents, nextTasks, normalizedSettings);
-      if (!ok) throw new Error("Cloud save failed after merge");
-      setSyncStatus({ status: "saved", message: "Force synced just now", lastError: "" });
+      if (!options.skipCloudSave) {
+        const ok = await saveToCloud(auth.user.id, nextEvents, nextTasks, normalizedSettings);
+        if (!ok) throw new Error("Cloud save failed after merge");
+      }
+      setSyncStatus({ status: "saved", message: options.silent ? "Updated from cloud" : "Force synced just now", lastError: "" });
       if (!options.silent) setToast({ text: "Synced with cloud ✓", ts: Date.now() });
       return true;
     } catch (err) {
@@ -1983,6 +2096,48 @@ export default function App() {
       return false;
     }
   }
+
+
+  useEffect(() => {
+    if (!auth.user?.id || !dataReady) return;
+    let cancelled = false;
+    let channel = null;
+    const pullLatest = (reason = "cloud") => {
+      const now = Date.now();
+      if (now - lastRealtimeSyncRef.current < 2500) return;
+      lastRealtimeSyncRef.current = now;
+      forceSyncNow({ silent: true, skipCloudSave: reason === "realtime" }).catch(() => {});
+    };
+
+    getSupabase().then(sb => {
+      if (cancelled) return;
+      channel = sb
+        .channel(`tempo-user-data-${auth.user.id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "user_data", filter: `user_id=eq.${auth.user.id}` }, payload => {
+          const cloudUpdatedAt = payload?.new?.updated_at;
+          const localUpdatedAt = load(`${uk}_updated_at`, null);
+          const cloudTime = cloudUpdatedAt ? new Date(cloudUpdatedAt).getTime() : 0;
+          const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
+          if (cloudTime && cloudTime <= localTime + 1000) return;
+          pullLatest("realtime");
+        })
+        .subscribe();
+    }).catch(() => {});
+
+    const onFocus = () => pullLatest("focus");
+    const onOnline = () => pullLatest("online");
+    const onVisibility = () => { if (document.visibilityState === "visible") pullLatest("visible"); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      try { channel?.unsubscribe?.(); } catch {}
+    };
+  }, [auth.user?.id, dataReady, uk]);
 
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
@@ -2004,15 +2159,18 @@ export default function App() {
 
   const setEvents   = v => { const n = reviveEvents(typeof v === "function" ? v(events) : v); setEvRaw(n); syncEvents(n, tasks); };
   const setTasks    = v => { const n = normalizeTasks(typeof v === "function" ? v(tasks)  : v); setTkRaw(n); syncTasks(n, events); };
-  const setEventsAndTasks = (nextEvents, nextTasks) => {
+  const setEventsAndTasks = (nextEvents, nextTasks, settingsOverride = {}) => {
     const evs = reviveEvents(nextEvents);
     const tks = normalizeTasks(nextTasks);
+    const nextSettings = currentSettings(settingsOverride);
     setEvRaw(evs);
     setTkRaw(tks);
     save(`${uk}_ev`, evs);
     save(`${uk}_tk`, tks);
+    if (settingsOverride.deletedRecords) save(`${uk}_deleted_records`, normalizeDeletedRecords(settingsOverride.deletedRecords));
+    if (settingsOverride.settingsUpdatedAt) save(`${uk}_settings_updated_at`, normalizeSettingsUpdatedAt(settingsOverride.settingsUpdatedAt));
     save(`${uk}_updated_at`, new Date().toISOString());
-    if (auth.user && dataReady) queueCloudSave(evs, tks, currentSettings());
+    if (auth.user && dataReady) queueCloudSave(evs, tks, nextSettings);
   };
   useEffect(() => {
     if (!dataReady) return;
@@ -2020,14 +2178,27 @@ export default function App() {
     if (next !== tasks) setTasks(next);
   }, [dataReady, taskScope, taskPeriodDate, tasks]);
   const persistSettings = overrides => {
-    const next = currentSettings(overrides);
+    const touchedAt = new Date().toISOString();
+    const touchedKeys = Object.keys(overrides || {}).filter(k => k !== "settingsUpdatedAt");
+    const nextSettingsUpdatedAt = normalizeSettingsUpdatedAt({
+      ...settingsUpdatedAt,
+      ...(overrides?.settingsUpdatedAt || {}),
+      ...Object.fromEntries(touchedKeys.map(k => [k, touchedAt])),
+    });
+    const next = currentSettings({ ...overrides, settingsUpdatedAt: nextSettingsUpdatedAt });
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
 
     save(`${uk}_fs`, next.fontSize);
     save(`${uk}_dm`, next.darkMode);
     save(`${uk}_th`, next.theme);
     save(`${uk}_ws`, next.workStart);
     save(`${uk}_we`, next.workEnd);
+    save(`${uk}_focus_start`, next.focusStart);
+    save(`${uk}_focus_end`, next.focusEnd);
     save(`${uk}_meal_breaks`, normalizeMealBreaks(next.mealBreaks));
+    save(`${uk}_planning_rules`, normalizePlanningRules(next.planningRules));
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    save(`${uk}_deleted_records`, normalizeDeletedRecords(next.deletedRecords));
     save(`${uk}_nf`, next.notifs);
     save(`${uk}_push_enabled`, Boolean(next.pushEnabled));
     save(`${uk}_tz`, next.timezone);
@@ -2069,10 +2240,28 @@ export default function App() {
     persistSettings({ workEnd: n });
   };
 
+  const setFocusStart = v => {
+    const n = Number(v);
+    setFocusStartRaw(n);
+    persistSettings({ focusStart: n });
+  };
+
+  const setFocusEnd = v => {
+    const n = Number(v);
+    setFocusEndRaw(n);
+    persistSettings({ focusEnd: n });
+  };
+
   const setMealBreaks = v => {
     const n = normalizeMealBreaks(typeof v === "function" ? v(mealBreaks) : v);
     setMealBreaksRaw(n);
     persistSettings({ mealBreaks: n });
+  };
+
+  const setPlanningRules = v => {
+    const n = normalizePlanningRules(typeof v === "function" ? v(planningRules) : v);
+    setPlanningRulesRaw(n);
+    persistSettings({ planningRules: n });
   };
 
   // Keep work-hours context in sync whenever they change (via effect, not during render)
@@ -2342,8 +2531,9 @@ export default function App() {
     // real Date objects before comparing with the current time or durations.
     // Keeping the focusOnly parameter here lets the modal option stay explicit,
     // while the actual focus window now mirrors Work Hours instead of 9–5.
-    const startHour = Number(focusOnly ? workStart : workStart);
-    const endHour = Number(focusOnly ? workEnd : workEnd);
+    const rules = normalizePlanningRules(planningRules);
+    const startHour = Number(focusOnly ? focusStart : workStart);
+    const endHour = Number(focusOnly ? focusEnd : workEnd);
     if (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) return [];
 
     const toDateAtMinute = minuteOfDay => {
@@ -2356,12 +2546,18 @@ export default function App() {
       .filter(b => b.enabled)
       .map(b => {
         const st = dayStart(date); st.setMinutes(timeStringToMinutes(b.start));
-        const en = dayStart(date); en.setMinutes(timeStringToMinutes(b.end));
-        return { id: `meal-${b.id}-${dateKey(date)}`, title: b.label, start: st, end: en, allDay: false, category: "meal-break", calendar: "personal", fixed: true };
+        const en = dayStart(date); en.setMinutes(timeStringToMinutes(b.end) + rules.afterMealBufferMinutes);
+        return { id: `meal-${b.id}-${dateKey(date)}`, title: b.label, start: st, end: en, allDay: false, category: "meal-break", calendar: "personal", fixed: true, planningProtected: true };
       })
       .filter(b => b.end > b.start);
-    const booked = expandRecurring([...events, ...extraEvents, ...mealBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
-      .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e));
+    const rawBooked = expandRecurring([...events, ...extraEvents, ...mealBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
+      .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e) && !e.deletedAt);
+    const bufferMs = Math.max(0, Number(rules.bufferMinutes || 0)) * 60000;
+    const booked = rawBooked.map(e => e.planningProtected ? e : ({
+      ...e,
+      start: new Date((e.start instanceof Date ? e.start : new Date(e.start)).getTime() - bufferMs),
+      end: new Date((e.end instanceof Date ? e.end : new Date(e.end)).getTime() + bufferMs),
+    }));
     const now = new Date();
     return getFreeBlocks(booked, date, startHour, endHour)
       .map(b => {
@@ -2374,8 +2570,46 @@ export default function App() {
       .filter(b => b.minutes >= 15);
   }
   function openPlanningTasks(date = TODAY) {
-    const base = tasks.filter(t => !t.done && !t.scheduledEventId && taskBelongsToPeriod(t, "day", date));
-    return base.sort((a, b) => (({ high: 0, medium: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, medium: 1, low: 2 }[b.priority] ?? 1)) || String(a.deadline || "9999").localeCompare(String(b.deadline || "9999")));
+    const d = dayStart(date);
+    const todayKey = dateKey(d);
+    const currentWeekKey = dateKey(weekStart(d));
+    const currentMonthKey = monthKey(d);
+    const priorityScore = { high: 0, medium: 1, low: 2 };
+    const rankTask = t => {
+      const deadline = t.deadline ? localDateFromKey(t.deadline) : null;
+      const overdue = deadline && dayStart(deadline) < d;
+      const dueToday = deadline && dateKey(deadline) === todayKey;
+      const dueSoon = deadline && dayStart(deadline) <= addDaysSafe(d, 3);
+      const scope = taskScopeOf(t);
+      const dayTask = taskBelongsToPeriod(t, "day", d);
+      const weekTask = scope === "week" && taskWeekKey(t) === currentWeekKey;
+      const monthTask = scope === "month" && taskMonthKey(t) === currentMonthKey;
+      return [
+        overdue ? 0 : dueToday ? 1 : dayTask ? 2 : dueSoon ? 3 : weekTask && t.priority === "high" ? 4 : weekTask ? 5 : monthTask && (t.priority === "high" || dueSoon) ? 6 : 9,
+        priorityScore[t.priority] ?? 1,
+        taskDurationToMinutes(t.duration || 30),
+        String(t.deadline || "9999-12-31"),
+        String(t.title || ""),
+      ];
+    };
+    return tasks
+      .filter(t => !t.deletedAt && !t.done && !t.scheduledEventId)
+      .filter(t => {
+        const deadline = t.deadline ? localDateFromKey(t.deadline) : null;
+        const dueWindow = deadline && dayStart(deadline) <= addDaysSafe(d, 3);
+        return taskBelongsToPeriod(t, "day", d)
+          || (taskScopeOf(t) === "week" && taskWeekKey(t) === currentWeekKey)
+          || (taskScopeOf(t) === "month" && taskMonthKey(t) === currentMonthKey && (t.priority === "high" || dueWindow))
+          || dueWindow;
+      })
+      .sort((a, b) => {
+        const ar = rankTask(a), br = rankTask(b);
+        for (let i = 0; i < ar.length; i++) {
+          if (ar[i] < br[i]) return -1;
+          if (ar[i] > br[i]) return 1;
+        }
+        return 0;
+      });
   }
   function buildDailyPlan(date = TODAY) {
     const planDate = dayStart(date);
@@ -2384,18 +2618,27 @@ export default function App() {
     const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0);
     const suggestions = [];
     const unscheduled = [];
+    const rules = normalizePlanningRules(planningRules);
+    let plannedMinutes = 0;
+    let deepBlocks = 0;
     for (const task of candidates) {
       const minutes = Math.max(15, taskDurationToMinutes(task.duration || 30));
+      const isDeep = (task.category || "") === "deep" || task.priority === "high";
+      if (plannedMinutes + minutes > rules.maxPlanMinutes) { unscheduled.push(task); continue; }
+      if (isDeep && rules.maxDeepWorkBlocks > 0 && deepBlocks >= rules.maxDeepWorkBlocks) { unscheduled.push(task); continue; }
       const idx = slots.findIndex(slot => slot.minutes >= minutes);
       if (idx === -1) { unscheduled.push(task); continue; }
       const slot = slots[idx];
       const start = new Date(slot.start);
       const end = new Date(start.getTime() + minutes * 60000);
       suggestions.push({ task, start, end, minutes });
-      slots[idx] = { start: end, end: slot.end, minutes: Math.max(0, Math.round((slot.end - end) / 60000)) };
+      plannedMinutes += minutes;
+      if (isDeep) deepBlocks += 1;
+      const nextStart = new Date(end.getTime() + Math.max(0, rules.bufferMinutes) * 60000);
+      slots[idx] = { start: nextStart, end: slot.end, minutes: Math.max(0, Math.round((slot.end - nextStart) / 60000)) };
       slots = slots.filter(slot => slot.minutes >= 15);
     }
-    return { date: planDate, freeMinutes, openCount: candidates.length, suggestions, unscheduled };
+    return { date: planDate, freeMinutes, openCount: candidates.length, suggestions, unscheduled, planningRules: rules, plannedMinutes };
   }
   function applyDayPlan(plan) {
     if (!plan?.suggestions?.length) return;
@@ -2567,6 +2810,29 @@ export default function App() {
       return es.map(e => e.id === baseId ? touchRecord(modifySingleOccurrence(e, new Date(occurrenceDate), touchRecord(ev))) : e);
     });
   }
+
+  function persistDeletedRecords(kind, ids, timestamp = new Date().toISOString()) {
+    const nextDeletedRecords = addDeletedRecords(deletedRecords, kind, ids, timestamp);
+    const nextSettingsUpdatedAt = { ...normalizeSettingsUpdatedAt(settingsUpdatedAt), deletedRecords: timestamp };
+    setDeletedRecordsRaw(nextDeletedRecords);
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    return { deletedRecords: nextDeletedRecords, settingsUpdatedAt: nextSettingsUpdatedAt };
+  }
+
+  function clearTaskScheduleForEvent(nextTasks, removedEvent) {
+    const linkedTaskId = removedEvent?.linkedTaskId;
+    const removedId = removedEvent?.id;
+    if (!linkedTaskId && !removedId) return nextTasks;
+    return nextTasks.map(t => {
+      if ((linkedTaskId && t.id === linkedTaskId) || (removedId && t.scheduledEventId === removedId)) {
+        const { scheduledEventId, scheduledStart, scheduledEnd, ...rest } = t;
+        return touchRecord(rest);
+      }
+      return t;
+    });
+  }
   async function deleteEvent(id) {
     const baseId = getBaseEventId(id);
     const base = events.find(e => e.id === baseId);
@@ -2575,15 +2841,27 @@ export default function App() {
     const needsScope = isRecurringEvent(base);
     const scope = needsScope ? await chooseRecurrenceScope("Delete") : "all";
     pushUndo();
-    setEvents(es => {
-      const currentBase = es.find(e => e.id === baseId);
-      if (!currentBase) return es;
-      if (!needsScope || scope === "all") return es.filter(e => e.id !== baseId);
-      if (scope === "following") {
+    const timestamp = new Date().toISOString();
+    if (!needsScope || scope === "all") {
+      const settingsPatch = persistDeletedRecords("events", baseId, timestamp);
+      const nextEvents = events.filter(e => e.id !== baseId);
+      const nextTasks = clearTaskScheduleForEvent(tasks, base);
+      setEventsAndTasks(nextEvents, nextTasks, settingsPatch);
+      return;
+    }
+    if (scope === "following") {
+      setEvents(es => {
+        const currentBase = es.find(e => e.id === baseId);
+        if (!currentBase) return es;
         const rec = normalizeRecurrence(currentBase.recurrence);
         const until = addDaysSafe(dayStart(new Date(occurrenceDate)), -1);
         return es.map(e => e.id === baseId ? touchRecord(e, { recurrence: { ...rec, until: dateKey(until), endMode: "on" } }) : e);
-      }
+      });
+      return;
+    }
+    setEvents(es => {
+      const currentBase = es.find(e => e.id === baseId);
+      if (!currentBase) return es;
       return es.map(e => e.id === baseId ? touchRecord(deleteSingleOccurrence(e, new Date(occurrenceDate))) : e);
     });
   }
@@ -2604,19 +2882,31 @@ export default function App() {
     const target = tasks.find(t => t.id === id);
     if (target?.recurrence && !window.confirm("Delete this full recurring task series?")) return;
     pushUndo();
-    setTasks(ts => {
-      const target = ts.find(t => t.id === id);
-      if (!target) return ts;
+    const timestamp = new Date().toISOString();
+    const idsToDelete = target?.recurrence ? tasks.filter(t => t.id === id || t.parentTaskId === id).map(t => t.id) : [id];
+    let settingsPatch = persistDeletedRecords("tasks", idsToDelete, timestamp);
+    const linkedEventIds = new Set(events.filter(e => idsToDelete.includes(e.linkedTaskId)).map(e => e.id));
+    if (linkedEventIds.size) {
+      const deletedWithEvents = addDeletedRecords(settingsPatch.deletedRecords, "events", [...linkedEventIds], timestamp);
+      settingsPatch = { ...settingsPatch, deletedRecords: deletedWithEvents };
+      setDeletedRecordsRaw(deletedWithEvents);
+      save(`${uk}_deleted_records`, deletedWithEvents);
+    }
+    const nextEvents = linkedEventIds.size ? events.filter(e => !linkedEventIds.has(e.id)) : events;
+    const nextTasks = (() => {
+      if (!target) return tasks;
       if (target.parentTaskId) {
         const identity = taskPeriodIdentity(target);
-        return ts
+        return tasks
           .map(t => t.id === target.parentTaskId ? touchRecord(t, { skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] }) : t)
           .filter(t => t.id !== id);
       }
-      if (target.recurrence) return ts.filter(t => t.id !== id && t.parentTaskId !== id);
-      return ts.filter(t => t.id !== id);
-    });
+      if (target.recurrence) return tasks.filter(t => t.id !== id && t.parentTaskId !== id);
+      return tasks.filter(t => t.id !== id);
+    })();
+    setEventsAndTasks(nextEvents, nextTasks, settingsPatch);
   }
+
 
 
   function applyTemplate(tpl) {
@@ -2769,8 +3059,8 @@ export default function App() {
   .xp-breakdown-list{display:flex;flex-direction:column;gap:7px}.xp-breakdown-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);font-weight:800}.xp-breakdown-row strong{color:var(--accent);font-family:var(--mono)}.bloom-collapse{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.bloom-collapse-head{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:900;padding:12px 14px;cursor:pointer}.bloom-collapse-body{padding:12px;display:flex;flex-direction:column;gap:12px}.bloom-collapse-body>.game-card{box-shadow:none;}
   @media(max-width:768px){.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}.mobile-menu-sync-btn{display:flex}.desktop-sync-nav-item{display:none!important}}
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
-  .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
-  @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}}
+  .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.planning-rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.planning-rule-grid label{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:space-between}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
+  @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}.planning-rule-grid{grid-template-columns:1fr}}
   .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
@@ -2939,13 +3229,13 @@ export default function App() {
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
-      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
-      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
+      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} focusStart={focusStart} focusEnd={focusEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
+      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} focusStart={focusStart} setFocusStart={setFocusStart} focusEnd={focusEnd} setFocusEnd={setFocusEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

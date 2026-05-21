@@ -7,8 +7,8 @@ self.addEventListener('push', event => {
   const title = payload.title || 'Tempo reminder 🌸';
   const options = {
     body: payload.body || 'Open Tempo to check your day.',
-    icon: payload.icon || '/icon-192.png',
-    badge: payload.badge || '/icon-192.png',
+    icon: payload.icon || '/icon.png',
+    badge: payload.badge || '/icon.png',
     data: { url: payload.url || '/' },
   };
   event.waitUntil(self.registration.showNotification(title, options));

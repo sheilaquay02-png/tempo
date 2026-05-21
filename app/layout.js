@@ -2,6 +2,9 @@ export const metadata = {
   title: 'Tempo',
   description: 'A cozy calendar, task and Memory Book app.',
   manifest: '/manifest.webmanifest',
+};
+
+export const viewport = {
   themeColor: '#FF7BAC',
 };
 

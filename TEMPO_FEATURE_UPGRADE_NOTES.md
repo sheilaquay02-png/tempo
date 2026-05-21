@@ -83,3 +83,50 @@ Added after cross-device/PWA feedback:
 - Added a mobile-only **↻ Sync now** button directly below the sync status text in the side menu.
 - The existing sidebar nav sync item is hidden on mobile to avoid duplicate sync actions.
 - Desktop layout remains unchanged.
+
+## Next Update — Reliability, Sync, Planning and PWA Hardening
+
+### Build / deployment hardening
+- Added `vercel.json` cron configuration for `/api/push/reminders` every 5 minutes.
+- Generated missing `public/icon-192.png` and `public/icon-512.png` from the existing app icon.
+- Updated manifest files to reference the generated PWA icons.
+- Updated the service worker notification icon fallback to use the app icon path.
+- Moved `themeColor` out of `metadata` and into the Next.js `viewport` export to clear the metadata warning.
+- Pinned core package versions instead of using `latest`.
+- Added ESLint package dependencies to `package.json` and `package-lock.json`.
+
+### Sync reliability upgrades
+- Added delete tombstone tracking through `settings.deletedRecords` so deleted events/tasks are less likely to reappear after a cross-device merge.
+- Added field-level settings timestamps through `settings.settingsUpdatedAt` so changes like work hours, focus hours, meal breaks, planning rules, theme, timezone and notification settings merge more safely.
+- Updated the merge engine to respect tombstones when combining desktop/PWA/browser data.
+- Added Supabase Realtime subscription for the signed-in user's `user_data` row.
+- Added automatic sync pulls when the app regains focus, becomes visible again, or reconnects online.
+- Force sync now always runs through the conflict-safe merge logic.
+- When a linked calendar event is deleted, the linked task schedule fields are cleared.
+- When a scheduled task is deleted, its linked task event is also removed and tombstoned.
+
+### Planning upgrades
+- Added separate Focus Hours in Settings.
+- Focus-hours scheduling now uses the Focus Hours setting, while normal scheduling still uses Work Hours.
+- Added a one-click “Match Work Hours” button for Focus Hours.
+- Added Planning Rules in Settings:
+  - buffer between planned blocks
+  - after-meal buffer
+  - maximum task-planning capacity per day
+  - maximum deep-work blocks per day
+- Plan My Day now considers more than day-scope tasks:
+  - overdue tasks
+  - due-today tasks
+  - high-priority day tasks
+  - high-priority/current-week tasks
+  - due-soon tasks
+  - selected month tasks when relevant
+- Plan My Day now respects max daily planning capacity and max deep-work blocks.
+- Plan My Day and Schedule Task now add buffers around existing calendar events and meal breaks.
+
+### Recurrence fix
+- Fixed weekly selected-day recurrence counting so “Mon/Wed/Fri + end after X times” counts emitted occurrences instead of scanned days.
+
+### Validation
+- `npm run build` passes on Next.js 16.2.6.
+- ESLint dependencies were installed, but the current app still has pre-existing lint issues/warnings that should be handled in a future cleanup sprint.
