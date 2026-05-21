@@ -123,6 +123,81 @@ export function EventBlock({ event, calendars, categories, onReschedule, onClick
     window.addEventListener("blur", cancel);
   }
 
+  function startResizeDrag(e) {
+    if (!draggable || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const sy = e.clientY;
+    const originalEnd = event.end instanceof Date ? event.end : new Date(event.end);
+    const pointerId = e.pointerId;
+    let ghost = null;
+    let tip = null;
+    const el = ref.current;
+    el?.setPointerCapture?.(pointerId);
+    document.body.classList.add("tempo-dragging");
+    suppressClick.current = true;
+    setHoldState("dragging");
+
+    const f12 = (h, m) => { const ap = h >= 12 ? "pm" : "am", hd = h > 12 ? h - 12 : h === 0 ? 12 : h; return m === 0 ? `${hd}${ap}` : `${hd}:${m.toString().padStart(2,"0")}${ap}`; };
+    function makeGhost() {
+      if (ghost) return ghost;
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return null;
+      ghost = document.createElement("div");
+      ghost.style.cssText = `position:fixed;width:${r.width}px;height:${r.height}px;background:${color}35;border:2px dashed ${color};border-radius:12px;pointer-events:none;z-index:9999;left:${r.left}px;top:${r.top}px;`;
+      document.body.appendChild(ghost);
+      return ghost;
+    }
+    function makeTip() {
+      if (tip) return tip;
+      tip = document.createElement("div");
+      tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
+      document.body.appendChild(tip);
+      return tip;
+    }
+    function nextEndFromPointer(pe) {
+      const dy = pe.clientY - sy;
+      const deltaMinutes = Math.round((dy / HOUR_H) * 60 / 5) * 5;
+      const minEnd = new Date(event.start.getTime() + 15 * 60000);
+      const dayLimit = cloneDate(event.start); dayLimit.setHours(DAY_END, 0, 0, 0);
+      const candidate = new Date(originalEnd.getTime() + deltaMinutes * 60000);
+      return new Date(Math.max(minEnd.getTime(), Math.min(dayLimit.getTime(), candidate.getTime())));
+    }
+    function move(pe) {
+      pe.preventDefault?.();
+      const ne = nextEndFromPointer(pe);
+      const newHeight = Math.max((ne - event.start) / 60000 / 60 * HOUR_H - 2, 22);
+      const g = makeGhost();
+      if (g) g.style.height = `${newHeight}px`;
+      const t = makeTip();
+      t.textContent = `Extend event · ${fmt(event.start)} – ${f12(ne.getHours(), ne.getMinutes())}`;
+      t.style.left = `${pe.clientX + 12}px`;
+      t.style.top = `${pe.clientY - 10}px`;
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      el?.releasePointerCapture?.(pointerId);
+      if (ghost?.parentNode) ghost.remove();
+      if (tip?.parentNode) tip.remove();
+      document.body.classList.remove("tempo-dragging");
+      setHoldState("idle");
+    }
+    function cancel() { cleanup(); setTimeout(() => { suppressClick.current = false; }, 80); }
+    function up(pe) {
+      const ne = nextEndFromPointer(pe);
+      cleanup();
+      if (ne.getTime() !== event.end.getTime()) onReschedule(event.id, event.start, ne);
+      setTimeout(() => { suppressClick.current = false; }, 80);
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+  }
+
   return (
     <div ref={ref} className={`event-block ${event.fixed ? "fixed" : ""} hold-${holdState}`}
       onPointerDown={startPressHoldDrag}
@@ -134,6 +209,7 @@ export function EventBlock({ event, calendars, categories, onReschedule, onClick
       {cat && height > 55 && <div className="event-cat"><span>{cat.icon}</span> {cat.label}</div>}
       {event.fixed && <span className="fixed-badge">🔒</span>}
       {!event.fixed && <span className="hold-cue">{holdState === "holding" ? "Keep holding…" : holdState === "dragging" ? "Move event" : "Tap to edit · Hold to move"}</span>}
+      {!event.fixed && <span className="event-resize-handle" onPointerDown={startResizeDrag} title="Drag to extend event" aria-label="Drag to extend event" />}
     </div>
   );
 }

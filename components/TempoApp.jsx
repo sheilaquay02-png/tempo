@@ -195,20 +195,27 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
 }
 
 // ─── Carry Over ───────────────────────────────────────────────────────────────
-function CarryOverPrompt({ tasks, gameStats, onCarry, onDrop, onDismiss }) {
+function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMoveWeek, onDrop, onDismiss }) {
   const [sel, setSel] = useState(tasks.map(t => t.id));
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const selectedCount = sel.length;
   return (
-    <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="End of day carry over">
+    <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="Task rollover">
       <div className="carryover-card" onClick={e => e.stopPropagation()}>
-        <div className="carryover-title">🌙 End of day — uncompleted tasks:</div>
+        <div className="carryover-title">🌙 Task rollover</div>
+        <div className="settings-section-desc">You have {tasks.length} unfinished task{tasks.length === 1 ? "" : "s"}. Move selected tasks forward or drop the noise.</div>
         {gameStats && <div className="eod-rank-card">
           <div className="eod-rank-main"><strong>{gameStats.today.rank} Rank</strong><span>{gameStats.today.score}/100 Tempo Score</span></div>
           <div className="eod-rank-meta"><span>+{gameStats.quests.filter(q => q.done).reduce((sum,q)=>sum+q.xp,0)} quest XP</span><span>{gameStats.unlockedBadges?.length || 0} badges unlocked</span></div>
-          <div className="eod-rank-note">{gameStats.today.rank === "S" ? "Perfect bloom day ✨" : gameStats.today.score >= 70 ? "Strong rhythm today 🌸" : "Gentle reset. Carry what matters into tomorrow 🌱"}</div>
+          <div className="eod-rank-note">{gameStats.today.rank === "S" ? "Perfect bloom day ✨" : gameStats.today.score >= 70 ? "Strong rhythm today 🌸" : "Gentle reset. Carry what matters into the next plan 🌱"}</div>
         </div>}
-        <div className="carryover-list">{tasks.map(t => <label key={t.id} className="carryover-item"><input type="checkbox" checked={sel.includes(t.id)} onChange={() => toggle(t.id)} /><span>{t.title}</span><span className="co-dur">{t.duration}min</span></label>)}</div>
-        <div className="carryover-actions"><button className="tf-cancel" onClick={() => onDrop(sel)}>Drop selected</button><button className="tf-save" onClick={() => onCarry(sel)}>Push to tomorrow →</button></div>
+        <div className="carryover-list">{tasks.map(t => <label key={t.id} className="carryover-item"><input type="checkbox" checked={sel.includes(t.id)} onChange={() => toggle(t.id)} /><span>{t.title}</span><span className="co-dur">{formatTaskDuration(t.duration)}</span></label>)}</div>
+        <div className="carryover-actions carryover-actions-wrap">
+          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onDrop(sel)}>Drop selected</button>
+          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onMoveWeek(sel)}>Move to this week</button>
+          <button className="tf-cancel" disabled={!selectedCount} onClick={() => onMoveToday(sel)}>Move to today</button>
+          <button className="tf-save" disabled={!selectedCount} onClick={() => onMoveTomorrow(sel)}>Move to tomorrow →</button>
+        </div>
       </div>
     </div>
   );
@@ -249,7 +256,7 @@ function FocusMode({ tasks, events, pomodoro, onStartPomodoro, onPause, onResume
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["F","Focus mode"],["C","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["F","Focus mode"],["C","Create event"],["T","Create task"],["A","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -337,6 +344,62 @@ function normalizeMealBreaks(value) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
+
+function focusEventsInRange(events, start, end) {
+  return expandRecurring(events, start, end)
+    .filter(e => e.source === "focus-mode" || String(e.title || "").startsWith("Focus:"))
+    .filter(e => e.start instanceof Date && e.end instanceof Date && e.start < end && e.end > start)
+    .sort((a, b) => b.start - a.start);
+}
+
+function FocusLogModal({ events, categories, onClose }) {
+  const todayStart = dayStart(TODAY);
+  const tomorrow = addDaysSafe(todayStart, 1);
+  const week = weekStart(TODAY);
+  const weekEnd = addDaysSafe(week, 7);
+  const todayFocus = focusEventsInRange(events, todayStart, tomorrow);
+  const weekFocus = focusEventsInRange(events, week, weekEnd);
+  const mins = ev => Math.max(0, Math.round((ev.end - ev.start) / 60000));
+  const total = list => list.reduce((sum, e) => sum + mins(e), 0);
+  const deep = weekFocus.filter(e => (e.category || "") === "deep" || /Focus:/i.test(e.title || ""));
+  const admin = weekFocus.filter(e => (e.category || "") === "admin");
+  const meetings = expandRecurring(events, week, weekEnd).filter(e => e.category === "meeting");
+  const fmtHours = m => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Focus log">
+      <div className="modal focus-log-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div><strong>⏱ Focus Log</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>Today and this week</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="focus-stats-grid"><div><strong>{fmtHours(total(todayFocus))}</strong><span>today focus</span></div><div><strong>{fmtHours(total(weekFocus))}</strong><span>week focus</span></div><div><strong>{weekFocus.length}</strong><span>sessions</span></div></div>
+          <div className="settings-section-desc">Weekly breakdown: Deep Work {fmtHours(total(deep))} · Admin {fmtHours(total(admin))} · Meetings {fmtHours(total(meetings))}</div>
+          <div className="focus-log-list">{todayFocus.length ? todayFocus.map(e => {
+            const cat = categories.find(c => c.id === e.category);
+            return <div key={e.id} className="focus-log-row"><span>{fmt(e.start)} — {e.title.replace(/^Focus:\s*/, "")}</span><strong>{mins(e)} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>;
+          }) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
+        </div>
+        <div className="modal-footer"><div/><button className="tf-save" onClick={onClose}>Done</button></div>
+      </div>
+    </div>
+  );
+}
+
+function DailyStartupModal({ summary, onClose, onPlanDay, onFocusLog }) {
+  if (!summary) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Today’s plan">
+      <div className="modal startup-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div><strong>🌤 Today’s Plan</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(TODAY)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.bossTasks}</strong><span>boss tasks</span></div></div>
+          <div className="startup-next">{summary.firstFocus ? `First focus block: ${summary.firstFocus}` : "No focus block scheduled yet."}</div>
+          <div className="settings-section-desc">Use Plan My Day to place the most important tasks into realistic free slots before the day gets noisy.</div>
+        </div>
+        <div className="modal-footer"><button className="tf-cancel" onClick={onFocusLog}>Focus Log</button><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan My Day</button></div></div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, focusStart, setFocusStart, focusEnd, setFocusEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
@@ -1383,8 +1446,12 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
   );
 }
 
-function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
+function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
+  const [lockedIds, setLockedIds] = useState([]);
+  useEffect(() => { setLockedIds([]); }, [plan?.generatedAt]);
   if (!plan) return null;
+  const toggleLock = id => setLockedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  const lockedSuggestions = (plan.suggestions || []).filter(item => lockedIds.includes(item.task.id));
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan my day">
       <div className="modal day-plan-modal" onClick={e => e.stopPropagation()}>
@@ -1392,10 +1459,13 @@ function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREA
         <div className="modal-body">
           <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
           <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}. Buffer: {normalizePlanningRules(planningRules).bufferMinutes} min. Capacity: {normalizePlanningRules(planningRules).maxPlanMinutes} min.</div>
-          {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
+          {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => {
+            const locked = lockedIds.includes(item.task.id);
+            return <div key={item.task.id} className={`plan-row ${locked ? "locked" : ""}`}><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong><button className="mini-move-btn" onClick={() => toggleLock(item.task.id)}>{locked ? "🔒 Locked" : "Lock"}</button></div>;
+          })}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
           {plan.unscheduled.length > 0 && <div className="plan-warning">Could not fit: {plan.unscheduled.map(t => t.title).join(", ")}</div>}
         </div>
-        <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div>
+        <div className="modal-footer day-plan-footer"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="tf-cancel" onClick={() => onRegenerate?.(plan, lockedSuggestions)}>Regenerate plan</button>{plan.unscheduled.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemaining?.(plan)}>Move remaining to tomorrow</button>}</div><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div></div>
       </div>
     </div>
   );
@@ -1552,9 +1622,10 @@ function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAd
 }
 
 
-function SyncStatusPill({ syncStatus, onRetry }) {
+function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
   const status = syncStatus?.status || "saved";
-  const label = syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud");
+  const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
+  const label = pendingLocalChanges > 0 ? `Offline edits pending · ${pendingLocalChanges} change${pendingLocalChanges === 1 ? "" : "s"} waiting${lastSyncedLabel}` : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
   const icon = status === "saving" ? "⏳" : status === "failed" ? "⚠️" : status === "offline" ? "📱" : "✓";
   return (
     <button type="button" className={`sync-pill sync-${status}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
@@ -1616,12 +1687,16 @@ export default function App() {
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showFocusLog, setShowFocusLog] = useState(false);
+  const [showStartup, setShowStartup] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
+  const [pendingLocalChanges, setPendingLocalChanges] = useState(() => load(`${uk}_pending_sync_count`, 0));
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => load(`${uk}_last_synced_at`, null));
   const cloudQueueRef = useRef(Promise.resolve());
   const lastRealtimeSyncRef = useRef(0);
   const [focusMode,    setFocusMode]    = useState(false);
@@ -1637,7 +1712,13 @@ export default function App() {
     if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
   };
 
-  // Mobile app-like viewport: prevent accidental pinch/input zoom and horizontal scaling.
+  useEffect(() => {
+    if (!dataReady || !auth.user?.id) return;
+    const key = `${uk}_startup_seen_${dateKey(TODAY)}`;
+    if (!load(key, false)) setShowStartup(true);
+  }, [dataReady, auth.user?.id, uk]);
+
+  // Mobile viewport: keep the app-like layout while allowing zoom for accessibility.
   useEffect(() => {
     if (typeof document === "undefined") return;
     let viewport = document.querySelector('meta[name="viewport"]');
@@ -1647,7 +1728,7 @@ export default function App() {
       document.head.appendChild(viewport);
     }
     const previous = viewport.getAttribute("content") || "";
-    viewport.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+    viewport.setAttribute("content", "width=device-width, initial-scale=1, viewport-fit=cover");
     return () => {
       if (previous) viewport.setAttribute("content", previous);
     };
@@ -1846,6 +1927,7 @@ export default function App() {
         await applyLoadedData({ loadedEvents: merged.events, loadedTasks: merged.tasks, settings: merged.settings, updatedAt: new Date().toISOString() });
         queueCloudSave(merged.events, merged.tasks, merged.settings);
       } else if (cloud && !localIsNewer) {
+        markCloudSynced();
         setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         await applyLoadedData({
           loadedEvents: Array.isArray(cloud.events) ? cloud.events : [],
@@ -1951,6 +2033,18 @@ export default function App() {
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
   const markUpdated = () => save(`${uk}_updated_at`, new Date().toISOString());
   const touchRecord = (record, patch = {}) => ({ ...record, ...patch, updatedAt: new Date().toISOString() });
+  const markPendingLocalChange = () => {
+    const next = Number(load(`${uk}_pending_sync_count`, 0)) + 1;
+    setPendingLocalChanges(next);
+    save(`${uk}_pending_sync_count`, next);
+  };
+  const markCloudSynced = () => {
+    const stamp = new Date().toISOString();
+    setPendingLocalChanges(0);
+    setLastSyncedAt(stamp);
+    save(`${uk}_pending_sync_count`, 0);
+    save(`${uk}_last_synced_at`, stamp);
+  };
 
   const currentSettings = (overrides = {}) => ({
     fontSize,
@@ -1978,7 +2072,8 @@ export default function App() {
 
   const queueCloudSave = (evs = events, tks = tasks, settings = currentSettings(), options = {}) => {
     if (!auth.user || !dataReady) {
-      setSyncStatus({ status: "offline", message: "Saved on this device only", lastError: "Not signed in or cloud not ready" });
+      markPendingLocalChange();
+      setSyncStatus({ status: "offline", message: "Offline edits pending", lastError: "Not signed in or cloud not ready" });
       return Promise.resolve(!options.strict);
     }
     const run = async () => {
@@ -1988,6 +2083,7 @@ export default function App() {
         setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         return true;
       }
+      markPendingLocalChange();
       setSyncStatus({ status: "failed", message: "Sync failed — tap to retry", lastError: "Cloud save failed" });
       if (options.strict) throw new Error("Cloud save failed. Your Memory Book change was not finalized.");
       return false;
@@ -2086,6 +2182,7 @@ export default function App() {
         const ok = await saveToCloud(auth.user.id, nextEvents, nextTasks, normalizedSettings);
         if (!ok) throw new Error("Cloud save failed after merge");
       }
+      markCloudSynced();
       setSyncStatus({ status: "saved", message: options.silent ? "Updated from cloud" : "Force synced just now", lastError: "" });
       if (!options.silent) setToast({ text: "Synced with cloud ✓", ts: Date.now() });
       return true;
@@ -2402,7 +2499,8 @@ export default function App() {
     saveJournalLocal(uk, auth.user?.id, clean);
     save(`${uk}_updated_at`, new Date().toISOString());
     if (auth.user && dataReady) return queueCloudSave(events, tasks, currentSettings({ journal: clean }));
-    setSyncStatus({ status: "offline", message: "Saved on this device only", lastError: "" });
+    markPendingLocalChange();
+    setSyncStatus({ status: "offline", message: "Offline edits pending", lastError: "" });
     return Promise.resolve(true);
   };
   const saveMemoryEntry = async (key, data) => {
@@ -2417,7 +2515,8 @@ export default function App() {
     setJournalRaw(clean);
     await saveJournalLocal(uk, auth.user?.id, clean);
     save(`${uk}_updated_at`, new Date().toISOString());
-    setSyncStatus({ status: "offline", message: "Saved locally only", lastError: "Not signed in" });
+    markPendingLocalChange();
+    setSyncStatus({ status: "offline", message: "Offline edits pending", lastError: "Not signed in" });
     return true;
   };
   const setTheme = v => {
@@ -2611,16 +2710,19 @@ export default function App() {
         return 0;
       });
   }
-  function buildDailyPlan(date = TODAY) {
+  function buildDailyPlan(date = TODAY, lockedSuggestions = []) {
     const planDate = dayStart(date);
-    const candidates = openPlanningTasks(planDate);
-    let slots = freeSlotsForDate(planDate, false);
-    const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0);
-    const suggestions = [];
+    const locked = (lockedSuggestions || []).map(item => ({ ...item, start: new Date(item.start), end: new Date(item.end) })).filter(item => item?.task?.id && sameDay(item.start, planDate));
+    const lockedIds = new Set(locked.map(item => item.task.id));
+    const lockedBlocks = locked.map(item => ({ id: `locked-${item.task.id}`, title: item.task.title, start: item.start, end: item.end, allDay: false, calendar: "work", category: item.task.category || "deep", fixed: true }));
+    const candidates = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
+    let slots = freeSlotsForDate(planDate, false, lockedBlocks);
+    const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0) + locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
+    const suggestions = [...locked];
     const unscheduled = [];
     const rules = normalizePlanningRules(planningRules);
-    let plannedMinutes = 0;
-    let deepBlocks = 0;
+    let plannedMinutes = locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
+    let deepBlocks = locked.filter(item => (item.task.category || "") === "deep" || item.task.priority === "high").length;
     for (const task of candidates) {
       const minutes = Math.max(15, taskDurationToMinutes(task.duration || 30));
       const isDeep = (task.category || "") === "deep" || task.priority === "high";
@@ -2638,7 +2740,7 @@ export default function App() {
       slots[idx] = { start: nextStart, end: slot.end, minutes: Math.max(0, Math.round((slot.end - nextStart) / 60000)) };
       slots = slots.filter(slot => slot.minutes >= 15);
     }
-    return { date: planDate, freeMinutes, openCount: candidates.length, suggestions, unscheduled, planningRules: rules, plannedMinutes };
+    return { date: planDate, freeMinutes, openCount: candidates.length + locked.length, suggestions, unscheduled, planningRules: rules, plannedMinutes, generatedAt: Date.now() };
   }
   function applyDayPlan(plan) {
     if (!plan?.suggestions?.length) return;
@@ -2650,6 +2752,20 @@ export default function App() {
     setEventsAndTasks(nextEvents, nextTasks);
     setDayPlan(null);
     setToast({ text: `Plan added ${additions.length} task block${additions.length === 1 ? "" : "s"} ✓`, ts: Date.now() });
+  }
+  function regenerateDayPlan(plan, lockedSuggestions = []) {
+    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions));
+  }
+  function movePlanRemainingToTomorrow(plan) {
+    const unscheduled = plan?.unscheduled || [];
+    if (!unscheduled.length) return;
+    const tomorrow = addDaysSafe(TODAY, 1);
+    const patch = taskPeriodPatchForScope("day", tomorrow);
+    const ids = new Set(unscheduled.map(t => t.id));
+    pushUndo();
+    setTasks(ts => ts.map(t => ids.has(t.id) ? touchRecord({ ...t, scope: "day", done: false, completedAt: null, completedDate: null, ...patch }) : t));
+    setToast({ text: `Moved ${unscheduled.length} remaining task${unscheduled.length === 1 ? "" : "s"} to tomorrow ✓`, ts: Date.now() });
+    setDayPlan(null);
   }
   function scheduleTaskIntoCalendar(task, mode = "today", focusOnly = false) {
     if (!task) return;
@@ -2878,14 +2994,76 @@ export default function App() {
       return updated;
     });
   }
+  function taskAnchorComparable(task) {
+    const d = taskAnchorDate(task, TODAY);
+    return dayStart(d).getTime();
+  }
+
+  function recurringTaskActionChoice(task) {
+    if (!task?.recurrence && !task?.parentTaskId) return "series";
+    const raw = window.prompt(
+      `Recurring task: ${task.title}\n\nChoose an option:\n1 = Delete/skip this task only\n2 = Delete this and future tasks\n3 = Delete entire recurring series\n4 = Skip this occurrence\n5 = Reschedule this occurrence only`,
+      "1"
+    );
+    return ({ "1": "single", "2": "future", "3": "series", "4": "skip", "5": "reschedule" })[String(raw || "").trim()] || null;
+  }
+
   function deleteTask(id) {
     const target = tasks.find(t => t.id === id);
-    if (target?.recurrence && !window.confirm("Delete this full recurring task series?")) return;
+    if (!target) return;
+    const isRecurringTask = Boolean(target.recurrence || target.parentTaskId);
+    const choice = isRecurringTask ? recurringTaskActionChoice(target) : "series";
+    if (!choice) return;
+
+    if (choice === "reschedule") {
+      const rawDate = window.prompt("Move this occurrence to which date? Use YYYY-MM-DD.", dateKey(addDaysSafe(taskAnchorDate(target, TODAY), 1)));
+      const nextDate = localDateFromKey(rawDate);
+      if (!nextDate) return;
+      pushUndo();
+      setTasks(ts => {
+        if (target.parentTaskId) {
+          const identity = taskPeriodIdentity(target);
+          const parent = ts.find(t => t.id === target.parentTaskId);
+          const moved = touchRecord(withTaskPeriod({ ...target, id: "t" + uid(), parentTaskId: target.parentTaskId, generatedFromRecurrence: true }, nextDate), { createdAt: new Date().toISOString() });
+          return ts
+            .map(t => t.id === target.parentTaskId ? touchRecord(t, { skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] }) : t)
+            .filter(t => t.id !== id)
+            .concat(parent ? [moved] : []);
+        }
+        return ts.map(t => t.id === id ? touchRecord(withTaskPeriod(t, nextDate)) : t);
+      });
+      setSelectedTask(null);
+      return;
+    }
+
     pushUndo();
     const timestamp = new Date().toISOString();
-    const idsToDelete = target?.recurrence ? tasks.filter(t => t.id === id || t.parentTaskId === id).map(t => t.id) : [id];
-    let settingsPatch = persistDeletedRecords("tasks", idsToDelete, timestamp);
-    const linkedEventIds = new Set(events.filter(e => idsToDelete.includes(e.linkedTaskId)).map(e => e.id));
+    const seriesRootId = target.parentTaskId || target.id;
+    const targetTime = taskAnchorComparable(target);
+    const identity = taskPeriodIdentity(target);
+
+    let idsToDelete = [id];
+    let nextTasks = tasks;
+
+    if (isRecurringTask && (choice === "single" || choice === "skip")) {
+      nextTasks = tasks.map(t => t.id === seriesRootId ? touchRecord(t, { skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] }) : t);
+      if (target.parentTaskId) nextTasks = nextTasks.filter(t => t.id !== id);
+      idsToDelete = target.parentTaskId ? [id] : [];
+    } else if (isRecurringTask && choice === "future") {
+      const root = tasks.find(t => t.id === seriesRootId) || target;
+      const until = dateKey(addDaysSafe(taskAnchorDate(target, TODAY), -1));
+      nextTasks = tasks
+        .map(t => t.id === seriesRootId ? touchRecord(t, { recurrence: { ...(normalizeRecurrence(t.recurrence) || {}), until, endMode: "on" } }) : t)
+        .filter(t => !(taskSeriesId(t) === seriesRootId && t.id !== seriesRootId && taskAnchorComparable(t) >= targetTime));
+      idsToDelete = tasks.filter(t => taskSeriesId(t) === seriesRootId && t.id !== seriesRootId && taskAnchorComparable(t) >= targetTime).map(t => t.id);
+      if (root.id !== target.id && target.parentTaskId) idsToDelete.push(target.id);
+    } else {
+      idsToDelete = isRecurringTask ? tasks.filter(t => t.id === seriesRootId || t.parentTaskId === seriesRootId).map(t => t.id) : [id];
+      nextTasks = tasks.filter(t => !idsToDelete.includes(t.id));
+    }
+
+    let settingsPatch = idsToDelete.length ? persistDeletedRecords("tasks", idsToDelete, timestamp) : { deletedRecords, settingsUpdatedAt };
+    const linkedEventIds = new Set(events.filter(e => idsToDelete.includes(e.linkedTaskId) || (choice === "single" && e.linkedTaskId === id)).map(e => e.id));
     if (linkedEventIds.size) {
       const deletedWithEvents = addDeletedRecords(settingsPatch.deletedRecords, "events", [...linkedEventIds], timestamp);
       settingsPatch = { ...settingsPatch, deletedRecords: deletedWithEvents };
@@ -2893,18 +3071,8 @@ export default function App() {
       save(`${uk}_deleted_records`, deletedWithEvents);
     }
     const nextEvents = linkedEventIds.size ? events.filter(e => !linkedEventIds.has(e.id)) : events;
-    const nextTasks = (() => {
-      if (!target) return tasks;
-      if (target.parentTaskId) {
-        const identity = taskPeriodIdentity(target);
-        return tasks
-          .map(t => t.id === target.parentTaskId ? touchRecord(t, { skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] }) : t)
-          .filter(t => t.id !== id);
-      }
-      if (target.recurrence) return tasks.filter(t => t.id !== id && t.parentTaskId !== id);
-      return tasks.filter(t => t.id !== id);
-    })();
     setEventsAndTasks(nextEvents, nextTasks, settingsPatch);
+    setSelectedTask(null);
   }
 
 
@@ -2944,17 +3112,19 @@ export default function App() {
   function updateTemplate(id, patch) { setTemplates(tpls => tpls.map(t => t.id === id ? { ...t, ...patch } : t)); }
   function deleteTemplate(id) { if (!window.confirm("Delete this day template?")) return; setTemplates(tpls => tpls.filter(t => t.id !== id)); }
 
-  function handleCarryOver(ids) {
-    const tomorrow = addDaysSafe(TODAY, 1);
-    const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
+  function moveRolloverTasks(ids, scope, anchorDate, label) {
+    const patch = taskPeriodPatchForScope(scope, anchorDate);
     pushUndo();
     setTasks(ts => ts.map(t => ids.includes(t.id)
-      ? { ...t, scope: "day", done: false, completedAt: null, completedDate: null, ...tomorrowPatch }
+      ? touchRecord({ ...t, scope, done: false, completedAt: null, completedDate: null, ...patch })
       : t));
     setShowCarryOver(false);
-    setToast("Pushed selected tasks to tomorrow ✓");
+    setToast({ text: `Moved ${ids.length} task${ids.length === 1 ? "" : "s"} to ${label} ✓`, ts: Date.now() });
   }
-  function handleDrop(ids)      { setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); }
+  function handleCarryOver(ids) { moveRolloverTasks(ids, "day", addDaysSafe(TODAY, 1), "tomorrow"); }
+  function handleCarryToday(ids) { moveRolloverTasks(ids, "day", TODAY, "today"); }
+  function handleCarryWeek(ids) { moveRolloverTasks(ids, "week", TODAY, "this week"); }
+  function handleDrop(ids)      { pushUndo(); setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); setToast({ text: `Dropped ${ids.length} task${ids.length === 1 ? "" : "s"} ✓`, ts: Date.now() }); }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2975,13 +3145,15 @@ export default function App() {
       else if (k === "m" && !e.metaKey) { setPage("calendar"); setView("month"); }
       else if (k === "j") setPage(p => p === "journal" ? "calendar" : "journal");
       else if (k === "f") setFocusMode(v => !v);
-      else if (k === "c") setChatOpen(v => !v);
+      else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
+      else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "deep", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
+      else if (k === "a") setChatOpen(v => !v);
       else if (k === "s") setSettingsOpen(v => !v);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // Include events, tasks, and undo so the undo handler always operates on current state
-  }, [view, page, focusMode, chatOpen, settingsOpen, showShortcuts, showSearch, undoStack, events, tasks]);
+  }, [view, page, focusMode, chatOpen, settingsOpen, showShortcuts, showSearch, showFocusLog, undoStack, events, tasks, taskScope, viewDate]);
 
   // Show boot spinner while checking existing session
   if (auth.loading && !auth.user) return (
@@ -3023,6 +3195,17 @@ export default function App() {
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
+  const dayFreeMinutes = freeSlotsForDate(TODAY, false).reduce((sum, slot) => sum + slot.minutes, 0);
+  const firstFocusEvent = visibleEvents
+    .filter(e => e.start instanceof Date && eventOccursOnDay(e, TODAY) && (e.source === "focus-mode" || e.category === "deep" || String(e.title || "").startsWith("Focus:")))
+    .sort((a, b) => a.start - b.start)[0];
+  const dailyStartupSummary = {
+    events: getEventsOnDay(visibleEvents, TODAY).length,
+    tasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length,
+    freeHours: Math.round(dayFreeMinutes / 60 * 10) / 10,
+    bossTasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && (t.priority === "high" || taskDurationToMinutes(t.duration || 0) >= 90)).length,
+    firstFocus: firstFocusEvent ? fmt(firstFocusEvent.start) : null,
+  };
   const memoAppCSS    = appCSS(cvars, fontScale);
 
   return (
@@ -3073,7 +3256,7 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
-            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} />
+            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             <button type="button" className="mobile-menu-sync-btn" onClick={forceSyncNow}>↻ Sync now</button>
           </div>
           {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
@@ -3088,6 +3271,7 @@ export default function App() {
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
+            <div className="nav-item" onClick={() => { setShowFocusLog(true); closeSidebarOnMobile(); }}><span className="nav-icon">⏱</span>Focus Log</div>
             <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
             <div className="nav-item desktop-sync-nav-item" onClick={() => { forceSyncNow(); closeSidebarOnMobile(); }}><span className="nav-icon">↻</span>Sync Now</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
@@ -3148,9 +3332,10 @@ export default function App() {
             <div className="view-tabs">
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
-            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} />
+            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             <button className="topbar-btn sync-now-btn" onClick={forceSyncNow}>↻ Sync</button>
             <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan My Day</button>
+            <button className="topbar-btn" onClick={() => setShowFocusLog(true)} title="Focus Log">⏱ Focus</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
@@ -3225,15 +3410,17 @@ export default function App() {
         </div>
       )}
 
+      {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} onFocusLog={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setShowFocusLog(true); }} />}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
+      {showFocusLog && <FocusLogModal events={gameEvents} categories={categories} onClose={() => setShowFocusLog(false)} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} focusStart={focusStart} focusEnd={focusEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
-      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
+      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
-      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
+      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onMoveToday={handleCarryToday} onMoveTomorrow={handleCarryOver} onMoveWeek={handleCarryWeek} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} focusStart={focusStart} setFocusStart={setFocusStart} focusEnd={focusEnd} setFocusEnd={setFocusEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (

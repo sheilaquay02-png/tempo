@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,15 @@ const DEFAULT_EVENT_REMINDER_MINUTES = 10;
 const DEFAULT_LOOKBACK_MINUTES = 10;
 const DEFAULT_LOOKAHEAD_MINUTES = 1;
 const TASK_REMINDER_TIMES = { morning: '09:00', afternoon: '13:00', evening: '18:00' };
+const SNOOZE_ACTIONS = [
+  { action: 'snooze_5', title: 'Snooze 5m' },
+  { action: 'snooze_10', title: 'Snooze 10m' },
+  { action: 'snooze_30', title: 'Snooze 30m' },
+];
+
+function createActionToken() {
+  return crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+}
 
 function json(data, status = 200) {
   return Response.json(data, { status });
@@ -245,24 +255,40 @@ function eventReminderCandidates(events, now, lookbackMinutes, lookaheadMinutes)
     maybeAdd(baseStart);
 
     if (!rec) continue;
-    let cursor = new Date(baseStart.getTime());
-    let index = 0;
-    let safety = 0;
-    while (cursor < earliestEventStart && safety++ < 500) {
-      const next = stepRecurringDate(cursor, rec);
-      if (!next) break;
-      cursor = next;
-      index += 1;
-    }
-    safety = 0;
-    while (cursor <= latestEventStart && safety++ < 100) {
-      if (cursor.getTime() !== baseStart.getTime() && shouldEmitOccurrence(baseStart, cursor, rec, index)) {
-        maybeAdd(cursor, dateOnlyKeyUTC(cursor));
+    if (rec?.frequency === 'weekly' && Array.isArray(rec.byWeekdays) && rec.byWeekdays.length) {
+      let cursor = new Date(baseStart.getTime());
+      let emitted = 0;
+      let safety = 0;
+      const recWithoutCount = { ...rec, count: undefined };
+      while (cursor <= latestEventStart && safety++ < 500) {
+        const emits = shouldEmitOccurrence(baseStart, cursor, recWithoutCount, emitted);
+        if (emits) {
+          if (rec.count && emitted >= Number(rec.count)) break;
+          if (cursor.getTime() !== baseStart.getTime()) maybeAdd(cursor, dateOnlyKeyUTC(cursor));
+          emitted += 1;
+        }
+        cursor = addDays(cursor, 1);
       }
-      const next = stepRecurringDate(cursor, rec);
-      if (!next) break;
-      cursor = next;
-      index += 1;
+    } else {
+      let cursor = new Date(baseStart.getTime());
+      let index = 0;
+      let safety = 0;
+      while (cursor < earliestEventStart && safety++ < 500) {
+        const next = stepRecurringDate(cursor, rec);
+        if (!next) break;
+        cursor = next;
+        index += 1;
+      }
+      safety = 0;
+      while (cursor <= latestEventStart && safety++ < 100) {
+        if (cursor.getTime() !== baseStart.getTime() && shouldEmitOccurrence(baseStart, cursor, rec, index)) {
+          maybeAdd(cursor, dateOnlyKeyUTC(cursor));
+        }
+        const next = stepRecurringDate(cursor, rec);
+        if (!next) break;
+        cursor = next;
+        index += 1;
+      }
     }
   }
 
@@ -287,6 +313,37 @@ function taskScopeOf(task) {
 
 function taskDayKey(task) {
   return task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline || null;
+}
+
+
+function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
+  const list = Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
+  const windowStart = new Date(now.getTime() - lookbackMinutes * 60000);
+  const windowEnd = new Date(now.getTime() + lookaheadMinutes * 60000);
+  return list
+    .map(item => ({ ...item, dueAtDate: toDate(item.dueAt) }))
+    .filter(item => item.dueAtDate && item.dueAtDate >= windowStart && item.dueAtDate <= windowEnd)
+    .map(item => ({
+      type: item.type || 'task',
+      key: `snooze:${item.id || item.actionToken || item.taskId}:${item.dueAt}`,
+      title: item.title || 'Tempo reminder 🌸',
+      body: item.body || 'Open Tempo to check this item.',
+      url: item.url || (item.taskId ? `/?taskId=${encodeURIComponent(item.taskId)}&page=tasks` : '/'),
+      start: item.dueAtDate,
+      count: 1,
+      taskId: item.taskId || null,
+      sourceId: item.sourceId || item.taskId || null,
+      sourceType: item.sourceType || item.type || 'task',
+      snoozeId: item.id || null,
+      originalActionToken: item.actionToken || null,
+    }));
+}
+
+function removeDueSnoozedReminders(settings, sentSnoozeIds = []) {
+  if (!sentSnoozeIds.length) return settings;
+  const ids = new Set(sentSnoozeIds.filter(Boolean));
+  const existing = Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
+  return { ...settings, snoozedReminders: existing.filter(item => !ids.has(item.id)) };
 }
 
 function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookaheadMinutes) {
@@ -316,9 +373,12 @@ function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookahead
       key: `task:${task.id || task.title}:${todayKey}:${reminder.time}`,
       title: 'Task reminder ✅',
       body: `${task.title || 'Untitled task'} · ${label}`,
-      url: '/',
+      url: `/?taskId=${encodeURIComponent(task.id || '')}&page=tasks`,
       start: now,
       count: 1,
+      taskId: task.id || null,
+      sourceId: task.id || null,
+      sourceType: 'task',
     });
   }
 
@@ -326,16 +386,25 @@ function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookahead
 }
 
 async function markReminderIfNew(admin, userId, reminder) {
+  const actionToken = reminder.actionToken || createActionToken();
+  const meta = { ...reminder, actionToken };
   const { error } = await admin.from('push_reminder_log').insert({
     user_id: userId,
     reminder_key: `${userId}:${reminder.key}`,
     reminder_type: reminder.type,
     scheduled_for: reminder.start?.toISOString?.() || new Date().toISOString(),
-    meta: reminder,
+    meta,
   });
-  if (!error) return true;
-  if (error.code === '23505') return false;
+  if (!error) return { isNew: true, actionToken, meta };
+  if (error.code === '23505') return { isNew: false, actionToken: null, meta: reminder };
   throw error;
+}
+
+function notificationActionsFor(reminder) {
+  const actions = [...SNOOZE_ACTIONS];
+  if (reminder.type === 'task' && reminder.taskId) actions.push({ action: 'mark_done', title: 'Mark done' });
+  actions.push({ action: 'open_task', title: 'Open' });
+  return actions;
 }
 
 async function sendToUserSubscriptions(admin, subscriptions, payload) {
@@ -403,27 +472,46 @@ async function runReminderCheck(request) {
         title: 'Upcoming event ⏰',
         body: reminder.minutesBefore === 0 ? `${reminder.title} starts now.` : `${reminder.title} starts in ${reminder.label}.`,
         url: '/',
+        sourceType: 'event',
+        sourceId: reminder.id || null,
       }));
       const taskCandidates = taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes);
-      const allCandidates = [...eventCandidates, ...taskCandidates];
+      const snoozeCandidates = snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
+      const allCandidates = [...snoozeCandidates, ...eventCandidates, ...taskCandidates];
       candidates += allCandidates.length;
 
+      const sentSnoozeIds = [];
       for (const reminder of allCandidates) {
-        const isNew = dryRun ? true : await markReminderIfNew(admin, row.user_id, reminder);
-        if (!isNew) {
+        const marked = dryRun ? { isNew: true, actionToken: createActionToken(), meta: reminder } : await markReminderIfNew(admin, row.user_id, reminder);
+        if (!marked.isNew) {
           skippedDuplicates += 1;
           continue;
         }
+        if (reminder.snoozeId) sentSnoozeIds.push(reminder.snoozeId);
         if (dryRun) continue;
         const result = await sendToUserSubscriptions(admin, subscriptions, {
           title: reminder.title,
           body: reminder.body,
           url: reminder.url || '/',
           tag: `${row.user_id}:${reminder.key}`,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          actions: notificationActionsFor(reminder),
+          data: {
+            url: reminder.url || '/',
+            actionToken: marked.actionToken,
+            taskId: reminder.taskId || null,
+            sourceType: reminder.sourceType || reminder.type,
+            sourceId: reminder.sourceId || reminder.id || null,
+          },
         });
         sent += result.sent;
         failed += result.failed;
         cleaned += result.cleaned;
+      }
+      if (!dryRun && sentSnoozeIds.length) {
+        const nextSettings = removeDueSnoozedReminders(settings, sentSnoozeIds);
+        await admin.from('user_data').update({ settings: nextSettings, updated_at: new Date().toISOString() }).eq('user_id', row.user_id);
       }
     }
 

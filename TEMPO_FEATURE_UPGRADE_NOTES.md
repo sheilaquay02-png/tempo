@@ -130,3 +130,58 @@ Added after cross-device/PWA feedback:
 ### Validation
 - `npm run build` passes on Next.js 16.2.6.
 - ESLint dependencies were installed, but the current app still has pre-existing lint issues/warnings that should be handled in a future cleanup sprint.
+
+
+## Hobby Cron Compatibility Update
+
+- Removed the 5-minute Vercel Cron from `vercel.json` so Hobby deployments do not fail.
+- Added `.github/workflows/tempo-reminders.yml` as an external 5-minute reminder trigger option.
+- Added `docs/external_cron_setup.md` with setup instructions for GitHub Actions or another external cron service.
+- Added notification action support for snooze and task completion via `/api/push/action`.
+- Updated the PWA service worker to show reminder actions where supported.
+- Changed the mobile viewport so users can zoom for accessibility.
+
+## Product polish update — reminder actions, planner, rollover, focus log
+
+Added in this build:
+
+- Confirmed notification actions are wired through the service worker and `/api/push/action`:
+  - Snooze 5 minutes
+  - Snooze 10 minutes
+  - Snooze 30 minutes
+  - Mark task done
+  - Open task
+- Kept the Vercel Hobby-safe cron setup: `vercel.json` stays empty, and frequent reminder checks should run through GitHub Actions or another external scheduler.
+- Confirmed recurrence selected-weekday count logic counts emitted occurrences, not scanned dates.
+- Added stronger recurring task controls through the recurring task action prompt.
+- Added a Daily Startup screen:
+  - Today’s event count
+  - Open task count
+  - Free hours
+  - Boss task count
+  - First focus block
+- Added Focus Log:
+  - Today’s focus sessions
+  - Weekly focus total
+  - Session count
+  - Weekly breakdown for deep work, admin, and meetings
+- Upgraded Plan My Day:
+  - Regenerate plan button
+  - Lock task-in-slot before regenerating
+  - Move remaining unscheduled tasks to tomorrow
+- Upgraded task rollover:
+  - Move selected tasks to today
+  - Move selected tasks to tomorrow
+  - Move selected tasks to this week
+  - Drop selected tasks
+- Added calendar duration resizing:
+  - Drag the bottom edge of a timed event to extend/shrink its duration on desktop.
+- Updated keyboard shortcuts:
+  - C creates an event
+  - T creates a task
+  - A opens chat
+- Added Focus Log to the sidebar and calendar topbar.
+
+Not included yet:
+
+- Google Calendar live OAuth sync is intentionally left as a separate integration sprint because it requires Google Cloud OAuth setup, redirect URI configuration, token storage/refresh handling, and a careful conflict model against existing Tempo events.
