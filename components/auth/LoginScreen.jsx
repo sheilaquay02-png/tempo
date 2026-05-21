@@ -381,13 +381,13 @@ export function LoginScreen({ auth }) {
             <span className="login-logo-text">Tempo</span>
             <span className="login-logo-badge">✦ beta</span>
           </div>
-          <p className="login-tagline">Your calm, focused day<br/>starts right here ✨</p>
+          <p className="login-tagline">Your calm, organized day<br/>starts right here ✨</p>
         </div>
 
         {/* Cute feature pills */}
         <div className="login-pills">
           <span className="login-pill">📅 Smart scheduling</span>
-          <span className="login-pill">🔮 Focus mode</span>
+          <span className="login-pill">🌸 Daily planning</span>
           <span className="login-pill">🌿 Task tracking</span>
         </div>
 

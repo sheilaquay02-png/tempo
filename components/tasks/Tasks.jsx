@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
 
 
 function TaskReminderFields({ value, onChange, compact = false }) {
@@ -37,7 +37,7 @@ function TaskRecurrenceSelect({ value, onChange, anchorDate = TODAY, compact = f
 }
 
 // ─── Task Item ────────────────────────────────────────────────────────────────
-export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit, onScheduleTask }) {
+export function TaskItem({ task, onToggle, categories, onEdit, onScheduleTask }) {
   const [expanded, setExpanded] = useState(false);
   const cat = categories.find(c => c.id === task.category);
   const pri = PRIORITIES.find(p => p.id === task.priority);
@@ -129,13 +129,12 @@ export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit, 
       </div>
       <button className="pomo-btn" onClick={() => onEdit(task)} title="Edit task">✎</button>
       {!task.done && <button className="pomo-btn" onClick={() => onScheduleTask?.(task)} title="Schedule this task">📅</button>}
-      {!task.done && <button className="pomo-btn" onClick={() => onStartPomodoro(task.id)} title="Start Pomodoro">⏱</button>}
     </div>
   );
 }
 
 // ─── Task Panel ───────────────────────────────────────────────────────────────
-export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, onScheduleTask, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
+export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onScheduleTask, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
   const TASK_PANEL_DEFAULT_WIDTH = 295;
   const TASK_PANEL_MIN_WIDTH = 240;
   const TASK_PANEL_MAX_WIDTH = 560;
@@ -277,7 +276,7 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
             <div className="empty-state-title">All clear! No tasks for now. Enjoy the free time 🌸</div>
           </div>
         ) : (
-          [...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} categories={categories} />)
+          [...filtered].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??1) - ({high:0,medium:1,low:2}[b.priority]??1)).map(t => <TaskItem key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onScheduleTask={onScheduleTask} categories={categories} />)
         )}
       </div>
       <div className="task-footer"><span>{filtered.filter(t => !t.done).length} remaining</span><span>{filtered.filter(t => t.done).length} done ✅</span></div>
@@ -333,7 +332,7 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
   );
 }
 
-export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDate, onToggle, onEdit, onStartPomodoro, onScheduleTask, onAdd, onMoveTaskPeriod, onSelectScope }) {
+export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPeriodDate, onToggle, onEdit, onScheduleTask, onAdd, onMoveTaskPeriod, onSelectScope }) {
   const [isOver, setIsOver] = useState(false);
   const [adding, setAdding] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
@@ -395,13 +394,13 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
         </div>
       )}
       <div className="task-period-list">
-        {sorted.length ? sorted.map(t => <div key={t.id} className="task-card-with-move"><TaskItem task={t} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} categories={categories} />{cardScope !== "day" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "day", new Date(TODAY))}>Move to Day</button>}{cardScope !== "week" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "week", new Date(TODAY))}>Move to Week</button>}{cardScope !== "month" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "month", new Date(TODAY))}>Move to Month</button>}</div>) : <div className="task-card-empty">No tasks here yet 🌸<br/><small>Drop a task here or add one small task.</small></div>}
+        {sorted.length ? sorted.map(t => <div key={t.id} className="task-card-with-move"><TaskItem task={t} onToggle={onToggle} onEdit={onEdit} onScheduleTask={onScheduleTask} categories={categories} />{cardScope !== "day" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "day", new Date(TODAY))}>Move to Day</button>}{cardScope !== "week" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "week", new Date(TODAY))}>Move to Week</button>}{cardScope !== "month" && <button className="mini-move-btn" onClick={() => onMoveTaskPeriod(t.id, "month", new Date(TODAY))}>Move to Month</button>}</div>) : <div className="task-card-empty">No tasks here yet 🌸<br/><small>Drop a task here or add one small task.</small></div>}
       </div>
     </div>
   );
 }
 
-export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, onScheduleTask, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
+export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onScheduleTask, scope, setScope, periodDate, setPeriodDate, onMoveTaskPeriod, gameStats }) {
   useEffect(() => {
     const handler = e => {
       const { id, scope: targetScope, anchor } = e.detail || {};
@@ -422,7 +421,7 @@ export function TasksPage({ tasks, categories, onToggle, onAdd, onEdit, onStartP
       </div>
       <div className="task-period-board">
         {["day", "week", "month"].map(s => (
-          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} setPeriodDate={setPeriodDate} onToggle={onToggle} onEdit={onEdit} onStartPomodoro={onStartPomodoro} onScheduleTask={onScheduleTask} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
+          <TaskPeriodCard key={s} cardScope={s} tasks={tasks} categories={categories} periodDate={periodDate} setPeriodDate={setPeriodDate} onToggle={onToggle} onEdit={onEdit} onScheduleTask={onScheduleTask} onAdd={onAdd} onMoveTaskPeriod={onMoveTaskPeriod} onSelectScope={next => setScope(next)} />
         ))}
       </div>
     </div>

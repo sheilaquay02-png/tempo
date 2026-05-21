@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -131,39 +131,6 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
   );
 }
 
-// ─── Pomodoro Widget ──────────────────────────────────────────────────────────
-function PomodoroWidget({ state, tasks, onPause, onResume, onStop }) {
-  const task  = tasks.find(t => t.id === state.taskId);
-  const m     = Math.floor(state.remaining / 60).toString().padStart(2, "0");
-  const s     = (state.remaining % 60).toString().padStart(2, "0");
-  const total = state.mode === "work" ? POMODORO_WORK_SECS : POMODORO_BREAK_SECS;
-  const pct   = Math.max(0, Math.min(100, (1 - state.remaining / total) * 100));
-  const savedProgressMins = Number(task?.focusProgressMins || 0);
-  const liveWorkSeconds = state.mode === "work" ? Math.max(0, total - state.remaining) : 0;
-  const liveProgressSeconds = Math.max(0, savedProgressMins * 60 + liveWorkSeconds);
-  const progressMins = Math.floor(liveProgressSeconds / 60);
-  const taskMins = Math.max(1, taskDurationToMinutes(task?.duration || 30));
-  const taskPct = Math.min(100, Math.round((liveProgressSeconds / (taskMins * 60)) * 1000) / 10);
-  const isBoss = task?.category === "boss";
-  const bossHp = Math.max(0, 100 - taskPct);
-  const r = 34; const circ = 2 * Math.PI * r;
-  return (
-    <div className="pomo-widget">
-      <div className="pomo-header"><span className="pomo-mode">{state.mode === "work" ? "🔮 Focus" : "🌸 Break"}</span><span className="pomo-cycles">#{state.cycles + 1}</span><button className="pomo-stop" onClick={onStop}>✕</button></div>
-      {task && <div className="pomo-task">{isBoss ? "👾 Boss Battle: " : ""}{task.title}</div>}
-      {task && <div className="task-progress-mini"><span>{progressMins}/{taskMins} min</span><div className="task-progress-track"><i style={{ width: `${taskPct}%` }} /></div>{isBoss && <strong>Boss HP {bossHp}%</strong>}</div>}
-      <div className="pomo-ring-wrap">
-        <svg className="pomo-ring" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
-          <circle cx="40" cy="40" r={r} fill="none" stroke={state.mode === "work" ? "var(--accent)" : "#B8F0E0"} strokeWidth="6" strokeDasharray={`${circ}`} strokeDashoffset={`${circ * (1 - pct / 100)}`} strokeLinecap="round" transform="rotate(-90 40 40)" style={{ transition: "stroke-dashoffset 1s linear" }} />
-        </svg>
-        <div className="pomo-time">{m}:{s}</div>
-      </div>
-      <div className="pomo-controls">{state.active ? <button className="pomo-btn-ctrl" onClick={onPause}>⏸ Pause</button> : <button className="pomo-btn-ctrl" onClick={onResume}>▶ Resume</button>}</div>
-    </div>
-  );
-}
-
 // ─── Stats Card ───────────────────────────────────────────────────────────────
 function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
@@ -187,7 +154,7 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
           <div className="stat-big"><div className="stat-num">{gs.today.score}</div><div className="stat-lbl">Tempo score</div></div>
         </div>
         <div className="stats-row">
-          <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Focus time</div></div>
+          <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Deep work</div></div>
           <div className="stat-big"><div className="stat-num">{td.length}</div><div className="stat-lbl">Events</div></div>
           <div className="stat-big"><div className="stat-num">{gs.unlockedBadges.length}</div><div className="stat-lbl">Badges</div></div>
         </div>
@@ -224,44 +191,9 @@ function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMove
   );
 }
 
-// ─── Focus Mode ───────────────────────────────────────────────────────────────
-function FocusMode({ tasks, events, categories, pomodoro, onStartPomodoro, onPause, onResume, onStop, onExit }) {
-  const now  = new Date(); const next = events.filter(e => e.start > now).sort((a, b) => a.start - b.start)[0];
-  const open = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
-  return (
-    <div className="focus-overlay">
-      <button className="focus-exit" onClick={onExit}>✕ Exit Focus Mode</button>
-      <div className="focus-content">
-        <div className="focus-logo">🌸 Tempo</div>
-        <div className="focus-date">{fmtDate(TODAY)}</div>
-        {pomodoro.active ? (
-          <PomodoroWidget state={pomodoro} tasks={tasks} onPause={onPause} onResume={onResume} onStop={onStop} />
-        ) : (
-          <div className="focus-idle">
-            <div className="focus-idle-msg">Ready to focus? 🔮</div>
-            {next && <div className="focus-next">Next: {next.title} at {fmt(next.start)}</div>}
-          </div>
-        )}
-        <div className="focus-tasks">
-          <div className="focus-tasks-title">Today's tasks</div>
-          {open.slice(0, 5).map(t => (
-            <div key={t.id} className="focus-task-row">
-              <span className="focus-task-name">{t.title}</span>
-              <span className="focus-task-dur">{Number(t.focusProgressMins || 0)}/{taskDurationToMinutes(t.duration)}min</span>
-              <button className="focus-start-btn" onClick={() => onStartPomodoro(t.id)}>▶</button>
-            </div>
-          ))}
-          {open.length === 0 && <div className="task-card-empty">No open tasks for today.</div>}
-        </div>
-        <FocusLogInline events={events} categories={categories} />
-      </div>
-    </div>
-  );
-}
-
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["F","Focus mode"],["C","Create event"],["T","Create task"],["A","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["C","Create event"],["T","Create task"],["A","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -350,72 +282,7 @@ function normalizeMealBreaks(value) {
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
 
-function focusEventsInRange(events, start, end) {
-  return expandRecurring(events, start, end)
-    .filter(e => e.source === "focus-mode" || String(e.title || "").startsWith("Focus:"))
-    .filter(e => e.start instanceof Date && e.end instanceof Date && e.start < end && e.end > start)
-    .sort((a, b) => b.start - a.start);
-}
-
-function buildFocusLogData(events, categories) {
-  const todayStart = dayStart(TODAY);
-  const tomorrow = addDaysSafe(todayStart, 1);
-  const week = weekStart(TODAY);
-  const weekEnd = addDaysSafe(week, 7);
-  const todayFocus = focusEventsInRange(events, todayStart, tomorrow);
-  const weekFocus = focusEventsInRange(events, week, weekEnd);
-  const mins = ev => Math.max(0, Math.round((ev.end - ev.start) / 60000));
-  const total = list => list.reduce((sum, e) => sum + mins(e), 0);
-  const deep = weekFocus.filter(e => (e.category || "") === "deep" || /Focus:/i.test(e.title || ""));
-  const admin = weekFocus.filter(e => (e.category || "") === "admin");
-  const meetings = expandRecurring(events, week, weekEnd).filter(e => e.category === "meeting");
-  const fmtHours = m => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
-  const rows = todayFocus.map(e => ({
-    event: e,
-    cat: categories.find(c => c.id === e.category),
-    minutes: mins(e),
-    title: String(e.title || "Focus").replace(/^Focus:\s*/, ""),
-  }));
-  return { todayFocus, weekFocus, rows, total, deep, admin, meetings, fmtHours };
-}
-
-function FocusLogInline({ events, categories }) {
-  const data = buildFocusLogData(events, categories);
-  return (
-    <div className="focus-log-inline">
-      <div className="focus-tasks-title">Focus log</div>
-      <div className="focus-stats-grid focus-stats-grid-compact">
-        <div><strong>{data.fmtHours(data.total(data.todayFocus))}</strong><span>today</span></div>
-        <div><strong>{data.fmtHours(data.total(data.weekFocus))}</strong><span>week</span></div>
-        <div><strong>{data.weekFocus.length}</strong><span>sessions</span></div>
-      </div>
-      <div className="focus-log-list focus-log-list-compact">{data.rows.length ? data.rows.slice(0, 4).map(({ event, cat, minutes, title }) => (
-        <div key={event.id} className="focus-log-row"><span>{fmt(event.start)} — {title}</span><strong>{minutes} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>
-      )) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
-    </div>
-  );
-}
-
-function FocusLogModal({ events, categories, onClose }) {
-  const data = buildFocusLogData(events, categories);
-  return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Focus log">
-      <div className="modal focus-log-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><div><strong>⏱ Focus Log</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>Today and this week</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div className="focus-stats-grid"><div><strong>{data.fmtHours(data.total(data.todayFocus))}</strong><span>today focus</span></div><div><strong>{data.fmtHours(data.total(data.weekFocus))}</strong><span>week focus</span></div><div><strong>{data.weekFocus.length}</strong><span>sessions</span></div></div>
-          <div className="settings-section-desc">Weekly breakdown: Deep Work {data.fmtHours(data.total(data.deep))} · Admin {data.fmtHours(data.total(data.admin))} · Meetings {data.fmtHours(data.total(data.meetings))}</div>
-          <div className="focus-log-list">{data.rows.length ? data.rows.map(({ event, cat, minutes, title }) => (
-            <div key={event.id} className="focus-log-row"><span>{fmt(event.start)} — {title}</span><strong>{minutes} min</strong><em>{cat?.icon || "🌸"} {cat?.label || "Focus"}</em></div>
-          )) : <div className="task-card-empty">No focus sessions logged today yet.</div>}</div>
-        </div>
-        <div className="modal-footer"><div/><button className="tf-save" onClick={onClose}>Done</button></div>
-      </div>
-    </div>
-  );
-}
-
-function DailyStartupModal({ summary, onClose, onPlanDay, onFocusLog }) {
+function DailyStartupModal({ summary, onClose, onPlanDay }) {
   if (!summary) return null;
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Today’s plan">
@@ -423,16 +290,16 @@ function DailyStartupModal({ summary, onClose, onPlanDay, onFocusLog }) {
         <div className="modal-header"><div><strong>🌤 Today’s Plan</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(TODAY)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.bossTasks}</strong><span>boss tasks</span></div></div>
-          <div className="startup-next">{summary.firstFocus ? `First focus block: ${summary.firstFocus}` : "No focus block scheduled yet."}</div>
+          <div className="startup-next">{summary.firstEvent ? `First scheduled item: ${summary.firstEvent}` : "No scheduled items yet."}</div>
           <div className="settings-section-desc">Use Plan My Day to place the most important tasks into realistic free slots before the day gets noisy.</div>
         </div>
-        <div className="modal-footer"><button className="tf-cancel" onClick={onFocusLog}>Focus Log</button><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan My Day</button></div></div>
+        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan My Day</button></div></div>
       </div>
     </div>
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, focusStart, setFocusStart, focusEnd, setFocusEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
@@ -577,8 +444,8 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           </div>
           {/* Notifications */}
           <div className="settings-section">
-            <div className="settings-section-label">Pomodoro notifications</div>
-            <div className="settings-section-desc">Used for focus timer alerts while the app is open</div>
+            <div className="settings-section-label">In-app notifications</div>
+            <div className="settings-section-desc">Used for reminder alerts while the app is open</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
           <div className="settings-section">
@@ -1377,7 +1244,6 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
                     <div className="daily-score-lines">
                       <span>✅ {dayScore.completed.length} task{dayScore.completed.length !== 1 ? "s" : ""}</span>
                       <span>🎯 {dayScore.highDone} priority</span>
-                      <span>🔮 {Math.round(dayScore.focusMins / 60 * 10) / 10}h focus</span>
                       <span>📔 {dayScore.journalDone ? "Journal done" : "No journal"}</span>
                     </div>
                   </div>
@@ -1461,18 +1327,17 @@ function hourLabel(hour) {
   return `${display}${h < 12 ? "am" : "pm"}`;
 }
 
-function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19, focusStart = workStart, focusEnd = workEnd }) {
+function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19 }) {
   const [mode, setMode] = useState("today");
-  const [focusOnly, setFocusOnly] = useState(false);
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Schedule task">
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>📅 Schedule this task</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{task?.title}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="modal-row"><label>Find slot</label><select className="modal-select" value={mode} onChange={e => setMode(e.target.value)}><option value="today">Today</option><option value="week">This week</option><option value="deadline">Before deadline</option></select></div>
-          <div className="modal-row"><label>Focus hours only</label><input type="checkbox" checked={focusOnly} onChange={e => setFocusOnly(e.target.checked)} /><span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{hourLabel(focusStart)}–{hourLabel(focusEnd)} from your Focus Hours setting</span></div>
+          <div className="settings-section-desc">Tempo will look for slots inside your Work Hours ({hourLabel(workStart)}–{hourLabel(workEnd)}) while respecting meal breaks and planning buffers.</div>
         </div>
-        <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={() => onSchedule(mode, focusOnly)}>Schedule task</button></div>
+        <div className="modal-footer"><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={() => onSchedule(mode)}>Schedule task</button></div>
       </div>
     </div>
   );
@@ -1694,8 +1559,6 @@ export default function App() {
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
   const [workStart, setWSRaw]       = useState(() => load(`${uk}_ws`, 9));
   const [workEnd,   setWERaw]       = useState(() => load(`${uk}_we`, 19));
-  const [focusStart, setFocusStartRaw] = useState(() => load(`${uk}_focus_start`, load(`${uk}_ws`, 9)));
-  const [focusEnd,   setFocusEndRaw]   = useState(() => load(`${uk}_focus_end`, load(`${uk}_we`, 19)));
   const [mealBreaks, setMealBreaksRaw] = useState(() => normalizeMealBreaks(load(`${uk}_meal_breaks`, DEFAULT_MEAL_BREAKS)));
   const [planningRules, setPlanningRulesRaw] = useState(() => normalizePlanningRules(load(`${uk}_planning_rules`, DEFAULT_PLANNING_RULES)));
   const [settingsUpdatedAt, setSettingsUpdatedAtRaw] = useState(() => normalizeSettingsUpdatedAt(load(`${uk}_settings_updated_at`, {})));
@@ -1719,7 +1582,6 @@ export default function App() {
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [showFocusLog, setShowFocusLog] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
@@ -1732,15 +1594,12 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState(() => load(`${uk}_last_synced_at`, null));
   const cloudQueueRef = useRef(Promise.resolve());
   const lastRealtimeSyncRef = useRef(0);
-  const [focusMode,    setFocusMode]    = useState(false);
   const [dataReady,    setDataReady]    = useState(false);
   const [loadedUserId, setLoadedUserId] = useState(null);
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
   // Real streak: count consecutive days the user has been active
   const [streak, setStreak] = useState(0);
-  const pomodoro = usePomodoro();
-  const lastFocusCycleRef = useRef(0);
   const closeSidebarOnMobile = () => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) setSidebarOpen(false);
   };
@@ -1831,8 +1690,6 @@ export default function App() {
         theme: safeSettings.theme ?? load(`${userKey}_th`, "tempo"),
         workStart: safeSettings.workStart ?? load(`${userKey}_ws`, 9),
         workEnd: safeSettings.workEnd ?? load(`${userKey}_we`, 19),
-        focusStart: safeSettings.focusStart ?? load(`${userKey}_focus_start`, safeSettings.workStart ?? load(`${userKey}_ws`, 9)),
-        focusEnd: safeSettings.focusEnd ?? load(`${userKey}_focus_end`, safeSettings.workEnd ?? load(`${userKey}_we`, 19)),
         mealBreaks: normalizeMealBreaks(safeSettings.mealBreaks ?? load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
         planningRules: normalizePlanningRules(safeSettings.planningRules ?? load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(safeSettings.settingsUpdatedAt ?? load(`${userKey}_settings_updated_at`, {})),
@@ -1855,8 +1712,6 @@ export default function App() {
       setThRaw(nextSettings.theme);
       setWSRaw(Number(nextSettings.workStart));
       setWERaw(Number(nextSettings.workEnd));
-      setFocusStartRaw(Number(nextSettings.focusStart ?? nextSettings.workStart));
-      setFocusEndRaw(Number(nextSettings.focusEnd ?? nextSettings.workEnd));
       setMealBreaksRaw(normalizeMealBreaks(nextSettings.mealBreaks));
       setPlanningRulesRaw(normalizePlanningRules(nextSettings.planningRules));
       setSettingsUpdatedAtRaw(normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -1873,8 +1728,6 @@ export default function App() {
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
-      save(`${userKey}_focus_start`, nextSettings.focusStart ?? nextSettings.workStart);
-      save(`${userKey}_focus_end`, nextSettings.focusEnd ?? nextSettings.workEnd);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
       save(`${userKey}_deleted_records`, normalizeDeletedRecords(nextSettings.deletedRecords));
@@ -1900,8 +1753,6 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
-          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
-          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
@@ -1945,8 +1796,6 @@ export default function App() {
             theme: load(`${userKey}_th`, "tempo"),
             workStart: load(`${userKey}_ws`, 9),
             workEnd: load(`${userKey}_we`, 19),
-            focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
-            focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
             mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
             planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
             settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
@@ -1987,8 +1836,6 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
-          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
-          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
@@ -2016,8 +1863,6 @@ export default function App() {
           theme: "tempo",
           workStart: 9,
           workEnd: 19,
-          focusStart: 9,
-          focusEnd: 19,
           mealBreaks: normalizeMealBreaks(DEFAULT_MEAL_BREAKS),
           planningRules: normalizePlanningRules(DEFAULT_PLANNING_RULES),
           settingsUpdatedAt: {},
@@ -2051,8 +1896,6 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
-          focusStart: load(`${userKey}_focus_start`, load(`${userKey}_ws`, 9)),
-          focusEnd: load(`${userKey}_focus_end`, load(`${userKey}_we`, 19)),
           mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
@@ -2101,8 +1944,6 @@ export default function App() {
     theme,
     workStart,
     workEnd,
-    focusStart,
-    focusEnd,
     mealBreaks: normalizeMealBreaks(mealBreaks),
     planningRules: normalizePlanningRules(planningRules),
     settingsUpdatedAt: normalizeSettingsUpdatedAt(settingsUpdatedAt),
@@ -2171,8 +2012,6 @@ export default function App() {
         templates: nextSettings?.templates || templates,
         journalActivities: nextSettings?.journalActivities || journalActivities,
         memoryTags: nextSettings?.memoryTags || memoryTags,
-        focusStart: Number(nextSettings?.focusStart ?? focusStart ?? workStart),
-        focusEnd: Number(nextSettings?.focusEnd ?? focusEnd ?? workEnd),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -2189,8 +2028,6 @@ export default function App() {
       setThRaw(normalizedSettings.theme || theme);
       setWSRaw(Number(normalizedSettings.workStart ?? workStart));
       setWERaw(Number(normalizedSettings.workEnd ?? workEnd));
-      setFocusStartRaw(Number(normalizedSettings.focusStart ?? normalizedSettings.workStart ?? workStart));
-      setFocusEndRaw(Number(normalizedSettings.focusEnd ?? normalizedSettings.workEnd ?? workEnd));
       setMealBreaksRaw(normalizedSettings.mealBreaks);
       setPlanningRulesRaw(normalizedSettings.planningRules);
       setSettingsUpdatedAtRaw(normalizedSettings.settingsUpdatedAt);
@@ -2215,8 +2052,6 @@ export default function App() {
       save(`${uk}_th`, normalizedSettings.theme);
       save(`${uk}_ws`, normalizedSettings.workStart);
       save(`${uk}_we`, normalizedSettings.workEnd);
-      save(`${uk}_focus_start`, normalizedSettings.focusStart);
-      save(`${uk}_focus_end`, normalizedSettings.focusEnd);
       save(`${uk}_meal_breaks`, normalizedSettings.mealBreaks);
       save(`${uk}_planning_rules`, normalizedSettings.planningRules);
       save(`${uk}_settings_updated_at`, normalizedSettings.settingsUpdatedAt);
@@ -2347,8 +2182,6 @@ export default function App() {
     save(`${uk}_th`, next.theme);
     save(`${uk}_ws`, next.workStart);
     save(`${uk}_we`, next.workEnd);
-    save(`${uk}_focus_start`, next.focusStart);
-    save(`${uk}_focus_end`, next.focusEnd);
     save(`${uk}_meal_breaks`, normalizeMealBreaks(next.mealBreaks));
     save(`${uk}_planning_rules`, normalizePlanningRules(next.planningRules));
     save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
@@ -2396,17 +2229,6 @@ export default function App() {
     persistSettings({ workEnd: n });
   };
 
-  const setFocusStart = v => {
-    const n = Number(v);
-    setFocusStartRaw(n);
-    persistSettings({ focusStart: n });
-  };
-
-  const setFocusEnd = v => {
-    const n = Number(v);
-    setFocusEndRaw(n);
-    persistSettings({ focusEnd: n });
-  };
 
   const setMealBreaks = v => {
     const n = normalizeMealBreaks(typeof v === "function" ? v(mealBreaks) : v);
@@ -2732,15 +2554,12 @@ export default function App() {
       ...extra,
     };
   }
-  function freeSlotsForDate(date, focusOnly = false, extraEvents = []) {
-    // Focus-only scheduling should follow the user's Settings → Work Hours.
+  function freeSlotsForDate(date, extraEvents = []) {
     // getFreeBlocks returns minute offsets, so convert those offsets back into
     // real Date objects before comparing with the current time or durations.
-    // Keeping the focusOnly parameter here lets the modal option stay explicit,
-    // while the actual focus window now mirrors Work Hours instead of 9–5.
     const rules = normalizePlanningRules(planningRules);
-    const startHour = Number(focusOnly ? focusStart : workStart);
-    const endHour = Number(focusOnly ? focusEnd : workEnd);
+    const startHour = Number(workStart);
+    const endHour = Number(workEnd);
     if (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) return [];
 
     const toDateAtMinute = minuteOfDay => {
@@ -2875,13 +2694,13 @@ export default function App() {
     setToast({ text: `Moved ${unscheduled.length} remaining task${unscheduled.length === 1 ? "" : "s"} to tomorrow ✓`, ts: Date.now() });
     setDayPlan(null);
   }
-  function scheduleTaskIntoCalendar(task, mode = "today", focusOnly = false) {
+  function scheduleTaskIntoCalendar(task, mode = "today") {
     if (!task) return;
     const duration = Math.max(15, taskDurationToMinutes(task.duration || 30));
     const startSearch = dayStart(TODAY);
     const last = mode === "today" ? startSearch : mode === "deadline" && task.deadline ? (localDateFromKey(task.deadline) || startSearch) : addDaysSafe(weekStart(TODAY), 6);
     for (let d = dayStart(startSearch); d <= dayStart(last); d = addDaysSafe(d, 1)) {
-      const slot = freeSlotsForDate(d, focusOnly).find(s => s.minutes >= duration);
+      const slot = freeSlotsForDate(d).find(s => s.minutes >= duration);
       if (!slot) continue;
       const start = new Date(slot.start);
       const end = new Date(start.getTime() + duration * 60000);
@@ -2895,40 +2714,6 @@ export default function App() {
     setToast({ text: `No suitable slot found for “${task.title}”`, ts: Date.now() });
     return false;
   }
-  function handlePomodoroStop() {
-    const linkedTask = tasks.find(t => t.id === pomodoro.state.taskId);
-    if (linkedTask && typeof window !== "undefined") {
-      const note = window.prompt("Add session notes for this focus session?", "");
-      if (note?.trim()) setTasks(ts => ts.map(t => t.id === linkedTask.id ? { ...t, notes: [t.notes || "", `Focus note (${fmt(new Date())}): ${note.trim()}`].filter(Boolean).join("\n") } : t));
-    }
-    pomodoro.stop();
-  }
-
-
-  useEffect(() => {
-    const cycles = pomodoro.state.cycles || 0;
-    if (cycles <= lastFocusCycleRef.current) return;
-    const taskId = pomodoro.state.taskId;
-    lastFocusCycleRef.current = cycles;
-    if (!taskId) return;
-    const minutes = Math.round(POMODORO_WORK_SECS / 60);
-    const endedAt = new Date();
-    const startedAt = new Date(endedAt.getTime() - minutes * 60000);
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-    let completedTask = null;
-    const nextTasks = tasks.map(t => {
-      if (t.id !== taskId) return t;
-      const nextProgress = Number(t.focusProgressMins || 0) + minutes;
-      const required = Math.max(1, taskDurationToMinutes(t.duration || 30));
-      const done = nextProgress >= required;
-      completedTask = { ...t, done, nextProgress };
-      return touchRecord(t, { focusProgressMins: nextProgress, done: done ? true : t.done, completedAt: done ? endedAt.toISOString() : t.completedAt, completedDate: done ? taskCompletionTargetKey(t) : t.completedDate });
-    });
-    const focusEvent = buildTaskEvent(task, startedAt, endedAt, { title: `Focus: ${task.title}`, category: task.category || "deep", source: "focus-mode", reminder: { type: "none", minutesBefore: null } });
-    setEventsAndTasks([...events, focusEvent], nextTasks);
-    setToast({ text: completedTask?.done ? `Boss defeated: ${task.title} ✓` : `Focus progress saved for “${task.title}”`, ts: Date.now() });
-  }, [pomodoro.state.cycles]);
 
   function copyEventForPaste(ev) {
     if (!ev) return;
@@ -3243,7 +3028,7 @@ export default function App() {
       if (e.key === "Escape") {
         if (showSearch) { setShowSearch(false); return; }
         if (page === "journal") { setPage("calendar"); return; }
-        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); setFocusMode(false); return;
+        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); return;
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
@@ -3252,7 +3037,6 @@ export default function App() {
       else if (k === "w" && !e.metaKey) { setPage("calendar"); setView("week"); }
       else if (k === "m" && !e.metaKey) { setPage("calendar"); setView("month"); }
       else if (k === "j") setPage(p => p === "journal" ? "calendar" : "journal");
-      else if (k === "f") setFocusMode(v => !v);
       else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
       else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "deep", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
       else if (k === "a") setChatOpen(v => !v);
@@ -3261,7 +3045,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // Include events, tasks, and undo so the undo handler always operates on current state
-  }, [view, page, focusMode, chatOpen, settingsOpen, showShortcuts, showSearch, showFocusLog, undoStack, events, tasks, taskScope, viewDate]);
+  }, [view, page, chatOpen, settingsOpen, showShortcuts, showSearch, undoStack, events, tasks, taskScope, viewDate]);
 
   // Show boot spinner while checking existing session
   if (auth.loading && !auth.user) return (
@@ -3303,16 +3087,16 @@ export default function App() {
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
-  const dayFreeMinutes = freeSlotsForDate(TODAY, false).reduce((sum, slot) => sum + slot.minutes, 0);
-  const firstFocusEvent = visibleEvents
-    .filter(e => e.start instanceof Date && eventOccursOnDay(e, TODAY) && (e.source === "focus-mode" || e.category === "deep" || String(e.title || "").startsWith("Focus:")))
+  const dayFreeMinutes = freeSlotsForDate(TODAY).reduce((sum, slot) => sum + slot.minutes, 0);
+  const firstScheduledEvent = visibleEvents
+    .filter(e => e.start instanceof Date && eventOccursOnDay(e, TODAY))
     .sort((a, b) => a.start - b.start)[0];
   const dailyStartupSummary = {
     events: getEventsOnDay(visibleEvents, TODAY).length,
     tasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length,
     freeHours: Math.round(dayFreeMinutes / 60 * 10) / 10,
     bossTasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && t.category === "boss").length,
-    firstFocus: firstFocusEvent ? fmt(firstFocusEvent.start) : null,
+    firstEvent: firstScheduledEvent ? `${fmt(firstScheduledEvent.start)} — ${firstScheduledEvent.title}` : null,
   };
   const memoAppCSS    = appCSS(cvars, fontScale);
 
@@ -3355,8 +3139,6 @@ export default function App() {
   .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
-      {focusMode && <FocusMode tasks={tasks} events={events} categories={categories} pomodoro={pomodoro.state} onStartPomodoro={pomodoro.start} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} onExit={() => setFocusMode(false)} />}
-
       <div className="app">
         <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
           <div className="sidebar-logo"><div className="logo-icon">🌸</div><span>Tempo</span></div>
@@ -3383,7 +3165,6 @@ export default function App() {
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Memory Book</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
-            <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">
@@ -3412,7 +3193,7 @@ export default function App() {
           {page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
-            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
+            <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
           ) : (<>
@@ -3447,14 +3228,13 @@ export default function App() {
             <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             <button className="topbar-btn sync-now-btn" onClick={forceSyncNow}>↻ Sync</button>
             <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan My Day</button>
-            <button className="topbar-btn" onClick={() => setShowFocusLog(true)} title="Focus Log">⏱ Focus</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
           </div>
 
           <div className="stats-bar">
-            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Focus: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Deep Work: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FF7BAC" }} />{openToday} tasks open</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#70C8A0" }} />Free blocks: {freeBlocks(visibleEvents, viewDate).length}</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>
@@ -3506,13 +3286,12 @@ export default function App() {
                 );
               })()}
             </div>
-            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onStartPomodoro={pomodoro.start} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
+            <TaskPanel tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} mobileOpen={mobileTasksOpen} onMobileClose={() => setMobileTasksOpen(false)} />
           </div>
         </>)}
         </div>
       </div>
 
-      {pomodoro.state.active && <PomodoroWidget state={pomodoro.state} tasks={tasks} onPause={pomodoro.pause} onResume={pomodoro.resume} onStop={handlePomodoroStop} />}
       {undoStack.length > 0 && <button className="undo-btn" onClick={undo}>↩ Undo <kbd>⌘Z</kbd></button>}
       {copiedEvent && (
         <div className="event-copy-bar">
@@ -3522,19 +3301,18 @@ export default function App() {
         </div>
       )}
 
-      {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} onFocusLog={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setShowFocusLog(true); }} />}
+      {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
-      {showFocusLog && <FocusLogModal events={gameEvents} categories={categories} onClose={() => setShowFocusLog(false)} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
-      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} focusStart={focusStart} focusEnd={focusEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
+      {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onMoveToday={handleCarryToday} onMoveTomorrow={handleCarryOver} onMoveWeek={handleCarryWeek} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} focusStart={focusStart} setFocusStart={setFocusStart} focusEnd={focusEnd} setFocusEnd={setFocusEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

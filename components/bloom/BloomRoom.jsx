@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
 
 // ─── Gamification UI ──────────────────────────────────────────────────────────
 export function LevelBar({ gameStats }) {
@@ -69,7 +69,7 @@ export function SkillStatsCard({ gameStats }) {
     <div className="skills-card game-soft-card">
       <div className="game-card-head"><span className="game-card-title">Skill Stats</span><span className="game-card-sub">RPG growth</span></div>
       <div className="skill-list">
-        {gameStats.skills.map(s => (
+        {gameStats.skills.filter(s => s.id !== "focus").map(s => (
           <div key={s.id} className="skill-row" title={s.desc}>
             <div className="skill-main"><span className="skill-icon">{s.icon}</span><span className="skill-name">{s.label}</span><span className="skill-level">Lv {s.level}</span></div>
             <div className="skill-track"><div className="skill-fill" style={{ width: `${s.pct}%` }} /></div>
@@ -89,8 +89,8 @@ export function WeeklyRecapCard({ gameStats }) {
       <div className="weekly-label">{w.label}</div>
       <div className="weekly-mini-grid">
         <div><strong>{w.tasksDone}</strong><span>tasks done</span></div>
-        <div><strong>{w.focusHours}h</strong><span>focus</span></div>
         <div><strong>{w.journalDays}</strong><span>journal days</span></div>
+        <div><strong>{w.daily?.filter?.(d => d.score > 0).length || 0}</strong><span>active days</span></div>
         <div><strong>{w.bestDayLabel}</strong><span>best day</span></div>
       </div>
       <div className="weekly-bars">
@@ -189,32 +189,12 @@ export function ComboCard({ gameStats }) {
   );
 }
 
-export function BossBattlesCard({ gameStats }) {
-  if (!gameStats?.bossBattles) return null;
-  const bosses = gameStats.bossBattles;
-  return (
-    <div className="boss-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Boss Battles</span><span className="game-card-sub">boss category</span></div>
-      {bosses.length ? <div className="boss-list">
-        {bosses.map(b => (
-          <div key={b.id} className="boss-item">
-            <div className="boss-top"><span>{b.icon} {b.title}</span><strong>{b.remaining} HP</strong></div>
-            <div className="boss-track"><div className="boss-fill" style={{ width: `${b.pct}%` }} /></div>
-            <div className="boss-meta">{b.period} · Defeat for +{b.rewardXP} XP</div>
-          </div>
-        ))}
-      </div> : <div className="empty-game-note">No boss tasks right now. Set a task category to Boss Battle to spawn one 🐉</div>}
-    </div>
-  );
-}
-
 export function StreaksCard({ gameStats }) {
   if (!gameStats?.streaks) return null;
   const rows = [
     ["🔥", "Productive", gameStats.streaks.productive],
     ["✅", "Tasks", gameStats.streaks.tasks],
     ["📔", "Memory", gameStats.streaks.journal],
-    ["🔮", "Focus", gameStats.streaks.focus],
     ["🌙", "Review", gameStats.streaks.review],
     ["🗓️", "Planning", gameStats.streaks.planning],
   ];
@@ -248,7 +228,7 @@ export function PersonalLeaderboardCard({ gameStats }) {
         {gameStats.leaderboard.map(d => (
           <div key={d.key} className="leaderboard-row"><span className="leader-place">#{d.place}</span><strong>{d.label}</strong><span>{d.completed.length} tasks</span><span>{d.rank} · {d.score}</span></div>
         ))}
-      </div> : <div className="empty-game-note">Your best days will appear here after you complete tasks, focus, or journal 🌱</div>}
+      </div> : <div className="empty-game-note">Your best days will appear here after you complete tasks, plan, or journal 🌱</div>}
     </div>
   );
 }
@@ -263,7 +243,7 @@ export function GameDashboard({ gameStats, compact = false }) {
       <BloomCollapse title="Weekly missions" defaultOpen={false}><WeeklyMissionsCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Skills & personality" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Badges & theme unlocks" defaultOpen={false}><BadgesPreview gameStats={gameStats} limit={8} /><ThemeUnlocksCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Boss battles & combos" defaultOpen={false}><ComboCard gameStats={gameStats} /><BossBattlesCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Combos" defaultOpen={false}><ComboCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Weekly recap & life garden" defaultOpen={false}><WeeklyRecapCard gameStats={gameStats} /><LifeGardenCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Personal leaderboard" defaultOpen={false}><PersonalLeaderboardCard gameStats={gameStats} /></BloomCollapse>
     </div>

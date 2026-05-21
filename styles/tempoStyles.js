@@ -226,17 +226,6 @@ export function appCSS(cvars, fontScale) { return `
   .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg3);}
   .modal-delete{background:transparent;border:1.5px solid #FFB0B0;color:#C04040;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:12px;cursor:pointer;font-weight:700;}
   .modal-delete:hover{background:#FFF0F0;}
-  .pomo-widget{position:fixed;bottom:86px;right:390px;background:var(--bg2);border:1.5px solid var(--border);border-radius:20px;padding:16px;box-shadow:var(--shadow-md);width:190px;animation:slideUp .22s cubic-bezier(.34,1.56,.64,1);}
-  .pomo-header{display:flex;align-items:center;margin-bottom:8px;}
-  .pomo-mode{font-size:13px;font-weight:800;flex:1;color:var(--accent);}
-  .pomo-cycles{font-size:11px;font-family:var(--mono);color:var(--text3);margin-right:8px;}
-  .pomo-stop{background:var(--bg4);border:1px solid var(--border);color:var(--text2);width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;}
-  .pomo-task{font-size:11px;color:var(--text2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px;}
-  .pomo-ring-wrap{position:relative;width:80px;height:80px;margin:0 auto 10px;}
-  .pomo-ring{width:80px;height:80px;}
-  .pomo-time{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;font-family:var(--mono);color:var(--text);}
-  .pomo-controls{display:flex;justify-content:center;}
-  .pomo-btn-ctrl{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:white;border-radius:20px;padding:6px 18px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;}
   .stats-card{background:var(--bg2);border-radius:20px;border:1.5px solid var(--border);width:380px;max-width:calc(100vw - 32px);padding:20px;box-shadow:0 24px 64px rgba(255,123,172,.18);animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
   .stats-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .stats-title{font-size:16px;font-weight:900;color:var(--text);}
@@ -258,26 +247,6 @@ export function appCSS(cvars, fontScale) { return `
   .carryover-item input{accent-color:var(--accent);}
   .co-dur{margin-left:auto;font-size:10px;font-family:var(--mono);color:var(--text3);}
   .carryover-actions{display:flex;gap:8px;justify-content:flex-end;}
-  .focus-overlay{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeIn .3s ease;background:var(--bg);overflow-y:auto;padding:24px 0;}
-  .focus-exit{position:absolute;top:20px;right:20px;background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;}
-  .focus-content{display:flex;flex-direction:column;align-items:center;gap:20px;max-width:400px;width:100%;padding:20px;max-height:100%;overflow-y:auto;}
-  .focus-logo{font-size:32px;font-weight:900;color:var(--accent);}
-  .focus-date{font-size:14px;color:var(--text2);font-family:var(--mono);}
-  .focus-idle{text-align:center;}
-  .focus-idle-msg{font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px;}
-  .focus-next{font-size:13px;color:var(--text2);font-family:var(--mono);}
-  .focus-tasks{width:100%;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:16px;}
-  .focus-log-inline{width:100%;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:16px;}
-  .focus-stats-grid-compact{grid-template-columns:repeat(3,1fr);margin-bottom:10px;}
-  .focus-stats-grid-compact>div{padding:9px 8px;}
-  .focus-stats-grid-compact strong{font-size:15px;}
-  .focus-log-list-compact{max-height:190px;overflow-y:auto;padding-right:2px;}
-  .focus-tasks-title{font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
-  .focus-task-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
-  .focus-task-row:last-child{border-bottom:none;}
-  .focus-task-name{flex:1;font-weight:700;color:var(--text);}
-  .focus-task-dur{font-size:11px;font-family:var(--mono);color:var(--text3);}
-  .focus-start-btn{width:28px;height:28px;border-radius:8px;background:var(--accent);border:none;color:white;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
   .shortcuts-modal{background:var(--bg2);border-radius:20px;border:1.5px solid var(--border);width:340px;max-width:calc(100vw - 32px);overflow:hidden;box-shadow:0 24px 64px rgba(255,123,172,.18);animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
   .shortcuts-grid{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .shortcut-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);font-weight:600;}
@@ -397,7 +366,6 @@ export function appCSS(cvars, fontScale) { return `
     .chat-panel{width:calc(100vw - 32px);right:16px;left:16px;bottom:86px;}
     .chat-fab{bottom:80px;}
     .stats-bar{overflow-x:auto;flex-wrap:nowrap;}
-    .pomo-widget{right:16px;bottom:140px;}
     .topbar-btn:not(.icon-only){display:none;}
     .mobile-nav{display:flex;}
     .content-area{padding-bottom:64px;}
@@ -860,15 +828,11 @@ export function appCSS(cvars, fontScale) { return `
   .week-all-day-row{display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--bg2);min-height:34px;}
   .week-all-day-cell{min-width:0;border-left:1px solid var(--border);padding:4px;display:flex;gap:3px;flex-direction:column;}
   .week-all-day-chip{width:100%;text-align:left;padding:3px 6px;font-size:10px;}
-  .startup-grid,.focus-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-  .startup-grid>div,.focus-stats-grid>div{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;}
-  .startup-grid strong,.focus-stats-grid strong{display:block;font-size:20px;color:var(--accent);font-weight:900;}
-  .startup-grid span,.focus-stats-grid span{font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;text-transform:uppercase;}
+  .startup-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .startup-grid>div{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;}
+  .startup-grid strong{display:block;font-size:20px;color:var(--accent);font-weight:900;}
+  .startup-grid span{font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;text-transform:uppercase;}
   .startup-next{background:var(--bg4);border:1px solid var(--accent3);border-radius:12px;padding:10px 12px;color:var(--text2);font-size:13px;font-weight:800;}
-  .focus-log-list{display:flex;flex-direction:column;gap:8px;}
-  .focus-log-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px;font-size:12px;font-weight:800;}
-  .focus-log-row strong{color:var(--accent);font-family:var(--mono);font-size:11px;}
-  .focus-log-row em{font-style:normal;color:var(--text3);font-size:11px;white-space:nowrap;}
   .plan-row.locked{box-shadow:inset 0 0 0 1.5px var(--accent3);background:var(--bg4);}
   .day-plan-footer{gap:10px;align-items:flex-start;}
   .carryover-actions-wrap{flex-wrap:wrap;}
@@ -887,9 +851,7 @@ export function appCSS(cvars, fontScale) { return `
     .main{margin-left:0;width:100%;min-width:0;}
     .app{padding-bottom:60px;}
     .modal,.entry-modal,.entry-view-modal,.settings-panel,.templates-panel,.search-modal{width:calc(100vw - 20px)!important;max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 96px)!important;overflow-y:auto;}
-    .startup-grid,.focus-stats-grid{grid-template-columns:repeat(2,1fr);}
-    .focus-log-row{grid-template-columns:1fr auto;}
-    .focus-log-row em{grid-column:1/-1;}
+    .startup-grid{grid-template-columns:repeat(2,1fr);}
     .modal-overlay,.settings-overlay{padding:10px;align-items:center!important;}
     .week-timetable,.day-view,.month-view{min-width:0;}
     .task-panel:not(.standalone){display:none!important;}

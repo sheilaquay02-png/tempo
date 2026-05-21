@@ -256,3 +256,9 @@ Changes:
 - Made the Tasks page header extend edge-to-edge on mobile with a fully opaque background.
 - Made the Bloom Room header extend edge-to-edge on mobile with a fully opaque background.
 - Production build check passed with `npm run build`.
+
+## Focus mode removal update
+- Removed Focus Mode from the UI.
+- Removed Pomodoro/focus session controls, Focus Log, focus history/statistics UI, task start-focus buttons, and the focus keyboard shortcut.
+- Removed focus-session calendar block creation and task auto-completion from focus sessions.
+- Task scheduling now uses Work Hours directly with meal breaks and planning buffers.

@@ -1,7 +1,7 @@
 {
   "name": "Tempo",
   "short_name": "Tempo",
-  "description": "Your calm, focused scheduling app",
+  "description": "Your calm, organized scheduling app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFF5F7",
