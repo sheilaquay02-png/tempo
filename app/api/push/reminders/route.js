@@ -201,6 +201,58 @@ function ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinut
   return candidates;
 }
 
+function normalizeHabitReminder(reminder) {
+  if (reminder === null) return { type: 'none', time: '' };
+  if (typeof reminder === 'string') {
+    if (reminder in TASK_REMINDER_TIMES) return { type: reminder, time: TASK_REMINDER_TIMES[reminder] };
+    return /^\d{2}:\d{2}$/.test(reminder) ? { type: 'custom', time: reminder } : { type: 'none', time: '' };
+  }
+  if (!reminder) return { type: 'none', time: '' };
+  const type = reminder.type || reminder.mode || reminder.id || 'none';
+  if (type === 'none') return { type: 'none', time: '' };
+  return { type, time: reminder.time || TASK_REMINDER_TIMES[type] || '09:00' };
+}
+
+function habitRunsOnLocalDate(habit, parts) {
+  if (!habit || habit.archived || habit.deletedAt) return false;
+  const days = Array.isArray(habit.repeatDays) && habit.repeatDays.length ? habit.repeatDays.map(Number) : [0,1,2,3,4,5,6];
+  const d = localDateForParts(parts);
+  return days.includes(d.getUTCDay());
+}
+
+function habitCompletionFor(settings, habitId, dateKey) {
+  const list = Array.isArray(settings?.habitCompletions) ? settings.habitCompletions : [];
+  return list.find(c => c.habitId === habitId && c.date === dateKey) || null;
+}
+
+function habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
+  const timeZone = settings?.timezone || 'Asia/Singapore';
+  const parts = localTimeParts(now, timeZone);
+  const habits = Array.isArray(settings?.habits) ? settings.habits : [];
+  const candidates = [];
+  for (const habit of habits) {
+    if (!habitRunsOnLocalDate(habit, parts)) continue;
+    const reminder = normalizeHabitReminder(habit.reminder);
+    if (reminder.type === 'none') continue;
+    if (!isDueLocalClock(parts, reminder.time, lookbackMinutes, lookaheadMinutes)) continue;
+    const target = Math.max(1, Number(habit.targetCount || 1));
+    const completion = habitCompletionFor(settings, habit.id, parts.dateKey);
+    if (Number(completion?.count || 0) >= target) continue;
+    candidates.push({
+      type: 'habit',
+      key: `habit:${habit.id || habit.name}:${parts.dateKey}:${reminder.time}`,
+      title: 'Habit check-in 🌱',
+      body: `${habit.emoji || '🌱'} ${habit.name || 'Your habit'} is ready for today.`,
+      url: '/?page=habits',
+      start: now,
+      count: 1,
+      sourceId: habit.id || null,
+      sourceType: 'habit',
+    });
+  }
+  return candidates;
+}
+
 function parseClock(time) {
   const [h, m] = String(time || '').split(':').map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -460,7 +512,7 @@ async function markReminderIfNew(admin, userId, reminder) {
 function notificationActionsFor(reminder) {
   const actions = [...SNOOZE_ACTIONS];
   if (reminder.type === 'task' && reminder.taskId) actions.push({ action: 'mark_done', title: 'Mark done' });
-  actions.push({ action: 'open_task', title: 'Open' });
+  actions.push({ action: 'open', title: 'Open' });
   return actions;
 }
 
@@ -534,8 +586,9 @@ async function runReminderCheck(request) {
       }));
       const taskCandidates = taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes);
       const ritualCandidates = ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
+      const habitCandidates = habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
       const snoozeCandidates = snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes);
-      const allCandidates = [...snoozeCandidates, ...eventCandidates, ...taskCandidates, ...ritualCandidates];
+      const allCandidates = [...snoozeCandidates, ...eventCandidates, ...taskCandidates, ...ritualCandidates, ...habitCandidates];
       candidates += allCandidates.length;
 
       const sentSnoozeIds = [];

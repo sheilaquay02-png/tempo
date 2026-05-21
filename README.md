@@ -54,6 +54,7 @@ After testing this package, split in this order:
 - Added conservative cross-device merge helpers for events, tasks, Journal entries, activities, templates and tags.
 - Added drag reordering for Journal activities.
 - Added sticker drag-positioning inside scrapbook sticker blocks.
+- Added Phase 6 Habits foundation: habit creation, daily check-offs, weekly grid, streaks, reminders, Today dashboard cards, and sync-safe habit tombstones.
 
 ## External setup for closed-app push
 

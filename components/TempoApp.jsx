@@ -415,6 +415,71 @@ const RITUAL_REMINDER_PRESETS = [
   { id: "custom", label: "Custom", minutesBefore: 15 },
 ];
 
+const DEFAULT_HABITS = [
+  {
+    id: "habit-journal",
+    name: "Journal",
+    emoji: "📓",
+    category: "mindset",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "entry",
+    reminder: { type: "evening", time: "21:00" },
+    archived: false,
+    deletedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "habit-plan-tomorrow",
+    name: "Plan tomorrow",
+    emoji: "🌙",
+    category: "planning",
+    frequency: "daily",
+    repeatDays: [0,1,2,3,4,5,6],
+    targetCount: 1,
+    unit: "check-in",
+    reminder: { type: "evening", time: "20:30" },
+    archived: false,
+    deletedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "habit-tidy-space",
+    name: "Tidy space",
+    emoji: "🧺",
+    category: "home",
+    frequency: "weekdays",
+    repeatDays: [1,2,3,4,5],
+    targetCount: 1,
+    unit: "reset",
+    reminder: { type: "none", time: "" },
+    archived: false,
+    deletedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+const HABIT_CATEGORIES = [
+  { id: "mindset", label: "Mindset", emoji: "🌸" },
+  { id: "wellness", label: "Wellness", emoji: "🌿" },
+  { id: "planning", label: "Planning", emoji: "🗓️" },
+  { id: "home", label: "Home", emoji: "🧺" },
+  { id: "learning", label: "Learning", emoji: "📚" },
+  { id: "personal", label: "Personal", emoji: "✨" },
+];
+
+const HABIT_REMINDER_PRESETS = [
+  { id: "none", label: "No reminder", time: "" },
+  { id: "morning", label: "Morning", time: "09:00" },
+  { id: "afternoon", label: "Afternoon", time: "13:00" },
+  { id: "evening", label: "Evening", time: "20:00" },
+  { id: "custom", label: "Custom time", time: "09:00" },
+];
+
 function normalizeRitualReminder(reminder) {
   if (reminder === null) return { type: "none", minutesBefore: null };
   if (typeof reminder === "number") return reminder < 0 ? { type: "none", minutesBefore: null } : { type: "minutes", minutesBefore: reminder };
@@ -549,6 +614,129 @@ function ritualProgress(ritual, completions, date = TODAY) {
   return { completion, done, total, percent: Math.min(100, Math.round(done / total * 100)), completed: Boolean(completion?.completedAt), skipped: Boolean(completion?.skippedAt) };
 }
 
+function habitRepeatDaysFromFrequency(frequency, repeatDays) {
+  if (Array.isArray(repeatDays) && repeatDays.length) return [...new Set(repeatDays.map(Number).filter(d => d >= 0 && d <= 6))].sort((a,b) => a-b);
+  if (frequency === "weekdays") return [1,2,3,4,5];
+  if (frequency === "weekends") return [0,6];
+  return [0,1,2,3,4,5,6];
+}
+
+function normalizeHabitReminder(reminder) {
+  if (reminder === null) return { type: "none", time: "" };
+  if (typeof reminder === "string") {
+    const preset = HABIT_REMINDER_PRESETS.find(p => p.id === reminder);
+    if (preset) return { type: preset.id, time: preset.time };
+    return /^\d{2}:\d{2}$/.test(reminder) ? { type: "custom", time: reminder } : { type: "none", time: "" };
+  }
+  if (!reminder) return { type: "none", time: "" };
+  const type = reminder.type || reminder.mode || reminder.id || "none";
+  if (type === "none") return { type: "none", time: "" };
+  const preset = HABIT_REMINDER_PRESETS.find(p => p.id === type);
+  return { type: preset ? preset.id : "custom", time: validTimeString(reminder.time || preset?.time || "09:00", preset?.time || "09:00") };
+}
+
+function habitReminderPresetId(reminder) {
+  const r = normalizeHabitReminder(reminder);
+  if (r.type === "none") return "none";
+  if (["morning", "afternoon", "evening"].includes(r.type)) return r.type;
+  return "custom";
+}
+
+function normalizeHabit(habit, index = 0) {
+  const now = new Date().toISOString();
+  const fallback = DEFAULT_HABITS[index % DEFAULT_HABITS.length] || DEFAULT_HABITS[0];
+  const frequency = ["daily", "weekdays", "weekends", "custom"].includes(habit?.frequency) ? habit.frequency : (fallback?.frequency || "daily");
+  const repeatDays = habitRepeatDaysFromFrequency(frequency, habit?.repeatDays ?? fallback?.repeatDays);
+  const target = Math.max(1, Math.min(20, Number(habit?.targetCount || habit?.target || fallback?.targetCount || 1)));
+  return {
+    id: String(habit?.id || `habit-${uid()}`),
+    name: String(habit?.name || fallback?.name || "New Habit").trim() || "New Habit",
+    emoji: String(habit?.emoji || fallback?.emoji || "🌱").trim() || "🌱",
+    category: String(habit?.category || fallback?.category || "personal"),
+    frequency,
+    repeatDays: repeatDays.length ? repeatDays : [0,1,2,3,4,5,6],
+    targetCount: target,
+    unit: String(habit?.unit || fallback?.unit || (target > 1 ? "times" : "check-in")).trim() || "check-in",
+    reminder: normalizeHabitReminder(habit?.reminder ?? fallback?.reminder),
+    archived: Boolean(habit?.archived),
+    deletedAt: habit?.deletedAt || null,
+    createdAt: habit?.createdAt || now,
+    updatedAt: habit?.updatedAt || habit?.createdAt || now,
+  };
+}
+
+function normalizeHabits(value) {
+  const source = Array.isArray(value) ? value : DEFAULT_HABITS;
+  const seen = new Set();
+  return source.map(normalizeHabit).filter(h => {
+    if (!h.id || seen.has(h.id)) return false;
+    seen.add(h.id);
+    return !h.deletedAt;
+  });
+}
+
+function normalizeHabitCompletion(completion) {
+  const now = new Date().toISOString();
+  const count = Math.max(0, Math.min(999, Number(completion?.count || (completion?.completedAt ? 1 : 0)) || 0));
+  return {
+    id: String(completion?.id || `${completion?.habitId || "habit"}:${completion?.date || dateKey(TODAY)}`),
+    habitId: String(completion?.habitId || ""),
+    date: String(completion?.date || dateKey(TODAY)),
+    count,
+    completedAt: completion?.completedAt || (count > 0 ? now : null),
+    note: String(completion?.note || ""),
+    createdAt: completion?.createdAt || now,
+    updatedAt: completion?.updatedAt || completion?.createdAt || now,
+  };
+}
+
+function normalizeHabitCompletions(value) {
+  const source = Array.isArray(value) ? value : [];
+  const map = new Map();
+  source.map(normalizeHabitCompletion).filter(c => c.habitId && c.date).forEach(c => {
+    const prev = map.get(c.id);
+    if (!prev || new Date(c.updatedAt || 0) >= new Date(prev.updatedAt || 0)) map.set(c.id, c);
+  });
+  return [...map.values()];
+}
+
+function habitRunsOnDate(habit, date = TODAY) {
+  if (!habit || habit.archived || habit.deletedAt) return false;
+  const days = Array.isArray(habit.repeatDays) ? habit.repeatDays.map(Number) : [0,1,2,3,4,5,6];
+  return days.includes(dayStart(date).getDay());
+}
+
+function habitCompletionFor(completions, habitId, date = TODAY) {
+  const key = dateKey(date);
+  return (Array.isArray(completions) ? completions : []).find(c => c.habitId === habitId && c.date === key) || null;
+}
+
+function habitProgress(habit, completions, date = TODAY) {
+  const completion = habitCompletionFor(completions, habit.id, date);
+  const target = Math.max(1, Number(habit.targetCount || 1));
+  const count = Math.max(0, Number(completion?.count || 0));
+  const completed = count >= target;
+  return { completion, count, target, percent: Math.min(100, Math.round(count / target * 100)), completed };
+}
+
+function habitStreak(habit, completions, fromDate = TODAY) {
+  const all = normalizeHabitCompletions(completions);
+  let streak = 0;
+  let cursor = dayStart(fromDate);
+  for (let i = 0; i < 370; i++) {
+    if (!habitRunsOnDate(habit, cursor)) { cursor = addDaysSafe(cursor, -1); continue; }
+    const progress = habitProgress(habit, all, cursor);
+    if (!progress.completed) break;
+    streak += 1;
+    cursor = addDaysSafe(cursor, -1);
+  }
+  return streak;
+}
+
+function weekDatesFor(date = TODAY) {
+  return weekDays(weekStart(date));
+}
+
 function normalizePlanningRules(value) {
   const source = value && typeof value === "object" ? value : {};
   const clamp = (v, min, max, fb) => {
@@ -570,13 +758,13 @@ function normalizeSettingsUpdatedAt(value) {
 function normalizeDeletedRecords(value) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
-  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals) };
+  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals), habits: cleanKind(src.habits) };
 }
 
 function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
   const current = normalizeDeletedRecords(records);
-  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals } };
-  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : "events";
+  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals }, habits: { ...current.habits } };
+  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : kind === "habits" ? "habits" : "events";
   (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
   return next;
 }
@@ -1883,7 +2071,7 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
-function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, rituals = [], ritualCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenRituals, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual }) {
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit }) {
   const todayKey = dateKey(TODAY);
   const todayTasks = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
   const topTasks = [...todayTasks].sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, medium: 1, low: 2 }[b.priority] ?? 1)).slice(0, 3);
@@ -1892,6 +2080,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
   const mood = moodEntry?.mood ? JOURNAL_MOODS.find(m => m.id === moodEntry.mood) : null;
   const catLabel = id => categories.find(c => c.id === id)?.label || "Task";
   const todayRituals = normalizeRituals(rituals).filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime))).slice(0, 3);
+  const todayHabits = normalizeHabits(habits).filter(h => habitRunsOnDate(h, TODAY)).slice(0, 4);
   return (
     <div className="phase-page today-lite-page">
       <div className="phase-hero">
@@ -1921,9 +2110,9 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
           <div className="phase-card-head"><span>Rituals</span><button onClick={onOpenRituals}>Open rituals</button></div>
           {todayRituals.length ? <div className="today-ritual-stack">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(ritualCompletions, r.id, TODAY)} progress={ritualProgress(r, ritualCompletions, TODAY)} onToggleStep={onToggleRitualStep} onSkip={onSkipRitual} onComplete={onCompleteRitual} onEdit={onOpenRituals} compact />)}</div> : <div className="phase-empty">No rituals scheduled today. Create one in Rituals.</div>}
         </section>
-        <section className="phase-card phase-placeholder-card">
-          <div className="phase-card-head"><span>Habits</span><small>Phase 5</small></div>
-          <div className="phase-empty">Daily habit check-ins will appear here after the Habits build.</div>
+        <section className="phase-card">
+          <div className="phase-card-head"><span>Habits</span><button onClick={onOpenHabits}>Open habits</button></div>
+          {todayHabits.length ? <div className="today-habit-stack">{todayHabits.map(h => <HabitCard key={h.id} habit={h} progress={habitProgress(h, habitCompletions, TODAY)} streak={habitStreak(h, habitCompletions, TODAY)} onToggle={onToggleHabit} onIncrement={onIncrementHabit} onEdit={onOpenHabits} compact />)}</div> : <div className="phase-empty">No habits scheduled today. Create one in Habits.</div>}
         </section>
       </div>
       <div className="phase-card phase-wide-card">
@@ -2122,6 +2311,142 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
   );
 }
 
+
+function HabitReminderEditor({ value, onChange }) {
+  const reminder = normalizeHabitReminder(value);
+  const presetId = habitReminderPresetId(reminder);
+  const setPreset = id => {
+    const preset = HABIT_REMINDER_PRESETS.find(p => p.id === id);
+    if (id === "none") return onChange({ type: "none", time: "" });
+    if (id === "custom") return onChange({ type: "custom", time: reminder.time || "09:00" });
+    return onChange({ type: preset?.id || id, time: preset?.time || "09:00" });
+  };
+  return (
+    <div className="reminder-editor">
+      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
+        {HABIT_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+      </select>
+      {presetId === "custom" && <input type="time" className="modal-select" value={reminder.time || "09:00"} onChange={e => onChange({ type: "custom", time: e.target.value })} />}
+    </div>
+  );
+}
+
+function HabitModal({ habit, onClose, onSave, onDelete, onArchive }) {
+  const isExistingHabit = Boolean(habit?.id);
+  const initial = habit ? normalizeHabit(habit) : normalizeHabit({ id: "habit-" + uid(), name: "New Habit", emoji: "🌱", category: "personal", frequency: "daily", repeatDays: [0,1,2,3,4,5,6], targetCount: 1, unit: "check-in", reminder: { type: "none", time: "" } });
+  const [form, setForm] = useState(initial);
+  const days = ["S","M","T","W","T","F","S"];
+  const toggleDay = day => setForm(f => {
+    const set = new Set(f.repeatDays || []);
+    if (set.has(day)) set.delete(day); else set.add(day);
+    const next = [...set].sort((a,b) => a-b);
+    return { ...f, frequency: "custom", repeatDays: next.length ? next : [day] };
+  });
+  const setFrequency = frequency => setForm(f => ({ ...f, frequency, repeatDays: habitRepeatDaysFromFrequency(frequency, null) }));
+  const saveForm = () => {
+    const clean = normalizeHabit(form);
+    if (!clean.name.trim()) return;
+    onSave(clean);
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Habit editor">
+      <div className="modal habit-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isExistingHabit ? "Edit Habit" : "Create Habit"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="ritual-form-title-row">
+            <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🌱" }))} aria-label="Habit emoji" />
+            <input className="modal-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Habit name" />
+          </div>
+          <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{HABIT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
+          <div className="modal-row"><label>Frequency</label><select className="modal-select" value={form.frequency} onChange={e => setFrequency(e.target.value)}><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option><option value="custom">Custom days</option></select></div>
+          <div className="modal-row modal-row-full"><label>Repeat days</label><div className="weekday-picker ritual-weekday-picker">{days.map((d,i) => <button type="button" key={i} className={`weekday-btn ${form.repeatDays?.includes(i) ? "active" : ""}`} onClick={() => toggleDay(i)}>{d}</button>)}</div></div>
+          <div className="modal-row"><label>Daily target</label><div className="habit-target-row"><input type="number" min={1} max={20} className="modal-select modal-time" value={form.targetCount} onChange={e => setForm(f => ({ ...f, targetCount: Math.max(1, Number(e.target.value) || 1) }))}/><input className="modal-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="check-in" /></div></div>
+          <div className="modal-row"><label>Reminder</label><HabitReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
+        </div>
+        <div className="modal-actions">
+          {isExistingHabit && <button className="tf-cancel" onClick={() => onArchive(habit, !habit.archived)}>{habit.archived ? "Restore" : "Archive"}</button>}
+          {isExistingHabit && <button className="tf-delete" onClick={() => onDelete(habit)}>Delete</button>}
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-save" onClick={saveForm}>Save Habit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HabitCard({ habit, progress, streak = 0, onToggle, onIncrement, onEdit, compact = false }) {
+  const category = HABIT_CATEGORIES.find(c => c.id === habit.category);
+  const target = Math.max(1, Number(habit.targetCount || 1));
+  return (
+    <div className={`habit-card ${progress.completed ? "habit-complete" : ""}`}>
+      <div className="habit-card-top">
+        <div className="habit-title-wrap"><div className="habit-emoji">{habit.emoji}</div><div><h3>{habit.name}</h3><p>{category?.emoji || "✨"} {category?.label || "Habit"} · {streak} day streak</p></div></div>
+        {!compact && <button className="tf-cancel ritual-edit-btn" onClick={() => onEdit(habit)}>Edit</button>}
+      </div>
+      <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
+      <div className="ritual-progress-label">{progress.completed ? "Checked off today ✨" : `${progress.count}/${target} ${habit.unit || "done"}`}</div>
+      <div className="habit-card-actions">
+        {target <= 1 ? <label className={`ritual-step habit-check ${progress.completed ? "checked" : ""}`}><input type="checkbox" checked={progress.completed} onChange={() => onToggle(habit)} /><span>{progress.completed ? "Done for today" : "Check off"}</span></label> : <><button className="tf-cancel" onClick={() => onIncrement(habit, -1)} disabled={progress.count <= 0}>−</button><button className="tf-save" onClick={() => onIncrement(habit, 1)}>＋ Add one</button></>}
+      </div>
+    </div>
+  );
+}
+
+function HabitWeeklyGrid({ habits = [], completions = [] }) {
+  const days = weekDatesFor(TODAY);
+  const active = normalizeHabits(habits).filter(h => !h.archived && !h.deletedAt);
+  return (
+    <div className="habit-week-grid-wrap">
+      <div className="habit-week-grid habit-week-grid-head"><span>Habit</span>{days.map(d => <span key={dateKey(d)}>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]}</span>)}</div>
+      {active.map(h => <div key={h.id} className="habit-week-grid"><strong>{h.emoji} {h.name}</strong>{days.map(d => {
+        const runs = habitRunsOnDate(h, d);
+        const done = habitProgress(h, completions, d).completed;
+        return <span key={dateKey(d)} className={!runs ? "muted" : done ? "done" : ""}>{!runs ? "·" : done ? "✓" : "○"}</span>;
+      })}</div>)}
+      {!active.length && <div className="phase-empty">No active habits yet.</div>}
+    </div>
+  );
+}
+
+function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggle, onIncrement }) {
+  const [modalHabit, setModalHabit] = useState(null);
+  const normalized = normalizeHabits(habits);
+  const active = normalized.filter(h => !h.archived && !h.deletedAt);
+  const archived = normalized.filter(h => h.archived && !h.deletedAt);
+  const todayHabits = active.filter(h => habitRunsOnDate(h, TODAY));
+  const saveHabit = habit => {
+    habit.id && habits.some(h => h.id === habit.id) ? onEdit(habit.id, habit) : onAdd(habit);
+    setModalHabit(null);
+  };
+  const deleteHabit = habit => { onDelete(habit); setModalHabit(null); };
+  return (
+    <div className="phase-page habits-page">
+      <div className="phase-hero habit-hero">
+        <div><div className="phase-kicker">Habits</div><h1>🌱 Build gentle consistency</h1><p>Track small daily check-ins that support your rhythm without making the app feel noisy.</p></div>
+        <button className="tf-save phase-primary" onClick={() => setModalHabit({})}>＋ Create Habit</button>
+      </div>
+      <div className="phase-card phase-wide-card ritual-section-card">
+        <div className="phase-card-head"><span>Today’s Habits</span><small>{todayHabits.length} scheduled today</small></div>
+        {todayHabits.length ? <div className="habit-grid">{todayHabits.map(h => <HabitCard key={h.id} habit={h} progress={habitProgress(h, completions, TODAY)} streak={habitStreak(h, completions, TODAY)} onToggle={onToggle} onIncrement={onIncrement} onEdit={setModalHabit} />)}</div> : <div className="phase-empty">No habits scheduled today. Create one gentle habit to begin.</div>}
+      </div>
+      <div className="phase-card phase-wide-card ritual-section-card">
+        <div className="phase-card-head"><span>Weekly Grid</span><small>This week</small></div>
+        <HabitWeeklyGrid habits={active} completions={completions} />
+      </div>
+      <div className="phase-card phase-wide-card ritual-section-card">
+        <div className="phase-card-head"><span>All Habits</span><small>{active.length} active</small></div>
+        {active.length ? <div className="ritual-list-compact">{active.map(h => {
+          const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => h.repeatDays.includes(i)).join(" · ");
+          const reminder = normalizeHabitReminder(h.reminder);
+          return <div key={h.id} className="ritual-list-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>{days || "No repeat days"}{reminder.type !== "none" ? ` · ${reminder.time}` : ""}</small></div><button className="tf-cancel" onClick={() => setModalHabit(h)}>Edit</button></div>;
+        })}</div> : <div className="phase-empty">No habits yet.</div>}
+      </div>
+      {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(h => <div key={h.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(h, false)}>Restore</button></div>)}</div></div>}
+      {modalHabit !== null && <HabitModal habit={modalHabit?.id ? modalHabit : null} onClose={() => setModalHabit(null)} onSave={saveHabit} onDelete={deleteHabit} onArchive={(habit, archived) => { onArchive(habit, archived); setModalHabit(null); }} />}
+    </div>
+  );
+}
+
 function ComingSoonPage({ icon, title, phase, description, bullets = [] }) {
   return (
     <div className="phase-page coming-soon-page">
@@ -2190,6 +2515,8 @@ export default function App() {
   const [memoryTags, setMemoryTagsRaw] = useState(() => load(`${uk}_memory_tags`, MEMORY_TAGS));
   const [rituals, setRitualsRaw] = useState(() => normalizeRituals(load(`${uk}_rituals`, DEFAULT_RITUALS)));
   const [ritualCompletions, setRitualCompletionsRaw] = useState(() => normalizeRitualCompletions(load(`${uk}_ritual_completions`, [])));
+  const [habits, setHabitsRaw] = useState(() => normalizeHabits(load(`${uk}_habits`, DEFAULT_HABITS)));
+  const [habitCompletions, setHabitCompletionsRaw] = useState(() => normalizeHabitCompletions(load(`${uk}_habit_completions`, [])));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -2278,6 +2605,8 @@ export default function App() {
       setJournalRaw({});
       setRitualsRaw([]);
       setRitualCompletionsRaw([]);
+      setHabitsRaw([]);
+      setHabitCompletionsRaw([]);
       return;
     }
 
@@ -2296,6 +2625,8 @@ export default function App() {
     setMemoryTagsRaw(load(`${userKey}_memory_tags`, MEMORY_TAGS));
     setRitualsRaw(normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)));
     setRitualCompletionsRaw(normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])));
+    setHabitsRaw(normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)));
+    setHabitCompletionsRaw(normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -2331,6 +2662,8 @@ export default function App() {
         memoryTags: safeSettings.memoryTags ?? load(`${userKey}_memory_tags`, MEMORY_TAGS),
         rituals: normalizeRituals(safeSettings.rituals ?? load(`${userKey}_rituals`, DEFAULT_RITUALS)),
         ritualCompletions: normalizeRitualCompletions(safeSettings.ritualCompletions ?? load(`${userKey}_ritual_completions`, [])),
+        habits: normalizeHabits(safeSettings.habits ?? load(`${userKey}_habits`, DEFAULT_HABITS)),
+        habitCompletions: normalizeHabitCompletions(safeSettings.habitCompletions ?? load(`${userKey}_habit_completions`, [])),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -2355,6 +2688,8 @@ export default function App() {
       setMemoryTagsRaw(nextSettings.memoryTags || MEMORY_TAGS);
       setRitualsRaw(normalizeRituals(nextSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(nextSettings.ritualCompletions));
+      setHabitsRaw(normalizeHabits(nextSettings.habits));
+      setHabitCompletionsRaw(normalizeHabitCompletions(nextSettings.habitCompletions));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -2372,6 +2707,8 @@ export default function App() {
       save(`${userKey}_memory_tags`, nextSettings.memoryTags || MEMORY_TAGS);
       save(`${userKey}_rituals`, normalizeRituals(nextSettings.rituals));
       save(`${userKey}_ritual_completions`, normalizeRitualCompletions(nextSettings.ritualCompletions));
+      save(`${userKey}_habits`, normalizeHabits(nextSettings.habits));
+      save(`${userKey}_habit_completions`, normalizeHabitCompletions(nextSettings.habitCompletions));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -2413,6 +2750,8 @@ export default function App() {
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
+          habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
+          habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -2458,6 +2797,8 @@ export default function App() {
             memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
             rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
             ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
+          habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
+          habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -2500,6 +2841,8 @@ export default function App() {
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
+          habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
+          habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -2529,6 +2872,8 @@ export default function App() {
           memoryTags: MEMORY_TAGS,
           rituals: normalizeRituals(DEFAULT_RITUALS),
           ritualCompletions: [],
+          habits: normalizeHabits(DEFAULT_HABITS),
+          habitCompletions: [],
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -2564,6 +2909,8 @@ export default function App() {
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
+          habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
+          habitCompletions: normalizeHabitCompletions(load(`${userKey}_habit_completions`, [])),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -2614,6 +2961,8 @@ export default function App() {
     memoryTags,
     rituals: normalizeRituals(rituals),
     ritualCompletions: normalizeRitualCompletions(ritualCompletions),
+    habits: normalizeHabits(habits),
+    habitCompletions: normalizeHabitCompletions(habitCompletions),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -2671,6 +3020,8 @@ export default function App() {
         memoryTags: nextSettings?.memoryTags || memoryTags,
         rituals: normalizeRituals(nextSettings?.rituals || rituals),
         ritualCompletions: normalizeRitualCompletions(nextSettings?.ritualCompletions || ritualCompletions),
+        habits: normalizeHabits(nextSettings?.habits || habits),
+        habitCompletions: normalizeHabitCompletions(nextSettings?.habitCompletions || habitCompletions),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -2702,6 +3053,8 @@ export default function App() {
       setMemoryTagsRaw(normalizedSettings.memoryTags || MEMORY_TAGS);
       setRitualsRaw(normalizeRituals(normalizedSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(normalizedSettings.ritualCompletions));
+      setHabitsRaw(normalizeHabits(normalizedSettings.habits));
+      setHabitCompletionsRaw(normalizeHabitCompletions(normalizedSettings.habitCompletions));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -2728,6 +3081,8 @@ export default function App() {
       save(`${uk}_memory_tags`, normalizedSettings.memoryTags || MEMORY_TAGS);
       save(`${uk}_rituals`, normalizeRituals(normalizedSettings.rituals));
       save(`${uk}_ritual_completions`, normalizeRitualCompletions(normalizedSettings.ritualCompletions));
+      save(`${uk}_habits`, normalizeHabits(normalizedSettings.habits));
+      save(`${uk}_habit_completions`, normalizeHabitCompletions(normalizedSettings.habitCompletions));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -2860,6 +3215,8 @@ export default function App() {
     save(`${uk}_memory_tags`, next.memoryTags || MEMORY_TAGS);
     save(`${uk}_rituals`, normalizeRituals(next.rituals));
     save(`${uk}_ritual_completions`, normalizeRitualCompletions(next.ritualCompletions));
+    save(`${uk}_habits`, normalizeHabits(next.habits));
+    save(`${uk}_habit_completions`, normalizeHabitCompletions(next.habitCompletions));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -3043,6 +3400,82 @@ export default function App() {
 
   function completeRitualToday(ritual) {
     upsertRitualCompletion(ritual, current => ({ ...current, completedSteps: ritual.steps.map(s => s.id), skippedAt: null, completedAt: current.completedAt || new Date().toISOString() }));
+  }
+
+
+  const setHabits = v => {
+    const n = normalizeHabits(typeof v === "function" ? v(habits) : v);
+    setHabitsRaw(n);
+    save(`${uk}_habits`, n);
+    persistSettings({ habits: n });
+  };
+
+  const setHabitCompletions = v => {
+    const n = normalizeHabitCompletions(typeof v === "function" ? v(habitCompletions) : v);
+    setHabitCompletionsRaw(n);
+    save(`${uk}_habit_completions`, n);
+    persistSettings({ habitCompletions: n });
+  };
+
+  function addHabit(habit) {
+    const now = new Date().toISOString();
+    const clean = normalizeHabit({ ...habit, id: habit.id || "habit-" + uid(), createdAt: habit.createdAt || now, updatedAt: now });
+    setHabits(list => [...list, clean]);
+    setToast({ text: `Created habit “${clean.name}” ✓`, ts: Date.now() });
+  }
+
+  function editHabit(id, patch) {
+    const now = new Date().toISOString();
+    setHabits(list => list.map(h => h.id === id ? normalizeHabit({ ...h, ...patch, id, updatedAt: now }) : h));
+    setToast({ text: "Habit updated ✓", ts: Date.now() });
+  }
+
+  function archiveHabit(habit, archived = true) {
+    if (!habit?.id) return;
+    editHabit(habit.id, { archived: Boolean(archived) });
+    setToast({ text: archived ? "Habit archived ✓" : "Habit restored ✓", ts: Date.now() });
+  }
+
+  function deleteHabit(habit) {
+    if (!habit?.id) return;
+    if (!window.confirm(`Delete habit "${habit.name}"? Past check-ins will stay in your history.`)) return;
+    const now = new Date().toISOString();
+    const nextDeletedRecords = addDeletedRecords(deletedRecords, "habits", habit.id, now);
+    const nextHabits = habits.filter(h => h.id !== habit.id);
+    setDeletedRecordsRaw(nextDeletedRecords);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    setHabitsRaw(nextHabits);
+    save(`${uk}_habits`, nextHabits);
+    persistSettings({ habits: nextHabits, deletedRecords: nextDeletedRecords });
+    setToast({ text: "Habit deleted ✓", ts: Date.now() });
+  }
+
+  function upsertHabitCompletion(habit, updater, targetDate = TODAY) {
+    const key = dateKey(targetDate);
+    const now = new Date().toISOString();
+    setHabitCompletions(list => {
+      const cleanList = normalizeHabitCompletions(list);
+      const existing = cleanList.find(c => c.habitId === habit.id && c.date === key);
+      const base = existing || { id: `${habit.id}:${key}`, habitId: habit.id, date: key, count: 0, completedAt: null, note: "", createdAt: now, updatedAt: now };
+      const next = normalizeHabitCompletion({ ...updater(base), updatedAt: now });
+      return existing ? cleanList.map(c => c.id === existing.id ? next : c) : [...cleanList, next];
+    });
+  }
+
+  function toggleHabitToday(habit) {
+    upsertHabitCompletion(habit, current => {
+      const target = Math.max(1, Number(habit.targetCount || 1));
+      const done = Number(current.count || 0) >= target;
+      return { ...current, count: done ? 0 : target, completedAt: done ? null : (current.completedAt || new Date().toISOString()) };
+    });
+  }
+
+  function incrementHabitToday(habit, delta = 1) {
+    upsertHabitCompletion(habit, current => {
+      const target = Math.max(1, Number(habit.targetCount || 1));
+      const count = Math.max(0, Math.min(999, Number(current.count || 0) + Number(delta || 0)));
+      return { ...current, count, completedAt: count >= target ? (current.completedAt || new Date().toISOString()) : null };
+    });
   }
 
   function addJournalActivity(label, group = "Custom", emoji = "✨") {
@@ -3997,6 +4430,7 @@ export default function App() {
   .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.planning-rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.planning-rule-grid label{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:space-between}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
   @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}.planning-rule-grid{grid-template-columns:1fr}}
   .ritual-modal{max-width:720px;width:min(94vw,720px);}.ritual-modal .modal-body{max-height:72vh;overflow:auto;}.ritual-form-title-row{display:grid;grid-template-columns:74px 1fr;gap:10px;}.ritual-emoji-input{text-align:center;font-size:28px;padding:8px!important;}.modal-row-full{align-items:start!important}.ritual-weekday-picker{justify-content:flex-start;}.ritual-steps-editor{background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:12px;}.ritual-step-edit-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;margin-top:8px;}.ritual-step-edit-row>span{height:28px;width:28px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--text3)}.ritual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ritual-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-left:5px solid var(--ritual-color);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.ritual-complete{border-left-color:#70C8A0}.ritual-skipped{opacity:.68}.ritual-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.ritual-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.ritual-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.ritual-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-edit-btn{padding:5px 9px!important;margin:0!important}.ritual-progress-track{height:7px;border-radius:999px;background:var(--border);overflow:hidden}.ritual-progress-track i{display:block;height:100%;border-radius:999px;background:var(--ritual-color);transition:width .2s ease}.ritual-progress-label{font-size:11px;font-weight:900;color:var(--text2)}.ritual-step-list{display:flex;flex-direction:column;gap:6px}.ritual-step{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:850;color:var(--text);cursor:pointer}.ritual-step input{accent-color:var(--accent)}.ritual-step.checked span{text-decoration:line-through;color:var(--text3)}.ritual-more{font-size:11px;font-weight:900;color:var(--text3);padding-left:4px}.ritual-card-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.ritual-list-compact{display:flex;flex-direction:column;gap:8px}.ritual-list-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.ritual-list-emoji{width:42px;height:42px;border-radius:14px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:23px}.ritual-list-row strong{display:block;font-size:13px;color:var(--text)}.ritual-list-row small{display:block;font-size:11px;color:var(--text2);font-weight:850;margin-top:2px}.today-ritual-stack{display:flex;flex-direction:column;gap:10px}.today-ritual-stack .ritual-card{box-shadow:none;border-radius:18px;padding:12px}.today-ritual-stack .ritual-title-wrap h3{font-size:14px}.today-ritual-stack .ritual-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.today-ritual-stack .ritual-step{padding:7px 8px;font-size:11px}.ritual-section-card{width:min(100%,1080px)}.ritual-template-section{background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,247,251,.94))}.ritual-template-head{align-items:flex-start;gap:12px}.ritual-template-head>div:first-child{display:flex;flex-direction:column;gap:3px}.ritual-template-head small{font-size:11px;color:var(--text2);font-weight:850}.ritual-template-filters{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.mini-pill{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}.mini-pill.active{background:rgba(255,123,172,.12);border-color:rgba(255,123,172,.45);color:var(--accent)}.ritual-template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.ritual-template-card{background:var(--bg2);border:1px solid var(--border);border-top:4px solid var(--ritual-color);border-radius:20px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;min-height:260px}.ritual-template-card.template-added{background:linear-gradient(180deg,var(--bg2),rgba(112,200,160,.08))}.ritual-template-top{display:flex;align-items:center;gap:10px}.ritual-template-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-template-top h3{font-size:15px;margin:0 0 2px;color:var(--text);line-height:1.12}.ritual-template-top p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-template-desc{font-size:12px;line-height:1.45;color:var(--text2);font-weight:750}.ritual-template-steps{display:flex;flex-direction:column;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:9px;margin-top:auto}.ritual-template-steps span{font-size:11px;color:var(--text2);font-weight:850}.template-added-badge{align-self:flex-start;background:rgba(112,200,160,.14);border:1px solid rgba(112,200,160,.35);color:#2f8b62;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:950}.ritual-template-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}@media(max-width:1040px){.ritual-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:900px){.ritual-grid,.ritual-template-grid{grid-template-columns:1fr}.ritual-template-head{flex-direction:column}.ritual-template-filters{justify-content:flex-start}}@media(max-width:560px){.ritual-form-title-row{grid-template-columns:58px 1fr}.ritual-list-row{grid-template-columns:38px 1fr}.ritual-list-row button{grid-column:2}.ritual-card-top{flex-direction:column}.ritual-modal .modal-actions{flex-wrap:wrap}.ritual-steps-editor .phase-card-head{align-items:flex-start;flex-direction:column}}
+  .habit-modal{max-width:640px;width:min(94vw,640px);}.habit-target-row{display:grid;grid-template-columns:96px 1fr;gap:8px;width:100%;}.habit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.habit-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.habit-complete{border-color:rgba(112,200,160,.45);background:linear-gradient(180deg,var(--bg2),rgba(112,200,160,.08))}.habit-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.habit-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.habit-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.habit-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.habit-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.habit-card-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.habit-check{width:100%;justify-content:flex-start}.today-habit-stack{display:flex;flex-direction:column;gap:10px}.today-habit-stack .habit-card{box-shadow:none;border-radius:18px;padding:12px}.today-habit-stack .habit-title-wrap h3{font-size:14px}.today-habit-stack .habit-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.habit-week-grid-wrap{display:flex;flex-direction:column;gap:6px;overflow:auto}.habit-week-grid{display:grid;grid-template-columns:minmax(180px,1fr) repeat(7,48px);gap:6px;align-items:center;min-width:560px}.habit-week-grid>*{background:var(--bg3);border:1px solid var(--border);border-radius:12px;min-height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--text2);padding:6px}.habit-week-grid strong{justify-content:flex-start;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.habit-week-grid-head>*{background:transparent;border:0;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-size:10px}.habit-week-grid span.done{background:rgba(112,200,160,.14);border-color:rgba(112,200,160,.35);color:#2f8b62}.habit-week-grid span.muted{opacity:.45}@media(max-width:900px){.habit-grid{grid-template-columns:1fr}.habit-target-row{grid-template-columns:82px 1fr}}@media(max-width:560px){.habit-card-top{flex-direction:column}.habit-week-grid{grid-template-columns:minmax(150px,1fr) repeat(7,42px);min-width:500px}.habit-modal .modal-actions{flex-wrap:wrap}}
   .phase-page{height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px;background:var(--bg);}.phase-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow-sm);}.phase-kicker{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:4px;}.phase-hero h1{font-size:30px;line-height:1.05;margin:0 0 6px;color:var(--text);}.phase-hero p,.phase-copy{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.55;}.phase-primary{white-space:nowrap;}.phase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}.phase-summary-grid button{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:14px 12px;text-align:left;cursor:pointer;box-shadow:var(--shadow-sm);font-family:var(--font);}.phase-summary-grid strong{display:block;color:var(--accent);font-size:24px;line-height:1;font-weight:900;}.phase-summary-grid span{font-size:11px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}.phase-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow-sm);}.phase-wide-card{max-width:900px;}.phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}.phase-card-head span{font-size:15px;font-weight:900;color:var(--text);}.phase-card-head button{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer;}.phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}.phase-list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px;font-weight:850;color:var(--text);}.phase-list-row:first-child{border-top:0;}.phase-list-row small{color:var(--text3);font-weight:900;white-space:nowrap;}.phase-empty{font-size:13px;font-weight:800;color:var(--text2);line-height:1.5;background:var(--bg3);border:1px dashed var(--border);border-radius:16px;padding:14px;}.phase-placeholder-card{opacity:.92;}.phase-bullet-list{display:flex;flex-direction:column;}.coming-soon-page .phase-wide-card{width:min(720px,100%);}@media(max-width:768px){.phase-page{padding:14px 12px 90px;}.phase-hero{align-items:flex-start;flex-direction:column;border-radius:22px;padding:18px;}.phase-hero h1{font-size:24px;}.phase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.phase-grid-two{grid-template-columns:1fr;}.phase-card{border-radius:18px;padding:14px;}}.reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
@@ -4057,7 +4491,7 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={visibleEvents} tasks={tasks} journal={journal} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenRituals={() => setPage("rituals")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} />
+            <TodayLitePage summary={dailyStartupSummary} events={visibleEvents} tasks={tasks} journal={journal} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
@@ -4067,7 +4501,7 @@ export default function App() {
           ) : page === "rituals" ? (
             <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
-            <ComingSoonPage icon="🌱" title="Habits" phase="Later phase" description="Habits will help users build consistency with simple daily check-ins and weekly streaks." bullets={["Daily habit checklist", "Weekly habit grid", "Gentle streaks", "Habit reminder defaults"]} />
+            <HabitsPage habits={habits} completions={habitCompletions} onAdd={addHabit} onEdit={editHabit} onDelete={deleteHabit} onArchive={archiveHabit} onToggle={toggleHabitToday} onIncrement={incrementHabitToday} />
           ) : page === "affirmations" ? (
             <ComingSoonPage icon="💌" title="Affirmations" phase="Later phase" description="A soft daily affirmation card for Bloom Room, Today, and future rituals." bullets={["Daily affirmation", "Favorites", "Custom affirmations", "Optional reminder"]} />
           ) : page === "weekly-reset" ? (

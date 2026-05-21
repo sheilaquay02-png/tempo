@@ -81,3 +81,15 @@ Template-created rituals receive fresh IDs and sync like normal rituals. Existin
 
 - Moved the Ritual Template Library card below the All Rituals card on the Rituals page.
 - Rituals page order is now: hero, Today’s Rituals, All Rituals, Template Library, Archived.
+
+## Phase 6 — Habits Foundation
+
+- Added the Habits page.
+- Added starter habits for Journal, Plan tomorrow, and Tidy space.
+- Added create/edit/archive/delete habit flows.
+- Added sync-safe habit tombstones through `settings.deletedRecords.habits`.
+- Added daily habit check-offs and multi-count habit targets.
+- Added a weekly habit grid and gentle streak count.
+- Added habit repeat days and reminder presets.
+- Added Today dashboard habit cards.
+- Added habit reminders to the push reminder cron route.
