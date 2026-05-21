@@ -618,6 +618,7 @@ export function appCSS(cvars, fontScale) { return `
   .scrapbook-grid-caption{text-align:center;font-size:12px;font-weight:800;color:var(--text2);margin-top:8px;}
 
   .bloom-room-page{height:100%;overflow:auto;padding:20px;background:var(--bg);}
+  .bloom-room-page .checkin-rhythm-card{margin-top:16px;}
   .bloom-room-page .game-dashboard{padding:0;}
   .bloom-room-subtitle{font-size:12px;font-weight:700;color:var(--text3);margin-top:4px;}
 
@@ -856,6 +857,7 @@ export function appCSS(cvars, fontScale) { return `
   .weekday-btn{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;}
   .weekday-btn.active{background:var(--accent);border-color:var(--accent);color:white;}
   .tasks-page{height:100%;overflow:auto;padding:20px;}
+  .tasks-page .task-period-board{margin-top:16px;}
   .task-panel.standalone{display:flex;position:relative;width:100%;height:auto;max-width:880px;border-radius:20px;margin:0 auto;border:1.5px solid var(--border);box-shadow:var(--shadow);}
   .task-panel.standalone .task-panel-inner{width:100%;}
   .task-panel.standalone .task-list{max-height:none;}
@@ -1101,7 +1103,7 @@ export function appCSS(cvars, fontScale) { return `
     .sidebar-sync-menu-pill{display:block;}
     .tasks-page{padding:0 12px calc(74px + env(safe-area-inset-bottom))!important;background:var(--bg)!important;}
     .tasks-page > .journal-header{
-      margin:0 -12px 12px!important;
+      margin:0 -12px 18px!important;
       width:calc(100% + 24px)!important;
       background:var(--bg2)!important;
       backdrop-filter:none!important;
@@ -1110,7 +1112,7 @@ export function appCSS(cvars, fontScale) { return `
     }
     .bloom-room-page{padding-top:0!important;background:var(--bg)!important;}
     .bloom-room-page .journal-header{
-      margin:0 -10px 10px!important;
+      margin:0 -10px 18px!important;
       width:calc(100% + 20px)!important;
       background:var(--bg2)!important;
       backdrop-filter:none!important;
@@ -1203,7 +1205,7 @@ export function appCSS(cvars, fontScale) { return `
   .checkin-preview-card p{margin:4px 0 0;color:var(--text2);font-size:13px;line-height:1.4;}
 
   .journal-checkin-card{
-    margin:14px 0;
+    margin:14px 16px;
     border:1px solid rgba(184,111,143,.18);
     border-radius:22px;
     background:linear-gradient(135deg,rgba(255,250,252,.88),rgba(255,255,255,.70));
@@ -1251,7 +1253,7 @@ export function appCSS(cvars, fontScale) { return `
     .checkin-modal-head h2{font-size:24px;}
     .mood-options-grid,.energy-options-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     .checkin-option{min-height:82px;}
-    .journal-checkin-card{align-items:flex-start;flex-direction:column;}
+    .journal-checkin-card{align-items:flex-start;flex-direction:column;margin-left:12px;margin-right:12px;}
     .journal-checkin-actions{width:100%;justify-content:space-between;}
     .journal-checkin-actions .tf-save{padding-inline:14px;}
   }
