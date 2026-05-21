@@ -1,4 +1,7 @@
 {
+  "name": "tempo-schedule-app",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -22,9 +25,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6"
   },
-  "packageManager": "npm@10.9.2",
   "engines": {
     "node": "24.x",
-    "npm": ">=10 <12"
+    "npm": ">=11 <12"
   }
 }
