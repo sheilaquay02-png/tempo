@@ -442,12 +442,17 @@ export function appCSS(cvars, fontScale) { return `
 
   /* ── Calendar sidebar toggles ── */
   .cal-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-  .cal-toggleable{cursor:pointer;transition:opacity .15s;border-radius:8px;padding:5px 6px;margin:-2px -6px;gap:8px;}
+  .cal-toggleable{cursor:default;transition:opacity .15s;border-radius:8px;padding:5px 6px;margin:-2px -6px;gap:6px;}
   .cal-toggleable:hover{background:var(--bg3);}
   .cal-hidden{opacity:.45;}
   .cal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .2s;}
-  .cal-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text2);}
+  .cal-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;}
   .cal-eye{font-size:10px;color:var(--text3);flex-shrink:0;}
+  .cal-add-btn,.cal-action-btn,.cal-visible-btn{border:0;background:transparent;color:var(--text3);font-family:var(--font);font-weight:900;cursor:pointer;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;}
+  .cal-add-btn{width:22px;height:22px;background:var(--bg3);border:1px solid var(--border);font-size:14px;}
+  .cal-add-btn:hover,.cal-action-btn:hover,.cal-visible-btn:hover{background:var(--bg4);color:var(--accent);}
+  .cal-visible-btn{gap:5px;padding:3px 4px;}
+  .cal-action-btn{width:20px;height:20px;font-size:13px;opacity:.75;}
   .nav-section-label{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;padding:4px 14px 2px;}
 
   /* ── Journal Page ────────────────────────────────────────────────────────── */

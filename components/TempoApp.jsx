@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, usePomodoro, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, POMODORO_WORK_SECS, POMODORO_BREAK_SECS, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, focusMinsForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, focusKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -302,13 +302,13 @@ function normalizeSettingsUpdatedAt(value) {
 function normalizeDeletedRecords(value) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
-  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks) };
+  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars) };
 }
 
 function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
   const current = normalizeDeletedRecords(records);
-  const next = { events: { ...current.events }, tasks: { ...current.tasks } };
-  const bucket = kind === "tasks" ? "tasks" : "events";
+  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars } };
+  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : "events";
   (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
   return next;
 }
@@ -1383,7 +1383,7 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
   const end = new Date(now); end.setHours(end.getHours()+1);
   const [form, setForm] = useState({
     title: "", startDate: toDateInput(defaultDate), endDate: toDateInput(defaultDate), startTime: toTimeInputValue(now), endTime: toTimeInputValue(end), allDay: false,
-    calendar: "work", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
+    calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
   });
   const [err, setErr] = useState("");
   function handleSave() {
@@ -1516,7 +1516,7 @@ function SearchModal({ events, tasks, categories = CATEGORIES, onClose, onEventC
               <div className="search-section">
                 <div className="search-section-title">📅 Events ({matchedEvents.length})</div>
                 {matchedEvents.map(e => {
-                  const cal = CALENDARS.find(c => c.id === e.calendar);
+                  const cal = calendars.find(c => c.id === e.calendar);
                   const color = e.color || cal?.color || "#FF7BAC";
                   return (
                     <div key={e.id} className="search-result-row" onClick={() => { onNavigate(e.start); onEventClick(e); onClose(); }}>
@@ -1691,6 +1691,7 @@ export default function App() {
   const [showStartup, setShowStartup] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
+  const [calendars, setCalendarsRaw] = useState(() => normalizeCalendars(load(`${uk}_calendars`, CALENDARS)));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
@@ -1804,6 +1805,8 @@ export default function App() {
         planningRules: normalizePlanningRules(safeSettings.planningRules ?? load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(safeSettings.settingsUpdatedAt ?? load(`${userKey}_settings_updated_at`, {})),
         deletedRecords: normalizeDeletedRecords(safeSettings.deletedRecords ?? load(`${userKey}_deleted_records`, {})),
+        calendars: normalizeCalendars(safeSettings.calendars ?? load(`${userKey}_calendars`, CALENDARS)),
+        hiddenCals: Array.isArray(safeSettings.hiddenCals) ? safeSettings.hiddenCals : load(`${userKey}_hidden_cals`, []),
         notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
         pushEnabled: safeSettings.pushEnabled ?? load(`${userKey}_push_enabled`, false),
         timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1826,6 +1829,8 @@ export default function App() {
       setPlanningRulesRaw(normalizePlanningRules(nextSettings.planningRules));
       setSettingsUpdatedAtRaw(normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
       setDeletedRecordsRaw(normalizeDeletedRecords(nextSettings.deletedRecords));
+      setCalendarsRaw(normalizeCalendars(nextSettings.calendars));
+      setHiddenCals(Array.isArray(nextSettings.hiddenCals) ? nextSettings.hiddenCals : []);
       setNfRaw(Boolean(nextSettings.notifs));
       setPushEnabledRaw(Boolean(nextSettings.pushEnabled));
       setTzRaw(nextSettings.timezone);
@@ -1841,6 +1846,8 @@ export default function App() {
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
       save(`${userKey}_deleted_records`, normalizeDeletedRecords(nextSettings.deletedRecords));
+      save(`${userKey}_calendars`, normalizeCalendars(nextSettings.calendars));
+      save(`${userKey}_hidden_cals`, Array.isArray(nextSettings.hiddenCals) ? nextSettings.hiddenCals : []);
       saveJournalLocal(userKey, userId, nextSettings.journal || {});
       setWorkHoursCtx(Number(nextSettings.workStart), Number(nextSettings.workEnd));
       setStreak(computeAndSaveStreak(userKey));
@@ -1867,6 +1874,8 @@ export default function App() {
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
+          calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
+          hiddenCals: load(`${userKey}_hidden_cals`, []),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1910,6 +1919,8 @@ export default function App() {
             planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
             settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
             deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
+          calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
+          hiddenCals: load(`${userKey}_hidden_cals`, []),
             notifs: load(`${userKey}_nf`, false),
             pushEnabled: load(`${userKey}_push_enabled`, false),
             timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1950,6 +1961,8 @@ export default function App() {
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
+          calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
+          hiddenCals: load(`${userKey}_hidden_cals`, []),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1977,6 +1990,8 @@ export default function App() {
           planningRules: normalizePlanningRules(DEFAULT_PLANNING_RULES),
           settingsUpdatedAt: {},
           deletedRecords: normalizeDeletedRecords({}),
+          calendars: normalizeCalendars(CALENDARS),
+          hiddenCals: [],
           notifs: false,
           pushEnabled: false,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -2010,6 +2025,8 @@ export default function App() {
           planningRules: normalizePlanningRules(load(`${userKey}_planning_rules`, DEFAULT_PLANNING_RULES)),
           settingsUpdatedAt: normalizeSettingsUpdatedAt(load(`${userKey}_settings_updated_at`, {})),
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
+          calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
+          hiddenCals: load(`${userKey}_hidden_cals`, []),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -2058,6 +2075,8 @@ export default function App() {
     planningRules: normalizePlanningRules(planningRules),
     settingsUpdatedAt: normalizeSettingsUpdatedAt(settingsUpdatedAt),
     deletedRecords: normalizeDeletedRecords(deletedRecords),
+    calendars: normalizeCalendars(calendars),
+    hiddenCals: Array.isArray(hiddenCals) ? hiddenCals : [],
     notifs,
     pushEnabled,
     timezone,
@@ -2126,6 +2145,8 @@ export default function App() {
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
         deletedRecords: normalizeDeletedRecords(nextSettings?.deletedRecords || deletedRecords),
+        calendars: normalizeCalendars(nextSettings?.calendars || calendars),
+        hiddenCals: Array.isArray(nextSettings?.hiddenCals) ? nextSettings.hiddenCals : (Array.isArray(hiddenCals) ? hiddenCals : []),
         journal: nextSettings?.journal || journal,
       };
 
@@ -2142,6 +2163,8 @@ export default function App() {
       setPlanningRulesRaw(normalizedSettings.planningRules);
       setSettingsUpdatedAtRaw(normalizedSettings.settingsUpdatedAt);
       setDeletedRecordsRaw(normalizedSettings.deletedRecords);
+      setCalendarsRaw(normalizeCalendars(normalizedSettings.calendars));
+      setHiddenCals(Array.isArray(normalizedSettings.hiddenCals) ? normalizedSettings.hiddenCals : []);
       setNfRaw(Boolean(normalizedSettings.notifs));
       setPushEnabledRaw(Boolean(normalizedSettings.pushEnabled));
       setTzRaw(normalizedSettings.timezone || timezone);
@@ -2166,6 +2189,8 @@ export default function App() {
       save(`${uk}_planning_rules`, normalizedSettings.planningRules);
       save(`${uk}_settings_updated_at`, normalizedSettings.settingsUpdatedAt);
       save(`${uk}_deleted_records`, normalizedSettings.deletedRecords);
+      save(`${uk}_calendars`, normalizeCalendars(normalizedSettings.calendars));
+      save(`${uk}_hidden_cals`, Array.isArray(normalizedSettings.hiddenCals) ? normalizedSettings.hiddenCals : []);
       save(`${uk}_nf`, normalizedSettings.notifs);
       save(`${uk}_push_enabled`, Boolean(normalizedSettings.pushEnabled));
       save(`${uk}_tz`, normalizedSettings.timezone);
@@ -2296,6 +2321,8 @@ export default function App() {
     save(`${uk}_planning_rules`, normalizePlanningRules(next.planningRules));
     save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
     save(`${uk}_deleted_records`, normalizeDeletedRecords(next.deletedRecords));
+    save(`${uk}_calendars`, normalizeCalendars(next.calendars));
+    save(`${uk}_hidden_cals`, Array.isArray(next.hiddenCals) ? next.hiddenCals : []);
     save(`${uk}_nf`, next.notifs);
     save(`${uk}_push_enabled`, Boolean(next.pushEnabled));
     save(`${uk}_tz`, next.timezone);
@@ -2488,9 +2515,58 @@ export default function App() {
     persistSettings({ memoryStorageMigratedAt: value });
   };
 
+  const persistCalendarConfig = (nextCalendars, nextHiddenCals = hiddenCals, nextEvents = events, extraSettings = {}) => {
+    const safeCalendars = normalizeCalendars(nextCalendars);
+    const safeHidden = [...new Set((Array.isArray(nextHiddenCals) ? nextHiddenCals : []).filter(id => safeCalendars.some(c => c.id === id)))];
+    setCalendarsRaw(safeCalendars);
+    setHiddenCals(safeHidden);
+    save(`${uk}_calendars`, safeCalendars);
+    save(`${uk}_hidden_cals`, safeHidden);
+    const patch = { calendars: safeCalendars, hiddenCals: safeHidden, ...extraSettings };
+    if (nextEvents !== events) setEventsAndTasks(nextEvents, tasks, patch);
+    else persistSettings(patch);
+  };
+
   const toggleCalVisibility = id => {
     const n = hiddenCals.includes(id) ? hiddenCals.filter(c => c !== id) : [...hiddenCals, id];
-    setHiddenCals(n); save(`${uk}_hidden_cals`, n);
+    persistCalendarConfig(calendars, n);
+  };
+
+  const addCalendar = () => {
+    const name = window.prompt("New calendar name", "New Calendar");
+    if (!name?.trim()) return;
+    const color = window.prompt("Calendar color hex", "#FF7BAC") || "#FF7BAC";
+    const now = new Date().toISOString();
+    const baseId = name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "calendar";
+    let id = baseId, i = 2;
+    while (calendars.some(c => c.id === id)) id = `${baseId}-${i++}`;
+    persistCalendarConfig([...calendars, { id, name: name.trim(), color: /^#[0-9a-f]{6}$/i.test(color) ? color : "#FF7BAC", source: "tempo", account: null, createdAt: now, updatedAt: now }], hiddenCals);
+  };
+
+  const editCalendar = cal => {
+    const name = window.prompt("Calendar name", cal.name);
+    if (name === null) return;
+    const color = window.prompt("Calendar color hex", cal.color || "#FF7BAC");
+    if (color === null) return;
+    const now = new Date().toISOString();
+    persistCalendarConfig(calendars.map(c => c.id === cal.id ? { ...c, name: name.trim() || c.name, color: /^#[0-9a-f]{6}$/i.test(color) ? color : c.color, updatedAt: now } : c), hiddenCals);
+  };
+
+  const removeCalendar = cal => {
+    if (calendars.length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
+    if (!window.confirm(`Remove calendar "${cal.name}"? Existing events will move to another calendar.`)) return;
+    const timestamp = new Date().toISOString();
+    const remaining = calendars.filter(c => c.id !== cal.id);
+    const fallback = remaining[0]?.id || "personal";
+    const nextEvents = events.map(e => e.calendar === cal.id ? touchRecord(e, { calendar: fallback }) : e);
+    const nextHidden = hiddenCals.filter(id => id !== cal.id);
+    const nextDeletedRecords = addDeletedRecords(deletedRecords, "calendars", cal.id, timestamp);
+    const nextSettingsUpdatedAt = { ...normalizeSettingsUpdatedAt(settingsUpdatedAt), calendars: timestamp, hiddenCals: timestamp, deletedRecords: timestamp };
+    setDeletedRecordsRaw(nextDeletedRecords);
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    persistCalendarConfig(remaining, nextHidden, nextEvents, { deletedRecords: nextDeletedRecords, settingsUpdatedAt: nextSettingsUpdatedAt });
   };
   const setJournal   = v => {
     const n = typeof v === "function" ? v(journal) : v;
@@ -3279,16 +3355,20 @@ export default function App() {
           </nav>
           <div className="sidebar-cals">
             <div className="cal-label-row">
-              <span className="cal-label">Calendars</span>
+              <span className="cal-label">My Calendars</span>
+              <button type="button" className="cal-add-btn" onClick={addCalendar} title="Create calendar">＋</button>
             </div>
-            {CALENDARS.map(c => {
+            {calendars.map(c => {
               const hidden = hiddenCals.includes(c.id);
               return (
-                <div key={c.id} className={`cal-item cal-toggleable ${hidden ? "cal-hidden" : ""}`}
-                  onClick={() => toggleCalVisibility(c.id)} title={hidden ? "Click to show" : "Click to hide"}>
-                  <span className="cal-dot" style={{ background: hidden ? "var(--border)" : c.color }} />
-                  <span className="cal-name">{c.id === "work" ? (auth.user?.email ?? c.name) : c.name}</span>
-                  <span className="cal-eye">{hidden ? "○" : "●"}</span>
+                <div key={c.id} className={`cal-item cal-toggleable ${hidden ? "cal-hidden" : ""}`} title={hidden ? "Hidden" : "Visible"}>
+                  <button type="button" className="cal-visible-btn" onClick={() => toggleCalVisibility(c.id)} title={hidden ? "Show calendar" : "Hide calendar"}>
+                    <span className="cal-dot" style={{ background: hidden ? "var(--border)" : c.color }} />
+                    <span className="cal-eye">{hidden ? "○" : "●"}</span>
+                  </button>
+                  <span className="cal-name" onClick={() => toggleCalVisibility(c.id)}>{c.id === "work" && !c.name ? (auth.user?.email ?? c.name) : c.name}</span>
+                  <button type="button" className="cal-action-btn" onClick={() => editCalendar(c)} title="Rename/edit calendar">✎</button>
+                  <button type="button" className="cal-action-btn" onClick={() => removeCalendar(c)} title="Remove calendar">×</button>
                 </div>
               );
             })}
@@ -3350,8 +3430,8 @@ export default function App() {
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
-              {view === "day" && <DayView events={viewDayEvents} calendars={CALENDARS} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
-              {view === "week" && <WeekView events={visibleEvents} calendars={CALENDARS} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
+              {view === "day" && <DayView events={viewDayEvents} calendars={calendars} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
+              {view === "week" && <WeekView events={visibleEvents} calendars={calendars} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const days = monthDays(viewDate);
 
@@ -3378,7 +3458,7 @@ export default function App() {
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
                             {de.slice(0, 4).map(e => {
-                              const cal = CALENDARS.find(c => c.id === e.calendar);
+                              const cal = calendars.find(c => c.id === e.calendar);
                               const color = e.color || cal?.color || "#FF7BAC";
                               return (
                                 <MonthEventRow key={e.id} event={e} color={color} onOpen={setSelectedEvent} onReschedule={reschedule} />
@@ -3412,8 +3492,8 @@ export default function App() {
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} onFocusLog={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setShowFocusLog(true); }} />}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {showFocusLog && <FocusLogModal events={gameEvents} categories={categories} onClose={() => setShowFocusLog(false)} />}
-      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={CALENDARS} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={ev => { addEvent(ev); setQuickAddDate(null); }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} focusStart={focusStart} focusEnd={focusEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} />}

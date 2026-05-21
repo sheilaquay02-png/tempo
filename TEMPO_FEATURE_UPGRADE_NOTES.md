@@ -221,3 +221,15 @@ Changes:
 - Updated Today’s Plan boss task count to count only tasks in the **Boss Battle** category.
 - Aligned Focus Mode boss HP/label behavior with the Boss Battle category.
 
+
+## 2026-05-21 — Calendar sync + My Calendars hotfix
+
+- Fixed cross-device deleted event sync. Tombstone comparison now uses real mutation timestamps only, not future event start dates, so a deleted desktop event will not reappear on mobile/PWA during merge.
+- Extended tombstones to support calendar removals as well as event/task deletions.
+- Restored a desktop/sidebar **My Calendars** section.
+- Added calendar visibility toggles per calendar.
+- Added calendar creation from the sidebar.
+- Added calendar rename/color edit from the sidebar.
+- Added calendar removal. Existing events are reassigned to the first remaining calendar before the calendar is removed.
+- Synced custom calendars and hidden calendar visibility through Supabase settings, so desktop and mobile stay aligned.
+- `npm run build` passes.
