@@ -12,6 +12,9 @@ export function appCSS(cvars, fontScale) { return `
   .sidebar-date{padding:14px 20px;font-family:var(--mono);font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg3);}
   .sidebar-date .date-big{font-size:30px;font-weight:900;font-family:var(--font);background:linear-gradient(135deg,var(--accent),#C060A0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:4px;}
   .sidebar-user{margin-top:6px;font-size:10px;color:var(--text3);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sidebar-daily-stats-btn{margin:8px 0 6px;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--border);background:var(--bg2);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-size:11px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-sm);}
+  .sidebar-daily-stats-btn:hover{background:var(--bg4);border-color:var(--accent3);}
+  @media(min-width:769px){.desktop-hidden-menu-item{display:none!important;}}
   /* mood-bar used by journal mood display in sidebar */
   .mood-bar{padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;}
   .mood-bar:hover{background:var(--bg3);}.sidebar-nav{padding:12px 10px;flex:0 0 auto;}

@@ -3364,6 +3364,7 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
+            <button type="button" className="sidebar-daily-stats-btn" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}>📊 Daily Stats</button>
             <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             <button type="button" className="mobile-menu-sync-btn" onClick={forceSyncNow}>↻ Sync now</button>
           </div>
@@ -3371,18 +3372,16 @@ export default function App() {
           <LevelBar gameStats={gameStats} />
           <nav className="sidebar-nav">
             <div className="nav-section-label">Calendar</div>
-            {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌙",label:"Month"}].map(n => (
+            {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌕",label:"Month"}].map(n => (
               <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); closeSidebarOnMobile(); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
             ))}
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
+            <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
             <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-section-label" style={{marginTop:8}}>Me</div>
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Memory Book</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
-            <div className="nav-item" onClick={() => { setShowFocusLog(true); closeSidebarOnMobile(); }}><span className="nav-icon">⏱</span>Focus Log</div>
-            <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">

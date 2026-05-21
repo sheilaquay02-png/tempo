@@ -240,3 +240,11 @@ Changes:
 - Added the Focus Log directly inside Focus Mode, below Today's Tasks.
 - Moved Tasks, Plan My Day, and End of Day under the Calendar section in the sidebar menu.
 - Made the sidebar/menu scrollable so calendar lists and menu items remain accessible on smaller screens.
+
+## Menu polish hotfix
+
+- Removed the Plan My Day item from the desktop sidebar menu while keeping it available on mobile and in the calendar top bar.
+- Changed the Month sidebar icon from crescent moon to full moon.
+- Removed Focus Log from the sidebar menu.
+- Moved Daily Stats into a smaller button above the sync status pill in the sidebar/menu.
+- Verified production build with `npm run build`.
