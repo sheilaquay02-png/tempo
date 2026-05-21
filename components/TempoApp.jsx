@@ -2104,7 +2104,6 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
         <div><div className="phase-kicker">Rituals</div><h1>🕯️ Build your daily rhythm</h1><p>Create soft repeatable routines for mornings, nights, resets, and weekly planning.</p></div>
         <button className="tf-save phase-primary" onClick={() => setModalRitual({})}>＋ Create Ritual</button>
       </div>
-      <RitualTemplateLibrary rituals={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
       <div className="phase-card phase-wide-card ritual-section-card">
         <div className="phase-card-head"><span>Today’s Rituals</span><small>{todayRituals.length} scheduled today</small></div>
         {todayRituals.length ? <div className="ritual-grid">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(completions, r.id, TODAY)} progress={ritualProgress(r, completions, TODAY)} onToggleStep={onToggleStep} onSkip={onSkip} onComplete={onComplete} onEdit={setModalRitual} />)}</div> : <div className="phase-empty">No rituals scheduled today. Create a Morning Reset or Night Wind Down to start gently.</div>}
@@ -2116,6 +2115,7 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
           return <div key={r.id} className="ritual-list-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>{r.scheduledTime} · {days || "No repeat days"}</small></div><button className="tf-cancel" onClick={() => setModalRitual(r)}>Edit</button></div>;
         })}</div> : <div className="phase-empty">No rituals yet.</div>}
       </div>
+      <RitualTemplateLibrary rituals={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
       {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(r => <div key={r.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(r, false)}>Restore</button></div>)}</div></div>}
       {modalRitual !== null && <RitualModal ritual={modalRitual?._templateDraft ? modalRitual : (modalRitual?.id ? modalRitual : null)} onClose={() => setModalRitual(null)} onSave={saveRitual} onDelete={deleteRitual} onArchive={(ritual, archived) => { onArchive(ritual, archived); setModalRitual(null); }} />}
     </div>

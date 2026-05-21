@@ -76,3 +76,8 @@ Template-created rituals receive fresh IDs and sync like normal rituals. Existin
 - Removed temporary placeholder sticker PNGs from `public/memory-assets/stickers/lola`, `luna`, `sugar`, and `truffle`.
 - Kept the sticker pack folders and README files so final assets can be added as `1.png` through `9.png`.
 - Cozy stickers and background assets were left unchanged.
+
+## Phase 5 UI polish — Ritual Template Library position
+
+- Moved the Ritual Template Library card below the All Rituals card on the Rituals page.
+- Rituals page order is now: hero, Today’s Rituals, All Rituals, Template Library, Archived.
