@@ -77,3 +77,9 @@ Added after cross-device/PWA feedback:
 - Focus-hours scheduling still follows Settings → Work Hours, while meal breaks carve out protected time inside that work window.
 - The sync status pill now retries using the full force-sync flow instead of only retrying a save.
 - When cloud data is newer than this device, Force Sync treats Supabase as the source of truth to reduce stale desktop/PWA overwrites.
+
+## Mobile menu sync button hotfix
+
+- Added a mobile-only **↻ Sync now** button directly below the sync status text in the side menu.
+- The existing sidebar nav sync item is hidden on mobile to avoid duplicate sync actions.
+- Desktop layout remains unchanged.
