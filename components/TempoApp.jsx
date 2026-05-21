@@ -218,6 +218,12 @@ const DEFAULT_PLANNING_RULES = {
   afterMealBufferMinutes: 15,
 };
 
+const PLANNING_MODES = [
+  { id: "light", label: "Light Day", emoji: "🕊️", desc: "Fewer tasks, more breathing room.", maxPlanMinutes: 150, maxDeepWorkBlocks: 1, bufferBonus: 10 },
+  { id: "normal", label: "Normal Day", emoji: "🌤️", desc: "Balanced plan for a steady day.", maxPlanMinutes: 300, maxDeepWorkBlocks: 3, bufferBonus: 0 },
+  { id: "productive", label: "Productive Day", emoji: "⚡", desc: "Use extra energy for important work.", maxPlanMinutes: 420, maxDeepWorkBlocks: 4, bufferBonus: 0 },
+];
+
 const DEFAULT_RITUALS = [
   {
     id: "ritual-morning-reset",
@@ -902,6 +908,34 @@ function normalizePlanningRules(value) {
     maxDeepWorkBlocks: clamp(source.maxDeepWorkBlocks, 0, 12, DEFAULT_PLANNING_RULES.maxDeepWorkBlocks),
     afterMealBufferMinutes: clamp(source.afterMealBufferMinutes, 0, 90, DEFAULT_PLANNING_RULES.afterMealBufferMinutes),
   };
+}
+
+function normalizePlanningMode(mode) {
+  return PLANNING_MODES.some(m => m.id === mode) ? mode : "normal";
+}
+
+function planningModeForEnergy(energy) {
+  if (energy === "low") return "light";
+  if (energy === "high") return "productive";
+  return "normal";
+}
+
+function planningModeMeta(mode) {
+  return PLANNING_MODES.find(m => m.id === normalizePlanningMode(mode)) || PLANNING_MODES[1];
+}
+
+function applyPlanningModeToRules(baseRules, mode, energy) {
+  const base = normalizePlanningRules(baseRules);
+  const meta = planningModeMeta(mode);
+  const energyBuffer = energy === "low" ? 10 : 0;
+  const energyCapacityTrim = energy === "low" ? 30 : 0;
+  const energyCapacityBonus = energy === "high" && meta.id === "productive" ? 30 : 0;
+  return normalizePlanningRules({
+    ...base,
+    bufferMinutes: Math.min(60, base.bufferMinutes + (meta.bufferBonus || 0) + energyBuffer),
+    maxPlanMinutes: Math.min(base.maxPlanMinutes, meta.maxPlanMinutes) - energyCapacityTrim + energyCapacityBonus,
+    maxDeepWorkBlocks: Math.min(base.maxDeepWorkBlocks, meta.maxDeepWorkBlocks),
+  });
 }
 
 function normalizeSettingsUpdatedAt(value) {
@@ -2054,26 +2088,48 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
   );
 }
 
-function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
+function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining, onMoveRemainingToWeek, onSkipLowPriority, mealBreaks = DEFAULT_MEAL_BREAKS, planningRules = DEFAULT_PLANNING_RULES }) {
   const [lockedIds, setLockedIds] = useState([]);
-  useEffect(() => { setLockedIds([]); }, [plan?.generatedAt]);
+  const [selectedMode, setSelectedMode] = useState(normalizePlanningMode(plan?.mode));
+  useEffect(() => { setLockedIds([]); setSelectedMode(normalizePlanningMode(plan?.mode)); }, [plan?.generatedAt, plan?.mode]);
   if (!plan) return null;
   const toggleLock = id => setLockedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   const lockedSuggestions = (plan.suggestions || []).filter(item => lockedIds.includes(item.task.id));
+  const modeMeta = planningModeMeta(selectedMode);
+  const activeRules = normalizePlanningRules(plan.planningRules || planningRules);
+  const remainingTasks = plan.remainingTasks || plan.unscheduled || [];
+  const lifestyleBlocks = plan.lifestyleBlocks || [];
+  const skippedLowPriority = plan.skippedLowPriority || [];
+  const energyMeta = plan.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === plan.energy) : null;
+  const moodMeta = plan.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === plan.mood) : null;
+  const handleMode = mode => {
+    const nextMode = normalizePlanningMode(mode);
+    setSelectedMode(nextMode);
+    onRegenerate?.(plan, lockedSuggestions, nextMode, { skipLowPriorityToday: Boolean(plan.skipLowPriorityToday) });
+  };
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan today">
       <div className="modal day-plan-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>✨ Plan Today</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
-          <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}. Buffer: {normalizePlanningRules(planningRules).bufferMinutes} min. Capacity: {normalizePlanningRules(planningRules).maxPlanMinutes} min.</div>
+          <div className="plan-summary">You have <strong>{plan.openCount}</strong> open task{plan.openCount === 1 ? "" : "s"} and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
+          <div className="plan-context-card">
+            <div><strong>{modeMeta.emoji} {modeMeta.label}</strong><span>{modeMeta.desc}</span></div>
+            <div><strong>{energyMeta ? `${energyMeta.emoji} ${energyMeta.label} energy` : "Energy not set"}</strong><span>{moodMeta ? `${moodMeta.emoji} Feeling ${moodMeta.label}` : "Add a check-in for smarter planning"}</span></div>
+          </div>
+          <div className="planning-mode-grid">
+            {PLANNING_MODES.map(mode => <button key={mode.id} className={`planning-mode-btn ${selectedMode === mode.id ? "active" : ""}`} onClick={() => handleMode(mode.id)}><span>{mode.emoji}</span><strong>{mode.label}</strong><small>{mode.desc}</small></button>)}
+          </div>
+          <div className="plan-break-note">Protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "no meal breaks"}{lifestyleBlocks.length ? ` · ${lifestyleBlocks.length} ritual/habit block${lifestyleBlocks.length === 1 ? "" : "s"}` : ""}. Buffer: {activeRules.bufferMinutes} min. Capacity: {activeRules.maxPlanMinutes} min.</div>
           {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => {
             const locked = lockedIds.includes(item.task.id);
             return <div key={item.task.id} className={`plan-row ${locked ? "locked" : ""}`}><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong><button className="mini-move-btn" onClick={() => toggleLock(item.task.id)}>{locked ? "🔒 Locked" : "Lock"}</button></div>;
           })}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
-          {plan.unscheduled.length > 0 && <div className="plan-warning">Could not fit: {plan.unscheduled.map(t => t.title).join(", ")}</div>}
+          {lifestyleBlocks.length > 0 && <div className="plan-soft-blocks"><strong>Soft commitments protected</strong>{lifestyleBlocks.slice(0, 4).map(block => <span key={block.id}>{fmt(block.start)} · {block.title.replace(/^Ritual: |^Habit: /, "")}</span>)}{lifestyleBlocks.length > 4 && <span>+{lifestyleBlocks.length - 4} more</span>}</div>}
+          {remainingTasks.length > 0 && <div className="plan-warning">Could not fit: {remainingTasks.map(t => t.title).join(", ")}</div>}
+          {skippedLowPriority.length > 0 && <div className="plan-skip-note">Skipped low-priority today: {skippedLowPriority.map(t => t.title).join(", ")}</div>}
         </div>
-        <div className="modal-footer day-plan-footer"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="tf-cancel" onClick={() => onRegenerate?.(plan, lockedSuggestions)}>Regenerate plan</button>{plan.unscheduled.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemaining?.(plan)}>Move remaining to tomorrow</button>}</div><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div></div>
+        <div className="modal-footer day-plan-footer"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="tf-cancel" onClick={() => onRegenerate?.(plan, lockedSuggestions, selectedMode, { skipLowPriorityToday: Boolean(plan.skipLowPriorityToday) })}>Regenerate plan</button><button className="tf-cancel" onClick={() => onSkipLowPriority?.(plan, lockedSuggestions, selectedMode)} disabled={Boolean(plan.skipLowPriorityToday)}>Skip low-priority today</button>{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemaining?.(plan)}>Move remaining to tomorrow</button>}{remainingTasks.length > 0 && <button className="tf-cancel" onClick={() => onMoveRemainingToWeek?.(plan)}>Move remaining to this week</button>}</div><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" disabled={!plan.suggestions.length} onClick={() => onApply(plan)}>Apply plan</button></div></div>
       </div>
     </div>
   );
@@ -4219,11 +4275,35 @@ export default function App() {
       ...extra,
     };
   }
-  function freeSlotsForDate(date, extraEvents = []) {
+  function lifestylePlanningBlocksForDate(date) {
+    const planDate = dayStart(date);
+    const blocks = [];
+    normalizeRituals(rituals)
+      .filter(r => ritualRunsOnDate(r, planDate) && !ritualProgress(r, ritualCompletions, planDate).completed && !ritualProgress(r, ritualCompletions, planDate).skipped)
+      .forEach(r => {
+        const start = dayStart(planDate);
+        start.setMinutes(timeStringToMinutes(r.scheduledTime || "08:30"));
+        const end = new Date(start.getTime() + Math.max(5, Number(r.estimatedMinutes || 15)) * 60000);
+        blocks.push({ id: `ritual-block-${r.id}-${dateKey(planDate)}`, title: `Ritual: ${r.name}`, start, end, allDay: false, calendar: "personal", category: r.category || "personal", fixed: true, planningProtected: true, source: "ritual" });
+      });
+    normalizeHabits(habits)
+      .filter(h => habitRunsOnDate(h, planDate) && !habitProgress(h, habitCompletions, planDate).completed)
+      .forEach(h => {
+        const reminder = normalizeHabitReminder(h.reminder);
+        if (reminder.type === "none" || !reminder.time) return;
+        const start = dayStart(planDate);
+        start.setMinutes(timeStringToMinutes(reminder.time));
+        const end = new Date(start.getTime() + 10 * 60000);
+        blocks.push({ id: `habit-block-${h.id}-${dateKey(planDate)}`, title: `Habit: ${h.name}`, start, end, allDay: false, calendar: "personal", category: h.category || "personal", fixed: true, planningProtected: true, source: "habit" });
+      });
+    return blocks.filter(block => block.end > block.start);
+  }
+
+  function freeSlotsForDate(date, extraEvents = [], rulesOverride = null) {
     const safeExtraEvents = Array.isArray(extraEvents) ? extraEvents : [];
     // getFreeBlocks returns minute offsets, so convert those offsets back into
     // real Date objects before comparing with the current time or durations.
-    const rules = normalizePlanningRules(planningRules);
+    const rules = rulesOverride ? normalizePlanningRules(rulesOverride) : normalizePlanningRules(planningRules);
     const startHour = Number(workStart);
     const endHour = Number(workEnd);
     if (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) return [];
@@ -4242,7 +4322,8 @@ export default function App() {
         return { id: `meal-${b.id}-${dateKey(date)}`, title: b.label, start: st, end: en, allDay: false, category: "meal-break", calendar: "personal", fixed: true, planningProtected: true };
       })
       .filter(b => b.end > b.start);
-    const rawBooked = expandRecurring([...events, ...safeExtraEvents, ...mealBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
+    const lifestyleBlocks = lifestylePlanningBlocksForDate(date);
+    const rawBooked = expandRecurring([...events, ...safeExtraEvents, ...mealBlocks, ...lifestyleBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
       .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e) && !e.deletedAt);
     const bufferMs = Math.max(0, Number(rules.bufferMinutes || 0)) * 60000;
     const booked = rawBooked.map(e => e.planningProtected ? e : ({
@@ -4261,6 +4342,7 @@ export default function App() {
       })
       .filter(b => b.minutes >= 15);
   }
+
   function openPlanningTasks(date = TODAY) {
     const d = dayStart(date);
     const todayKey = dateKey(d);
@@ -4303,17 +4385,25 @@ export default function App() {
         return 0;
       });
   }
-  function buildDailyPlan(date = TODAY, lockedSuggestions = []) {
+
+  function buildDailyPlan(date = TODAY, lockedSuggestions = [], mode = null, options = {}) {
     const planDate = dayStart(date);
+    const checkIn = dailyCheckInForDate(dailyCheckIns, planDate);
+    const energy = checkIn?.energy || null;
+    const planMode = normalizePlanningMode(mode || planningModeForEnergy(energy));
+    const rules = applyPlanningModeToRules(planningRules, planMode, energy);
+    const skipLowPriorityToday = Boolean(options.skipLowPriorityToday);
     const locked = (lockedSuggestions || []).map(item => ({ ...item, start: new Date(item.start), end: new Date(item.end) })).filter(item => item?.task?.id && sameDay(item.start, planDate));
     const lockedIds = new Set(locked.map(item => item.task.id));
     const lockedBlocks = locked.map(item => ({ id: `locked-${item.task.id}`, title: item.task.title, start: item.start, end: item.end, allDay: false, calendar: "work", category: item.task.category || "important", fixed: true }));
-    const candidates = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
-    let slots = freeSlotsForDate(planDate, lockedBlocks);
+    const planningPool = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
+    const skippedLowPriority = skipLowPriorityToday ? planningPool.filter(t => t.priority === "low") : [];
+    const candidates = skipLowPriorityToday ? planningPool.filter(t => t.priority !== "low") : planningPool;
+    let slots = freeSlotsForDate(planDate, lockedBlocks, rules);
+    const lifestyleBlocks = lifestylePlanningBlocksForDate(planDate);
     const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0) + locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
     const suggestions = [...locked];
     const unscheduled = [];
-    const rules = normalizePlanningRules(planningRules);
     let plannedMinutes = locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
     let deepBlocks = locked.filter(item => Core.categoryIs(item.task.category, "important") || item.task.priority === "high").length;
     for (const task of candidates) {
@@ -4333,12 +4423,30 @@ export default function App() {
       slots[idx] = { start: nextStart, end: slot.end, minutes: Math.max(0, Math.round((slot.end - nextStart) / 60000)) };
       slots = slots.filter(slot => slot.minutes >= 15);
     }
-    return { date: planDate, freeMinutes, openCount: candidates.length + locked.length, suggestions, unscheduled, planningRules: rules, plannedMinutes, generatedAt: Date.now() };
+    const remainingTasks = [...unscheduled, ...skippedLowPriority];
+    return {
+      date: planDate,
+      freeMinutes,
+      openCount: planningPool.length + locked.length,
+      suggestions,
+      unscheduled,
+      skippedLowPriority,
+      remainingTasks,
+      lifestyleBlocks,
+      planningRules: rules,
+      mode: planMode,
+      energy,
+      mood: checkIn?.mood || null,
+      skipLowPriorityToday,
+      plannedMinutes,
+      generatedAt: Date.now(),
+    };
   }
+
   function applyDayPlan(plan) {
     if (!plan?.suggestions?.length) return;
     pushUndo();
-    const additions = plan.suggestions.map(({ task, start, end }) => buildTaskEvent(task, start, end, { source: "day-plan" }));
+    const additions = plan.suggestions.map(({ task, start, end }) => buildTaskEvent(task, start, end, { source: "day-plan", planningMode: plan.mode || "normal" }));
     const taskToEvent = new Map(additions.map(ev => [ev.linkedTaskId, ev]));
     const nextEvents = [...events, ...additions];
     const nextTasks = tasks.map(t => taskToEvent.has(t.id) ? touchRecord(t, { scheduledEventId: taskToEvent.get(t.id).id, scheduledStart: taskToEvent.get(t.id).start.toISOString(), scheduledEnd: taskToEvent.get(t.id).end.toISOString() }) : t);
@@ -4346,20 +4454,42 @@ export default function App() {
     setDayPlan(null);
     setToast({ text: `Plan added ${additions.length} task block${additions.length === 1 ? "" : "s"} ✓`, ts: Date.now() });
   }
-  function regenerateDayPlan(plan, lockedSuggestions = []) {
-    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions));
+
+  function regenerateDayPlan(plan, lockedSuggestions = [], mode = null, options = {}) {
+    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, { skipLowPriorityToday: Boolean(options.skipLowPriorityToday ?? plan?.skipLowPriorityToday) }));
   }
+
+  function planRemainingTasks(plan) {
+    return Array.isArray(plan?.remainingTasks) && plan.remainingTasks.length ? plan.remainingTasks : (plan?.unscheduled || []);
+  }
+
   function movePlanRemainingToTomorrow(plan) {
-    const unscheduled = plan?.unscheduled || [];
-    if (!unscheduled.length) return;
+    const remaining = planRemainingTasks(plan);
+    if (!remaining.length) return;
     const tomorrow = addDaysSafe(TODAY, 1);
     const patch = taskPeriodPatchForScope("day", tomorrow);
-    const ids = new Set(unscheduled.map(t => t.id));
+    const ids = new Set(remaining.map(t => t.id));
     pushUndo();
     setTasks(ts => ts.map(t => ids.has(t.id) ? touchRecord({ ...t, scope: "day", done: false, completedAt: null, completedDate: null, ...patch }) : t));
-    setToast({ text: `Moved ${unscheduled.length} remaining task${unscheduled.length === 1 ? "" : "s"} to tomorrow ✓`, ts: Date.now() });
+    setToast({ text: `Moved ${remaining.length} remaining task${remaining.length === 1 ? "" : "s"} to tomorrow ✓`, ts: Date.now() });
     setDayPlan(null);
   }
+
+  function movePlanRemainingToThisWeek(plan) {
+    const remaining = planRemainingTasks(plan);
+    if (!remaining.length) return;
+    const patch = taskPeriodPatchForScope("week", plan?.date || TODAY);
+    const ids = new Set(remaining.map(t => t.id));
+    pushUndo();
+    setTasks(ts => ts.map(t => ids.has(t.id) ? touchRecord({ ...t, scope: "week", done: false, completedAt: null, completedDate: null, ...patch }) : t));
+    setToast({ text: `Moved ${remaining.length} remaining task${remaining.length === 1 ? "" : "s"} to this week ✓`, ts: Date.now() });
+    setDayPlan(null);
+  }
+
+  function skipLowPriorityInDayPlan(plan, lockedSuggestions = [], mode = null) {
+    setDayPlan(buildDailyPlan(plan?.date || TODAY, lockedSuggestions, mode || plan?.mode, { skipLowPriorityToday: true }));
+  }
+
   function scheduleTaskIntoCalendar(task, mode = "today") {
     if (!task) return;
     const duration = Math.max(15, taskDurationToMinutes(task.duration || 30));
@@ -4998,7 +5128,7 @@ export default function App() {
       <RecurringTaskScopeModal />
       <TaskRescheduleDateModal />
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
-      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} />}
+      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onMoveToday={handleCarryToday} onMoveTomorrow={handleCarryOver} onMoveWeek={handleCarryWeek} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}

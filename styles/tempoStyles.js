@@ -847,6 +847,20 @@ export function appCSS(cvars, fontScale) { return `
   .startup-grid strong{display:block;font-size:20px;color:var(--accent);font-weight:900;}
   .startup-grid span{font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;text-transform:uppercase;}
   .startup-next{background:var(--bg4);border:1px solid var(--accent3);border-radius:12px;padding:10px 12px;color:var(--text2);font-size:13px;font-weight:800;}
+  .plan-context-card{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px;}
+  .plan-context-card>div{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:11px 12px;display:flex;flex-direction:column;gap:3px;}
+  .plan-context-card strong{font-size:13px;color:var(--text);font-weight:900;}
+  .plan-context-card span{font-size:11px;color:var(--text2);font-weight:700;}
+  .planning-mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0;}
+  .planning-mode-btn{border:1.5px solid var(--border);background:var(--bg2);border-radius:14px;padding:10px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;cursor:pointer;color:var(--text);font-family:var(--font);}
+  .planning-mode-btn span{font-size:17px;}
+  .planning-mode-btn strong{font-size:12px;font-weight:900;}
+  .planning-mode-btn small{font-size:10px;color:var(--text2);font-weight:700;line-height:1.25;}
+  .planning-mode-btn.active{border-color:var(--accent);background:var(--accent2);box-shadow:0 8px 18px rgba(255,123,172,.12);}
+  .plan-soft-blocks{display:flex;flex-direction:column;gap:4px;margin-top:8px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:10px 12px;color:var(--text2);}
+  .plan-soft-blocks strong{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.7px;color:var(--text3);}
+  .plan-soft-blocks span{font-size:12px;font-weight:800;color:var(--text2);}
+  .plan-skip-note{background:var(--bg4);border:1px dashed var(--accent3);border-radius:14px;padding:10px 12px;color:var(--text2);font-size:12px;font-weight:800;margin-top:8px;}
   .plan-row.locked{box-shadow:inset 0 0 0 1.5px var(--accent3);background:var(--bg4);}
   .day-plan-footer{gap:10px;align-items:flex-start;}
   .carryover-actions-wrap{flex-wrap:wrap;}
@@ -867,6 +881,7 @@ export function appCSS(cvars, fontScale) { return `
     .app{padding-bottom:60px;}
     .modal,.entry-modal,.entry-view-modal,.settings-panel,.templates-panel,.search-modal{width:calc(100vw - 20px)!important;max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 96px)!important;overflow-y:auto;}
     .startup-grid{grid-template-columns:repeat(2,1fr);}
+    .plan-context-card,.planning-mode-grid{grid-template-columns:1fr;}
     .modal-overlay,.settings-overlay{padding:10px;align-items:center!important;}
     .week-timetable,.day-view,.month-view{min-width:0;}
     .task-panel:not(.standalone){display:none!important;}
