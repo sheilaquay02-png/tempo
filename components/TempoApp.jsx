@@ -136,9 +136,9 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
   const catMins = id => td.filter(e => e.category === id).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
   const bars = [
-    { label: "Deep Work", mins: catMins("deep"),    color: "#B08AE0" },
+    { label: "Important", mins: catMins("deep"),    color: "#B08AE0" },
     { label: "Meetings",  mins: catMins("meeting"), color: "#FF7BAC" },
-    { label: "Admin",     mins: catMins("admin"),   color: "#A0C8E0" },
+    { label: "Light Task",     mins: catMins("admin"),   color: "#A0C8E0" },
     { label: "Personal",  mins: catMins("personal") + catMins("health"), color: "#70C8A0" },
   ];
   const mx = Math.max(...bars.map(b => b.mins), 1);
@@ -146,15 +146,15 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily summary">
       <div className="stats-card" onClick={e => e.stopPropagation()}>
-        <div className="stats-header"><span className="stats-title">📊 Daily Summary</span><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="stats-streak">🔥 {gs.streaks?.productive ?? streak} day productivity streak · Level {gs.level} {gs.title}</div>
+        <div className="stats-header"><span className="stats-title">📊 Rhythm Summary</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="stats-streak">🔥 {gs.streaks?.productive ?? streak} day rhythm streak · Level {gs.level} {gs.title}</div>
         <div className="stats-row">
           <div className="stat-big"><div className="stat-num">{dn}/{tot}</div><div className="stat-lbl">Tasks done</div></div>
           <div className="stat-big"><div className="stat-num">{gs.today.rank}</div><div className="stat-lbl">Daily rank</div></div>
           <div className="stat-big"><div className="stat-num">{gs.today.score}</div><div className="stat-lbl">Tempo score</div></div>
         </div>
         <div className="stats-row">
-          <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Deep work</div></div>
+          <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Important time</div></div>
           <div className="stat-big"><div className="stat-num">{td.length}</div><div className="stat-lbl">Events</div></div>
           <div className="stat-big"><div className="stat-num">{gs.unlockedBadges.length}</div><div className="stat-lbl">Badges</div></div>
         </div>
@@ -170,9 +170,9 @@ function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMove
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const selectedCount = sel.length;
   return (
-    <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="Task rollover">
+    <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="Tomorrow Reset">
       <div className="carryover-card" onClick={e => e.stopPropagation()}>
-        <div className="carryover-title">🌙 Task rollover</div>
+        <div className="carryover-title">🌙 Tomorrow Reset</div>
         <div className="settings-section-desc">You have {tasks.length} unfinished task{tasks.length === 1 ? "" : "s"}. Move selected tasks forward or drop the noise.</div>
         {gameStats && <div className="eod-rank-card">
           <div className="eod-rank-main"><strong>{gameStats.today.rank} Rank</strong><span>{gameStats.today.score}/100 Tempo Score</span></div>
@@ -193,7 +193,7 @@ function CarryOverPrompt({ tasks, gameStats, onMoveToday, onMoveTomorrow, onMove
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Memory Book"],["C","Create event"],["T","Create task"],["A","Open chat"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["C","Create event"],["T","Create task"],["A","Open assistant"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -289,11 +289,11 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
       <div className="modal startup-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>🌤 Today’s Plan</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(TODAY)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.bossTasks}</strong><span>boss tasks</span></div></div>
+          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.bossTasks}</strong><span>main things</span></div></div>
           <div className="startup-next">{summary.firstEvent ? `First scheduled item: ${summary.firstEvent}` : "No scheduled items yet."}</div>
-          <div className="settings-section-desc">Use Plan My Day to place the most important tasks into realistic free slots before the day gets noisy.</div>
+          <div className="settings-section-desc">Use Plan Today to place the most important tasks into realistic free slots before the day gets noisy.</div>
         </div>
-        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan My Day</button></div></div>
+        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan Today</button></div></div>
       </div>
     </div>
   );
@@ -400,7 +400,7 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           {/* Meal breaks */}
           <div className="settings-section">
             <div className="settings-section-label">Meal Breaks</div>
-            <div className="settings-section-desc">Plan My Day and Schedule Task will never place tasks during these blocked meal windows.</div>
+            <div className="settings-section-desc">Plan Today and Schedule Task will never place tasks during these blocked meal windows.</div>
             <div className="meal-break-list">
               {normalizeMealBreaks(mealBreaks).map(b => (
                 <div key={b.id} className={`meal-break-row ${b.enabled ? "" : "disabled"}`}>
@@ -667,7 +667,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     }
   }
   return (
-    <div className="modal-overlay" onClick={requestClose} role="dialog" aria-modal="true" aria-label="Memory Book entry">
+    <div className="modal-overlay" onClick={requestClose} role="dialog" aria-modal="true" aria-label="Journal entry">
       <div className={`entry-modal memory-entry-modal memory-bg-${backgroundId}`} style={memoryBackgroundStyle(backgroundId)} onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
@@ -878,7 +878,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
-  const [activeTag,  setActiveTag]  = useState("all"); // Memory Book tag filter
+  const [activeTag,  setActiveTag]  = useState("all"); // Journal tag filter
   const [memorySearch, setMemorySearch] = useState("");
   const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [memoryImageUrls, setMemoryImageUrls] = useState({});
@@ -959,7 +959,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
       const signed = await signMemoryImagePath(path);
       if (signed.src) setMemoryImageUrls(prev => ({ ...prev, [path]: signed.src }));
     } catch (err) {
-      console.warn("Could not refresh Memory Book image URL", err);
+      console.warn("Could not refresh Journal image URL", err);
     }
   }
 
@@ -994,7 +994,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
           });
           allMemoryPhotoStoragePaths(uploaded).forEach(path => pathsToSign.add(path));
         } catch (err) {
-          console.warn("Could not migrate Memory Book photo", err);
+          console.warn("Could not migrate Journal photo", err);
         }
       }
       for (const path of pathsToSign) {
@@ -1002,7 +1002,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
           const signed = await signMemoryImagePath(path);
           if (signed.src) signedUrls[path] = signed.src;
         } catch (err) {
-          console.warn("Could not sign Memory Book photo", err);
+          console.warn("Could not sign Journal photo", err);
         }
       }
       if (cancelled) return;
@@ -1037,7 +1037,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
     <div className="journal-page">
       {/* Header */}
       <div className="journal-header">
-        <div className="journal-title">📔 Memory Book</div>
+        <div className="journal-title">📔 Journal</div>
         <div className="journal-streak">🔥 {streak} day streak</div>
         <button className="tf-cancel journal-today-btn" onClick={() => setMemorySettingsOpen(true)}>Memory Settings</button>
         <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
@@ -1073,11 +1073,11 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, ac
         </div>
       )}
 
-      {/* Monthly Memory Book */}
+      {/* Monthly Journal */}
       <div className="memory-book-section">
         <div className="memory-book-head">
           <div>
-            <div className="memory-book-title">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})} Memory Book</div>
+            <div className="memory-book-title">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})} Journal</div>
             <div className="memory-book-sub">{monthPages} page{monthPages !== 1 ? "s" : ""} • {monthPhotos} photo{monthPhotos !== 1 ? "s" : ""}</div>
           </div>
           <div className="memory-book-actions">
@@ -1350,9 +1350,9 @@ function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining,
   const toggleLock = id => setLockedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   const lockedSuggestions = (plan.suggestions || []).filter(item => lockedIds.includes(item.task.id));
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan my day">
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan today">
       <div className="modal day-plan-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><div><strong>✨ Plan My Day</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-header"><div><strong>✨ Plan Today</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
           <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}. Buffer: {normalizePlanningRules(planningRules).bufferMinutes} min. Capacity: {normalizePlanningRules(planningRules).maxPlanMinutes} min.</div>
@@ -1531,6 +1531,77 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categories = CATEGORIES, onOpenCalendar, onOpenTasks, onOpenJournal, onPlanToday, onTomorrowReset }) {
+  const todayKey = dateKey(TODAY);
+  const todayTasks = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
+  const topTasks = [...todayTasks].sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, medium: 1, low: 2 }[b.priority] ?? 1)).slice(0, 3);
+  const todayEvents = getEventsOnDay(events, TODAY).sort((a, b) => a.start - b.start).slice(0, 4);
+  const moodEntry = journal?.[todayKey];
+  const mood = moodEntry?.mood ? JOURNAL_MOODS.find(m => m.id === moodEntry.mood) : null;
+  const catLabel = id => categories.find(c => c.id === id)?.label || "Task";
+  return (
+    <div className="phase-page today-lite-page">
+      <div className="phase-hero">
+        <div>
+          <div className="phase-kicker">Today</div>
+          <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ✨</h1>
+          <p>Your daily rhythm, beautifully organized.</p>
+        </div>
+        <button className="tf-save phase-primary" onClick={onPlanToday}>✨ Plan Today</button>
+      </div>
+      <div className="phase-summary-grid">
+        <button onClick={onOpenCalendar}><strong>{summary?.events ?? 0}</strong><span>events</span></button>
+        <button onClick={onOpenTasks}><strong>{summary?.tasks ?? todayTasks.length}</strong><span>open tasks</span></button>
+        <button onClick={onOpenCalendar}><strong>{summary?.freeHours ?? 0}h</strong><span>free time</span></button>
+        <button onClick={onOpenTasks}><strong>{summary?.bossTasks ?? 0}</strong><span>main things</span></button>
+      </div>
+      <div className="phase-grid-two">
+        <section className="phase-card">
+          <div className="phase-card-head"><span>Top 3</span><button onClick={onOpenTasks}>Open tasks</button></div>
+          {topTasks.length ? topTasks.map(t => <div key={t.id} className="phase-list-row"><span>□ {t.title}</span><small>{catLabel(t.category)}</small></div>) : <div className="phase-empty">No open day tasks yet 🌿</div>}
+        </section>
+        <section className="phase-card">
+          <div className="phase-card-head"><span>Calendar</span><button onClick={onOpenCalendar}>Open calendar</button></div>
+          {todayEvents.length ? todayEvents.map(e => <div key={e.id} className="phase-list-row"><span>{fmt(e.start)} — {e.title}</span><small>{e.allDay ? "All day" : `${fmt(e.end)}`}</small></div>) : <div className="phase-empty">No events scheduled yet.</div>}
+        </section>
+        <section className="phase-card phase-placeholder-card">
+          <div className="phase-card-head"><span>Rituals</span><small>Phase 3</small></div>
+          <div className="phase-empty">Morning Reset and Night Wind Down will appear here after the Rituals build.</div>
+        </section>
+        <section className="phase-card phase-placeholder-card">
+          <div className="phase-card-head"><span>Habits</span><small>Phase 5</small></div>
+          <div className="phase-empty">Daily habit check-ins will appear here after the Habits build.</div>
+        </section>
+      </div>
+      <div className="phase-card phase-wide-card">
+        <div className="phase-card-head"><span>Check-in</span><button onClick={onOpenJournal}>{mood ? `${mood.emoji} ${mood.label}` : "Open Journal"}</button></div>
+        <p className="phase-copy">Use Journal / Bloom Room to track how the day feels. Mood and energy check-ins will become a deeper Today feature in a later phase.</p>
+        <button className="tf-cancel" onClick={onTomorrowReset}>🌙 Tomorrow Reset</button>
+      </div>
+    </div>
+  );
+}
+
+function ComingSoonPage({ icon, title, phase, description, bullets = [] }) {
+  return (
+    <div className="phase-page coming-soon-page">
+      <div className="phase-hero">
+        <div>
+          <div className="phase-kicker">{phase}</div>
+          <h1>{icon} {title}</h1>
+          <p>{description}</p>
+        </div>
+      </div>
+      <div className="phase-card phase-wide-card">
+        <div className="phase-card-head"><span>Coming in a later build</span><small>Not wired to data yet</small></div>
+        <div className="phase-bullet-list">
+          {bullets.map(item => <div key={item} className="phase-list-row"><span>{item}</span></div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a per-session key stored in sessionStorage
@@ -1547,7 +1618,7 @@ export default function App() {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("calendar"); // "calendar" | "journal" | "tasks"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "bloom" | "rituals" | "habits" | "affirmations"
   const [taskScope, setTaskScope]   = useState("day");
   const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
@@ -1977,7 +2048,7 @@ export default function App() {
       }
       markPendingLocalChange();
       setSyncStatus({ status: "failed", message: "Sync failed — tap to retry", lastError: "Cloud save failed" });
-      if (options.strict) throw new Error("Cloud save failed. Your Memory Book change was not finalized.");
+      if (options.strict) throw new Error("Cloud save failed. Your Journal change was not finalized.");
       return false;
     };
     const queued = cloudQueueRef.current.then(run, run);
@@ -2313,7 +2384,7 @@ export default function App() {
     setJournalActivities(a => a.map(x => x.id === id ? { ...x, ...patch, label: patch.label?.trim?.() || x.label } : x));
   }
   function deleteJournalActivity(id) {
-    // Archive instead of hard-deleting so older Memory Book pages keep their historical activity labels.
+    // Archive instead of hard-deleting so older Journal pages keep their historical activity labels.
     setJournalActivities(a => a.map(x => x.id === id ? { ...x, archived: true } : x));
   }
   function reorderJournalActivities(fromId, toId) {
@@ -3028,7 +3099,7 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); return; }
       if (e.key === "Escape") {
         if (showSearch) { setShowSearch(false); return; }
-        if (page === "journal") { setPage("calendar"); return; }
+        if (page !== "calendar") { setPage("today"); return; }
         setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); return;
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
@@ -3137,7 +3208,7 @@ export default function App() {
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
   .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.planning-rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.planning-rule-grid label{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:space-between}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
   @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}.planning-rule-grid{grid-template-columns:1fr}}
-  .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
+  .phase-page{height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px;background:var(--bg);}.phase-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow-sm);}.phase-kicker{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:4px;}.phase-hero h1{font-size:30px;line-height:1.05;margin:0 0 6px;color:var(--text);}.phase-hero p,.phase-copy{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.55;}.phase-primary{white-space:nowrap;}.phase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}.phase-summary-grid button{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:14px 12px;text-align:left;cursor:pointer;box-shadow:var(--shadow-sm);font-family:var(--font);}.phase-summary-grid strong{display:block;color:var(--accent);font-size:24px;line-height:1;font-weight:900;}.phase-summary-grid span{font-size:11px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}.phase-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow-sm);}.phase-wide-card{max-width:900px;}.phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}.phase-card-head span{font-size:15px;font-weight:900;color:var(--text);}.phase-card-head button{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer;}.phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}.phase-list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px;font-weight:850;color:var(--text);}.phase-list-row:first-child{border-top:0;}.phase-list-row small{color:var(--text3);font-weight:900;white-space:nowrap;}.phase-empty{font-size:13px;font-weight:800;color:var(--text2);line-height:1.5;background:var(--bg3);border:1px dashed var(--border);border-radius:16px;padding:14px;}.phase-placeholder-card{opacity:.92;}.phase-bullet-list{display:flex;flex-direction:column;}.coming-soon-page .phase-wide-card{width:min(720px,100%);}@media(max-width:768px){.phase-page{padding:14px 12px 90px;}.phase-hero{align-items:flex-start;flex-direction:column;border-radius:22px;padding:18px;}.phase-hero h1{font-size:24px;}.phase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.phase-grid-two{grid-template-columns:1fr;}.phase-card{border-radius:18px;padding:14px;}}.reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
       <div className="app">
@@ -3147,7 +3218,7 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
-            <button type="button" className="sidebar-daily-stats-btn" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}>📊 Daily Stats</button>
+            <button type="button" className="sidebar-daily-stats-btn" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}>📊 Rhythm Stats</button>
             <div className="sidebar-sync-menu-pill">
               <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             </div>
@@ -3156,16 +3227,21 @@ export default function App() {
           {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
           <LevelBar gameStats={gameStats} />
           <nav className="sidebar-nav">
-            <div className="nav-section-label">Calendar</div>
-            {[{id:"day",icon:"☀️",label:"Day"},{id:"week",icon:"🗓️",label:"Week"},{id:"month",icon:"🌕",label:"Month"}].map(n => (
-              <div key={n.id} className={`nav-item ${page==="calendar" && view === n.id ? "active" : ""}`} onClick={() => { setPage("calendar"); setView(n.id); closeSidebarOnMobile(); }}><span className="nav-icon">{n.icon}</span>{n.label}</div>
-            ))}
+            <div className="nav-section-label">Main</div>
+            <div className={`nav-item ${page==="today"?"active":""}`} onClick={() => { setPage("today"); closeSidebarOnMobile(); }}><span className="nav-icon">🌤️</span>Today</div>
+            <div className={`nav-item ${page==="calendar"?"active":""}`} onClick={() => { setPage("calendar"); closeSidebarOnMobile(); }}><span className="nav-icon">🗓️</span>Calendar</div>
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
-            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
-            <div className="nav-section-label" style={{marginTop:8}}>Me</div>
-            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Memory Book</div>
+            <div className={`nav-item ${page==="rituals"?"active":""}`} onClick={() => { setPage("rituals"); closeSidebarOnMobile(); }}><span className="nav-icon">🕯️</span>Rituals</div>
+            <div className={`nav-item ${page==="habits"?"active":""}`} onClick={() => { setPage("habits"); closeSidebarOnMobile(); }}><span className="nav-icon">🌱</span>Habits</div>
+            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
+            <div className="nav-section-label" style={{marginTop:8}}>Planning</div>
+            <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan Today</div>
+            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
+            <div className={`nav-item ${page==="weekly-reset"?"active":""}`} onClick={() => { setPage("weekly-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🧺</span>Weekly Reset</div>
+            <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
+            <div className={`nav-item ${page==="affirmations"?"active":""}`} onClick={() => { setPage("affirmations"); closeSidebarOnMobile(); }}><span className="nav-icon">💌</span>Affirmations</div>
+            <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">
@@ -3191,12 +3267,22 @@ export default function App() {
         </div>
 
         <div className="main">
-          {page === "journal" ? (
+          {page === "today" ? (
+            <TodayLitePage summary={dailyStartupSummary} events={visibleEvents} tasks={tasks} journal={journal} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} />
+          ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} />
+          ) : page === "rituals" ? (
+            <ComingSoonPage icon="🕯️" title="Rituals" phase="Next phase" description="Rituals will become the soft routine space for Morning Reset, Night Wind Down, and Weekly Planning." bullets={["Create ritual checklists", "Set repeat days and reminders", "Complete or skip today’s ritual", "Show ritual progress on Today"]} />
+          ) : page === "habits" ? (
+            <ComingSoonPage icon="🌱" title="Habits" phase="Later phase" description="Habits will help users build consistency with simple daily check-ins and weekly streaks." bullets={["Daily habit checklist", "Weekly habit grid", "Gentle streaks", "Habit reminder defaults"]} />
+          ) : page === "affirmations" ? (
+            <ComingSoonPage icon="💌" title="Affirmations" phase="Later phase" description="A soft daily affirmation card for Bloom Room, Today, and future rituals." bullets={["Daily affirmation", "Favorites", "Custom affirmations", "Optional reminder"]} />
+          ) : page === "weekly-reset" ? (
+            <ComingSoonPage icon="🧺" title="Weekly Reset" phase="Later phase" description="A guided weekly planning ritual to review the past week and prepare the next one calmly." bullets={["Review last week", "Choose weekly priorities", "Plan key events", "Write a weekly intention"]} />
           ) : (<>
           <div className="topbar">
             <button className="topbar-btn icon-only desktop-sidebar-toggle" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
@@ -3228,14 +3314,14 @@ export default function App() {
             </div>
             <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             <button className="topbar-btn sync-now-btn" onClick={forceSyncNow}>↻ Sync</button>
-            <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan My Day</button>
+            <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan Today</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
             <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
           </div>
 
           <div className="stats-bar">
-            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Deep Work: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Important: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FF7BAC" }} />{openToday} tasks open</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#70C8A0" }} />Free blocks: {freeBlocks(visibleEvents, viewDate).length}</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>
@@ -3340,10 +3426,10 @@ export default function App() {
       {/* Mobile bottom nav — visible only on small screens */}
       <div className="mobile-nav">
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
-        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>☀️<span>Day</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("today")}>🌤️<span>Today</span></button>
+        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>🗓️<span>Calendar</span></button>
         <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Memory</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("bloom")}>🌸<span>Bloom</span></button>
+        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}

@@ -27,7 +27,7 @@ const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJourna
       using (auth.uid() = user_id)
       with check (auth.uid() = user_id);
 
-  6. Create a private Supabase Storage bucket for Memory Book photos:
+  6. Create a private Supabase Storage bucket for Journal photos:
 
     insert into storage.buckets (id, name, public)
     values ('memory-images', 'memory-images', false)
@@ -145,8 +145,8 @@ export async function signMemoryImagePath(storagePath) {
   };
 }
 export async function uploadMemoryBlobToStorage(userId, blob, originalName = "memory-photo", memoryDateKey = dateKey(TODAY), variant = "full", sharedId = null) {
-  if (!userId) throw new Error("Please sign in before uploading Memory Book photos.");
-  if (!memoryDateKey) throw new Error("Missing Memory Book date for photo upload.");
+  if (!userId) throw new Error("Please sign in before uploading Journal photos.");
+  if (!memoryDateKey) throw new Error("Missing Journal date for photo upload.");
   const sb = await getSupabase();
   const ext = fileExtFromType(blob?.type || "image/jpeg");
   const safeName = String(originalName || "memory-photo").replace(/[^a-z0-9._-]+/gi, "-").slice(0, 80);
@@ -198,7 +198,7 @@ export async function deleteMemoryStoragePaths(paths = []) {
     if (error) throw error;
     return true;
   } catch (err) {
-    console.warn("Could not delete removed Memory Book photos", err);
+    console.warn("Could not delete removed Journal photos", err);
     return false;
   }
 }
@@ -233,7 +233,7 @@ export async function saveToCloud(userId, events, tasks, settings) {
 }
 export async function saveToCloudStrict(userId, events, tasks, settings) {
   const ok = await saveToCloud(userId, events, tasks, settings);
-  if (!ok) throw new Error("Cloud save failed. Your Memory Book change was not finalized.");
+  if (!ok) throw new Error("Cloud save failed. Your Journal change was not finalized.");
   return true;
 }
 

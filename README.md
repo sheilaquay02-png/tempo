@@ -21,20 +21,20 @@ supabase/memory_images_storage_setup.sql
 ## What changed
 
 - Main orchestration/state remains in `components/TempoApp.jsx`.
-- Constants, helpers, recurrence, storage, auth hook, date helpers, persistence, encryption, Memory Book helpers, and gamification calculations moved to `lib/tempo/core.js`.
+- Constants, helpers, recurrence, storage, auth hook, date helpers, persistence, encryption, Journal helpers, and gamification calculations moved to `lib/tempo/core.js`.
 - Calendar views moved to `components/calendar/CalendarViews.jsx`.
 - Task board/modals moved to `components/tasks/Tasks.jsx`.
 - Bloom Room cards moved to `components/bloom/BloomRoom.jsx`.
 - Login screen moved to `components/auth/LoginScreen.jsx`.
 - Large CSS function moved to `styles/tempoStyles.js`.
 
-This split is conservative: Memory Book screens, settings, modals, sync queue, and root state orchestration remain in `TempoApp.jsx` to avoid breaking cross-feature state.
+This split is conservative: Journal screens, settings, modals, sync queue, and root state orchestration remain in `TempoApp.jsx` to avoid breaking cross-feature state.
 
 ## Next recommended split
 
 After testing this package, split in this order:
 
-1. Memory Book screen and memory storage service.
+1. Journal screen and memory storage service.
 2. Event/Search/Shortcut modals.
 3. Settings panel.
 4. Sync/auth hooks.
@@ -42,7 +42,7 @@ After testing this package, split in this order:
 
 ## Added after split
 
-- Fixed mobile Memory Book entry backgrounds so selected page backgrounds remain visible on mobile.
+- Fixed mobile Journal entry backgrounds so selected page backgrounds remain visible on mobile.
 - Added Web Push scaffolding for closed-app notifications:
   - `public/tempo-sw.js`
   - `app/api/push/subscribe/route.js`
@@ -51,8 +51,8 @@ After testing this package, split in this order:
 - Added Capacitor wrapper scaffolding:
   - `capacitor.config.ts`
   - `native/README.md`
-- Added conservative cross-device merge helpers for events, tasks, Memory Book entries, activities, templates and tags.
-- Added drag reordering for Memory Book activities.
+- Added conservative cross-device merge helpers for events, tasks, Journal entries, activities, templates and tags.
+- Added drag reordering for Journal activities.
 - Added sticker drag-positioning inside scrapbook sticker blocks.
 
 ## External setup for closed-app push
@@ -137,3 +137,8 @@ Notes:
 - Month task reminders are sent on the 1st morning.
 - Duplicate reminders are prevented using `push_reminder_log`.
 - Invalid/expired push subscriptions are cleaned automatically.
+
+
+## Tempo rebrand Phase 2
+
+This build starts the daily-rhythm rebrand. Navigation now centers on Today, Calendar, Tasks, Rituals, Habits and Journal, with Planning and Personal sections for Plan Today, Tomorrow Reset, Weekly Reset, Bloom Room, Affirmations, Rhythm Stats and Settings. Rituals, Habits, Weekly Reset and Affirmations are placeholder pages in this phase; their data models and full functionality come later.

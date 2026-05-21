@@ -1,7 +1,7 @@
 {
   "name": "Tempo",
   "short_name": "Tempo",
-  "description": "A cozy calendar, task and Memory Book app.",
+  "description": "A cozy calendar, task and Journal app.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFF5F7",

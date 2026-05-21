@@ -1,32 +1,34 @@
 # Tempo Current Changelog
 
-This file reflects the current state of the Tempo build after the Focus Mode removal and cleanup hotfix. Older implementation notes that referenced removed Focus Mode behavior have been consolidated here to avoid confusion.
+This file reflects the current state of the Tempo build after the daily-rhythm rebrand Phase 2 update.
 
-## Current core features
+## Current foundation
 
-- Calendar events with custom reminders.
-- Tasks with custom reminders and task-to-calendar scheduling.
-- Plan My Day with task ranking, free-slot detection, meal breaks, planning buffers, max planned task time, and lock/regenerate support.
-- Task rollover and end-of-day planning.
-- Daily startup summary.
-- Calendar visibility controls, custom calendars, calendar rename/color/remove support, and calendar tombstones for sync safety.
-- Cross-device Supabase sync with manual force sync, Realtime pull support, delete tombstones, field-level settings timestamps, pending local changes, and last synced status.
-- Web push reminder route and reminder actions, including snooze, mark task done, and open task.
-- PWA icons and manifest support.
+- Supabase cloud persistence with localStorage fallback.
+- Manual and external-cron-compatible push reminder flow.
+- Custom event and task reminders with snooze/action support.
+- Conflict-aware sync foundations including tombstones, last synced timestamp, pending local change status, and force sync.
+- Calendar events, tasks, custom calendars, meal breaks, planning buffers, task scheduling, and Plan Today.
+- Journal and Bloom Room remain available as current reflection/progress spaces.
 
-## Focus Mode removal
+## Phase 1 cleanup
 
-Focus Mode has been removed from active app behavior. The build no longer includes a Focus Mode page, Focus Log UI, Pomodoro/focus session controls, task start-focus buttons, focus keyboard shortcut, Focus Mode progress bars, Focus Mode calendar block creation, or task auto-completion from focus sessions.
+- Removed the old timer-oriented productivity module from active app behavior.
+- Removed old progress helper exports from `lib/tempo/core.js`.
+- Fixed the Plan Today free-slot runtime bug by passing locked blocks correctly and guarding non-array slot inputs.
 
-## Cleanup hotfix
+## Phase 2 navigation and terminology rebrand
 
-- Fixed a `Plan My Day` runtime bug where `buildDailyPlan()` passed `false` into `freeSlotsForDate()`, causing the planner to spread a non-array value.
-- Hardened `freeSlotsForDate()` so it only spreads array-based extra events.
-- Removed dead Focus Mode helper exports from `lib/tempo/core.js`.
-- Removed Focus Mode helper destructuring from split components.
-- Updated README reminder-cron instructions for Vercel Hobby compatibility.
-- Added the `npm run lint` script.
+- Repositioned visible navigation around Main, Planning and Personal sections.
+- Added Main navigation entries for Today, Calendar, Tasks, Rituals, Habits and Journal.
+- Added Planning navigation entries for Plan Today, Tomorrow Reset and Weekly Reset.
+- Added Personal navigation entries for Bloom Room, Affirmations, Rhythm Stats and Settings.
+- Added lightweight placeholder pages for Rituals, Habits, Weekly Reset and Affirmations so the new structure is ready before those features are built.
+- Added a lightweight Today landing page that summarizes events, open tasks, free time, main things, Top 3 tasks and Journal check-in entry points.
+- Renamed visible product language: Plan My Day → Plan Today, End of Day → Tomorrow Reset, Daily Stats → Rhythm Stats, Memory Book → Journal, Boss Battle → Main Thing, Deep Work → Important, Admin → Light Task, Health → Wellness.
+- Kept existing category IDs intact for data compatibility; only labels/icons changed in this phase.
 
-## Reminder cron deployment note
+## Deployment
 
-Vercel Hobby does not support frequent cron schedules. Keep `vercel.json` free of high-frequency cron rules and use GitHub Actions or an external cron provider to call `/api/push/reminders` with the configured `CRON_SECRET`.
+- Vercel install remains Node 24 compatible.
+- Frequent reminders should use GitHub Actions or an external cron because Vercel Hobby cron cannot run every few minutes.

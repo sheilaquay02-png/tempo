@@ -47,7 +47,7 @@ export function DailyQuestsCard({ gameStats }) {
   return (
     <div className="daily-quests-card">
       <div className="game-card-head">
-        <div><span className="game-card-title">Daily Quests</span><span className="game-card-sub"> {done}/{gameStats.quests.length} cleared</span></div>
+        <div><span className="game-card-title">Daily Rhythm</span><span className="game-card-sub"> {done}/{gameStats.quests.length} done</span></div>
         <span className="score-pill">{gameStats.today.rank} Rank · {gameStats.today.score}</span>
       </div>
       <div className="quest-list">
@@ -67,7 +67,7 @@ export function SkillStatsCard({ gameStats }) {
   if (!gameStats?.skills) return null;
   return (
     <div className="skills-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Skill Stats</span><span className="game-card-sub">RPG growth</span></div>
+      <div className="game-card-head"><span className="game-card-title">Rhythm Stats</span><span className="game-card-sub">gentle growth</span></div>
       <div className="skill-list">
         {gameStats.skills.filter(s => s.id !== "focus").map(s => (
           <div key={s.id} className="skill-row" title={s.desc}>
@@ -158,7 +158,7 @@ export function WeeklyMissionsCard({ gameStats }) {
   const done = gameStats.weeklyMissions.filter(m => m.done).length;
   return (
     <div className="weekly-missions-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Weekly Missions</span><span className="game-card-sub">{done}/{gameStats.weeklyMissions.length} cleared</span></div>
+      <div className="game-card-head"><span className="game-card-title">Weekly Rhythm</span><span className="game-card-sub">{done}/{gameStats.weeklyMissions.length} done</span></div>
       <div className="mission-list">
         {gameStats.weeklyMissions.map(m => (
           <div key={m.id} className={`mission-item ${m.done ? "done" : ""}`}>
@@ -213,7 +213,7 @@ export function PersonalityCard({ gameStats }) {
   const p = gameStats.personality;
   return (
     <div className="personality-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Productivity Type</span><span className="game-card-sub">your style</span></div>
+      <div className="game-card-head"><span className="game-card-title">Rhythm Type</span><span className="game-card-sub">your style</span></div>
       <div className="personality-main"><span>{p.icon}</span><div><strong>{p.type}</strong><p>{p.desc}</p></div></div>
     </div>
   );
@@ -223,7 +223,7 @@ export function PersonalLeaderboardCard({ gameStats }) {
   if (!gameStats?.leaderboard) return null;
   return (
     <div className="leaderboard-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Best Days</span><span className="game-card-sub">beat yourself</span></div>
+      <div className="game-card-head"><span className="game-card-title">Best Days</span><span className="game-card-sub">your strongest days</span></div>
       {gameStats.leaderboard.length ? <div className="leaderboard-list">
         {gameStats.leaderboard.map(d => (
           <div key={d.key} className="leaderboard-row"><span className="leader-place">#{d.place}</span><strong>{d.label}</strong><span>{d.completed.length} tasks</span><span>{d.rank} · {d.score}</span></div>
@@ -256,7 +256,7 @@ export function BloomRoomPage({ gameStats }) {
       <div className="journal-header">
         <div>
           <div className="journal-title">🌸 Bloom Room</div>
-          <div className="bloom-room-subtitle">Your cozy productivity game space</div>
+          <div className="bloom-room-subtitle">Your soft rhythm progress space</div>
         </div>
         <div className="journal-streak">Lvl {gameStats?.level ?? 1} · {gameStats?.today?.rank ?? "D"} Rank · {gameStats?.unlockedBadges?.length ?? 0} badges</div>
       </div>

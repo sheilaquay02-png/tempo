@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Tempo',
-  description: 'A cozy calendar, task and Memory Book app.',
+  description: 'A soft daily rhythm app for planning, tasks, routines, habits and reflection.',
   manifest: '/manifest.webmanifest',
 };
 
