@@ -38,7 +38,7 @@ Also confirm the current app setup has:
 - `user_data`
 - `push_subscriptions`
 - `push_reminder_log`
-- Memory image bucket, if Memory Book is used
+- Memory image bucket, if Journal is used
 
 ## Recommended first implementation scope
 

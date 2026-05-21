@@ -1,7 +1,7 @@
 # Tempo Pre-Split Manual Test Checklist
 
 ## Auth / Data Isolation
-- [ ] New user sees empty calendar, tasks, Memory Book, and Bloom stats.
+- [ ] New user sees empty calendar, tasks, Journal, and Bloom stats.
 - [ ] User A cannot see User B data after logout/login.
 - [ ] Logout/login does not briefly show previous user data.
 - [ ] Sync status shows cloud/offline/failed state correctly.
@@ -29,11 +29,11 @@
 - [ ] Drag task between Day / Week / Month cards on desktop.
 - [ ] Press-and-hold drag task between Day / Week / Month on mobile.
 - [ ] Use non-drag Move to Day / Week / Month buttons.
-- [ ] Complete task and confirm it appears in correct day’s Memory Book.
+- [ ] Complete task and confirm it appears in correct day’s Journal.
 - [ ] Recurring task appears in future period.
 - [ ] Deleting recurring task asks before deleting whole series.
 
-## Memory Book
+## Journal
 - [ ] Add memory from + Add Memory.
 - [ ] Add memory from global + Add.
 - [ ] Upload 1 image.
@@ -45,7 +45,7 @@
 - [ ] Removed image is deleted after successful save.
 - [ ] Cancelled memory does not upload photos.
 - [ ] Close edited memory shows unsaved-change warning.
-- [ ] Search affects Memory Book grid.
+- [ ] Search affects Journal grid.
 - [ ] Tag filter keeps all dates visible and fades non-matches.
 - [ ] Rename tag through Memory Settings.
 - [ ] Merge tag through Memory Settings.
@@ -57,7 +57,7 @@
 - [ ] XP stays stable across Calendar / Tasks / Memory / Bloom pages.
 - [ ] Daily quests update correctly.
 - [ ] Badges unlock correctly.
-- [ ] Daily score matches completed tasks and Memory Book entry.
+- [ ] Daily score matches completed tasks and Journal entry.
 - [ ] XP breakdown explains why XP changed.
 - [ ] Advanced Bloom sections are collapsed by default.
 

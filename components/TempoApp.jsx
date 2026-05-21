@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildBossBattles, buildPersonalLeaderboard, buildProductivityPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -134,12 +134,12 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
 // ─── Stats Card ───────────────────────────────────────────────────────────────
 function StatsCard({ events, tasks, streak, gameStats, onClose }) {
   const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
-  const catMins = id => td.filter(e => e.category === id).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
+  const catMins = id => td.filter(e => Core.categoryIs(e.category, id)).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
   const bars = [
-    { label: "Important", mins: catMins("deep"),    color: "#B08AE0" },
+    { label: "Important", mins: catMins("important"),    color: "#B08AE0" },
     { label: "Meetings",  mins: catMins("meeting"), color: "#FF7BAC" },
-    { label: "Light Task",     mins: catMins("admin"),   color: "#A0C8E0" },
-    { label: "Personal",  mins: catMins("personal") + catMins("health"), color: "#70C8A0" },
+    { label: "Light Task",     mins: catMins("light"),   color: "#A0C8E0" },
+    { label: "Personal",  mins: catMins("personal") + catMins("wellness"), color: "#70C8A0" },
   ];
   const mx = Math.max(...bars.map(b => b.mins), 1);
   const gs = gameStats || calculateGameStats(tasks, {}, events);
@@ -154,7 +154,7 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
           <div className="stat-big"><div className="stat-num">{gs.today.score}</div><div className="stat-lbl">Tempo score</div></div>
         </div>
         <div className="stats-row">
-          <div className="stat-big"><div className="stat-num">{Math.round(catMins("deep") / 60 * 10) / 10}h</div><div className="stat-lbl">Important time</div></div>
+          <div className="stat-big"><div className="stat-num">{Math.round(catMins("important") / 60 * 10) / 10}h</div><div className="stat-lbl">Important time</div></div>
           <div className="stat-big"><div className="stat-num">{td.length}</div><div className="stat-lbl">Events</div></div>
           <div className="stat-big"><div className="stat-num">{gs.unlockedBadges.length}</div><div className="stat-lbl">Badges</div></div>
         </div>
@@ -289,7 +289,7 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
       <div className="modal startup-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div><strong>🌤 Today’s Plan</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(TODAY)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.bossTasks}</strong><span>main things</span></div></div>
+          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.mainThings}</strong><span>main things</span></div></div>
           <div className="startup-next">{summary.firstEvent ? `First scheduled item: ${summary.firstEvent}` : "No scheduled items yet."}</div>
           <div className="settings-section-desc">Use Plan Today to place the most important tasks into realistic free slots before the day gets noisy.</div>
         </div>
@@ -1553,7 +1553,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, categor
         <button onClick={onOpenCalendar}><strong>{summary?.events ?? 0}</strong><span>events</span></button>
         <button onClick={onOpenTasks}><strong>{summary?.tasks ?? todayTasks.length}</strong><span>open tasks</span></button>
         <button onClick={onOpenCalendar}><strong>{summary?.freeHours ?? 0}h</strong><span>free time</span></button>
-        <button onClick={onOpenTasks}><strong>{summary?.bossTasks ?? 0}</strong><span>main things</span></button>
+        <button onClick={onOpenTasks}><strong>{summary?.mainThings ?? 0}</strong><span>main things</span></button>
       </div>
       <div className="phase-grid-two">
         <section className="phase-card">
@@ -2602,7 +2602,7 @@ export default function App() {
 
 
   function taskCalendarFor(task) {
-    return ["personal", "health"].includes(task?.category) ? "personal" : "work";
+    return Core.isPersonalCategory(task?.category) ? "personal" : "work";
   }
   function buildTaskEvent(task, start, end, extra = {}) {
     const cat = categories.find(c => c.id === task.category);
@@ -2613,7 +2613,7 @@ export default function App() {
       end,
       allDay: false,
       calendar: taskCalendarFor(task),
-      category: task.category || "deep",
+      category: task.category || "important",
       fixed: false,
       notes: [task.notes || "", `Linked task: ${task.id}`].filter(Boolean).join("\n\n"),
       color: cat?.color || null,
@@ -2713,7 +2713,7 @@ export default function App() {
     const planDate = dayStart(date);
     const locked = (lockedSuggestions || []).map(item => ({ ...item, start: new Date(item.start), end: new Date(item.end) })).filter(item => item?.task?.id && sameDay(item.start, planDate));
     const lockedIds = new Set(locked.map(item => item.task.id));
-    const lockedBlocks = locked.map(item => ({ id: `locked-${item.task.id}`, title: item.task.title, start: item.start, end: item.end, allDay: false, calendar: "work", category: item.task.category || "deep", fixed: true }));
+    const lockedBlocks = locked.map(item => ({ id: `locked-${item.task.id}`, title: item.task.title, start: item.start, end: item.end, allDay: false, calendar: "work", category: item.task.category || "important", fixed: true }));
     const candidates = openPlanningTasks(planDate).filter(t => !lockedIds.has(t.id));
     let slots = freeSlotsForDate(planDate, lockedBlocks);
     const freeMinutes = slots.reduce((sum, slot) => sum + slot.minutes, 0) + locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
@@ -2721,10 +2721,10 @@ export default function App() {
     const unscheduled = [];
     const rules = normalizePlanningRules(planningRules);
     let plannedMinutes = locked.reduce((sum, item) => sum + Math.max(0, Math.round((item.end - item.start) / 60000)), 0);
-    let deepBlocks = locked.filter(item => (item.task.category || "") === "deep" || item.task.priority === "high").length;
+    let deepBlocks = locked.filter(item => Core.categoryIs(item.task.category, "important") || item.task.priority === "high").length;
     for (const task of candidates) {
       const minutes = Math.max(15, taskDurationToMinutes(task.duration || 30));
-      const isDeep = (task.category || "") === "deep" || task.priority === "high";
+      const isDeep = Core.categoryIs(task.category, "important") || task.priority === "high";
       if (plannedMinutes + minutes > rules.maxPlanMinutes) { unscheduled.push(task); continue; }
       if (isDeep && rules.maxDeepWorkBlocks > 0 && deepBlocks >= rules.maxDeepWorkBlocks) { unscheduled.push(task); continue; }
       const idx = slots.findIndex(slot => slot.minutes >= minutes);
@@ -3048,7 +3048,7 @@ export default function App() {
     const newEvs = tpl.events.map((te, i) => {
       const st = new Date(base); st.setHours(te.start[0], te.start[1], 0, 0);
       const en = new Date(base); en.setHours(te.end[0],   te.end[1],   0, 0);
-      return { id: "e" + uid() + i, title: te.title, start: st, end: en, allDay: Boolean(te.allDay), calendar: te.calendar || (te.category === "personal" || te.category === "health" ? "personal" : "work"), category: te.category, fixed: te.fixed, color: te.color || null, notes: te.notes || "", recurrence: null };
+      return { id: "e" + uid() + i, title: te.title, start: st, end: en, allDay: Boolean(te.allDay), calendar: te.calendar || (Core.isPersonalCategory(te.category) ? "personal" : "work"), category: Core.normalizeCategoryId(te.category || "meeting", "meeting"), fixed: te.fixed, color: te.color || null, notes: te.notes || "", recurrence: null };
     });
     setEvents(es => [...es.filter(e => !eventOccursOnDay(e, base) || e.fixed), ...newEvs]);
     setShowTemplates(false);
@@ -3110,7 +3110,7 @@ export default function App() {
       else if (k === "m" && !e.metaKey) { setPage("calendar"); setView("month"); }
       else if (k === "j") setPage(p => p === "journal" ? "calendar" : "journal");
       else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
-      else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "deep", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
+      else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "important", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
       else if (k === "a") setChatOpen(v => !v);
       else if (k === "s") setSettingsOpen(v => !v);
     }
@@ -3167,7 +3167,7 @@ export default function App() {
     events: getEventsOnDay(visibleEvents, TODAY).length,
     tasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length,
     freeHours: Math.round(dayFreeMinutes / 60 * 10) / 10,
-    bossTasks: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && t.category === "boss").length,
+    mainThings: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && Core.categoryIs(t.category, "main")).length,
     firstEvent: firstScheduledEvent ? `${fmt(firstScheduledEvent.start)} — ${firstScheduledEvent.title}` : null,
   };
   const memoAppCSS    = appCSS(cvars, fontScale);
@@ -3321,7 +3321,7 @@ export default function App() {
           </div>
 
           <div className="stats-bar">
-            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Important: {Math.round(viewDayEvents.filter(e => e.category === "deep").reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Important: {Math.round(viewDayEvents.filter(e => Core.categoryIs(e.category, "important")).reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FF7BAC" }} />{openToday} tasks open</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#70C8A0" }} />Free blocks: {freeBlocks(visibleEvents, viewDate).length}</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>

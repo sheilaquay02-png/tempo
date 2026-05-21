@@ -142,3 +142,29 @@ Notes:
 ## Tempo rebrand Phase 2
 
 This build starts the daily-rhythm rebrand. Navigation now centers on Today, Calendar, Tasks, Rituals, Habits and Journal, with Planning and Personal sections for Plan Today, Tomorrow Reset, Weekly Reset, Bloom Room, Affirmations, Rhythm Stats and Settings. Rituals, Habits, Weekly Reset and Affirmations are placeholder pages in this phase; their data models and full functionality come later.
+
+## Tempo rebrand Phase 3
+
+This build completes the terminology rebrand foundation.
+
+Canonical category IDs are now:
+
+```txt
+important
+main
+light
+meeting
+personal
+wellness
+```
+
+Legacy category IDs are migrated on load and during sync merge:
+
+```txt
+deep -> important
+boss -> main
+admin -> light
+health -> wellness
+```
+
+This keeps existing user events/tasks safe while moving the app to the softer daily-rhythm language.
