@@ -63,3 +63,16 @@ The previous timer-centric features remain removed so the app can move toward ro
 - Fixed task date editing after a task has already been assigned to a date.
 - The edit modal now saves the selected day/week/month explicitly instead of letting the previous period anchor override it.
 - Task drag/move and recurring task reschedule also use explicit period patches.
+
+## Phase 5 — Ritual Templates
+
+Added a ready-made Ritual Template Library inside the Rituals page. Users can add or customize templates for Morning Reset, Night Wind Down, Sunday Reset, Workday Start, Study Reset, Room Reset, Digital Declutter, Weekly Planning, Meal Prep Reset, and Clean Desk Reset.
+
+Template-created rituals receive fresh IDs and sync like normal rituals. Existing rituals are not overwritten.
+
+
+## Memory assets placeholder cleanup
+
+- Removed temporary placeholder sticker PNGs from `public/memory-assets/stickers/lola`, `luna`, `sugar`, and `truffle`.
+- Kept the sticker pack folders and README files so final assets can be added as `1.png` through `9.png`.
+- Cozy stickers and background assets were left unchanged.

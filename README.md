@@ -173,3 +173,9 @@ This keeps existing user events/tasks safe while moving the app to the softer da
 ## Phase 4: Rituals Foundation
 
 Tempo now includes Rituals as the soft routine layer for Morning Reset, Night Wind Down, and other repeatable checklist routines. Rituals are stored in Supabase under user settings and include completion history, repeat days, reminders, and sync-safe deletion tombstones.
+
+## Phase 5: Ritual Templates
+
+Tempo now includes a Ritual Template Library inside the Rituals page. Users can start from ready-made templates such as Morning Reset, Night Wind Down, Sunday Reset, Workday Start, Study Reset, Room Reset, Digital Declutter, Weekly Planning, Meal Prep Reset, and Clean Desk Reset.
+
+Templates are not stored as user records until the user chooses them. Users can either add a template immediately or customize it first in the ritual editor. Adding a template always creates a new ritual with a fresh ID, so existing rituals are not overwritten.

@@ -222,6 +222,7 @@ const DEFAULT_RITUALS = [
   {
     id: "ritual-morning-reset",
     name: "Morning Reset",
+    templateId: "morning-reset",
     emoji: "☀️",
     category: "morning",
     steps: [
@@ -242,6 +243,7 @@ const DEFAULT_RITUALS = [
   {
     id: "ritual-night-wind-down",
     name: "Night Wind Down",
+    templateId: "night-wind-down",
     emoji: "🌙",
     category: "night",
     steps: [
@@ -258,6 +260,139 @@ const DEFAULT_RITUALS = [
     archived: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+const RITUAL_TEMPLATES = [
+  {
+    id: "morning-reset",
+    name: "Morning Reset",
+    emoji: "☀️",
+    category: "morning",
+    description: "Start the day with water, calendar clarity, and one simple intention.",
+    steps: ["Drink water", "Make your space feel tidy", "Check today’s calendar", "Choose your top 3 tasks", "Write one simple intention"],
+    estimatedMinutes: 15,
+    scheduledTime: "08:30",
+    repeatDays: [1,2,3,4,5],
+    reminder: { type: "at", minutesBefore: 0 },
+    color: "#FFB870",
+  },
+  {
+    id: "night-wind-down",
+    name: "Night Wind Down",
+    emoji: "🌙",
+    category: "night",
+    description: "Close the day gently and make tomorrow feel lighter before sleep.",
+    steps: ["Review what got done", "Move unfinished tasks", "Prepare tomorrow’s main thing", "Write one gratitude", "Put your phone away"],
+    estimatedMinutes: 20,
+    scheduledTime: "21:30",
+    repeatDays: [0,1,2,3,4,5,6],
+    reminder: { type: "at", minutesBefore: 0 },
+    color: "#B08AE0",
+  },
+  {
+    id: "sunday-reset",
+    name: "Sunday Reset",
+    emoji: "🧺",
+    category: "reset",
+    description: "Reset your space, tasks, and weekly priorities before the new week starts.",
+    steps: ["Review last week", "Clear unfinished tasks", "Choose weekly priorities", "Plan key events", "Write a weekly intention"],
+    estimatedMinutes: 35,
+    scheduledTime: "17:00",
+    repeatDays: [0],
+    reminder: { type: "minutes", minutesBefore: 30 },
+    color: "#FF9F9F",
+  },
+  {
+    id: "workday-start",
+    name: "Workday Start",
+    emoji: "💼",
+    category: "work",
+    description: "A calm launch routine for email, priorities, and first action of the workday.",
+    steps: ["Check calendar", "Review inbox lightly", "Pick today’s main thing", "Schedule important tasks", "Start the first action"],
+    estimatedMinutes: 20,
+    scheduledTime: "09:30",
+    repeatDays: [1,2,3,4,5],
+    reminder: { type: "at", minutesBefore: 0 },
+    color: "#7CBAFF",
+  },
+  {
+    id: "study-reset",
+    name: "Study Reset",
+    emoji: "📚",
+    category: "personal",
+    description: "Prepare your desk, notes, and plan before a focused study block.",
+    steps: ["Clear your desk", "Open the right notes", "Write what you are studying", "Set one target", "Put distractions away"],
+    estimatedMinutes: 10,
+    scheduledTime: "16:00",
+    repeatDays: [1,2,3,4,5],
+    reminder: { type: "none", minutesBefore: null },
+    color: "#C9A0FF",
+  },
+  {
+    id: "room-reset",
+    name: "Room Reset",
+    emoji: "🏡",
+    category: "home",
+    description: "A quick tidy-up ritual to make your room feel clean and peaceful again.",
+    steps: ["Make the bed", "Clear visible clutter", "Put clothes away", "Wipe one surface", "Lightly reset the floor"],
+    estimatedMinutes: 25,
+    scheduledTime: "19:30",
+    repeatDays: [2,4,6],
+    reminder: { type: "none", minutesBefore: null },
+    color: "#70C8A0",
+  },
+  {
+    id: "digital-declutter",
+    name: "Digital Declutter",
+    emoji: "📱",
+    category: "reset",
+    description: "Clear digital noise so your phone and laptop feel lighter.",
+    steps: ["Clear old notifications", "Close unused tabs", "Delete 5 unnecessary screenshots", "Review downloads", "Archive completed messages"],
+    estimatedMinutes: 20,
+    scheduledTime: "20:00",
+    repeatDays: [3],
+    reminder: { type: "none", minutesBefore: null },
+    color: "#7EC8C8",
+  },
+  {
+    id: "weekly-planning",
+    name: "Weekly Planning",
+    emoji: "🗓️",
+    category: "work",
+    description: "Turn your week into a clear plan before it gets crowded.",
+    steps: ["Check major events", "Pick three priorities", "Block important work", "Review deadlines", "Choose one personal reset"],
+    estimatedMinutes: 30,
+    scheduledTime: "18:00",
+    repeatDays: [0],
+    reminder: { type: "minutes", minutesBefore: 30 },
+    color: "#FF7BAC",
+  },
+  {
+    id: "meal-prep-reset",
+    name: "Meal Prep Reset",
+    emoji: "🍱",
+    category: "wellness",
+    description: "Plan simple meals and reduce weekday decision fatigue.",
+    steps: ["Check what food you have", "Pick simple meals", "Write a short grocery list", "Prep one easy item", "Clean the prep area"],
+    estimatedMinutes: 35,
+    scheduledTime: "11:00",
+    repeatDays: [0],
+    reminder: { type: "none", minutesBefore: null },
+    color: "#FFB870",
+  },
+  {
+    id: "clean-desk-reset",
+    name: "Clean Desk Reset",
+    emoji: "🪷",
+    category: "home",
+    description: "Reset your workspace so it feels clear before the next task.",
+    steps: ["Remove cups and wrappers", "Stack loose papers", "Put tools back", "Wipe the desk", "Open only what you need next"],
+    estimatedMinutes: 10,
+    scheduledTime: "14:00",
+    repeatDays: [1,2,3,4,5],
+    reminder: { type: "none", minutesBefore: null },
+    color: "#F4A6C7",
   },
 ];
 
@@ -315,6 +450,7 @@ function normalizeRitual(ritual, index = 0) {
   return {
     id: String(ritual?.id || `ritual-${uid()}`),
     name: String(ritual?.name || fallback?.name || "New Ritual").trim() || "New Ritual",
+    templateId: ritual?.templateId ? String(ritual.templateId) : (fallback?.templateId ? String(fallback.templateId) : null),
     emoji: String(ritual?.emoji || fallback?.emoji || "🕯️").trim() || "🕯️",
     category: String(ritual?.category || fallback?.category || "personal"),
     steps: rawSteps.map(normalizeRitualStep),
@@ -328,6 +464,36 @@ function normalizeRitual(ritual, index = 0) {
     createdAt: ritual?.createdAt || now,
     updatedAt: ritual?.updatedAt || ritual?.createdAt || now,
   };
+}
+
+function ritualNameWithCopySuffix(name, rituals = []) {
+  const base = String(name || "New Ritual").trim() || "New Ritual";
+  const names = new Set(normalizeRituals(rituals).map(r => String(r.name || "").trim().toLowerCase()).filter(Boolean));
+  if (!names.has(base.toLowerCase())) return base;
+  let i = 2;
+  while (names.has(`${base} ${i}`.toLowerCase())) i += 1;
+  return `${base} ${i}`;
+}
+
+function ritualFromTemplate(template, rituals = []) {
+  const now = new Date().toISOString();
+  return normalizeRitual({
+    id: `ritual-${template.id}-${uid()}`,
+    templateId: template.id,
+    name: ritualNameWithCopySuffix(template.name, rituals),
+    emoji: template.emoji,
+    category: template.category,
+    steps: (template.steps || []).map((text, i) => ({ id: `step-${i + 1}-${uid()}`, text })),
+    estimatedMinutes: template.estimatedMinutes,
+    scheduledTime: template.scheduledTime,
+    repeatDays: template.repeatDays,
+    reminder: template.reminder,
+    color: template.color,
+    archived: false,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 function normalizeRituals(value) {
@@ -1795,6 +1961,8 @@ function RitualReminderEditor({ value, onChange }) {
 }
 
 function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
+  const isTemplateDraft = Boolean(ritual?._templateDraft);
+  const isExistingRitual = Boolean(ritual?.id && !isTemplateDraft);
   const initial = ritual ? normalizeRitual(ritual) : normalizeRitual({ id: "ritual-" + uid(), name: "New Ritual", emoji: "🕯️", category: "personal", steps: [{ id: "step-1", text: "First step" }], scheduledTime: "08:30", repeatDays: [1,2,3,4,5], estimatedMinutes: 15, reminder: { type: "at", minutesBefore: 0 }, color: "#FF7BAC" });
   const [form, setForm] = useState(initial);
   const days = ["S","M","T","W","T","F","S"];
@@ -1815,7 +1983,7 @@ function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ritual editor">
       <div className="modal ritual-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><span style={{ fontWeight: 900 }}>{ritual ? "Edit Ritual" : "Create Ritual"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isTemplateDraft ? "Customize Template" : isExistingRitual ? "Edit Ritual" : "Create Ritual"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="ritual-form-title-row">
             <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🕯️" }))} aria-label="Ritual emoji" />
@@ -1839,8 +2007,8 @@ function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
           </div>
         </div>
         <div className="modal-actions">
-          {ritual && <button className="tf-cancel" onClick={() => onArchive(ritual, !ritual.archived)}>{ritual.archived ? "Restore" : "Archive"}</button>}
-          {ritual && <button className="tf-delete" onClick={() => onDelete(ritual)}>Delete</button>}
+          {isExistingRitual && <button className="tf-cancel" onClick={() => onArchive(ritual, !ritual.archived)}>{ritual.archived ? "Restore" : "Archive"}</button>}
+          {isExistingRitual && <button className="tf-delete" onClick={() => onDelete(ritual)}>Delete</button>}
           <button className="tf-cancel" onClick={onClose}>Cancel</button>
           <button className="tf-save" onClick={saveForm}>Save Ritual</button>
         </div>
@@ -1871,6 +2039,51 @@ function RitualCard({ ritual, completion, progress, onToggleStep, onSkip, onComp
   );
 }
 
+function RitualTemplateLibrary({ rituals = [], onUseTemplate, onCustomizeTemplate }) {
+  const [filter, setFilter] = useState("all");
+  const normalized = normalizeRituals(rituals);
+  const categories = ["all", ...RITUAL_CATEGORIES.map(c => c.id)];
+  const filtered = RITUAL_TEMPLATES.filter(t => filter === "all" || t.category === filter);
+  const hasTemplate = template => normalized.some(r => !r.deletedAt && !r.archived && (r.templateId === template.id || String(r.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase()));
+  return (
+    <div className="phase-card phase-wide-card ritual-section-card ritual-template-section">
+      <div className="phase-card-head ritual-template-head">
+        <div><span>Template Library</span><small>Start with a ready-made ritual, then customize it.</small></div>
+        <div className="ritual-template-filters">
+          {categories.map(id => {
+            const cat = RITUAL_CATEGORIES.find(c => c.id === id);
+            return <button key={id} className={`mini-pill ${filter === id ? "active" : ""}`} onClick={() => setFilter(id)}>{id === "all" ? "All" : `${cat?.emoji || "✨"} ${cat?.label || id}`}</button>;
+          })}
+        </div>
+      </div>
+      <div className="ritual-template-grid">
+        {filtered.map(template => {
+          const cat = RITUAL_CATEGORIES.find(c => c.id === template.category);
+          const alreadyAdded = hasTemplate(template);
+          return (
+            <div key={template.id} className={`ritual-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
+              <div className="ritual-template-top">
+                <div className="ritual-template-emoji">{template.emoji}</div>
+                <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Ritual"} · {template.scheduledTime} · {template.estimatedMinutes} min</p></div>
+              </div>
+              <div className="ritual-template-desc">{template.description}</div>
+              <div className="ritual-template-steps">
+                {(template.steps || []).slice(0, 3).map(step => <span key={step}>✓ {step}</span>)}
+                {(template.steps || []).length > 3 && <span>+{template.steps.length - 3} more steps</span>}
+              </div>
+              {alreadyAdded && <div className="template-added-badge">Already in your rituals</div>}
+              <div className="ritual-template-actions">
+                <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
+                <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggleStep, onSkip, onComplete }) {
   const [modalRitual, setModalRitual] = useState(null);
   const normalized = normalizeRituals(rituals);
@@ -1882,6 +2095,8 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
     ritual.id && rituals.some(r => r.id === ritual.id) ? onEdit(ritual.id, ritual) : onAdd(ritual);
     setModalRitual(null);
   };
+  const useTemplate = template => onAdd(ritualFromTemplate(template, rituals));
+  const customizeTemplate = template => setModalRitual({ ...ritualFromTemplate(template, rituals), _templateDraft: true });
   const deleteRitual = ritual => { onDelete(ritual); setModalRitual(null); };
   return (
     <div className="phase-page rituals-page">
@@ -1889,6 +2104,7 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
         <div><div className="phase-kicker">Rituals</div><h1>🕯️ Build your daily rhythm</h1><p>Create soft repeatable routines for mornings, nights, resets, and weekly planning.</p></div>
         <button className="tf-save phase-primary" onClick={() => setModalRitual({})}>＋ Create Ritual</button>
       </div>
+      <RitualTemplateLibrary rituals={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
       <div className="phase-card phase-wide-card ritual-section-card">
         <div className="phase-card-head"><span>Today’s Rituals</span><small>{todayRituals.length} scheduled today</small></div>
         {todayRituals.length ? <div className="ritual-grid">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(completions, r.id, TODAY)} progress={ritualProgress(r, completions, TODAY)} onToggleStep={onToggleStep} onSkip={onSkip} onComplete={onComplete} onEdit={setModalRitual} />)}</div> : <div className="phase-empty">No rituals scheduled today. Create a Morning Reset or Night Wind Down to start gently.</div>}
@@ -1901,7 +2117,7 @@ function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, 
         })}</div> : <div className="phase-empty">No rituals yet.</div>}
       </div>
       {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(r => <div key={r.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(r, false)}>Restore</button></div>)}</div></div>}
-      {modalRitual !== null && <RitualModal ritual={modalRitual?.id ? modalRitual : null} onClose={() => setModalRitual(null)} onSave={saveRitual} onDelete={deleteRitual} onArchive={(ritual, archived) => { onArchive(ritual, archived); setModalRitual(null); }} />}
+      {modalRitual !== null && <RitualModal ritual={modalRitual?._templateDraft ? modalRitual : (modalRitual?.id ? modalRitual : null)} onClose={() => setModalRitual(null)} onSave={saveRitual} onDelete={deleteRitual} onArchive={(ritual, archived) => { onArchive(ritual, archived); setModalRitual(null); }} />}
     </div>
   );
 }
@@ -3780,7 +3996,7 @@ export default function App() {
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
   .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.planning-rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.planning-rule-grid label{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:space-between}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
   @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}.planning-rule-grid{grid-template-columns:1fr}}
-  .ritual-modal{max-width:720px;width:min(94vw,720px);}.ritual-modal .modal-body{max-height:72vh;overflow:auto;}.ritual-form-title-row{display:grid;grid-template-columns:74px 1fr;gap:10px;}.ritual-emoji-input{text-align:center;font-size:28px;padding:8px!important;}.modal-row-full{align-items:start!important}.ritual-weekday-picker{justify-content:flex-start;}.ritual-steps-editor{background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:12px;}.ritual-step-edit-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;margin-top:8px;}.ritual-step-edit-row>span{height:28px;width:28px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--text3)}.ritual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ritual-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-left:5px solid var(--ritual-color);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.ritual-complete{border-left-color:#70C8A0}.ritual-skipped{opacity:.68}.ritual-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.ritual-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.ritual-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.ritual-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-edit-btn{padding:5px 9px!important;margin:0!important}.ritual-progress-track{height:7px;border-radius:999px;background:var(--border);overflow:hidden}.ritual-progress-track i{display:block;height:100%;border-radius:999px;background:var(--ritual-color);transition:width .2s ease}.ritual-progress-label{font-size:11px;font-weight:900;color:var(--text2)}.ritual-step-list{display:flex;flex-direction:column;gap:6px}.ritual-step{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:850;color:var(--text);cursor:pointer}.ritual-step input{accent-color:var(--accent)}.ritual-step.checked span{text-decoration:line-through;color:var(--text3)}.ritual-more{font-size:11px;font-weight:900;color:var(--text3);padding-left:4px}.ritual-card-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.ritual-list-compact{display:flex;flex-direction:column;gap:8px}.ritual-list-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.ritual-list-emoji{width:42px;height:42px;border-radius:14px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:23px}.ritual-list-row strong{display:block;font-size:13px;color:var(--text)}.ritual-list-row small{display:block;font-size:11px;color:var(--text2);font-weight:850;margin-top:2px}.today-ritual-stack{display:flex;flex-direction:column;gap:10px}.today-ritual-stack .ritual-card{box-shadow:none;border-radius:18px;padding:12px}.today-ritual-stack .ritual-title-wrap h3{font-size:14px}.today-ritual-stack .ritual-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.today-ritual-stack .ritual-step{padding:7px 8px;font-size:11px}.ritual-section-card{width:min(100%,1080px)}@media(max-width:900px){.ritual-grid{grid-template-columns:1fr}}@media(max-width:560px){.ritual-form-title-row{grid-template-columns:58px 1fr}.ritual-list-row{grid-template-columns:38px 1fr}.ritual-list-row button{grid-column:2}.ritual-card-top{flex-direction:column}.ritual-modal .modal-actions{flex-wrap:wrap}.ritual-steps-editor .phase-card-head{align-items:flex-start;flex-direction:column}}
+  .ritual-modal{max-width:720px;width:min(94vw,720px);}.ritual-modal .modal-body{max-height:72vh;overflow:auto;}.ritual-form-title-row{display:grid;grid-template-columns:74px 1fr;gap:10px;}.ritual-emoji-input{text-align:center;font-size:28px;padding:8px!important;}.modal-row-full{align-items:start!important}.ritual-weekday-picker{justify-content:flex-start;}.ritual-steps-editor{background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:12px;}.ritual-step-edit-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;margin-top:8px;}.ritual-step-edit-row>span{height:28px;width:28px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--text3)}.ritual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ritual-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-left:5px solid var(--ritual-color);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.ritual-complete{border-left-color:#70C8A0}.ritual-skipped{opacity:.68}.ritual-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.ritual-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.ritual-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.ritual-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-edit-btn{padding:5px 9px!important;margin:0!important}.ritual-progress-track{height:7px;border-radius:999px;background:var(--border);overflow:hidden}.ritual-progress-track i{display:block;height:100%;border-radius:999px;background:var(--ritual-color);transition:width .2s ease}.ritual-progress-label{font-size:11px;font-weight:900;color:var(--text2)}.ritual-step-list{display:flex;flex-direction:column;gap:6px}.ritual-step{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:850;color:var(--text);cursor:pointer}.ritual-step input{accent-color:var(--accent)}.ritual-step.checked span{text-decoration:line-through;color:var(--text3)}.ritual-more{font-size:11px;font-weight:900;color:var(--text3);padding-left:4px}.ritual-card-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.ritual-list-compact{display:flex;flex-direction:column;gap:8px}.ritual-list-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.ritual-list-emoji{width:42px;height:42px;border-radius:14px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:23px}.ritual-list-row strong{display:block;font-size:13px;color:var(--text)}.ritual-list-row small{display:block;font-size:11px;color:var(--text2);font-weight:850;margin-top:2px}.today-ritual-stack{display:flex;flex-direction:column;gap:10px}.today-ritual-stack .ritual-card{box-shadow:none;border-radius:18px;padding:12px}.today-ritual-stack .ritual-title-wrap h3{font-size:14px}.today-ritual-stack .ritual-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.today-ritual-stack .ritual-step{padding:7px 8px;font-size:11px}.ritual-section-card{width:min(100%,1080px)}.ritual-template-section{background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,247,251,.94))}.ritual-template-head{align-items:flex-start;gap:12px}.ritual-template-head>div:first-child{display:flex;flex-direction:column;gap:3px}.ritual-template-head small{font-size:11px;color:var(--text2);font-weight:850}.ritual-template-filters{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.mini-pill{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}.mini-pill.active{background:rgba(255,123,172,.12);border-color:rgba(255,123,172,.45);color:var(--accent)}.ritual-template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.ritual-template-card{background:var(--bg2);border:1px solid var(--border);border-top:4px solid var(--ritual-color);border-radius:20px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;min-height:260px}.ritual-template-card.template-added{background:linear-gradient(180deg,var(--bg2),rgba(112,200,160,.08))}.ritual-template-top{display:flex;align-items:center;gap:10px}.ritual-template-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.ritual-template-top h3{font-size:15px;margin:0 0 2px;color:var(--text);line-height:1.12}.ritual-template-top p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.ritual-template-desc{font-size:12px;line-height:1.45;color:var(--text2);font-weight:750}.ritual-template-steps{display:flex;flex-direction:column;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:9px;margin-top:auto}.ritual-template-steps span{font-size:11px;color:var(--text2);font-weight:850}.template-added-badge{align-self:flex-start;background:rgba(112,200,160,.14);border:1px solid rgba(112,200,160,.35);color:#2f8b62;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:950}.ritual-template-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}@media(max-width:1040px){.ritual-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:900px){.ritual-grid,.ritual-template-grid{grid-template-columns:1fr}.ritual-template-head{flex-direction:column}.ritual-template-filters{justify-content:flex-start}}@media(max-width:560px){.ritual-form-title-row{grid-template-columns:58px 1fr}.ritual-list-row{grid-template-columns:38px 1fr}.ritual-list-row button{grid-column:2}.ritual-card-top{flex-direction:column}.ritual-modal .modal-actions{flex-wrap:wrap}.ritual-steps-editor .phase-card-head{align-items:flex-start;flex-direction:column}}
   .phase-page{height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px;background:var(--bg);}.phase-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow-sm);}.phase-kicker{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:4px;}.phase-hero h1{font-size:30px;line-height:1.05;margin:0 0 6px;color:var(--text);}.phase-hero p,.phase-copy{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.55;}.phase-primary{white-space:nowrap;}.phase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}.phase-summary-grid button{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:14px 12px;text-align:left;cursor:pointer;box-shadow:var(--shadow-sm);font-family:var(--font);}.phase-summary-grid strong{display:block;color:var(--accent);font-size:24px;line-height:1;font-weight:900;}.phase-summary-grid span{font-size:11px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}.phase-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow-sm);}.phase-wide-card{max-width:900px;}.phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}.phase-card-head span{font-size:15px;font-weight:900;color:var(--text);}.phase-card-head button{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer;}.phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}.phase-list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px;font-weight:850;color:var(--text);}.phase-list-row:first-child{border-top:0;}.phase-list-row small{color:var(--text3);font-weight:900;white-space:nowrap;}.phase-empty{font-size:13px;font-weight:800;color:var(--text2);line-height:1.5;background:var(--bg3);border:1px dashed var(--border);border-radius:16px;padding:14px;}.phase-placeholder-card{opacity:.92;}.phase-bullet-list{display:flex;flex-direction:column;}.coming-soon-page .phase-wide-card{width:min(720px,100%);}@media(max-width:768px){.phase-page{padding:14px 12px 90px;}.phase-hero{align-items:flex-start;flex-direction:column;border-radius:22px;padding:18px;}.phase-hero h1{font-size:24px;}.phase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.phase-grid-two{grid-template-columns:1fr;}.phase-card{border-radius:18px;padding:14px;}}.reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 

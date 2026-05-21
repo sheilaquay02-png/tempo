@@ -21,11 +21,11 @@ This hotfix is based on the Phase 4 Rituals Foundation build.
   - Sugar: 1.png to 9.png
   - Truffle: 1.png to 9.png
 - Sticker picker now groups stickers by pack.
-- Added placeholder PNGs in the expected folders so the UI does not break before final assets are swapped in.
+- Removed temporary placeholder PNGs from the custom sticker folders. Add the final sticker assets using the expected filenames when ready.
 
 ## Sticker asset paths
 
-Replace the placeholder files with the real sticker images:
+Add the real sticker images using these paths:
 
 ```txt
 public/memory-assets/stickers/lola/1.png ... 9.png
