@@ -136,13 +136,73 @@ export function TaskItem({ task, onToggle, onStartPomodoro, categories, onEdit, 
 
 // ─── Task Panel ───────────────────────────────────────────────────────────────
 export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartPomodoro, onScheduleTask, scope, setScope, periodDate = TODAY, setPeriodDate = () => {}, standalone = false, mobileOpen = false, onMobileClose }) {
+  const TASK_PANEL_DEFAULT_WIDTH = 295;
+  const TASK_PANEL_MIN_WIDTH = 240;
+  const TASK_PANEL_MAX_WIDTH = 560;
+  const TASK_PANEL_STORAGE_KEY = "tempo_task_panel_width";
   const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding]       = useState(false);
+  const [panelWidth, setPanelWidth] = useState(TASK_PANEL_DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
   const [durationDraft, setDurationDraft] = useState({ amount: 30, unit: "minutes" });
   const [form, setForm]           = useState({ title: "", duration: 30, category: "deep", scope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" } });
   useEffect(() => {
     if (adding) setForm(f => ({ ...f, scope }));
   }, [adding, scope]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedWidth = Number(window.localStorage.getItem(TASK_PANEL_STORAGE_KEY));
+    if (Number.isFinite(savedWidth)) {
+      setPanelWidth(Math.max(TASK_PANEL_MIN_WIDTH, Math.min(TASK_PANEL_MAX_WIDTH, savedWidth)));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("tempo-resizing-task-panel", isResizing);
+    return () => document.body.classList.remove("tempo-resizing-task-panel");
+  }, [isResizing]);
+
+  function startPanelResize(e) {
+    if (standalone || collapsed) return;
+    if (typeof window !== "undefined" && window.innerWidth <= 768) return;
+    if (e.pointerType && e.pointerType !== "mouse" && e.pointerType !== "pen") return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    const maxWidth = typeof window !== "undefined"
+      ? Math.min(TASK_PANEL_MAX_WIDTH, Math.max(TASK_PANEL_MIN_WIDTH, window.innerWidth - 420))
+      : TASK_PANEL_MAX_WIDTH;
+
+    setIsResizing(true);
+
+    function applyWidth(clientX) {
+      const nextWidth = Math.round(Math.max(TASK_PANEL_MIN_WIDTH, Math.min(maxWidth, startWidth + (startX - clientX))));
+      setPanelWidth(nextWidth);
+      try { window.localStorage.setItem(TASK_PANEL_STORAGE_KEY, String(nextWidth)); } catch {}
+    }
+
+    function onMove(moveEvent) {
+      moveEvent.preventDefault();
+      applyWidth(moveEvent.clientX);
+    }
+
+    function stopResize() {
+      setIsResizing(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    }
+
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  }
+
+  const taskPanelStyle = !standalone && !collapsed ? { width: `${panelWidth}px` } : undefined;
   const filtered = tasks.filter(t => taskBelongsToPeriod(t, scope, periodDate));
   const openTasks = filtered.filter(t => !t.done);
   const urgent   = tasks.filter(t => !t.done && t.deadline && (localDateFromKey(t.deadline) || new Date(t.deadline)) <= new Date(TODAY.getTime() + 3 * 86400000));
@@ -155,7 +215,8 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onStartP
     setAdding(false);
   }
   return (
-    <div className={`task-panel ${collapsed ? "collapsed" : ""} ${standalone ? "standalone" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
+    <div className={`task-panel ${collapsed ? "collapsed" : ""} ${standalone ? "standalone" : ""} ${mobileOpen ? "mobile-open" : ""} ${isResizing ? "resizing" : ""}`} style={taskPanelStyle}>
+      {!standalone && !collapsed && <div className="task-panel-resize-handle" onPointerDown={startPanelResize} role="separator" aria-orientation="vertical" aria-label="Resize task panel" title="Drag to resize task panel" />}
       {!standalone && <button className="task-panel-toggle" onClick={() => setCollapsed(v => !v)} title={collapsed ? "Expand tasks" : "Collapse tasks"}>{collapsed ? "‹" : "›"}</button>}
       <div className="task-panel-inner">
         <div className="panel-header">

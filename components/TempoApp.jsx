@@ -260,8 +260,41 @@ function ShortcutsModal({ onClose }) {
   );
 }
 
+// ─── Scheduling / Meal Break Helpers ─────────────────────────────────────────
+const DEFAULT_MEAL_BREAKS = [
+  { id: "breakfast", label: "Breakfast", start: "08:00", end: "09:00", enabled: true },
+  { id: "lunch", label: "Lunch", start: "12:00", end: "13:00", enabled: true },
+  { id: "dinner", label: "Dinner", start: "18:00", end: "19:00", enabled: true },
+];
+
+function validTimeString(value, fallback = "00:00") {
+  return /^\d{2}:\d{2}$/.test(String(value || "")) ? value : fallback;
+}
+
+function timeStringToMinutes(value) {
+  const [h, m] = validTimeString(value).split(":").map(Number);
+  return Math.max(0, Math.min(24 * 60, h * 60 + m));
+}
+
+function normalizeMealBreaks(value) {
+  const source = Array.isArray(value) && value.length ? value : DEFAULT_MEAL_BREAKS;
+  const defaults = new Map(DEFAULT_MEAL_BREAKS.map(item => [item.id, item]));
+  return source.map((item, index) => {
+    const fallback = defaults.get(item?.id) || DEFAULT_MEAL_BREAKS[index] || { id: `meal-${index}`, label: "Meal", start: "12:00", end: "13:00", enabled: true };
+    const start = validTimeString(item?.start, fallback.start);
+    const end = validTimeString(item?.end, fallback.end);
+    return {
+      id: item?.id || fallback.id || `meal-${index}`,
+      label: item?.label || fallback.label || "Meal",
+      start,
+      end: timeStringToMinutes(end) > timeStringToMinutes(start) ? end : fallback.end,
+      enabled: item?.enabled !== false,
+    };
+  });
+}
+
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
@@ -282,6 +315,9 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
   }
   function updateCategory(id, patch) { setCategories(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c)); }
   function removeCategory(id) { if (categories.length <= 1) return; setCategories(cs => cs.filter(c => c.id !== id)); }
+  function updateMealBreak(id, patch) {
+    setMealBreaks(bs => normalizeMealBreaks(bs).map(b => b.id === id ? normalizeMealBreaks([{ ...b, ...patch }])[0] : b));
+  }
 
   // Common timezones list
   const TIMEZONES = [
@@ -307,7 +343,11 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="settings-section">
               <div className="settings-section-label">Account</div>
               <div className="settings-section-desc">Signed in as <strong>{user.email}</strong></div>
-              <button className="signout-btn" onClick={onSignOut}>Sign out</button>
+              <div className="settings-action-row">
+                <button className="tf-save" onClick={onForceSync}>↻ Force sync now</button>
+                <button className="signout-btn" onClick={onSignOut}>Sign out</button>
+              </div>
+              {syncStatus?.message && <div className="settings-section-desc">Sync status: {syncStatus.message}</div>}
             </div>
           )}
           {/* Theme */}
@@ -347,6 +387,21 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="work-hours-row">
               <label>Start <input type="number" className="tf-num wh-input" min={0} max={23} value={workStart} onChange={e => setWorkStart(Number(e.target.value))} /> {workStart < 12 ? "am" : workStart === 12 ? "pm" : `${workStart - 12}pm`}</label>
               <label>End <input type="number" className="tf-num wh-input" min={0} max={23} value={workEnd} onChange={e => setWorkEnd(Number(e.target.value))} /> {workEnd < 12 ? "am" : workEnd === 12 ? "pm" : `${workEnd - 12}pm`}</label>
+            </div>
+          </div>
+          {/* Meal breaks */}
+          <div className="settings-section">
+            <div className="settings-section-label">Meal Breaks</div>
+            <div className="settings-section-desc">Plan My Day and Schedule Task will never place tasks during these blocked meal windows.</div>
+            <div className="meal-break-list">
+              {normalizeMealBreaks(mealBreaks).map(b => (
+                <div key={b.id} className={`meal-break-row ${b.enabled ? "" : "disabled"}`}>
+                  <label className="meal-break-enabled"><input type="checkbox" checked={b.enabled} onChange={e => updateMealBreak(b.id, { enabled: e.target.checked })} /> {b.label}</label>
+                  <input type="time" className="tf-input meal-time" value={b.start} onChange={e => updateMealBreak(b.id, { start: e.target.value })}/>
+                  <span className="meal-dash">–</span>
+                  <input type="time" className="tf-input meal-time" value={b.end} onChange={e => updateMealBreak(b.id, { end: e.target.value })}/>
+                </div>
+              ))}
             </div>
           </div>
           {/* Timezone */}
@@ -1282,7 +1337,7 @@ function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd =
   );
 }
 
-function DailyPlanModal({ plan, onClose, onApply }) {
+function DailyPlanModal({ plan, onClose, onApply, mealBreaks = DEFAULT_MEAL_BREAKS }) {
   if (!plan) return null;
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Plan my day">
@@ -1290,6 +1345,7 @@ function DailyPlanModal({ plan, onClose, onApply }) {
         <div className="modal-header"><div><strong>✨ Plan My Day</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(plan.date)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="plan-summary">You have <strong>{plan.openCount}</strong> open tasks and <strong>{Math.round(plan.freeMinutes / 60 * 10) / 10}</strong> free hours today.</div>
+          <div className="plan-break-note">Meal breaks protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "none"}</div>
           {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">No suitable free slots found today.</div>}
           {plan.unscheduled.length > 0 && <div className="plan-warning">Could not fit: {plan.unscheduled.map(t => t.title).join(", ")}</div>}
         </div>
@@ -1489,6 +1545,7 @@ export default function App() {
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
   const [workStart, setWSRaw]       = useState(() => load(`${uk}_ws`, 9));
   const [workEnd,   setWERaw]       = useState(() => load(`${uk}_we`, 19));
+  const [mealBreaks, setMealBreaksRaw] = useState(() => normalizeMealBreaks(load(`${uk}_meal_breaks`, DEFAULT_MEAL_BREAKS)));
   const [timezone,   setTzRaw]        = useState(() => load(`${uk}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone));
   const [theme,     setThRaw]       = useState(() => load(`${uk}_th`, "tempo"));
   const [undoStack, setUndo]        = useState([]);
@@ -1608,6 +1665,7 @@ export default function App() {
         theme: safeSettings.theme ?? load(`${userKey}_th`, "tempo"),
         workStart: safeSettings.workStart ?? load(`${userKey}_ws`, 9),
         workEnd: safeSettings.workEnd ?? load(`${userKey}_we`, 19),
+        mealBreaks: normalizeMealBreaks(safeSettings.mealBreaks ?? load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
         notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
         pushEnabled: safeSettings.pushEnabled ?? load(`${userKey}_push_enabled`, false),
         timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1624,6 +1682,7 @@ export default function App() {
       setThRaw(nextSettings.theme);
       setWSRaw(Number(nextSettings.workStart));
       setWERaw(Number(nextSettings.workEnd));
+      setMealBreaksRaw(normalizeMealBreaks(nextSettings.mealBreaks));
       setNfRaw(Boolean(nextSettings.notifs));
       setPushEnabledRaw(Boolean(nextSettings.pushEnabled));
       setTzRaw(nextSettings.timezone);
@@ -1654,6 +1713,7 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1691,6 +1751,7 @@ export default function App() {
             theme: load(`${userKey}_th`, "tempo"),
             workStart: load(`${userKey}_ws`, 9),
             workEnd: load(`${userKey}_we`, 19),
+            mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
             notifs: load(`${userKey}_nf`, false),
             pushEnabled: load(`${userKey}_push_enabled`, false),
             timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1724,6 +1785,7 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1745,6 +1807,7 @@ export default function App() {
           theme: "tempo",
           workStart: 9,
           workEnd: 19,
+          mealBreaks: normalizeMealBreaks(DEFAULT_MEAL_BREAKS),
           notifs: false,
           pushEnabled: false,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1772,6 +1835,7 @@ export default function App() {
           theme: load(`${userKey}_th`, "tempo"),
           workStart: load(`${userKey}_ws`, 9),
           workEnd: load(`${userKey}_we`, 19),
+          mealBreaks: normalizeMealBreaks(load(`${userKey}_meal_breaks`, DEFAULT_MEAL_BREAKS)),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -1794,6 +1858,7 @@ export default function App() {
 
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
   const markUpdated = () => save(`${uk}_updated_at`, new Date().toISOString());
+  const touchRecord = (record, patch = {}) => ({ ...record, ...patch, updatedAt: new Date().toISOString() });
 
   const currentSettings = (overrides = {}) => ({
     fontSize,
@@ -1801,6 +1866,7 @@ export default function App() {
     theme,
     workStart,
     workEnd,
+    mealBreaks: normalizeMealBreaks(mealBreaks),
     notifs,
     pushEnabled,
     timezone,
@@ -1834,6 +1900,89 @@ export default function App() {
     return queued;
   };
   const retryCloudSave = () => queueCloudSave(events, tasks, currentSettings());
+
+  async function forceSyncNow(options = {}) {
+    if (!auth.user?.id) {
+      setSyncStatus({ status: "offline", message: "Sign in to sync across devices", lastError: "Not signed in" });
+      setToast({ text: "Sign in to sync across devices", ts: Date.now() });
+      return false;
+    }
+    setSyncStatus({ status: "saving", message: "Force syncing…", lastError: "" });
+    try {
+      await cloudQueueRef.current.catch(() => {});
+      const cloud = await loadFromCloud(auth.user.id);
+      const localUpdatedAt = load(`${uk}_updated_at`, null);
+      const cloudUpdatedAt = cloud?.updated_at ?? null;
+      const cloudIsNewer = cloudUpdatedAt && (!localUpdatedAt || new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime() + 1000);
+      const localSnapshot = { events, tasks, settings: currentSettings(), updated_at: localUpdatedAt };
+      // If cloud is newer than this device, treat cloud as the source of truth.
+      // Otherwise, do a two-way merge so unsaved local additions are preserved.
+      const merged = cloud ? (cloudIsNewer ? cloud : mergeTempoData(cloud, localSnapshot)) : localSnapshot;
+      const nextSettings = merged.settings;
+      const nextEvents = reviveEvents(merged.events || []);
+      const nextTasks = normalizeTasks(merged.tasks || []);
+      const normalizedSettings = {
+        ...currentSettings(),
+        ...(nextSettings || {}),
+        categories: normalizeCategories(nextSettings?.categories || categories),
+        templates: nextSettings?.templates || templates,
+        journalActivities: nextSettings?.journalActivities || journalActivities,
+        memoryTags: nextSettings?.memoryTags || memoryTags,
+        mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
+        journal: nextSettings?.journal || journal,
+      };
+
+      setEvRaw(nextEvents);
+      setTkRaw(nextTasks);
+      setFSRaw(normalizedSettings.fontSize || fontSize);
+      setDMRaw(Boolean(normalizedSettings.darkMode));
+      setThRaw(normalizedSettings.theme || theme);
+      setWSRaw(Number(normalizedSettings.workStart ?? workStart));
+      setWERaw(Number(normalizedSettings.workEnd ?? workEnd));
+      setMealBreaksRaw(normalizedSettings.mealBreaks);
+      setNfRaw(Boolean(normalizedSettings.notifs));
+      setPushEnabledRaw(Boolean(normalizedSettings.pushEnabled));
+      setTzRaw(normalizedSettings.timezone || timezone);
+      setCatRaw(normalizeCategories(normalizedSettings.categories));
+      setTplRaw(normalizedSettings.templates);
+      setJournalActivitiesRaw(normalizedSettings.journalActivities);
+      setMemoryTagsRaw(normalizedSettings.memoryTags || MEMORY_TAGS);
+      setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
+      setJournalRaw(normalizedSettings.journal || {});
+      setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
+
+      save(`${uk}_ev`, nextEvents);
+      save(`${uk}_tk`, nextTasks);
+      save(`${uk}_fs`, normalizedSettings.fontSize);
+      save(`${uk}_dm`, normalizedSettings.darkMode);
+      save(`${uk}_th`, normalizedSettings.theme);
+      save(`${uk}_ws`, normalizedSettings.workStart);
+      save(`${uk}_we`, normalizedSettings.workEnd);
+      save(`${uk}_meal_breaks`, normalizedSettings.mealBreaks);
+      save(`${uk}_nf`, normalizedSettings.notifs);
+      save(`${uk}_push_enabled`, Boolean(normalizedSettings.pushEnabled));
+      save(`${uk}_tz`, normalizedSettings.timezone);
+      save(`${uk}_categories`, normalizedSettings.categories);
+      save(`${uk}_templates`, normalizedSettings.templates);
+      save(`${uk}_journal_activities`, normalizedSettings.journalActivities);
+      save(`${uk}_memory_tags`, normalizedSettings.memoryTags || MEMORY_TAGS);
+      save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
+      saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
+
+      const stampedAt = new Date().toISOString();
+      save(`${uk}_updated_at`, stampedAt);
+      const ok = await saveToCloud(auth.user.id, nextEvents, nextTasks, normalizedSettings);
+      if (!ok) throw new Error("Cloud save failed after merge");
+      setSyncStatus({ status: "saved", message: "Force synced just now", lastError: "" });
+      if (!options.silent) setToast({ text: "Synced with cloud ✓", ts: Date.now() });
+      return true;
+    } catch (err) {
+      console.warn("Force sync failed", err);
+      setSyncStatus({ status: "failed", message: "Force sync failed — tap to retry", lastError: err?.message || "Force sync failed" });
+      if (!options.silent) setToast({ text: "Force sync failed. Try again.", ts: Date.now() });
+      return false;
+    }
+  }
 
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
@@ -1878,6 +2027,7 @@ export default function App() {
     save(`${uk}_th`, next.theme);
     save(`${uk}_ws`, next.workStart);
     save(`${uk}_we`, next.workEnd);
+    save(`${uk}_meal_breaks`, normalizeMealBreaks(next.mealBreaks));
     save(`${uk}_nf`, next.notifs);
     save(`${uk}_push_enabled`, Boolean(next.pushEnabled));
     save(`${uk}_tz`, next.timezone);
@@ -1917,6 +2067,12 @@ export default function App() {
     setWERaw(n);
     setWorkHoursCtx(workStart, n);
     persistSettings({ workEnd: n });
+  };
+
+  const setMealBreaks = v => {
+    const n = normalizeMealBreaks(typeof v === "function" ? v(mealBreaks) : v);
+    setMealBreaksRaw(n);
+    persistSettings({ mealBreaks: n });
   };
 
   // Keep work-hours context in sync whenever they change (via effect, not during render)
@@ -2128,15 +2284,15 @@ export default function App() {
       const nextDone = !task.done;
       const completedAt = new Date().toISOString();
       const completedDate = taskCompletionTargetKey(task);
-      let updated = ts.map(t => t.id === id ? { ...t, done: nextDone, completedAt: nextDone ? completedAt : null, completedDate: nextDone ? completedDate : null } : t);
+      let updated = ts.map(t => t.id === id ? touchRecord(t, { done: nextDone, completedAt: nextDone ? completedAt : null, completedDate: nextDone ? completedDate : null }) : t);
       if (nextDone) {
         const nextRecurring = createNextRecurringTask(task, ts);
-        if (nextRecurring) updated = [...updated, nextRecurring];
+        if (nextRecurring) updated = [...updated, touchRecord(nextRecurring, { createdAt: new Date().toISOString() })];
       }
       return updated;
     });
   }
-  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, withTaskPeriod(task, taskPeriodDate)]); }
+  function addTask(task)          { pushUndo(); setTasks(ts => [...ts, touchRecord(withTaskPeriod(task, taskPeriodDate), { createdAt: task.createdAt || new Date().toISOString() })]); }
   function eventConflictsFor(candidate, skipId = null) {
     const skipBase = skipId ? getBaseEventId(skipId) : getBaseEventId(candidate.id);
     return expandRecurring(events, dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
@@ -2151,9 +2307,9 @@ export default function App() {
   }
   function moveTaskToPeriod(id, scope, anchorDate) {
     pushUndo();
-    setTasks(ts => ts.map(t => t.id === id ? withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate) : t));
+    setTasks(ts => ts.map(t => t.id === id ? touchRecord(withTaskPeriod({ ...t, scope, completedDate: t.done && scope === "day" ? dateKey(anchorDate) : t.completedDate }, anchorDate)) : t));
   }
-  function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !confirmEventPlacement(ev, ev.id, "Add event")) return false; pushUndo(); setEvents(es => [...es, ev]); return true; }
+  function addEvent(ev, options = {})           { if (!options.skipConflictCheck && !confirmEventPlacement(ev, ev.id, "Add event")) return false; pushUndo(); setEvents(es => [...es, touchRecord(ev, { createdAt: ev.createdAt || new Date().toISOString() })]); return true; }
 
 
   function taskCalendarFor(task) {
@@ -2175,6 +2331,8 @@ export default function App() {
       recurrence: null,
       reminder: { type: "minutes", minutesBefore: 10 },
       linkedTaskId: task.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...extra,
     };
   }
@@ -2194,7 +2352,15 @@ export default function App() {
       return d;
     };
 
-    const booked = expandRecurring([...events, ...extraEvents], dayStart(date), addDaysSafe(dayStart(date), 1))
+    const mealBlocks = normalizeMealBreaks(mealBreaks)
+      .filter(b => b.enabled)
+      .map(b => {
+        const st = dayStart(date); st.setMinutes(timeStringToMinutes(b.start));
+        const en = dayStart(date); en.setMinutes(timeStringToMinutes(b.end));
+        return { id: `meal-${b.id}-${dateKey(date)}`, title: b.label, start: st, end: en, allDay: false, category: "meal-break", calendar: "personal", fixed: true };
+      })
+      .filter(b => b.end > b.start);
+    const booked = expandRecurring([...events, ...extraEvents, ...mealBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
       .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e));
     const now = new Date();
     return getFreeBlocks(booked, date, startHour, endHour)
@@ -2237,7 +2403,7 @@ export default function App() {
     const additions = plan.suggestions.map(({ task, start, end }) => buildTaskEvent(task, start, end, { source: "day-plan" }));
     const taskToEvent = new Map(additions.map(ev => [ev.linkedTaskId, ev]));
     const nextEvents = [...events, ...additions];
-    const nextTasks = tasks.map(t => taskToEvent.has(t.id) ? { ...t, scheduledEventId: taskToEvent.get(t.id).id, scheduledStart: taskToEvent.get(t.id).start.toISOString(), scheduledEnd: taskToEvent.get(t.id).end.toISOString() } : t);
+    const nextTasks = tasks.map(t => taskToEvent.has(t.id) ? touchRecord(t, { scheduledEventId: taskToEvent.get(t.id).id, scheduledStart: taskToEvent.get(t.id).start.toISOString(), scheduledEnd: taskToEvent.get(t.id).end.toISOString() }) : t);
     setEventsAndTasks(nextEvents, nextTasks);
     setDayPlan(null);
     setToast({ text: `Plan added ${additions.length} task block${additions.length === 1 ? "" : "s"} ✓`, ts: Date.now() });
@@ -2254,7 +2420,7 @@ export default function App() {
       const end = new Date(start.getTime() + duration * 60000);
       const ev = buildTaskEvent(task, start, end, { source: "task-auto-schedule" });
       pushUndo();
-      setEventsAndTasks([...events, ev], tasks.map(t => t.id === task.id ? { ...t, scheduledEventId: ev.id, scheduledStart: ev.start.toISOString(), scheduledEnd: ev.end.toISOString() } : t));
+      setEventsAndTasks([...events, ev], tasks.map(t => t.id === task.id ? touchRecord(t, { scheduledEventId: ev.id, scheduledStart: ev.start.toISOString(), scheduledEnd: ev.end.toISOString() }) : t));
       setScheduleTaskTarget(null);
       setToast({ text: `Scheduled “${task.title}” at ${fmt(start)} ✓`, ts: Date.now() });
       return true;
@@ -2290,7 +2456,7 @@ export default function App() {
       const required = Math.max(1, taskDurationToMinutes(t.duration || 30));
       const done = nextProgress >= required;
       completedTask = { ...t, done, nextProgress };
-      return { ...t, focusProgressMins: nextProgress, done: done ? true : t.done, completedAt: done ? endedAt.toISOString() : t.completedAt, completedDate: done ? taskCompletionTargetKey(t) : t.completedDate };
+      return touchRecord(t, { focusProgressMins: nextProgress, done: done ? true : t.done, completedAt: done ? endedAt.toISOString() : t.completedAt, completedDate: done ? taskCompletionTargetKey(t) : t.completedDate });
     });
     const focusEvent = buildTaskEvent(task, startedAt, endedAt, { title: `Focus: ${task.title}`, category: task.category || "deep", source: "focus-mode", reminder: { type: "none", minutesBefore: null } });
     setEventsAndTasks([...events, focusEvent], nextTasks);
@@ -2374,12 +2540,12 @@ export default function App() {
     setEvents(es => {
       const currentBase = es.find(e => e.id === baseId);
       if (!currentBase) return es;
-      if (!needsScope || scope === "all") return es.map(e => e.id === baseId ? { ...e, start: ns, end: ne } : e);
+      if (!needsScope || scope === "all") return es.map(e => e.id === baseId ? touchRecord(e, { start: ns, end: ne }) : e);
       if (scope === "following") {
-        const [original, following] = createFollowingSeries(currentBase, new Date(occurrenceDate), { ...currentBase, start: ns, end: ne });
-        return [...es.filter(e => e.id !== baseId), original, following];
+        const [original, following] = createFollowingSeries(currentBase, new Date(occurrenceDate), touchRecord(currentBase, { start: ns, end: ne }));
+        return [...es.filter(e => e.id !== baseId), touchRecord(original), touchRecord(following, { createdAt: following.createdAt || new Date().toISOString() })];
       }
-      return es.map(e => e.id === baseId ? modifySingleOccurrence(e, new Date(occurrenceDate), { ...currentBase, start: ns, end: ne }) : e);
+      return es.map(e => e.id === baseId ? touchRecord(modifySingleOccurrence(e, new Date(occurrenceDate), { ...currentBase, start: ns, end: ne })) : e);
     });
   }
   async function saveEvent(ev) {
@@ -2393,12 +2559,12 @@ export default function App() {
     setEvents(es => {
       const currentBase = es.find(e => e.id === baseId);
       if (!currentBase) return es;
-      if (!needsScope || scope === "all") return es.map(e => e.id === baseId ? { ...stripOccurrenceMeta(ev), id: baseId } : e);
+      if (!needsScope || scope === "all") return es.map(e => e.id === baseId ? touchRecord({ ...stripOccurrenceMeta(ev), id: baseId }) : e);
       if (scope === "following") {
-        const [original, following] = createFollowingSeries(currentBase, new Date(occurrenceDate), ev);
-        return [...es.filter(e => e.id !== baseId), original, following];
+        const [original, following] = createFollowingSeries(currentBase, new Date(occurrenceDate), touchRecord(ev));
+        return [...es.filter(e => e.id !== baseId), touchRecord(original), touchRecord(following, { createdAt: following.createdAt || new Date().toISOString() })];
       }
-      return es.map(e => e.id === baseId ? modifySingleOccurrence(e, new Date(occurrenceDate), ev) : e);
+      return es.map(e => e.id === baseId ? touchRecord(modifySingleOccurrence(e, new Date(occurrenceDate), touchRecord(ev))) : e);
     });
   }
   async function deleteEvent(id) {
@@ -2416,20 +2582,20 @@ export default function App() {
       if (scope === "following") {
         const rec = normalizeRecurrence(currentBase.recurrence);
         const until = addDaysSafe(dayStart(new Date(occurrenceDate)), -1);
-        return es.map(e => e.id === baseId ? { ...e, recurrence: { ...rec, until: dateKey(until), endMode: "on" } } : e);
+        return es.map(e => e.id === baseId ? touchRecord(e, { recurrence: { ...rec, until: dateKey(until), endMode: "on" } }) : e);
       }
-      return es.map(e => e.id === baseId ? deleteSingleOccurrence(e, new Date(occurrenceDate)) : e);
+      return es.map(e => e.id === baseId ? touchRecord(deleteSingleOccurrence(e, new Date(occurrenceDate))) : e);
     });
   }
   function saveTask(task) {
     pushUndo();
     setTasks(ts => {
       const previous = ts.find(t => t.id === task.id);
-      let updated = ts.map(t => t.id === task.id ? task : t);
+      let updated = ts.map(t => t.id === task.id ? touchRecord(task) : t);
       const becameDone = Boolean(task.done) && !Boolean(previous?.done);
       if (becameDone) {
         const nextRecurring = createNextRecurringTask(task, updated);
-        if (nextRecurring) updated = [...updated, nextRecurring];
+        if (nextRecurring) updated = [...updated, touchRecord(nextRecurring, { createdAt: new Date().toISOString() })];
       }
       return updated;
     });
@@ -2444,7 +2610,7 @@ export default function App() {
       if (target.parentTaskId) {
         const identity = taskPeriodIdentity(target);
         return ts
-          .map(t => t.id === target.parentTaskId ? { ...t, skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] } : t)
+          .map(t => t.id === target.parentTaskId ? touchRecord(t, { skippedTaskPeriods: [...new Set([...(t.skippedTaskPeriods || []), identity])] }) : t)
           .filter(t => t.id !== id);
       }
       if (target.recurrence) return ts.filter(t => t.id !== id && t.parentTaskId !== id);
@@ -2601,6 +2767,8 @@ export default function App() {
   .xp-breakdown-list{display:flex;flex-direction:column;gap:7px}.xp-breakdown-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);font-weight:800}.xp-breakdown-row strong{color:var(--accent);font-family:var(--mono)}.bloom-collapse{background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}.bloom-collapse-head{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:900;padding:12px 14px;cursor:pointer}.bloom-collapse-body{padding:12px;display:flex;flex-direction:column;gap:12px}.bloom-collapse-body>.game-card{box-shadow:none;}
   @media(max-width:768px){.sync-pill{font-size:10px;padding:4px 7px}.topbar .sync-pill{display:none}}
   @media(max-width:900px){.task-period-board{grid-template-columns:1fr;}.task-period-card{min-height:260px;}.task-board-nav{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0;}}
+  .settings-action-row{display:flex;gap:8px;flex-wrap:wrap}.meal-break-list{display:flex;flex-direction:column;gap:8px}.meal-break-row{display:grid;grid-template-columns:minmax(92px,1fr) 96px auto 96px;align-items:center;gap:8px}.meal-break-row.disabled{opacity:.55}.meal-break-enabled{font-size:12px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}.meal-time{min-width:0}.meal-dash{font-size:12px;color:var(--text2);font-weight:900}.plan-break-note{font-size:11px;color:var(--text2);font-weight:900;background:var(--bg3);border:1px dashed var(--border);border-radius:12px;padding:8px 10px}.sync-now-btn{font-weight:900}
+  @media(max-width:560px){.meal-break-row{grid-template-columns:1fr 1fr auto 1fr}.meal-break-enabled{grid-column:1/-1}}
   .reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 `}</style>
 
@@ -2613,7 +2781,7 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
-            <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
+            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} />
           </div>
           {(() => { const todayMood = journal[dateKey(TODAY)]; const m = todayMood?.mood ? JOURNAL_MOODS.find(x=>x.id===todayMood.mood) : null; return m ? <div className="mood-bar" onClick={() => { setPage("journal"); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}</div> : null; })()}
           <LevelBar gameStats={gameStats} />
@@ -2628,6 +2796,7 @@ export default function App() {
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className="nav-item" onClick={() => { setFocusMode(true); closeSidebarOnMobile(); }}><span className="nav-icon">🎯</span>Focus Mode</div>
             <div className="nav-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan My Day</div>
+            <div className="nav-item" onClick={() => { forceSyncNow(); closeSidebarOnMobile(); }}><span className="nav-icon">↻</span>Sync Now</div>
             <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Daily Stats</div>
             <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>End of Day</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
@@ -2686,7 +2855,8 @@ export default function App() {
             <div className="view-tabs">
               {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
             </div>
-            <SyncStatusPill syncStatus={syncStatus} onRetry={retryCloudSave} />
+            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} />
+            <button className="topbar-btn sync-now-btn" onClick={forceSyncNow}>↻ Sync</button>
             <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan My Day</button>
             <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
             <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
@@ -2767,12 +2937,12 @@ export default function App() {
       {selectedEvent && <EventModal event={selectedEvent} calendars={CALENDARS} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode, focusOnly) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode, focusOnly)} />}
-      {dayPlan && <DailyPlanModal plan={dayPlan} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
+      {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} onClose={() => setDayPlan(null)} onApply={applyDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
       {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} gameStats={gameStats} onCarry={handleCarryOver} onDrop={handleDrop} onDismiss={() => setShowCarryOver(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

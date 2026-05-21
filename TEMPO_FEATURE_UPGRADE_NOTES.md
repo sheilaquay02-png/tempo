@@ -51,3 +51,29 @@ Patched after UI testing:
 - Updated `Focus hours only` to follow Settings → Work Hours instead of being hard-coded to 9am–5pm.
 - Updated the schedule-task modal helper text to show the actual work-hour window, e.g. `10am–6pm from your Work Hours setting`.
 - All-day events are no longer treated as blocking the whole day for task scheduling/planning.
+
+## Desktop task panel resize hotfix
+
+- Added a desktop-only resize handle to the left edge of the task panel in calendar view.
+- Users can press/hold the divider and drag left/right to resize the task panel.
+- The task panel width is saved in `localStorage` under `tempo_task_panel_width`, so the chosen width persists on the same browser.
+- Resize is disabled on mobile, standalone Tasks page, and when the task panel is collapsed.
+
+## Sync + Meal Break Scheduling Hotfix
+
+Added after cross-device/PWA feedback:
+
+- Added a manual **↻ Sync** button in the calendar topbar.
+- Added **Sync Now** in the sidebar.
+- Added **Force sync now** inside Settings → Account.
+- Force sync now waits for any queued save, pulls the latest Supabase cloud row, merges local + cloud events/tasks, reapplies the merged data locally, then pushes the merged snapshot back to Supabase.
+- Added `updatedAt` stamping for newly added/edited/scheduled tasks and events so cross-device merge can choose the newer version more reliably.
+- Added configurable meal breaks in Settings:
+  - Breakfast
+  - Lunch
+  - Dinner
+- Plan My Day and Schedule Task now treat enabled meal breaks as blocked time and will not schedule tasks during those windows.
+- Meal break times are saved in local storage and Supabase settings under `mealBreaks`.
+- Focus-hours scheduling still follows Settings → Work Hours, while meal breaks carve out protected time inside that work window.
+- The sync status pill now retries using the full force-sync flow instead of only retrying a save.
+- When cloud data is newer than this device, Force Sync treats Supabase as the source of truth to reduce stale desktop/PWA overwrites.

@@ -116,7 +116,12 @@ export function appCSS(cvars, fontScale) { return `
   .month-event-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .month-more{font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:700;padding:1px 4px;}
   .task-panel{width:295px;border-left:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:row;flex-shrink:0;overflow:hidden;transition:width .25s ease;position:relative;}
+  .task-panel.resizing{transition:none;}
   .task-panel.collapsed{width:28px;}
+  .task-panel-resize-handle{position:absolute;left:-6px;top:0;width:12px;height:100%;z-index:30;cursor:col-resize;touch-action:none;}
+  .task-panel-resize-handle::after{content:"";position:absolute;left:5px;top:12px;bottom:12px;width:2px;border-radius:999px;background:var(--accent);opacity:0;transition:opacity .15s, box-shadow .15s;box-shadow:0 0 0 4px rgba(var(--accent-rgb,255,123,172),.08);}
+  .task-panel-resize-handle:hover::after,.task-panel.resizing .task-panel-resize-handle::after{opacity:.7;}
+  body.tempo-resizing-task-panel,body.tempo-resizing-task-panel *{cursor:col-resize!important;user-select:none!important;}
   .task-panel-toggle{width:28px;flex-shrink:0;background:var(--bg3);border:none;border-right:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;transition:background .15s, color .15s;padding:0;}
   .task-panel-toggle:hover{background:var(--bg4);color:var(--accent);}
   .task-panel-inner{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
@@ -376,6 +381,7 @@ export function appCSS(cvars, fontScale) { return `
     .sidebar{display:none;}
     .task-panel{display:none;position:fixed;inset:0;top:auto;height:70vh;z-index:150;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(255,123,172,.2);width:100%!important;flex-direction:column;}
     .task-panel.mobile-open{display:flex;}
+    .task-panel-resize-handle{display:none;}
     .task-panel-toggle{display:none;}
     .chat-panel{width:calc(100vw - 32px);right:16px;left:16px;bottom:86px;}
     .chat-fab{bottom:80px;}
