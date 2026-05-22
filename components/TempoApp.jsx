@@ -6329,14 +6329,14 @@ export default function App() {
 
 
 
-/* ── Pre Phase 22 debug 7: raise mobile journal viewer above footer ───────── */
+/* ── Mobile journal viewer spacing: keep equal top/bottom breathing room ── */
 @media(max-width:768px){
   .modal-overlay[aria-label="View journal entry"]{
     position:fixed!important;
-    inset:0 0 calc(var(--mobile-nav-h,78px) + 54px) 0!important;
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
     height:auto!important;
     min-height:0!important;
-    padding:10px 10px 12px!important;
+    padding:10px!important;
     align-items:center!important;
     justify-content:center!important;
     overflow:hidden!important;
@@ -6345,8 +6345,8 @@ export default function App() {
   .modal-overlay[aria-label="View journal entry"] .entry-view-modal{
     width:calc(100vw - 20px)!important;
     max-width:calc(100vw - 20px)!important;
-    height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
-    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 20px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 20px)!important;
     margin:0 auto!important;
     display:flex!important;
     flex-direction:column!important;
@@ -6365,7 +6365,7 @@ export default function App() {
     overflow-y:auto!important;
     -webkit-overflow-scrolling:touch!important;
     overscroll-behavior:contain!important;
-    padding-bottom:34px!important;
+    padding-bottom:18px!important;
   }
 }
 `}</style>
@@ -6931,16 +6931,19 @@ const loginCSS = `
     box-shadow:0 1px 0 var(--border),0 8px 20px rgba(80,44,64,.06)!important;
   }
   .modal-overlay[aria-label="View journal entry"]{
+    position:fixed!important;
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
     align-items:center!important;
     justify-content:center!important;
-    padding:10px 10px calc(var(--mobile-nav-h,78px) + 18px)!important;
+    padding:10px!important;
     overflow:hidden!important;
+    box-sizing:border-box!important;
   }
   .entry-view-modal{
     width:calc(100vw - 20px)!important;
     max-width:calc(100vw - 20px)!important;
-    height:auto!important;
-    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 28px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 20px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 20px)!important;
     display:flex!important;
     flex-direction:column!important;
     overflow:hidden!important;
