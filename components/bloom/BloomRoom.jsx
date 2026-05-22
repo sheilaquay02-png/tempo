@@ -15,7 +15,7 @@ export function LevelBar({ gameStats }) {
         <div className="level-xp">{gameStats.xpIntoLevel}/{gameStats.nextXP} XP</div>
       </div>
       <div className="level-track"><div className="level-fill" style={{ width: `${gameStats.levelPct}%` }} /></div>
-      <div className="level-meta"><span>🔥 {gameStats.streaks.productive}d streak</span><span>🏅 {gameStats.unlockedBadges?.length || 0}/{gameStats.badges?.length || 0} badges</span></div>
+      <div className="level-meta"><span>🔥 {gameStats.streaks.productive}d rhythm</span><span>🌿 gentle progress</span></div>
     </div>
   );
 }
@@ -48,14 +48,14 @@ export function DailyQuestsCard({ gameStats }) {
     <div className="daily-quests-card">
       <div className="game-card-head">
         <div><span className="game-card-title">Daily Rhythm</span><span className="game-card-sub"> {done}/{gameStats.quests.length} done</span></div>
-        <span className="score-pill">{gameStats.today.rank} Rank · {gameStats.today.score}</span>
+        <span className="score-pill">{done}/{gameStats.quests.length} today</span>
       </div>
       <div className="quest-list">
         {gameStats.quests.map(q => (
           <div key={q.id} className={`quest-item ${q.done ? "done" : ""}`}>
             <span className="quest-icon">{q.done ? "✓" : q.icon}</span>
             <div className="quest-body"><div className="quest-title">{q.title}</div><div className="quest-desc">{q.desc}</div></div>
-            <span className="quest-xp">+{q.xp} XP</span>
+            <span className="quest-xp">{q.done ? "Done" : "Open"}</span>
           </div>
         ))}
       </div>
@@ -236,16 +236,12 @@ export function PersonalLeaderboardCard({ gameStats }) {
 export function GameDashboard({ gameStats, compact = false }) {
   if (!gameStats) return null;
   return (
-    <div className={`game-dashboard ${compact ? "compact" : ""}`}>
+    <div className={`game-dashboard simplified ${compact ? "compact" : ""}`}>
       <MascotProgressCard gameStats={gameStats} />
       <DailyQuestsCard gameStats={gameStats} />
       <StreaksCard gameStats={gameStats} />
-      <BloomCollapse title="Weekly missions" defaultOpen={false}><WeeklyMissionsCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Skills & personality" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Badges & theme unlocks" defaultOpen={false}><BadgesPreview gameStats={gameStats} limit={8} /><ThemeUnlocksCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Combos" defaultOpen={false}><ComboCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Skills & rhythm type" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Weekly recap & life garden" defaultOpen={false}><WeeklyRecapCard gameStats={gameStats} /><LifeGardenCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Personal leaderboard" defaultOpen={false}><PersonalLeaderboardCard gameStats={gameStats} /></BloomCollapse>
     </div>
   );
 }
@@ -266,15 +262,7 @@ export function CheckInRhythmCard({ dailyCheckIns = [] }) {
           <p>{energy ? `${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
         </div>
       </div>
-      {recent.length ? (
-        <div className="checkin-rhythm-trail">
-          {recent.map(entry => {
-            const m = DAILY_CHECKIN_MOODS.find(x => x.id === entry.mood);
-            const e = DAILY_CHECKIN_ENERGIES.find(x => x.id === entry.energy);
-            return <span key={entry.id} title={`${entry.date}: ${m?.label || "Mood not set"}${e ? ` · ${e.label} energy` : ""}`}>{m?.emoji || "•"}</span>;
-          })}
-        </div>
-      ) : <div className="empty-game-note">Your mood and energy trail will appear after your first check-in 🌱</div>}
+      {!recent.length && <div className="empty-game-note">Your mood and energy trail will appear after your first check-in 🌱</div>}
     </div>
   );
 }
@@ -405,7 +393,7 @@ export function BloomRoomPage({ gameStats, journal = {}, dailyCheckIns = [], tom
           <div className="journal-title">🌸 Bloom Room</div>
           <div className="bloom-room-subtitle">Your soft rhythm progress space</div>
         </div>
-        <div className="journal-streak">Lvl {gameStats?.level ?? 1} · {gameStats?.today?.rank ?? "D"} Rank · {gameStats?.unlockedBadges?.length ?? 0} badges</div>
+        <div className="journal-streak">{gameStats?.streaks?.productive ?? 0} day rhythm</div>
       </div>
       <ReflectionHubCard journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
       <CheckInRhythmCard dailyCheckIns={dailyCheckIns} />

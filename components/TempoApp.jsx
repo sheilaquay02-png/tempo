@@ -161,22 +161,17 @@ function mostFrequentCheckIn(checkIns, key, collection) {
   return { id: top[0], label: labelForCheckIn(collection, top[0]), emoji: emojiForCheckIn(collection, top[0]), count: top[1] };
 }
 
-function buildRhythmStatsSnapshot({ tasks = [], rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES }) {
+function buildRhythmStatsSnapshot({ tasks = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES }) {
   const last7Keys = dateKeySetForLast(7);
   const last14Keys = dateKeySetForLast(14);
   const last30Keys = dateKeySetForLast(30);
   const last7Dates = [...last7Keys].map(k => localDateFromKey(k)).filter(Boolean);
   const last30Dates = [...last30Keys].map(k => localDateFromKey(k)).filter(Boolean);
-  const activeRituals = normalizeRituals(rituals).filter(r => !r.archived && !r.deletedAt);
   const activeHabits = normalizeHabits(habits).filter(h => !h.archived && !h.deletedAt);
-  const cleanRitualCompletions = normalizeRitualCompletions(ritualCompletions);
   const cleanHabitCompletions = normalizeHabitCompletions(habitCompletions);
   const cleanCheckIns = normalizeDailyCheckIns(dailyCheckIns);
   const cleanTomorrowResets = normalizeTomorrowResets(tomorrowResets);
   const cleanWeeklyResets = normalizeWeeklyResets(weeklyResets);
-
-  const ritualScheduled7 = last7Dates.reduce((sum, d) => sum + activeRituals.filter(r => ritualRunsOnDate(r, d)).length, 0);
-  const ritualCompleted7 = last7Dates.reduce((sum, d) => sum + activeRituals.filter(r => ritualRunsOnDate(r, d) && ritualProgress(r, cleanRitualCompletions, d).completed).length, 0);
 
   const habitScheduled7 = last7Dates.reduce((sum, d) => sum + activeHabits.filter(h => habitRunsOnDate(h, d)).length, 0);
   const habitCompleted7 = last7Dates.reduce((sum, d) => sum + activeHabits.filter(h => habitRunsOnDate(h, d) && habitProgress(h, cleanHabitCompletions, d).completed).length, 0);
@@ -208,11 +203,10 @@ function buildRhythmStatsSnapshot({ tasks = [], rituals = [], ritualCompletions 
     const keys = new Set(relevantDates.map(dateKey));
     const taskDone = completedTasks30.filter(t => keys.has(taskCompletedDateKey(t))).length;
     const habitDone = cleanHabitCompletions.filter(c => keys.has(c.date) && activeHabits.some(h => h.id === c.habitId && c.count >= Math.max(1, Number(h.targetCount || 1)))).length;
-    const ritualDone = cleanRitualCompletions.filter(c => keys.has(c.date) && c.completedAt).length;
     const journalDone = Object.keys(journal || {}).filter(k => keys.has(k) && hasJournalEntryForKey(journal, k)).length;
     const checkInDone = cleanCheckIns.filter(c => keys.has(c.date)).length;
-    const score = taskDone + habitDone + ritualDone + journalDone + checkInDone;
-    return { day, label: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day], score, taskDone, habitDone, ritualDone, journalDone, checkInDone };
+    const score = taskDone + habitDone + journalDone + checkInDone;
+    return { day, label: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day], score, taskDone, habitDone, journalDone, checkInDone };
   }).sort((a, b) => b.score - a.score);
   const mostConsistentDay = weekdayRows[0]?.score ? weekdayRows[0] : null;
 
@@ -223,18 +217,14 @@ function buildRhythmStatsSnapshot({ tasks = [], rituals = [], ritualCompletions 
   }).filter(row => row.done || row.total).sort((a, b) => b.rate - a.rate || b.done - a.done).slice(0, 6);
 
   const rhythmMessage = (() => {
-    const ritualRate = pct(ritualCompleted7, ritualScheduled7);
     const habitRate = pct(habitCompleted7, habitScheduled7);
-    if (habitRate >= 75 && ritualRate >= 75) return "Your routines and habits are holding a steady rhythm.";
+    if (habitRate >= 75) return "Your habits are holding a steady rhythm.";
     if (checkIns14.length >= 4 && journalKeys30.length >= 4) return "You are building good self-awareness through check-ins and reflection.";
     if (completedTasks30.length >= 10) return "Your task rhythm is moving. A little more reset time can make it feel lighter.";
     return "A few small check-ins are enough to start seeing your rhythm clearly.";
   })();
 
   return {
-    ritualScheduled7,
-    ritualCompleted7,
-    ritualRate7: pct(ritualCompleted7, ritualScheduled7),
     habitScheduled7,
     habitCompleted7,
     habitRate7: pct(habitCompleted7, habitScheduled7),
@@ -265,8 +255,8 @@ function RhythmMeter({ label, value, detail }) {
   );
 }
 
-function StatsCard({ events, tasks, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES, onClose }) {
-  const stats = buildRhythmStatsSnapshot({ tasks, rituals, ritualCompletions, habits, habitCompletions, journal, dailyCheckIns, tomorrowResets, weeklyResets, categories });
+function StatsCard({ events, tasks, habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES, onClose }) {
+  const stats = buildRhythmStatsSnapshot({ tasks, habits, habitCompletions, journal, dailyCheckIns, tomorrowResets, weeklyResets, categories });
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Rhythm Stats">
       <div className="stats-card rhythm-stats-card" onClick={e => e.stopPropagation()}>
@@ -275,7 +265,6 @@ function StatsCard({ events, tasks, rituals = [], ritualCompletions = [], habits
         <div className="rhythm-insight-card">{stats.rhythmMessage}</div>
 
         <div className="stats-row rhythm-stat-grid">
-          <div className="stat-big"><div className="stat-num">{stats.ritualRate7}%</div><div className="stat-lbl">Ritual consistency</div></div>
           <div className="stat-big"><div className="stat-num">{stats.habitRate7}%</div><div className="stat-lbl">Habit consistency</div></div>
           <div className="stat-big"><div className="stat-num">{stats.taskCompletionRate30}%</div><div className="stat-lbl">Task completion</div></div>
           <div className="stat-big"><div className="stat-num">{stats.journalEntries30}</div><div className="stat-lbl">Journal entries</div></div>
@@ -283,7 +272,6 @@ function StatsCard({ events, tasks, rituals = [], ritualCompletions = [], habits
 
         <div className="rhythm-stats-section">
           <div className="rhythm-section-title">This week</div>
-          <RhythmMeter label="Rituals checked off" value={stats.ritualRate7} detail={`${stats.ritualCompleted7}/${stats.ritualScheduled7 || 0} scheduled rituals completed`} />
           <RhythmMeter label="Habits checked off" value={stats.habitRate7} detail={`${stats.habitCompleted7}/${stats.habitScheduled7 || 0} habit check-ins completed`} />
         </div>
 
@@ -383,8 +371,8 @@ function TomorrowResetPage({ tasks, latestReset = null, gameStats, onCompleteRes
           </div>
         )}
         {gameStats && <div className="eod-rank-card tomorrow-reset-rhythm">
-          <div className="eod-rank-main"><strong>{gameStats.today.rank} Rank</strong><span>{gameStats.today.score}/100 Tempo Score</span></div>
-          <div className="eod-rank-meta"><span>+{gameStats.quests.filter(q => q.done).reduce((sum,q)=>sum+q.xp,0)} quest XP</span><span>{gameStats.unlockedBadges?.length || 0} badges unlocked</span></div>
+          <div className="eod-rank-main"><strong>Today’s rhythm</strong><span>{gameStats.quests.filter(q => q.done).length}/{gameStats.quests.length} daily check-ins done</span></div>
+          <div className="eod-rank-meta"><span>Small steps still count</span><span>Reset gently</span></div>
           <div className="eod-rank-note">{gameStats.today.rank === "S" ? "Perfect bloom day ✨" : gameStats.today.score >= 70 ? "Strong rhythm today 🌸" : "Gentle reset. Carry what matters into the next plan 🌱"}</div>
         </div>}
         <div className="tomorrow-reset-section">
@@ -1424,7 +1412,6 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
 
 function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
-  const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
@@ -1516,7 +1503,7 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           {/* Onboarding */}
           <div className="settings-section">
             <div className="settings-section-label">Onboarding</div>
-            <div className="settings-section-desc">Restart the guided setup to choose your rhythm goals, first rituals, starter habits, day start, wind-down time, and reminder preferences.</div>
+            <div className="settings-section-desc">Restart the guided setup to choose your rhythm goals, starter habits, day start, wind-down time, and reminder preferences.</div>
             <div className="settings-action-row">
               <button className="tf-save" onClick={onRestartOnboarding}>🌿 Restart onboarding</button>
             </div>
@@ -1526,20 +1513,16 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="settings-section-label">Appearance</div>
             <div className="settings-section-desc">Choose a color theme and toggle light / dark mode</div>
             <div className="theme-grid">
-              {THEMES.map(t => {
-                const unlock = themeUnlockMap.get(t.id) || { unlocked: true, reason: "Unlocked" };
-                const locked = !unlock.unlocked && theme !== t.id;
-                return (
-                  <button key={t.id} disabled={locked} className={`theme-swatch-btn ${theme === t.id ? "active" : ""} ${locked ? "locked" : ""}`} onClick={() => !locked && setTheme(t.id)} title={locked ? unlock.reason : t.description}>
-                    <div className="theme-swatch-dots">
-                      {t.swatch.map((c, i) => <span key={i} className="theme-swatch-dot" style={{ background: c }} />)}
-                    </div>
-                    <span className="theme-swatch-label">{t.label}</span>
-                    <span className="theme-swatch-lockline">{locked ? unlock.reason : "Unlocked"}</span>
-                    {locked ? <span className="theme-swatch-lock">🔒</span> : theme === t.id && <span className="theme-swatch-check">✓</span>}
-                  </button>
-                );
-              })}
+              {THEMES.map(t => (
+                <button key={t.id} className={`theme-swatch-btn ${theme === t.id ? "active" : ""}`} onClick={() => setTheme(t.id)} title={t.description}>
+                  <div className="theme-swatch-dots">
+                    {t.swatch.map((c, i) => <span key={i} className="theme-swatch-dot" style={{ background: c }} />)}
+                  </div>
+                  <span className="theme-swatch-label">{t.label}</span>
+                  <span className="theme-swatch-lockline">Available</span>
+                  {theme === t.id && <span className="theme-swatch-check">✓</span>}
+                </button>
+              ))}
             </div>
             <div className="toggle-row" style={{ marginTop: 14 }}><span>☀️ Light</span><button className={`toggle ${darkMode ? "on" : ""}`} onClick={() => setDarkMode(v => !v)}><div className="toggle-thumb" /></button><span>🌙 Dark</span></div>
           </div>
@@ -1618,12 +1601,11 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Reminder categories</div>
-            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, ritual, and habit reminders still use the individual times you set on each item.</div>
+            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, and habit reminders still use the individual times you set on each item.</div>
             <div className="notification-pref-grid">
               {[
                 ["events", "🗓️", "Events", "Calendar reminders"],
                 ["tasks", "✅", "Tasks", "Task reminders"],
-                ["rituals", "🕯️", "Rituals", "Start or skip from notification"],
                 ["habits", "🌱", "Habits", "Complete from notification"],
               ].map(([key, emoji, label, desc]) => (
                 <label key={key} className="notification-pref-card">
@@ -2381,7 +2363,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
             const score = dailyGameSummary(tasks, journal, events, key);
             const isFuture = day > TODAY;
             return (
-              <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""} ${filteredOut ? "filtered-out" : ""} ${memoryFiltersActive && matchesFilters ? "filter-match" : ""}`} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
+              <button key={key} className={`memory-page-card ${hasEntry ? "has-memory" : ""} ${isFuture ? "future" : ""} ${filteredOut ? "filtered-out" : ""} ${memoryFiltersActive && matchesFilters ? "filter-match" : ""}`} style={hasEntry ? memoryBackgroundStyle(entry.backgroundId) : undefined} onClick={() => isFuture ? null : (hasEntry ? setViewingKey(key) : setEditing(day))}>
                 {cover && <img className="memory-page-cover" src={memoryPhotoSrc(cover, memoryImageUrls, true)} onError={() => refreshMemoryImage(cover, true)} alt={cover.caption || "Memory cover"} />}
                 <div className="memory-page-shade" />
                 <div className="memory-page-date">{day.getDate()}</div>
@@ -2920,7 +2902,7 @@ function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
 }
 
 
-function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, onOpenAffirmations, onFavorite, onAddToMorningReset, compact = false }) {
+function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, onOpenAffirmations, onFavorite, compact = false }) {
   const todayAffirmation = affirmationForDate(affirmations, TODAY);
   if (!todayAffirmation) return null;
   const category = affirmationCategoryById(todayAffirmation.category);
@@ -2936,7 +2918,6 @@ function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, onOpenAffir
       </div>
       <div className="affirmation-card-actions">
         <button className={`affirmation-favorite-btn ${todayAffirmation.favorite ? "active" : ""}`} onClick={() => onFavorite?.(todayAffirmation.id)}>{todayAffirmation.favorite ? "♥ Favorited" : "♡ Favorite"}</button>
-        <button className="tf-cancel" onClick={() => onAddToMorningReset?.(todayAffirmation)}>Add to Morning Reset</button>
       </div>
     </section>
   );
@@ -2991,7 +2972,7 @@ function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
   );
 }
 
-function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSettings = DEFAULT_AFFIRMATION_SETTINGS, onToggleFavorite, onSaveAffirmation, onDeleteAffirmation, onUpdateSettings, onAddToMorningReset }) {
+function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSettings = DEFAULT_AFFIRMATION_SETTINGS, onToggleFavorite, onSaveAffirmation, onDeleteAffirmation, onUpdateSettings }) {
   const normalized = normalizeAffirmations(affirmations);
   const settings = normalizeAffirmationSettings(affirmationSettings);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -3024,7 +3005,6 @@ function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSett
         <div className="affirmation-feature-actions">
           <button className={`affirmation-favorite-btn ${daily?.favorite ? "active" : ""}`} onClick={() => daily && onToggleFavorite?.(daily.id)}>{daily?.favorite ? "♥ Favorited" : "♡ Favorite"}</button>
           <button className="tf-cancel" onClick={() => setShuffleOffset(v => v + 1)}>Shuffle</button>
-          <button className="tf-cancel" onClick={() => daily && onAddToMorningReset?.(daily)}>Add to Morning Reset</button>
         </div>
       </section>
 
@@ -3084,7 +3064,7 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
-function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], affirmations = DEFAULT_AFFIRMATIONS, categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenAffirmations, onFavoriteAffirmation, onAddAffirmationToMorningReset, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], affirmations = DEFAULT_AFFIRMATIONS, categories = CATEGORIES, habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenAffirmations, onFavoriteAffirmation, onOpenHabits, onPlanToday, onTomorrowReset, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
   const todayKey = dateKey(TODAY);
   const nowHour = new Date().getHours();
   const greeting = nowHour < 12 ? "Good morning" : nowHour < 18 ? "Good afternoon" : "Good evening";
@@ -3102,16 +3082,12 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
   const energy = checkIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === checkIn.energy) : null;
   const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
   const catFor = id => categories.find(c => c.id === id) || categories.find(c => Core.categoryIs?.(id, c.id)) || { label: "Task", icon: "□", color: "var(--accent)" };
-  const todayRitualsAll = normalizeRituals(rituals).filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
   const todayHabitsAll = normalizeHabits(habits).filter(h => habitRunsOnDate(h, TODAY));
-  const todayRituals = todayRitualsAll.slice(0, 3);
   const todayHabits = todayHabitsAll.slice(0, 4);
   const completedHabits = todayHabitsAll.filter(h => habitProgress(h, habitCompletions, TODAY).complete).length;
-  const completedRituals = todayRitualsAll.filter(r => ritualProgress(r, ritualCompletions, TODAY).complete).length;
   const rhythmItems = [
     { label: "Events", value: summary?.events ?? todayEvents.length, action: onOpenCalendar, emoji: "🗓️" },
     { label: "Tasks", value: summary?.tasks ?? todayTasks.length, action: onOpenTasks, emoji: "✅" },
-    { label: "Rituals", value: `${completedRituals}/${todayRitualsAll.length}`, action: onOpenRituals, emoji: "🕯️" },
     { label: "Habits", value: `${completedHabits}/${todayHabitsAll.length}`, action: onOpenHabits, emoji: "🌱" },
   ];
   return (
@@ -3127,7 +3103,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
           </div>
         </div>
         <div className="today-hero-stack">
-          <DailyAffirmationCard compact affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} onAddToMorningReset={onAddAffirmationToMorningReset} />
+          <DailyAffirmationCard compact affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} />
           <div className="today-checkin-card">
             <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenCheckIn}>{checkIn ? "Update" : "Add"}</button></div>
             <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No check-in yet</strong></>}</div>
@@ -3157,11 +3133,6 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
         </section>
 
         <section className="phase-card today-wide-card">
-          <div className="phase-card-head"><span>Today’s Rituals</span><button onClick={onOpenRituals}>Open rituals</button></div>
-          {todayRituals.length ? <div className="today-ritual-stack today-dashboard-card-grid">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(ritualCompletions, r.id, TODAY)} progress={ritualProgress(r, ritualCompletions, TODAY)} onToggleStep={onToggleRitualStep} onSkip={onSkipRitual} onComplete={onCompleteRitual} onEdit={onOpenRituals} compact />)}</div> : <div className="phase-empty">No rituals scheduled today. Create one in Rituals.</div>}
-        </section>
-
-        <section className="phase-card today-wide-card">
           <div className="phase-card-head"><span>Today’s Habits</span><button onClick={onOpenHabits}>Open habits</button></div>
           {todayHabits.length ? <div className="today-habit-stack today-dashboard-card-grid">{todayHabits.map(h => <HabitCard key={h.id} habit={h} progress={habitProgress(h, habitCompletions, TODAY)} streak={habitStreak(h, habitCompletions, TODAY)} onToggle={onToggleHabit} onIncrement={onIncrementHabit} onEdit={onOpenHabits} compact />)}</div> : <div className="phase-empty">No habits scheduled today. Create one in Habits.</div>}
         </section>
@@ -3176,7 +3147,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
         <section className="phase-card today-next-card">
           <div className="phase-card-head"><span>Next gentle step</span><small>Daily loop</small></div>
           <div className="today-loop"><span>Check in</span><i /> <span>Plan</span><i /> <span>Do</span><i /> <span>Reset</span><i /> <span>Reflect</span></div>
-          <p className="phase-copy">Use this page as your daily home base: choose your top tasks, follow rituals, check habits, read your affirmation, then reset tomorrow before the day ends.</p>
+          <p className="phase-copy">Use this page as your daily home base: choose your top tasks, check habits, read your affirmation, then reset tomorrow before the day ends.</p>
         </section>
       </div>
     </div>
@@ -3494,47 +3465,51 @@ function HabitWeeklyGrid({ habits = [], completions = [] }) {
 
 function HabitTemplateLibrary({ habits = [], onUseTemplate, onCustomizeTemplate }) {
   const [filter, setFilter] = useState("all");
+  const [open, setOpen] = useState(false);
   const normalized = normalizeHabits(habits);
   const categories = ["all", ...HABIT_CATEGORIES.map(c => c.id)];
   const filtered = HABIT_TEMPLATES.filter(t => filter === "all" || t.category === filter);
-  const hasTemplate = template => normalized.some(h => !h.deletedAt && !h.archived && (h.templateId === template.id || String(h.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase()));
+  const hasTemplate = template => normalized.some(h => h.templateId === template.id || String(h.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase());
   return (
-    <div className="phase-card phase-wide-card ritual-section-card ritual-template-section habit-template-section">
+    <div className={`phase-card ritual-template-library habit-template-library ${open ? "open" : "collapsed"}`}>
       <div className="phase-card-head ritual-template-head">
-        <div><span>Template Library</span><small>Pick starter habits, then customize them to fit your rhythm.</small></div>
+        <div><span>Template Library</span><small>Starter habits are tucked away. Expand when you want ideas.</small></div>
+        <button className="mini-pill" onClick={() => setOpen(v => !v)}>{open ? "Collapse" : "Expand"}</button>
+      </div>
+      {open ? <>
         <div className="ritual-template-filters">
           {categories.map(id => {
             const cat = HABIT_CATEGORIES.find(c => c.id === id);
             return <button key={id} className={`mini-pill ${filter === id ? "active" : ""}`} onClick={() => setFilter(id)}>{id === "all" ? "All" : `${cat?.emoji || "✨"} ${cat?.label || id}`}</button>;
           })}
         </div>
-      </div>
-      <div className="ritual-template-grid habit-template-grid">
-        {filtered.map(template => {
-          const cat = HABIT_CATEGORIES.find(c => c.id === template.category);
-          const alreadyAdded = hasTemplate(template);
-          const reminder = normalizeHabitReminder(template.reminder);
-          return (
-            <div key={template.id} className={`ritual-template-card habit-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
-              <div className="ritual-template-top">
-                <div className="ritual-template-emoji">{template.emoji}</div>
-                <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Habit"} · {template.frequency === "daily" ? "Daily" : template.frequency === "weekdays" ? "Weekdays" : template.frequency === "weekends" ? "Weekends" : "Custom"}</p></div>
+        <div className="ritual-template-grid habit-template-grid">
+          {filtered.map(template => {
+            const cat = HABIT_CATEGORIES.find(c => c.id === template.category);
+            const alreadyAdded = hasTemplate(template);
+            const reminder = normalizeHabitReminder(template.reminder);
+            return (
+              <div key={template.id} className={`ritual-template-card habit-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
+                <div className="ritual-template-top">
+                  <div className="ritual-template-emoji">{template.emoji}</div>
+                  <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Habit"} · {template.frequency === "daily" ? "Daily" : template.frequency === "weekdays" ? "Weekdays" : template.frequency === "weekends" ? "Weekends" : "Custom"}</p></div>
+                </div>
+                <div className="ritual-template-desc">{template.description}</div>
+                <div className="ritual-template-steps">
+                  <span>✓ Target: {template.targetCount || 1} {template.unit || "check-in"}</span>
+                  <span>✓ Reminder: {reminder.type === "none" ? "No reminder" : reminder.time}</span>
+                  <span>✓ Repeat: {template.repeatDays?.length === 7 ? "Every day" : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => template.repeatDays?.includes(i)).join(" · ")}</span>
+                </div>
+                {alreadyAdded && <div className="template-added-badge">Already in your habits</div>}
+                <div className="ritual-template-actions">
+                  <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
+                  <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
+                </div>
               </div>
-              <div className="ritual-template-desc">{template.description}</div>
-              <div className="ritual-template-steps">
-                <span>✓ Target: {template.targetCount || 1} {template.unit || "check-in"}</span>
-                <span>✓ Reminder: {reminder.type === "none" ? "No reminder" : reminder.time}</span>
-                <span>✓ Repeat: {template.repeatDays?.length === 7 ? "Every day" : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => template.repeatDays?.includes(i)).join(" · ")}</span>
-              </div>
-              {alreadyAdded && <div className="template-added-badge">Already in your habits</div>}
-              <div className="ritual-template-actions">
-                <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
-                <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </> : <div className="phase-empty habit-template-collapsed-note">Template Library is collapsed to keep Habits cleaner.</div>}
     </div>
   );
 }
@@ -3603,10 +3578,9 @@ function ComingSoonPage({ icon, title, phase, description, bullets = [] }) {
 
 
 function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES }) {
-  const [goals, setGoals] = useState(() => new Set(["organized", "plan", "routines"]));
+  const [goals, setGoals] = useState(() => new Set(["organized", "plan", "habits"]));
   const [startTime, setStartTime] = useState(`${String(Math.max(0, Math.min(23, Number(workStart) || 9))).padStart(2, "0")}:00`);
   const [windDownTime, setWindDownTime] = useState("21:30");
-  const [selectedRituals, setSelectedRituals] = useState(() => new Set(["morning-reset", "night-wind-down", "weekly-planning"]));
   const [selectedHabits, setSelectedHabits] = useState(() => new Set(["drink-water", "journal", "plan-tomorrow", "gratitude"]));
   const [reminders, setReminders] = useState(() => ({
     journal: Boolean(notificationPreferences?.journal?.enabled ?? true),
@@ -3616,21 +3590,20 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, not
 
   const goalOptions = [
     ["organized", "Feel more organized", "Bring the day into one calm view."],
-    ["routines", "Build better routines", "Start with repeatable rituals."],
+    ["routines", "Build better routines", "Use habits and resets to keep your rhythm simple."],
     ["plan", "Plan my day", "Protect calendar time and priorities."],
     ["habits", "Track habits", "Return to small daily check-ins."],
     ["journal", "Journal consistently", "Reflect without overthinking it."],
   ];
-  const ritualOptions = ["morning-reset", "night-wind-down", "weekly-planning", "sunday-reset", "room-reset"].map(id => RITUAL_TEMPLATES.find(t => t.id === id)).filter(Boolean);
   const habitOptions = ["drink-water", "journal", "stretch", "read-10", "plan-tomorrow", "tidy-room", "gratitude"].map(id => HABIT_TEMPLATES.find(t => t.id === id)).filter(Boolean);
   const toggleSet = (setter, value) => setter(prev => { const next = new Set(prev); next.has(value) ? next.delete(value) : next.add(value); return next; });
-  const finish = () => onComplete({ goals: [...goals], startTime, windDownTime, ritualIds: [...selectedRituals], habitIds: [...selectedHabits], reminders });
+  const finish = () => onComplete({ goals: [...goals], startTime, windDownTime, habitIds: [...selectedHabits], reminders });
 
   return (
     <div className="modal-overlay onboarding-overlay" role="dialog" aria-modal="true" aria-label="Tempo onboarding" onClick={onClose}>
       <div className="onboarding-modal" onClick={e => e.stopPropagation()}>
         <div className="onboarding-hero">
-          <div><div className="phase-kicker">Phase 21 · Onboarding</div><h2>🌿 Set up your daily rhythm</h2><p>Pick a few starting points. Tempo will create a gentle setup you can edit anytime.</p></div>
+          <div><div className="phase-kicker">Onboarding</div><h2>🌿 Set up your daily rhythm</h2><p>Pick a few starting points. Tempo will create a gentle setup you can edit anytime.</p></div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -3644,13 +3617,6 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, not
         <section className="onboarding-section onboarding-time-grid">
           <label><span>Start my day around</span><input className="modal-select" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
           <label><span>Wind down around</span><input className="modal-select" type="time" value={windDownTime} onChange={e => setWindDownTime(e.target.value)} /></label>
-        </section>
-
-        <section className="onboarding-section">
-          <div className="onboarding-section-title">Pick your first rituals</div>
-          <div className="onboarding-template-grid">
-            {ritualOptions.map(t => <button key={t.id} className={`onboarding-template ${selectedRituals.has(t.id) ? "selected" : ""}`} onClick={() => toggleSet(setSelectedRituals, t.id)}><span>{t.emoji}</span><strong>{t.name}</strong><small>{t.estimatedMinutes} min · {t.scheduledTime}</small></button>)}
-          </div>
         </section>
 
         <section className="onboarding-section">
@@ -3692,7 +3658,7 @@ export default function App() {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "bloom" | "rituals" | "habits" | "affirmations"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "bloom" | "habits" | "affirmations"
   const [taskScope, setTaskScope]   = useState("day");
   const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
@@ -3767,7 +3733,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const requestedPage = params.get("page");
-    if (["today", "calendar", "tasks", "journal", "bloom", "rituals", "habits", "affirmations", "tomorrow-reset", "weekly-reset"].includes(requestedPage)) {
+    if (["today", "calendar", "tasks", "journal", "bloom", "habits", "affirmations", "tomorrow-reset", "weekly-reset"].includes(requestedPage)) {
       setPage(requestedPage);
     }
   }, []);
@@ -4655,20 +4621,6 @@ export default function App() {
     setWERaw(Math.min(23, nextWorkEnd));
     setWorkHoursCtx(nextWorkStart, Math.min(23, nextWorkEnd));
 
-    const currentRituals = normalizeRituals(rituals);
-    const existingRitualKeys = new Set(currentRituals.map(r => `${r.templateId || ""}|${String(r.name || "").trim().toLowerCase()}`));
-    let nextRituals = [...currentRituals];
-    (config.ritualIds || []).forEach(id => {
-      const template = RITUAL_TEMPLATES.find(t => t.id === id);
-      if (!template) return;
-      const key = `${template.id}|${String(template.name || "").trim().toLowerCase()}`;
-      const nameKey = `|${String(template.name || "").trim().toLowerCase()}`;
-      if (existingRitualKeys.has(key) || existingRitualKeys.has(nameKey)) return;
-      const ritual = ritualFromTemplate(template, nextRituals);
-      nextRituals.push(ritual);
-      existingRitualKeys.add(key);
-    });
-
     const currentHabits = normalizeHabits(habits);
     const existingHabitKeys = new Set(currentHabits.map(h => `${h.templateId || ""}|${String(h.name || "").trim().toLowerCase()}`));
     let nextHabits = [...currentHabits];
@@ -4690,10 +4642,8 @@ export default function App() {
       weeklyReset: { ...(notificationPreferences.weeklyReset || {}), enabled: Boolean(config.reminders?.weeklyReset) },
     });
 
-    setRitualsRaw(nextRituals);
     setHabitsRaw(nextHabits);
     setNotificationPreferencesRaw(nextNotificationPreferences);
-    save(`${uk}_rituals`, nextRituals);
     save(`${uk}_habits`, nextHabits);
     save(`${uk}_notification_preferences`, nextNotificationPreferences);
     save(`${uk}_ws`, nextWorkStart);
@@ -4702,7 +4652,7 @@ export default function App() {
     save(`${uk}_onboarding_completed_at`, now);
     save(`${uk}_onboarding_skipped`, false);
     save(`${uk}_updated_at`, now);
-    persistSettings({ workStart: nextWorkStart, workEnd: Math.min(23, nextWorkEnd), rituals: nextRituals, habits: nextHabits, notificationPreferences: nextNotificationPreferences });
+    persistSettings({ workStart: nextWorkStart, workEnd: Math.min(23, nextWorkEnd), habits: nextHabits, notificationPreferences: nextNotificationPreferences });
     setShowOnboarding(false);
     setPage("today");
     setToast({ text: "Tempo onboarding complete ✓", ts: Date.now() });
@@ -5160,45 +5110,6 @@ export default function App() {
     setToast({ text: "Affirmation deleted ✓", ts: Date.now() });
   }
 
-  function addAffirmationToMorningReset(affirmation) {
-    const stepText = "Read today’s affirmation";
-    const now = new Date().toISOString();
-    const normalized = normalizeRituals(rituals);
-    const existing = normalized.find(r => String(r.name || "").trim().toLowerCase() === "morning reset");
-    if (existing) {
-      const already = (existing.steps || []).some(step => String(step.text || "").trim().toLowerCase() === stepText.toLowerCase());
-      if (already) {
-        setToast({ text: "Morning Reset already includes affirmation ✓", ts: Date.now() });
-        return;
-      }
-      setRituals(list => normalizeRituals(list).map(r => r.id === existing.id ? normalizeRitual({ ...r, steps: [...(r.steps || []), { id: "step-" + uid(), text: stepText }], updatedAt: now }) : r));
-      setToast({ text: "Added affirmation to Morning Reset ✓", ts: Date.now() });
-      return;
-    }
-    const clean = normalizeRitual({
-      id: "ritual-" + uid(),
-      name: "Morning Reset",
-      emoji: "🌤️",
-      category: "personal",
-      steps: [
-        { id: "step-1", text: "Drink water" },
-        { id: "step-2", text: stepText },
-        { id: "step-3", text: "Check today’s calendar" },
-        { id: "step-4", text: "Choose top 3 tasks" },
-      ],
-      estimatedMinutes: 15,
-      scheduledTime: "08:30",
-      repeatDays: [1,2,3,4,5,6,0],
-      reminder: { type: "at", minutesBefore: 0 },
-      color: "#FF7BAC",
-      createdAt: now,
-      updatedAt: now,
-    });
-    setRituals(list => [...normalizeRituals(list), clean]);
-    setToast({ text: "Created Morning Reset with affirmation ✓", ts: Date.now() });
-  }
-
-
   function addHabit(habit) {
     const now = new Date().toISOString();
     const clean = normalizeHabit({ ...habit, id: habit.id || "habit-" + uid(), createdAt: habit.createdAt || now, updatedAt: now });
@@ -5632,14 +5543,6 @@ export default function App() {
   function lifestylePlanningBlocksForDate(date) {
     const planDate = dayStart(date);
     const blocks = [];
-    normalizeRituals(rituals)
-      .filter(r => ritualRunsOnDate(r, planDate) && !ritualProgress(r, ritualCompletions, planDate).completed && !ritualProgress(r, ritualCompletions, planDate).skipped)
-      .forEach(r => {
-        const start = dayStart(planDate);
-        start.setMinutes(timeStringToMinutes(r.scheduledTime || "08:30"));
-        const end = new Date(start.getTime() + Math.max(5, Number(r.estimatedMinutes || 15)) * 60000);
-        blocks.push({ id: `ritual-block-${r.id}-${dateKey(planDate)}`, title: `Ritual: ${r.name}`, start, end, allDay: false, calendar: "personal", category: r.category || "personal", fixed: true, planningProtected: true, source: "ritual" });
-      });
     normalizeHabits(habits)
       .filter(h => habitRunsOnDate(h, planDate) && !habitProgress(h, habitCompletions, planDate).completed)
       .forEach(h => {
@@ -6586,6 +6489,48 @@ export default function App() {
     .tomorrow-reset-task{grid-template-columns:1fr;}
   }
 
+
+
+/* ── Pre Phase 22 audit fixes ───────────────────────────────────────────── */
+.mobile-sidebar-scrim{display:none!important;}
+.memory-page-card.has-memory{
+  background-image:var(--memory-bg-image,linear-gradient(180deg,var(--surface),var(--surface-warm)))!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+}
+.memory-page-card.has-memory .memory-page-shade{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.62));}
+.entry-modal.memory-entry-modal,.entry-view-modal{
+  background-image:var(--memory-bg-image,linear-gradient(180deg,var(--surface),var(--surface-warm)))!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+}
+.habit-template-library.collapsed{padding-bottom:14px;}
+.habit-template-library.collapsed .phase-empty{margin-top:10px;}
+.calendar-pane.view-month{min-width:0!important;overflow:auto!important;}
+.month-view{grid-template-columns:repeat(7,minmax(0,1fr))!important;width:100%!important;min-width:0!important;align-content:stretch!important;}
+.month-day,.month-event-row,.month-event-name{min-width:0!important;}
+.calendar-pane.view-day,.calendar-pane.view-week{overflow-y:auto!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.day-view,.week-timetable{min-height:max-content!important;touch-action:pan-y;}
+.day-grid,.wt-grid{flex:0 0 auto;}
+.event-block,.wt-event{touch-action:auto;}
+@media(max-width:768px){
+  :root{--mobile-nav-h:calc(86px + env(safe-area-inset-bottom));}
+  html,body,#__next{height:100%;overflow:hidden!important;}
+  .app{height:100dvh!important;min-height:0!important;padding-bottom:0!important;overflow:hidden!important;}
+  .main{min-height:0!important;overflow:hidden!important;}
+  .content-area{min-height:0!important;overflow:hidden!important;}
+  .calendar-pane{height:100%!important;min-height:0!important;overflow-y:auto!important;touch-action:pan-y!important;padding-bottom:calc(var(--mobile-nav-h) + 22px)!important;}
+  .calendar-pane.view-day,.calendar-pane.view-week{overflow-y:auto!important;-webkit-overflow-scrolling:touch;}
+  .day-view,.week-timetable{padding-bottom:calc(var(--mobile-nav-h) + 28px)!important;min-height:max-content!important;}
+  .mobile-nav{display:flex!important;min-height:var(--mobile-nav-h)!important;height:auto!important;padding:8px 8px calc(10px + env(safe-area-inset-bottom))!important;align-items:stretch!important;overflow:visible!important;}
+  .mobile-nav-btn{min-height:56px!important;padding:6px 3px!important;border-radius:16px!important;font-size:19px!important;line-height:1!important;}
+  .mobile-nav-btn span{font-size:9.5px!important;line-height:1.05!important;margin-top:3px;}
+  .mobile-sidebar-scrim.open{display:block!important;position:fixed!important;inset:0!important;background:rgba(55,33,42,.24)!important;z-index:84!important;border:0!important;padding:0!important;}
+  .phase-page,.tasks-page,.journal-page,.bloom-room-page,.affirmations-page,.tomorrow-reset-page,.weekly-reset-page{height:100%!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--mobile-nav-h) + 22px)!important;}
+}
+
 `}</style>
 
       <div className="app">
@@ -6608,7 +6553,6 @@ export default function App() {
             <div className={`nav-item ${page==="today"?"active":""}`} onClick={() => { setPage("today"); closeSidebarOnMobile(); }}><span className="nav-icon">🌤️</span>Today</div>
             <div className={`nav-item ${page==="calendar"?"active":""}`} onClick={() => { setPage("calendar"); closeSidebarOnMobile(); }}><span className="nav-icon">🗓️</span>Calendar</div>
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
-            <div className={`nav-item ${page==="rituals"?"active":""}`} onClick={() => { setPage("rituals"); closeSidebarOnMobile(); }}><span className="nav-icon">🕯️</span>Rituals</div>
             <div className={`nav-item ${page==="habits"?"active":""}`} onClick={() => { setPage("habits"); closeSidebarOnMobile(); }}><span className="nav-icon">🌱</span>Habits</div>
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
             <div className="nav-section-label" style={{marginTop:8}}>Planning</div>
@@ -6645,19 +6589,17 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenAffirmations={() => setPage("affirmations")} onFavoriteAffirmation={toggleAffirmationFavorite} onAddAffirmationToMorningReset={addAffirmationToMorningReset} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenAffirmations={() => setPage("affirmations")} onFavoriteAffirmation={toggleAffirmationFavorite} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
             <BloomRoomPage gameStats={gameStats} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} affirmations={affirmations} />
-          ) : page === "rituals" ? (
-            <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
             <HabitsPage habits={habits} completions={habitCompletions} onAdd={addHabit} onEdit={editHabit} onDelete={deleteHabit} onArchive={archiveHabit} onToggle={toggleHabitToday} onIncrement={incrementHabitToday} />
           ) : page === "affirmations" ? (
-            <AffirmationsPage affirmations={affirmations} affirmationSettings={affirmationSettings} onToggleFavorite={toggleAffirmationFavorite} onSaveAffirmation={saveAffirmation} onDeleteAffirmation={deleteAffirmation} onUpdateSettings={setAffirmationSettings} onAddToMorningReset={addAffirmationToMorningReset} />
+            <AffirmationsPage affirmations={affirmations} affirmationSettings={affirmationSettings} onToggleFavorite={toggleAffirmationFavorite} onSaveAffirmation={saveAffirmation} onDeleteAffirmation={deleteAffirmation} onUpdateSettings={setAffirmationSettings} />
           ) : page === "tomorrow-reset" ? (
             <TomorrowResetPage tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
           ) : page === "weekly-reset" ? (
@@ -6704,7 +6646,7 @@ export default function App() {
             <div className="stat"><div className="stat-dot" style={{ background: "#FF7BAC" }} />{openToday} tasks open</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#70C8A0" }} />Free blocks: {freeBlocks(visibleEvents, viewDate).length}</div>
             <div className="stat"><div className="stat-dot" style={{ background: "#FFB870" }} />🔥 {gameStats.streaks.productive}d streak</div>
-            <div className="stat"><div className="stat-dot" style={{ background: "#C9A0FF" }} />Lvl {gameStats.level} · {gameStats.today.rank} Rank</div>
+            <div className="stat"><div className="stat-dot" style={{ background: "#C9A0FF" }} />Gentle rhythm</div>
           </div>
 
           <div className="content-area">
@@ -6778,7 +6720,7 @@ export default function App() {
       <TaskRescheduleDateModal />
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
-      {showStats  && <StatsCard events={visibleEvents} tasks={tasks} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} onClose={() => setShowStats(false)} />}
+      {showStats  && <StatsCard events={visibleEvents} tasks={tasks} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} onClose={() => setShowStats(false)} />}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
@@ -6816,7 +6758,7 @@ export default function App() {
         <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={() => { setPage("today"); setSidebarOpen(false); }}>🌤️<span>Today</span></button>
         <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={() => { setPage("calendar"); setView("day"); setSidebarOpen(false); }}>🗓️<span>Calendar</span></button>
         <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={() => { setPage("tasks"); setTaskScope("day"); setSidebarOpen(false); }}>✅<span>Tasks</span></button>
-        <button className={`mobile-nav-btn ${page === "rituals" ? "active" : ""}`} onClick={() => { setPage("rituals"); setSidebarOpen(false); }}>🕯️<span>Rituals</span></button>
+        <button className={`mobile-nav-btn ${page === "journal" ? "active" : ""}`} onClick={() => { setPage("journal"); setSidebarOpen(false); }}>📔<span>Journal</span></button>
         <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={() => { setPage("habits"); setSidebarOpen(false); }}>🌱<span>Habits</span></button>
       </div>
 
