@@ -1337,13 +1337,38 @@ function normalizeSettingsUpdatedAt(value) {
 function normalizeDeletedRecords(value) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
-  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals), habits: cleanKind(src.habits), affirmations: cleanKind(src.affirmations) };
+  return {
+    events: cleanKind(src.events),
+    tasks: cleanKind(src.tasks),
+    calendars: cleanKind(src.calendars),
+    rituals: cleanKind(src.rituals),
+    ritualCompletions: cleanKind(src.ritualCompletions),
+    habits: cleanKind(src.habits),
+    habitCompletions: cleanKind(src.habitCompletions),
+    dailyCheckIns: cleanKind(src.dailyCheckIns),
+    tomorrowResets: cleanKind(src.tomorrowResets),
+    weeklyResets: cleanKind(src.weeklyResets),
+    affirmations: cleanKind(src.affirmations),
+  };
 }
 
 function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
   const current = normalizeDeletedRecords(records);
-  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals }, habits: { ...current.habits }, affirmations: { ...current.affirmations } };
-  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : kind === "habits" ? "habits" : kind === "affirmations" ? "affirmations" : "events";
+  const next = {
+    events: { ...current.events },
+    tasks: { ...current.tasks },
+    calendars: { ...current.calendars },
+    rituals: { ...current.rituals },
+    ritualCompletions: { ...current.ritualCompletions },
+    habits: { ...current.habits },
+    habitCompletions: { ...current.habitCompletions },
+    dailyCheckIns: { ...current.dailyCheckIns },
+    tomorrowResets: { ...current.tomorrowResets },
+    weeklyResets: { ...current.weeklyResets },
+    affirmations: { ...current.affirmations },
+  };
+  const allowed = new Set(Object.keys(next));
+  const bucket = allowed.has(kind) ? kind : (kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : kind === "habits" ? "habits" : kind === "affirmations" ? "affirmations" : "events");
   (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
   return next;
 }
@@ -3572,6 +3597,7 @@ export default function App() {
   const [affirmations, setAffirmationsRaw] = useState(() => normalizeAffirmations(load(`${uk}_affirmations`, DEFAULT_AFFIRMATIONS)));
   const [affirmationSettings, setAffirmationSettingsRaw] = useState(() => normalizeAffirmationSettings(load(`${uk}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
   const [notificationPreferences, setNotificationPreferencesRaw] = useState(() => normalizeNotificationPreferences(load(`${uk}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+  const [dataMigrationVersion, setDataMigrationVersionRaw] = useState(() => Number(load(`${uk}_data_migration_version`, 0)) || 0);
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -3669,6 +3695,7 @@ export default function App() {
       setAffirmationsRaw([]);
       setAffirmationSettingsRaw(normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES));
+      setDataMigrationVersionRaw(0);
       return;
     }
 
@@ -3695,11 +3722,12 @@ export default function App() {
     setAffirmationsRaw(normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)));
     setAffirmationSettingsRaw(normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
     setNotificationPreferencesRaw(normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+    setDataMigrationVersionRaw(Number(load(`${userKey}_data_migration_version`, 0)) || 0);
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
       const safeEvents = reviveEvents(loadedEvents || []);
-      const safeTasks = normalizeTasks(Array.isArray(loadedTasks) ? loadedTasks : []);
+      const safeTasks = Core.migrateTaskCategories(Array.isArray(loadedTasks) ? loadedTasks : []);
       const safeSettings = settings || {};
 
       setEvRaw(safeEvents);
@@ -3738,6 +3766,7 @@ export default function App() {
         affirmations: normalizeAffirmations(safeSettings.affirmations ?? load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
         affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
         notificationPreferences: normalizeNotificationPreferences(safeSettings.notificationPreferences ?? load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+        dataMigrationVersion: Number(safeSettings.dataMigrationVersion ?? load(`${userKey}_data_migration_version`, 0)) || 0,
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -3770,6 +3799,7 @@ export default function App() {
       setAffirmationsRaw(normalizeAffirmations(nextSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      setDataMigrationVersionRaw(Number(nextSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -3795,6 +3825,7 @@ export default function App() {
       save(`${userKey}_affirmations`, normalizeAffirmations(nextSettings.affirmations));
       save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
       save(`${userKey}_notification_preferences`, normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      save(`${userKey}_data_migration_version`, Number(nextSettings.dataMigrationVersion || 0));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -3844,6 +3875,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3897,6 +3929,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -3947,6 +3980,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -3984,6 +4018,7 @@ export default function App() {
           affirmations: normalizeAffirmations(DEFAULT_AFFIRMATIONS),
           affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
           notificationPreferences: normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES),
+          dataMigrationVersion: Core.DATA_MIGRATION_VERSION,
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -4027,6 +4062,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -4085,6 +4121,7 @@ export default function App() {
     affirmations: normalizeAffirmations(affirmations),
     affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
     notificationPreferences: normalizeNotificationPreferences(notificationPreferences),
+    dataMigrationVersion: Math.max(Number(dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -4150,6 +4187,7 @@ export default function App() {
         affirmations: normalizeAffirmations(nextSettings?.affirmations || affirmations),
         affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
         notificationPreferences: normalizeNotificationPreferences(nextSettings?.notificationPreferences || notificationPreferences),
+        dataMigrationVersion: Math.max(Number(nextSettings?.dataMigrationVersion || dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -4189,6 +4227,7 @@ export default function App() {
       setAffirmationsRaw(normalizeAffirmations(normalizedSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      setDataMigrationVersionRaw(Number(normalizedSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -4223,6 +4262,7 @@ export default function App() {
       save(`${uk}_affirmations`, normalizeAffirmations(normalizedSettings.affirmations));
       save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       save(`${uk}_notification_preferences`, normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      save(`${uk}_data_migration_version`, Number(normalizedSettings.dataMigrationVersion || 0));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -4363,6 +4403,7 @@ export default function App() {
     save(`${uk}_affirmations`, normalizeAffirmations(next.affirmations));
     save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
     save(`${uk}_notification_preferences`, normalizeNotificationPreferences(next.notificationPreferences));
+    save(`${uk}_data_migration_version`, Number(next.dataMigrationVersion || 0));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -4371,6 +4412,47 @@ export default function App() {
       queueCloudSave(events, tasks, next);
     }
   };
+
+
+  useEffect(() => {
+    if (!auth.user?.id || !dataReady) return;
+    const currentVersion = Number(dataMigrationVersion || 0);
+    if (currentVersion >= Core.DATA_MIGRATION_VERSION) return;
+
+    const now = new Date().toISOString();
+    const nextTasks = Core.migrateTaskCategories(tasks);
+    const nextCategories = normalizeCategories(categories);
+    const nextDeletedRecords = normalizeDeletedRecords(deletedRecords);
+    const nextSettingsUpdatedAt = normalizeSettingsUpdatedAt({
+      ...settingsUpdatedAt,
+      categories: now,
+      deletedRecords: now,
+      dataMigrationVersion: now,
+    });
+
+    Core.removeLegacyLocalStorageKeys(uk);
+    setTkRaw(nextTasks);
+    setCatRaw(nextCategories);
+    setDeletedRecordsRaw(nextDeletedRecords);
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+    setDataMigrationVersionRaw(Core.DATA_MIGRATION_VERSION);
+
+    save(`${uk}_tk`, nextTasks);
+    save(`${uk}_categories`, nextCategories);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    save(`${uk}_data_migration_version`, Core.DATA_MIGRATION_VERSION);
+    save(`${uk}_updated_at`, now);
+
+    const nextSettings = currentSettings({
+      categories: nextCategories,
+      deletedRecords: nextDeletedRecords,
+      settingsUpdatedAt: nextSettingsUpdatedAt,
+      dataMigrationVersion: Core.DATA_MIGRATION_VERSION,
+    });
+    queueCloudSave(events, nextTasks, nextSettings);
+    setToast({ text: "Tempo data cleaned up for Phase 17 ✓", ts: Date.now() });
+  }, [auth.user?.id, dataReady, dataMigrationVersion]);
 
   const setFontSize = v => {
     setFSRaw(v);
