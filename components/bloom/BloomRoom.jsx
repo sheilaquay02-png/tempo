@@ -67,7 +67,7 @@ export function SkillStatsCard({ gameStats }) {
   if (!gameStats?.skills) return null;
   return (
     <div className="skills-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Rhythm Stats</span><span className="game-card-sub">gentle growth</span></div>
+      <div className="game-card-head"><span className="game-card-title">Gentle Stats</span><span className="game-card-sub">gentle growth</span></div>
       <div className="skill-list">
         {gameStats.skills.filter(s => s.id !== "focus").map(s => (
           <div key={s.id} className="skill-row" title={s.desc}>
@@ -126,19 +126,19 @@ export function LifeGardenCard({ gameStats }) {
 export function StreaksCard({ gameStats }) {
   if (!gameStats?.streaks) return null;
   const rows = [
-    ["🔥", "Productive", gameStats.streaks.productive],
+    ["🌿", "Rhythm", gameStats.streaks.productive],
     ["✅", "Tasks", gameStats.streaks.tasks],
-    ["📔", "Memory", gameStats.streaks.journal],
-    ["🌙", "Review", gameStats.streaks.review],
-    ["🗓️", "Planning", gameStats.streaks.planning],
+    ["📔", "Journal", gameStats.streaks.journal],
+    ["🌙", "Reset", gameStats.streaks.review],
+    ["🗓️", "Plan", gameStats.streaks.planning],
   ];
   return (
-    <div className="streaks-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Streak Garden</span><span className="game-card-sub">gentle consistency</span></div>
-      <div className="streak-grid">
-        {rows.map(([icon, label, val]) => <div key={label} className="streak-pill"><span>{icon}</span><strong>{val}d</strong><small>{label}</small></div>)}
+    <section className="streaks-card streak-garden-flat" aria-label="Streak Garden">
+      <div className="game-card-head streak-garden-head"><span className="game-card-title">Streak Garden</span><span className="game-card-sub">gentle consistency</span></div>
+      <div className="streak-grid streak-grid-five">
+        {rows.map(([icon, label, val]) => <div key={label} className="streak-pill streak-garden-pill"><span>{icon}</span><strong>{val}d</strong><small>{label}</small></div>)}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -157,11 +157,8 @@ export function PersonalityCard({ gameStats }) {
 export function GameDashboard({ gameStats, compact = false }) {
   if (!gameStats) return null;
   return (
-    <div className={`game-dashboard simplified ${compact ? "compact" : ""}`}>
-      <MascotProgressCard gameStats={gameStats} />
+    <div className={`game-dashboard simplified streak-only ${compact ? "compact" : ""}`}>
       <StreaksCard gameStats={gameStats} />
-      <BloomCollapse title="Gentle stats" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
-      <BloomCollapse title="Weekly recap & life garden" defaultOpen={false}><WeeklyRecapCard gameStats={gameStats} /><LifeGardenCard gameStats={gameStats} /></BloomCollapse>
     </div>
   );
 }

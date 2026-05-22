@@ -1556,4 +1556,19 @@ export function appCSS(cvars, fontScale) { return `
   .reset-hero-oneline{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;}
 }
 
+/* ── Pre Phase 22 simplification: Rhythm page, no Bloom/Affirmations pages ── */
+.rhythm-stats-page{height:100%;overflow:auto;padding:18px clamp(18px,3vw,34px) 34px;gap:16px;}
+.rhythm-stats-hero{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:auto;margin:0;}
+.rhythm-stats-card-page{width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;padding:18px!important;}
+.rhythm-stats-card-page .game-soft-card,.rhythm-stats-card-page .streaks-card,.rhythm-stats-card-page .life-garden-card,.rhythm-stats-card-page .weekly-recap-card,.rhythm-stats-card-page .skills-card{box-shadow:none!important;margin:0!important;}
+.rhythm-stats-game-section{padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;gap:10px!important;}
+.rhythm-stats-game-grid{align-items:stretch;}
+.rhythm-stats-game-grid>.game-soft-card,.rhythm-stats-game-grid>.streaks-card{height:100%;}
+.rhythm-stats-page .streak-grid-five{grid-template-columns:repeat(5,minmax(0,1fr));}
+.rhythm-stats-page .life-garden-card{width:100%;}
+.affirmation-daily-card .phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;}
+.affirmation-daily-card .affirmation-card-actions{display:none!important;}
+@media(max-width:900px){.rhythm-stats-page{padding:12px 12px calc(var(--mobile-nav-h,78px) + 28px)!important;}.rhythm-stats-hero{position:sticky!important;top:0!important;z-index:70;background:var(--surface)!important;}.rhythm-stats-card-page{padding:14px!important;border-radius:22px!important;}.rhythm-stats-game-grid{grid-template-columns:1fr!important;}.rhythm-stats-page .streak-grid-five{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;}.rhythm-stats-page .streak-pill{padding:8px 4px!important;}.rhythm-stats-page .streak-pill strong{font-size:14px!important;}.rhythm-stats-page .streak-pill small{font-size:8px!important;}}
+
+
 `; }
