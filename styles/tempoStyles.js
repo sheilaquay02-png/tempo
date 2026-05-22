@@ -1611,9 +1611,6 @@ export function appCSS(cvars, fontScale) { return `
   }
 }
 
-
-`; }
-
 /* ── Pre Phase 22 debug 8: journal mobile header should scroll normally ── */
 @media(max-width:768px){
   .journal-page > .journal-header{
@@ -1626,3 +1623,5 @@ export function appCSS(cvars, fontScale) { return `
     box-shadow:0 1px 0 var(--border)!important;
   }
 }
+
+`; }
