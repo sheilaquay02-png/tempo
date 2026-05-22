@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -1422,13 +1422,17 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
   const reminderDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const debug = syncDebug || {};
+  const datasetCounts = debug.datasetCounts || {};
+  const recentConflicts = normalizeSyncConflictLog(debug.syncConflictLog || []).slice(0, 5);
+  const tombstoneCount = Object.values(debug.deletedRecords || {}).reduce((sum, bucket) => sum + Object.keys(bucket || {}).length, 0);
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
   async function toggleClosedPush() {
     if (!pushEnabled) {
@@ -1483,6 +1487,30 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
                 <button className="signout-btn" onClick={onSignOut}>Sign out</button>
               </div>
               {syncStatus?.message && <div className="settings-section-desc">Sync status: {syncStatus.message}</div>}
+              <div className="sync-debug-panel">
+                <div className="sync-debug-top"><strong>Sync debug</strong><span>{debug.dataReady ? "Ready" : "Loading"}</span></div>
+                <div className="sync-debug-grid">
+                  <div><strong>{debug.pendingLocalChanges || 0}</strong><span>pending edits</span></div>
+                  <div><strong>{tombstoneCount}</strong><span>delete records</span></div>
+                  <div><strong>{recentConflicts.length}</strong><span>recent conflicts</span></div>
+                  <div><strong>{debug.lastSyncedAt ? new Date(debug.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</strong><span>last sync</span></div>
+                </div>
+                <div className="sync-debug-datasets">
+                  {Object.entries(datasetCounts).map(([key, value]) => <span key={key}>{key}: {value}</span>)}
+                </div>
+                {recentConflicts.length > 0 && (
+                  <div className="sync-conflict-list">
+                    {recentConflicts.map(item => (
+                      <div key={item.id} className="sync-conflict-row">
+                        <span>{item.kind}</span>
+                        <strong>{item.recordLabel}</strong>
+                        <em>{item.kept === "local" ? "This device kept" : item.kept === "cloud" ? "Cloud kept" : "Latest kept"}</em>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="settings-section-desc">Deleted-item tombstones are kept for 90 days so removed items do not reappear on another device.</div>
+              </div>
             </div>
           )}
           {/* Theme */}
@@ -3621,6 +3649,7 @@ export default function App() {
   const [affirmations, setAffirmationsRaw] = useState(() => normalizeAffirmations(load(`${uk}_affirmations`, DEFAULT_AFFIRMATIONS)));
   const [affirmationSettings, setAffirmationSettingsRaw] = useState(() => normalizeAffirmationSettings(load(`${uk}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
   const [notificationPreferences, setNotificationPreferencesRaw] = useState(() => normalizeNotificationPreferences(load(`${uk}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+  const [syncConflictLog, setSyncConflictLogRaw] = useState(() => normalizeSyncConflictLog(load(`${uk}_sync_conflict_log`, [])));
   const [dataMigrationVersion, setDataMigrationVersionRaw] = useState(() => Number(load(`${uk}_data_migration_version`, 0)) || 0);
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
@@ -3719,6 +3748,7 @@ export default function App() {
       setAffirmationsRaw([]);
       setAffirmationSettingsRaw(normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES));
+      setSyncConflictLogRaw([]);
       setDataMigrationVersionRaw(0);
       return;
     }
@@ -3746,6 +3776,7 @@ export default function App() {
     setAffirmationsRaw(normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)));
     setAffirmationSettingsRaw(normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
     setNotificationPreferencesRaw(normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+    setSyncConflictLogRaw(normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])));
     setDataMigrationVersionRaw(Number(load(`${userKey}_data_migration_version`, 0)) || 0);
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
@@ -3790,6 +3821,7 @@ export default function App() {
         affirmations: normalizeAffirmations(safeSettings.affirmations ?? load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
         affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
         notificationPreferences: normalizeNotificationPreferences(safeSettings.notificationPreferences ?? load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+        syncConflictLog: normalizeSyncConflictLog(safeSettings.syncConflictLog ?? load(`${userKey}_sync_conflict_log`, [])),
         dataMigrationVersion: Number(safeSettings.dataMigrationVersion ?? load(`${userKey}_data_migration_version`, 0)) || 0,
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
@@ -3823,6 +3855,7 @@ export default function App() {
       setAffirmationsRaw(normalizeAffirmations(nextSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      setSyncConflictLogRaw(normalizeSyncConflictLog(nextSettings.syncConflictLog));
       setDataMigrationVersionRaw(Number(nextSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
@@ -3849,6 +3882,7 @@ export default function App() {
       save(`${userKey}_affirmations`, normalizeAffirmations(nextSettings.affirmations));
       save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
       save(`${userKey}_notification_preferences`, normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      save(`${userKey}_sync_conflict_log`, normalizeSyncConflictLog(nextSettings.syncConflictLog));
       save(`${userKey}_data_migration_version`, Number(nextSettings.dataMigrationVersion || 0));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
@@ -3899,6 +3933,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -3953,6 +3988,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
@@ -4004,6 +4040,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -4042,6 +4079,7 @@ export default function App() {
           affirmations: normalizeAffirmations(DEFAULT_AFFIRMATIONS),
           affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
           notificationPreferences: normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES),
+          syncConflictLog: [],
           dataMigrationVersion: Core.DATA_MIGRATION_VERSION,
           memoryStorageMigratedAt: null,
           journal: {},
@@ -4086,6 +4124,7 @@ export default function App() {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -4125,7 +4164,7 @@ export default function App() {
     mealBreaks: normalizeMealBreaks(mealBreaks),
     planningRules: normalizePlanningRules(planningRules),
     settingsUpdatedAt: normalizeSettingsUpdatedAt(settingsUpdatedAt),
-    deletedRecords: normalizeDeletedRecords(deletedRecords),
+    deletedRecords: Core.pruneDeletedRecords(normalizeDeletedRecords(deletedRecords)),
     calendars: normalizeCalendars(calendars),
     hiddenCals: Array.isArray(hiddenCals) ? hiddenCals : [],
     notifs,
@@ -4145,6 +4184,7 @@ export default function App() {
     affirmations: normalizeAffirmations(affirmations),
     affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
     notificationPreferences: normalizeNotificationPreferences(notificationPreferences),
+    syncConflictLog: normalizeSyncConflictLog(syncConflictLog),
     dataMigrationVersion: Math.max(Number(dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
     memoryStorageMigratedAt,
     journal,
@@ -4161,6 +4201,7 @@ export default function App() {
       setSyncStatus({ status: "saving", message: "Saving…", lastError: "" });
       const ok = await saveToCloud(auth.user.id, evs, tks, settings);
       if (ok) {
+        markCloudSynced();
         setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         return true;
       }
@@ -4211,6 +4252,7 @@ export default function App() {
         affirmations: normalizeAffirmations(nextSettings?.affirmations || affirmations),
         affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
         notificationPreferences: normalizeNotificationPreferences(nextSettings?.notificationPreferences || notificationPreferences),
+        syncConflictLog: normalizeSyncConflictLog(nextSettings?.syncConflictLog || syncConflictLog),
         dataMigrationVersion: Math.max(Number(nextSettings?.dataMigrationVersion || dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
@@ -4251,6 +4293,7 @@ export default function App() {
       setAffirmationsRaw(normalizeAffirmations(normalizedSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      setSyncConflictLogRaw(normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
       setDataMigrationVersionRaw(Number(normalizedSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
@@ -4286,6 +4329,7 @@ export default function App() {
       save(`${uk}_affirmations`, normalizeAffirmations(normalizedSettings.affirmations));
       save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       save(`${uk}_notification_preferences`, normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
       save(`${uk}_data_migration_version`, Number(normalizedSettings.dataMigrationVersion || 0));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
@@ -4427,6 +4471,7 @@ export default function App() {
     save(`${uk}_affirmations`, normalizeAffirmations(next.affirmations));
     save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
     save(`${uk}_notification_preferences`, normalizeNotificationPreferences(next.notificationPreferences));
+    save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(next.syncConflictLog));
     save(`${uk}_data_migration_version`, Number(next.dataMigrationVersion || 0));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
@@ -4477,6 +4522,21 @@ export default function App() {
     queueCloudSave(events, nextTasks, nextSettings);
     setToast({ text: "Tempo data cleaned up for Phase 17 ✓", ts: Date.now() });
   }, [auth.user?.id, dataReady, dataMigrationVersion]);
+
+  useEffect(() => {
+    if (!auth.user?.id || !dataReady) return;
+    const current = normalizeDeletedRecords(deletedRecords);
+    const pruned = Core.pruneDeletedRecords(current);
+    if (JSON.stringify(current) === JSON.stringify(pruned)) return;
+    const now = new Date().toISOString();
+    const nextSettingsUpdatedAt = normalizeSettingsUpdatedAt({ ...settingsUpdatedAt, deletedRecords: now });
+    setDeletedRecordsRaw(pruned);
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+    save(`${uk}_deleted_records`, pruned);
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    save(`${uk}_updated_at`, now);
+    queueCloudSave(events, tasks, currentSettings({ deletedRecords: pruned, settingsUpdatedAt: nextSettingsUpdatedAt }));
+  }, [auth.user?.id, dataReady]);
 
   const setFontSize = v => {
     setFSRaw(v);
@@ -6028,6 +6088,15 @@ export default function App() {
     mainThings: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && Core.categoryIs(t.category, "main")).length,
     firstEvent: firstScheduledEvent ? `${fmt(firstScheduledEvent.start)} — ${firstScheduledEvent.title}` : null,
   };
+  const syncSettingsSnapshot = currentSettings();
+  const syncDebug = {
+    dataReady,
+    pendingLocalChanges,
+    lastSyncedAt,
+    deletedRecords: normalizeDeletedRecords(syncSettingsSnapshot.deletedRecords),
+    syncConflictLog: normalizeSyncConflictLog(syncSettingsSnapshot.syncConflictLog),
+    datasetCounts: syncDatasetCounts(events, tasks, syncSettingsSnapshot),
+  };
   const memoAppCSS    = appCSS(cvars, fontScale);
 
   return (
@@ -6174,6 +6243,20 @@ export default function App() {
   .notification-pref-emoji{font-size:18px;}.notification-pref-card strong,.notification-schedule-row strong{display:block;color:var(--text);font-size:12px;font-weight:950;}.notification-pref-card small,.notification-schedule-row small{display:block;color:var(--text3);font-size:10px;font-weight:850;margin-top:2px;}
   .notification-schedule-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}.notification-schedule-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;border:1px solid var(--border);background:var(--bg2);border-radius:16px;padding:10px 12px;}.notification-day-select{min-width:118px;padding:8px 10px;}
   @media(max-width:560px){.notification-pref-grid{grid-template-columns:1fr}.notification-schedule-row{grid-template-columns:minmax(0,1fr) auto;}.notification-schedule-row .meal-time,.notification-day-select{grid-column:1/-1;width:100%;}}
+
+  .sync-debug-panel{margin-top:12px;border:1px solid rgba(var(--accent-rgb),.16);background:var(--surface-soft);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+  .sync-debug-top{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text);font-size:12px;font-weight:950;}
+  .sync-debug-top span{font-size:10px;color:var(--accent);background:rgba(var(--accent-rgb),.10);border:1px solid rgba(var(--accent-rgb),.16);border-radius:999px;padding:4px 8px;}
+  .sync-debug-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;}
+  .sync-debug-grid div{background:var(--surface);border:1px solid rgba(var(--accent-rgb),.13);border-radius:14px;padding:8px 9px;min-width:0;}
+  .sync-debug-grid strong{display:block;color:var(--text);font-size:13px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sync-debug-grid span{display:block;color:var(--text3);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+  .sync-debug-datasets{display:flex;flex-wrap:wrap;gap:6px;}
+  .sync-debug-datasets span{font-size:10px;font-weight:850;color:var(--text2);background:var(--surface);border:1px solid rgba(var(--accent-rgb),.12);border-radius:999px;padding:4px 7px;}
+  .sync-conflict-list{display:flex;flex-direction:column;gap:6px;}
+  .sync-conflict-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;background:var(--surface);border:1px solid rgba(var(--accent-rgb),.12);border-radius:14px;padding:7px 8px;font-size:10px;}
+  .sync-conflict-row span{color:var(--accent);font-weight:950;}.sync-conflict-row strong{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.sync-conflict-row em{font-style:normal;color:var(--text3);font-weight:850;}
+  @media(max-width:560px){.sync-debug-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.sync-conflict-row{grid-template-columns:1fr}.sync-conflict-row strong{white-space:normal}}
 
 
   /* ── Phase 19: visual rebrand system ─────────────────────────────────────── */
@@ -6481,7 +6564,7 @@ export default function App() {
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} onClose={() => setShowStats(false)} />}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
