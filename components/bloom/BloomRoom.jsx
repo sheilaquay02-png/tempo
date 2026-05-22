@@ -345,7 +345,38 @@ function WeeklyResetRhythmCard({ weeklyResets = [] }) {
   );
 }
 
-export function BloomRoomPage({ gameStats, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [] }) {
+
+function ReflectionHubCard({ journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [] }) {
+  const todayKey = dateKey(TODAY);
+  const todayEntry = normalizeMemoryEntry(journal?.[todayKey] || {});
+  const todayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const mood = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === todayCheckIn.mood) : null;
+  const energy = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === todayCheckIn.energy) : null;
+  const todayReset = tomorrowResetForDate(tomorrowResets, TODAY);
+  const weekly = weeklyResetForDate(weeklyResets, TODAY);
+  const gratitude = (todayEntry.gratitude || []).filter(Boolean)[0] || todayReset?.reflection?.gratitude || "";
+  const journalDays = Object.entries(journal || {}).filter(([key, entry]) => key && hasJournalEntryForKey({ [key]: entry }, key)).length;
+  return (
+    <div className="reflection-hub-card game-soft-card">
+      <div className="game-card-head"><span className="game-card-title">Reflection Hub</span><span className="game-card-sub">journal + reset context</span></div>
+      <div className="tomorrow-reset-mini-grid reflection-hub-mini-grid">
+        <div><strong>{mood?.emoji || "🌿"}</strong><span>{mood ? mood.label : "Mood"}</span></div>
+        <div><strong>{energy?.emoji || "⚡"}</strong><span>{energy ? `${energy.label} energy` : "Energy"}</span></div>
+        <div><strong>{journalDays}</strong><span>journal days</span></div>
+        <div><strong>{weekly ? "✓" : "—"}</strong><span>weekly reset</span></div>
+      </div>
+      <div className="checkin-rhythm-current reflection-hub-note">
+        <span className="big-emoji">📔</span>
+        <div>
+          <strong>{todayReset?.reflection?.tomorrowMainThing ? `Tomorrow: ${todayReset.reflection.tomorrowMainThing}` : "A softer place to reflect"}</strong>
+          <p>{gratitude ? `Gratitude: ${gratitude}` : todayEntry.note ? todayEntry.note.slice(0, 110) : "Your gratitude, daily reflection, tomorrow intention, and weekly reset will build here."}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BloomRoomPage({ gameStats, journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [] }) {
   return (
     <div className="bloom-room-page">
       <div className="journal-header">
@@ -355,6 +386,7 @@ export function BloomRoomPage({ gameStats, dailyCheckIns = [], tomorrowResets = 
         </div>
         <div className="journal-streak">Lvl {gameStats?.level ?? 1} · {gameStats?.today?.rank ?? "D"} Rank · {gameStats?.unlockedBadges?.length ?? 0} badges</div>
       </div>
+      <ReflectionHubCard journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
       <CheckInRhythmCard dailyCheckIns={dailyCheckIns} />
       <TomorrowResetRhythmCard tomorrowResets={tomorrowResets} />
       <WeeklyResetRhythmCard weeklyResets={weeklyResets} />

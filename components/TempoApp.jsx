@@ -165,7 +165,7 @@ function StatsCard({ events, tasks, streak, gameStats, onClose }) {
 }
 
 // ─── Tomorrow Reset ───────────────────────────────────────────────────────────
-function CarryOverPrompt({ tasks, latestReset = null, gameStats, onCompleteReset, onDismiss }) {
+function TomorrowResetPage({ tasks, latestReset = null, gameStats, onCompleteReset, onBack }) {
   const actionById = useMemo(() => {
     const initial = {};
     tasks.forEach(t => { initial[t.id] = "tomorrow"; });
@@ -181,26 +181,37 @@ function CarryOverPrompt({ tasks, latestReset = null, gameStats, onCompleteReset
   }));
   const [showPrevious, setShowPrevious] = useState(Boolean(latestReset));
   useEffect(() => { setActions(actionById); }, [actionById]);
+  useEffect(() => {
+    if (!latestReset) return;
+    setReflection({
+      wentWell: latestReset?.reflection?.wentWell || "",
+      difficult: latestReset?.reflection?.difficult || "",
+      moveTomorrow: latestReset?.reflection?.moveTomorrow || "",
+      tomorrowMainThing: latestReset?.reflection?.tomorrowMainThing || "",
+      gratitude: latestReset?.reflection?.gratitude || "",
+    });
+    setShowPrevious(true);
+  }, [latestReset?.updatedAt]);
   const setTaskAction = (id, action) => setActions(prev => ({ ...prev, [id]: action }));
   const setAll = action => setActions(Object.fromEntries(tasks.map(t => [t.id, action])));
   const summary = TOMORROW_RESET_TASK_ACTIONS.map(action => ({ ...action, count: tasks.filter(t => actions[t.id] === action.id).length }));
   const hasReflection = Object.values(reflection).some(v => String(v || "").trim());
   const canSave = tasks.length > 0 || hasReflection;
   return (
-    <div className="modal-overlay" onClick={onDismiss} role="dialog" aria-modal="true" aria-label="Tomorrow Reset">
-      <div className="tomorrow-reset-card" onClick={e => e.stopPropagation()}>
+    <div className="tomorrow-reset-page">
+      <div className="tomorrow-reset-card page-card">
         <div className="tomorrow-reset-head">
           <div>
-            <div className="phase-kicker">Tomorrow Reset</div>
+            <div className="phase-kicker">Phase 13 · Tomorrow Reset</div>
             <h2>🌙 Close today calmly</h2>
-            <p>{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one.` : "No unfinished tasks today. You can still write a quick reflection."}</p>
+            <p>{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one, then save your reflection into Journal and Bloom Room.` : "No unfinished tasks today. You can still write a quick reflection and set tomorrow’s main thing."}</p>
           </div>
-          <button className="modal-close" onClick={onDismiss}>✕</button>
+          {onBack && <button className="tf-cancel tomorrow-reset-back" onClick={onBack}>← Back to Today</button>}
         </div>
         {latestReset && showPrevious && (
           <div className="tomorrow-reset-previous">
             <div><strong>Saved today</strong><span>{latestReset.completedAt ? new Date(latestReset.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Earlier"}</span></div>
-            <button className="tf-cancel" onClick={() => setShowPrevious(false)}>Edit another reset</button>
+            <button className="tf-cancel" onClick={() => setShowPrevious(false)}>Edit today’s reset</button>
           </div>
         )}
         {gameStats && <div className="eod-rank-card tomorrow-reset-rhythm">
@@ -240,7 +251,7 @@ function CarryOverPrompt({ tasks, latestReset = null, gameStats, onCompleteReset
           </div>
         </div>
         <div className="tomorrow-reset-footer">
-          <button className="tf-cancel" onClick={onDismiss}>Cancel</button>
+          {onBack && <button className="tf-cancel" onClick={onBack}>Cancel</button>}
           <button className="tf-save" disabled={!canSave} onClick={() => onCompleteReset({ taskActions: actions, reflection })}>Save reset →</button>
         </div>
       </div>
@@ -248,6 +259,10 @@ function CarryOverPrompt({ tasks, latestReset = null, gameStats, onCompleteReset
   );
 }
 
+// Legacy alias kept to avoid breaking older internal references.
+function CarryOverPrompt(props) {
+  return <TomorrowResetPage {...props} />;
+}
 
 
 function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns = [], latestReset = null, onCompleteReset }) {
@@ -2042,6 +2057,22 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
           </div>
         </div>
       )}
+
+      <div className="journal-reflection-hub">
+        <div className="journal-reflection-head">
+          <div>
+            <strong>Reflection Hub</strong>
+            <p>Today’s check-in, gratitude, tomorrow intention, and weekly reset in one calm space.</p>
+          </div>
+          <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>Write today’s journal</button>
+        </div>
+        <div className="journal-reflection-grid">
+          <div className="journal-reflection-tile"><span>Mood</span><strong>{todayCheckInMood ? `${todayCheckInMood.emoji} ${todayCheckInMood.label}` : "Not checked in"}</strong><p>{todayCheckInEnergy ? `${todayCheckInEnergy.emoji} ${todayCheckInEnergy.label} energy` : "Add energy for better planning."}</p></div>
+          <div className="journal-reflection-tile"><span>Gratitude</span><strong>{(normalizeMemoryEntry(journal[dateKey(TODAY)] || {}).gratitude || []).filter(Boolean)[0] || latestTomorrowReset?.reflection?.gratitude || "Not written yet"}</strong><p>Captured from Journal or Tomorrow Reset.</p></div>
+          <div className="journal-reflection-tile"><span>Tomorrow</span><strong>{latestTomorrowReset?.reflection?.tomorrowMainThing || "No main thing yet"}</strong><p>{latestTomorrowReset ? "Saved from your reset." : "Start Tomorrow Reset to set it."}</p></div>
+          <div className="journal-reflection-tile"><span>Week</span><strong>{latestWeeklyReset?.intention || latestWeeklyReset?.priorities?.[0] || "No weekly intention"}</strong><p>{latestWeeklyReset ? "Your weekly rhythm is saved." : "Run Weekly Reset when ready."}</p></div>
+        </div>
+      </div>
 
       <div className="memory-search-section">
         <input className="memory-search-input" value={memorySearch} onChange={e=>setMemorySearch(e.target.value)} placeholder="Search memories, tags, gratitude, captions…" />
@@ -5462,7 +5493,7 @@ export default function App() {
             <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
             <div className="nav-section-label" style={{marginTop:8}}>Planning</div>
             <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan Today</div>
-            <div className="nav-item" onClick={() => { setShowCarryOver(true); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
+            <div className={`nav-item ${page==="tomorrow-reset"?"active":""}`} onClick={() => { setPage("tomorrow-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
             <div className={`nav-item ${page==="weekly-reset"?"active":""}`} onClick={() => { setPage("weekly-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🧺</span>Weekly Reset</div>
             <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
@@ -5494,19 +5525,21 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setShowCarryOver(true)} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
-            <BloomRoomPage gameStats={gameStats} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
+            <BloomRoomPage gameStats={gameStats} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
           ) : page === "rituals" ? (
             <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
             <HabitsPage habits={habits} completions={habitCompletions} onAdd={addHabit} onEdit={editHabit} onDelete={deleteHabit} onArchive={archiveHabit} onToggle={toggleHabitToday} onIncrement={incrementHabitToday} />
           ) : page === "affirmations" ? (
             <ComingSoonPage icon="💌" title="Affirmations" phase="Later phase" description="A soft daily affirmation card for Bloom Room, Today, and future rituals." bullets={["Daily affirmation", "Favorites", "Custom affirmations", "Optional reminder"]} />
+          ) : page === "tomorrow-reset" ? (
+            <TomorrowResetPage tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
           ) : page === "weekly-reset" ? (
             <WeeklyResetPage tasks={tasks} events={visibleEvents} habits={habits} dailyCheckIns={dailyCheckIns} latestReset={weeklyResetForDate(weeklyResets, TODAY)} onCompleteReset={saveWeeklyReset} />
           ) : (<>
@@ -5626,8 +5659,7 @@ export default function App() {
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
-      {/* End of day carry-over: only surface after work hours to avoid mid-day false positives */}
-      {showCarryOver && <CarryOverPrompt tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onDismiss={() => setShowCarryOver(false)} />}
+      {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (

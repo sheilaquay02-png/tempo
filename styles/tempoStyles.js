@@ -261,6 +261,10 @@ export function appCSS(cvars, fontScale) { return `
   .co-dur{margin-left:auto;font-size:10px;font-family:var(--mono);color:var(--text3);}
   .carryover-actions{display:flex;gap:8px;justify-content:flex-end;}
   .tomorrow-reset-card{background:var(--bg2);border-radius:26px;border:1.5px solid var(--border);padding:20px;width:760px;max-width:calc(100vw - 32px);max-height:92vh;overflow:auto;box-shadow:0 24px 64px rgba(255,123,172,.18);animation:popIn .22s cubic-bezier(.34,1.56,.64,1);}
+  .tomorrow-reset-page{padding:22px;max-width:1040px;margin:0 auto;width:100%;height:100%;overflow:auto;}
+  .tomorrow-reset-page .tomorrow-reset-card{width:100%;max-width:none;max-height:none;overflow:visible;box-shadow:var(--shadow-sm);animation:none;}
+  .tomorrow-reset-card.page-card{padding:22px;}
+  .tomorrow-reset-back{white-space:nowrap;}
   .tomorrow-reset-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;}
   .tomorrow-reset-head h2{margin:2px 0 6px;font-size:26px;line-height:1.05;color:var(--text);}
   .tomorrow-reset-head p{margin:0;color:var(--text2);font-size:13px;line-height:1.45;max-width:560px;}
@@ -1269,6 +1273,13 @@ export function appCSS(cvars, fontScale) { return `
   .checkin-preview-card strong{display:block;font-size:14px;color:var(--text);}
   .checkin-preview-card p{margin:4px 0 0;color:var(--text2);font-size:13px;line-height:1.4;}
 
+  .journal-reflection-hub{margin:0 14px 14px;border:1.5px solid rgba(184,111,143,.18);background:linear-gradient(135deg,rgba(255,250,252,.96),rgba(255,255,255,.76));border-radius:24px;padding:16px;box-shadow:var(--shadow-sm);}
+  .journal-reflection-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px;}
+  .journal-reflection-head strong{display:block;color:var(--text);font-size:15px;}.journal-reflection-head p{margin:4px 0 0;color:var(--text2);font-size:12px;line-height:1.35;}
+  .journal-reflection-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+  .journal-reflection-tile{border:1px solid var(--border);background:rgba(255,255,255,.68);border-radius:16px;padding:11px;min-height:82px;}
+  .journal-reflection-tile span{display:block;font-size:11px;color:var(--text3);font-weight:900;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .journal-reflection-tile strong{display:block;color:var(--text);font-size:13px;line-height:1.3;}.journal-reflection-tile p{margin:4px 0 0;color:var(--text2);font-size:11px;line-height:1.35;}
   .journal-checkin-card{
     margin:14px 16px;
     border:1px solid rgba(184,111,143,.18);
@@ -1308,15 +1319,20 @@ export function appCSS(cvars, fontScale) { return `
   .checkin-rhythm-dot.empty{color:var(--text3);font-size:13px;font-weight:900;}
   .tomorrow-reset-rhythm-card{border:1px solid rgba(184,111,143,.18);border-radius:24px;background:linear-gradient(135deg,rgba(255,250,252,.9),rgba(255,255,255,.72));box-shadow:var(--shadow-sm);padding:16px;margin-bottom:14px;}
   .tomorrow-reset-mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px;}.tomorrow-reset-mini-grid div{border:1px solid var(--border);background:rgba(255,255,255,.68);border-radius:14px;padding:10px;text-align:center;}.tomorrow-reset-mini-grid strong{display:block;font-size:18px;color:var(--accent);}.tomorrow-reset-mini-grid span{display:block;margin-top:2px;font-size:10px;color:var(--text3);font-weight:900;text-transform:uppercase;letter-spacing:.03em;}
+  .reflection-hub-card{border:1px solid rgba(184,111,143,.18);border-radius:24px;background:linear-gradient(135deg,rgba(255,250,252,.94),rgba(255,255,255,.76));box-shadow:var(--shadow-sm);padding:16px;margin-bottom:14px;}
+  .reflection-hub-mini-grid strong{font-size:19px;}
+  .reflection-hub-note{margin-top:14px;}
 
 
   .dark .checkin-modal,
   .dark .checkin-note-input,
   .dark .checkin-option,
   .dark .checkin-preview-card,
+  .dark .journal-reflection-hub,
   .dark .journal-checkin-card,
   .dark .journal-reset-card,
   .dark .checkin-rhythm-card,
+  .dark .reflection-hub-card,
   .dark .tomorrow-reset-rhythm-card,
   .dark .weekly-reset-rhythm-card,
   .dark .checkin-rhythm-current .big-emoji,
@@ -1327,11 +1343,22 @@ export function appCSS(cvars, fontScale) { return `
     .checkin-modal-head h2{font-size:24px;}
     .mood-options-grid,.energy-options-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     .checkin-option{min-height:82px;}
-    .journal-checkin-card{align-items:flex-start;flex-direction:column;margin-left:12px;margin-right:12px;}
+    .journal-reflection-hub{margin:0 14px 14px;border:1.5px solid rgba(184,111,143,.18);background:linear-gradient(135deg,rgba(255,250,252,.96),rgba(255,255,255,.76));border-radius:24px;padding:16px;box-shadow:var(--shadow-sm);}
+  .journal-reflection-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px;}
+  .journal-reflection-head strong{display:block;color:var(--text);font-size:15px;}.journal-reflection-head p{margin:4px 0 0;color:var(--text2);font-size:12px;line-height:1.35;}
+  .journal-reflection-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+  .journal-reflection-tile{border:1px solid var(--border);background:rgba(255,255,255,.68);border-radius:16px;padding:11px;min-height:82px;}
+  .journal-reflection-tile span{display:block;font-size:11px;color:var(--text3);font-weight:900;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .journal-reflection-tile strong{display:block;color:var(--text);font-size:13px;line-height:1.3;}.journal-reflection-tile p{margin:4px 0 0;color:var(--text2);font-size:11px;line-height:1.35;}
+  .journal-checkin-card{align-items:flex-start;flex-direction:column;margin-left:12px;margin-right:12px;}
     .journal-checkin-actions{width:100%;justify-content:space-between;}
     .journal-checkin-actions .tf-save{padding-inline:14px;}
     .journal-reset-card{align-items:flex-start;flex-direction:column;margin-left:12px;margin-right:12px;}
     .tomorrow-reset-card{width:100vw;max-width:100vw;border-radius:26px 26px 0 0;max-height:92vh;margin-top:auto;}
+    .tomorrow-reset-page{padding:16px 12px 88px;}
+    .tomorrow-reset-page .tomorrow-reset-card{width:100%;max-width:none;border-radius:24px;max-height:none;margin-top:0;}
+    .tomorrow-reset-head{flex-direction:column;}
+    .tomorrow-reset-back{width:100%;}
     .tomorrow-reset-task{grid-template-columns:1fr;}
     .tomorrow-reset-reflection-grid{grid-template-columns:1fr;}
     .tomorrow-reset-section-head{align-items:flex-start;flex-direction:column;}
