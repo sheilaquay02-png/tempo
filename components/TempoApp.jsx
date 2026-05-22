@@ -6448,7 +6448,7 @@ export default function App() {
   /* ── Phase 21 + debug hotfixes ───────────────────────────────────────── */
   .content-area{min-height:0!important;}
   .calendar-pane{min-height:0!important;}
-  .calendar-pane.view-day,.calendar-pane.view-week{display:block!important;overflow-y:auto!important;min-height:0!important;height:100%!important;padding-bottom:28px!important;}
+  .calendar-pane.view-day,.calendar-pane.view-week{display:block!important;overflow-y:auto!important;min-height:0!important;height:100%!important;padding-bottom:34px!important;}
   .calendar-pane.view-day .day-view,.calendar-pane.view-week .week-timetable{min-height:max-content!important;overflow:visible!important;}
   .calendar-pane.view-week .wt-grid,.calendar-pane.view-day .day-grid{min-height:calc((var(--calendar-hours, 18))*48px);}
   .calendar-pane.view-month{container-type:inline-size;min-width:0!important;}
@@ -6873,6 +6873,47 @@ export default function App() {
   .today-top3-card .today-empty-sugar img{width:92px!important;height:92px!important;}
 }
 
+
+
+/* ── Pre Phase 22 debug 7: raise mobile journal viewer above footer ───────── */
+@media(max-width:768px){
+  .modal-overlay[aria-label="View journal entry"]{
+    position:fixed!important;
+    inset:0 0 calc(var(--mobile-nav-h,78px) + 54px) 0!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:10px 10px 12px!important;
+    align-items:center!important;
+    justify-content:center!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    margin:0 auto!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header{
+    flex:0 0 auto!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:20!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    padding-bottom:34px!important;
+  }
+}
 `}</style>
 
       <div className="app">

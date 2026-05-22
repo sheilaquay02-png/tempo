@@ -1571,4 +1571,45 @@ export function appCSS(cvars, fontScale) { return `
 @media(max-width:900px){.rhythm-stats-page{padding:12px 12px calc(var(--mobile-nav-h,78px) + 28px)!important;}.rhythm-stats-hero{position:sticky!important;top:0!important;z-index:70;background:var(--surface)!important;}.rhythm-stats-card-page{padding:14px!important;border-radius:22px!important;}.rhythm-stats-game-grid{grid-template-columns:1fr!important;}.rhythm-stats-page .streak-grid-five{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;}.rhythm-stats-page .streak-pill{padding:8px 4px!important;}.rhythm-stats-page .streak-pill strong{font-size:14px!important;}.rhythm-stats-page .streak-pill small{font-size:8px!important;}}
 
 
+/* ── Pre Phase 22 debug 7: raise mobile journal viewer above footer ───────── */
+@media(max-width:768px){
+  .modal-overlay[aria-label="View journal entry"]{
+    position:fixed!important;
+    inset:0 0 calc(var(--mobile-nav-h,78px) + 54px) 0!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:10px 10px 12px!important;
+    align-items:center!important;
+    justify-content:center!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    margin:0 auto!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header{
+    flex:0 0 auto!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:20!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    padding-bottom:34px!important;
+  }
+}
+
+
 `; }
