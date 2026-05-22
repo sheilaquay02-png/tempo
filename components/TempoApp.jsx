@@ -6,7 +6,7 @@ const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurrin
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
-import { LevelBar, BloomRoomPage } from "./bloom/BloomRoom";
+import { BloomRoomPage } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 function RecurrenceEditor({ value, onChange, startDate }) {
   const rec = normalizeRecurrence(value);
@@ -2252,35 +2252,34 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         <span className="mood-stats-month">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})}</span>
       </div>
 
-      <div className="journal-checkin-card">
-        <div className="journal-checkin-main">
-          <span>{todayCheckInMood?.emoji || "🌿"}</span>
-          <div>
-            <strong>{todayCheckInMood ? `Feeling ${todayCheckInMood.label}` : "No check-in yet"}</strong>
-            <p>{todayCheckInEnergy ? `${todayCheckInEnergy.emoji} ${todayCheckInEnergy.label} energy` : "Add today’s energy level"}{todayCheckIn?.note ? ` · ${todayCheckIn.note.slice(0, 80)}` : ""}</p>
+      <div className="journal-top-card-row">
+        <div className="journal-checkin-card">
+          <div className="journal-checkin-main">
+            <span>{todayCheckInMood?.emoji || "🌿"}</span>
+            <div>
+              <strong>{todayCheckInMood ? `Feeling ${todayCheckInMood.label}` : "No check-in yet"}</strong>
+              <p>{todayCheckInEnergy ? `${todayCheckInEnergy.emoji} ${todayCheckInEnergy.label} energy` : "Add today’s energy level"}{todayCheckIn?.note ? ` · ${todayCheckIn.note.slice(0, 80)}` : ""}</p>
+            </div>
+          </div>
+          <div className="journal-checkin-actions">
+            <span>{monthCheckIns.length} check-in{monthCheckIns.length === 1 ? "" : "s"} this month</span>
+            <button className="tf-save journal-today-btn" onClick={onOpenCheckIn}>{todayCheckIn ? "Edit check-in" : "Check in"}</button>
           </div>
         </div>
-        <div className="journal-checkin-actions">
-          <span>{monthCheckIns.length} check-in{monthCheckIns.length === 1 ? "" : "s"} this month</span>
-          <button className="tf-save journal-today-btn" onClick={onOpenCheckIn}>{todayCheckIn ? "Edit check-in" : "Check in"}</button>
-        </div>
-      </div>
 
-      {latestTomorrowReset && (
         <div className="journal-reset-card">
           <div className="journal-reset-main">
             <span>🌙</span>
             <div>
-              <strong>Tomorrow Reset saved</strong>
-              <p>{latestTomorrowReset.reflection?.tomorrowMainThing ? `Tomorrow’s main thing: ${latestTomorrowReset.reflection.tomorrowMainThing}` : `${latestTomorrowReset.summary?.movedTomorrow || 0} moved to tomorrow · ${latestTomorrowReset.summary?.movedWeek || 0} kept this week`}</p>
+              <strong>{latestTomorrowReset ? "Tomorrow Reset saved" : "No Tomorrow Reset yet"}</strong>
+              <p>{latestTomorrowReset ? (latestTomorrowReset.reflection?.tomorrowMainThing ? `Tomorrow’s main thing: ${latestTomorrowReset.reflection.tomorrowMainThing}` : `${latestTomorrowReset.summary?.movedTomorrow || 0} moved to tomorrow · ${latestTomorrowReset.summary?.movedWeek || 0} kept this week`) : "Close the day gently when you are ready."}</p>
             </div>
           </div>
           <div className="journal-checkin-actions">
             <span>{monthTomorrowResets.length} reset{monthTomorrowResets.length === 1 ? "" : "s"} this month</span>
           </div>
         </div>
-      )}
-
+      </div>
 
       {latestWeeklyReset && (
         <div className="journal-reset-card journal-weekly-reset-card">
@@ -2379,7 +2378,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
       </div>
 
       {/* Recent entries list */}
-      <div className="journal-entries-section">
+      <div className="journal-entries-section journal-recent-list-section">
         <div className="journal-entries-title">{memoryFiltersActive ? "Matching Memories" : "Recent Entries"}</div>
         {searchableEntries
           .slice(0,10)
@@ -3092,7 +3091,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
   ];
   return (
     <div className="phase-page today-page-v2">
-      <div className="today-dashboard-hero">
+      <div className="today-dashboard-hero today-top-layout">
         <div className="today-hero-copy">
           <div className="phase-kicker">Today</div>
           <h1>{greeting} ✨</h1>
@@ -3102,6 +3101,15 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
             <button className="tf-cancel" onClick={onTomorrowReset}>🌙 Tomorrow Reset</button>
           </div>
         </div>
+
+        <section className="phase-card today-main-card today-top3-card">
+          <div className="phase-card-head"><span>Top 3 Tasks</span><button onClick={onOpenTasks}>Open tasks</button></div>
+          {topTasks.length ? <div className="today-task-list">{topTasks.map((t, idx) => {
+            const cat = catFor(t.category);
+            return <div key={t.id} className="today-task-row"><button className="today-task-check" onClick={() => onToggleTask?.(t.id)} aria-label={`Mark ${t.title} done`}>□</button><div><strong>{idx + 1}. {t.title}</strong><small><span style={{ color: cat.color }}>{cat.icon || "□"}</span> {cat.label}{t.deadline ? ` · due ${fmtDate(new Date(t.deadline))}` : ""}</small></div><button className="today-row-action" onClick={() => onEditTask?.(t)}>Edit</button></div>;
+          })}</div> : <div className="today-empty-sugar"><img src="/memory-assets/stickers/sugar/1.png" alt="Sugar mascot relaxing" /><strong>All clear! No tasks for now. Enjoy the free time 🌸</strong></div>}
+        </section>
+
         <div className="today-hero-stack">
           <DailyAffirmationCard compact affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} />
           <div className="today-checkin-card">
@@ -3118,15 +3126,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
         <button onClick={onOpenCalendar}><span>🕊️</span><strong>{summary?.freeHours ?? 0}h</strong><small>Free time</small></button>
       </div>
 
-      <div className="today-dashboard-grid">
-        <section className="phase-card today-main-card">
-          <div className="phase-card-head"><span>Top 3</span><button onClick={onOpenTasks}>Open tasks</button></div>
-          {topTasks.length ? <div className="today-task-list">{topTasks.map((t, idx) => {
-            const cat = catFor(t.category);
-            return <div key={t.id} className="today-task-row"><button className="today-task-check" onClick={() => onToggleTask?.(t.id)} aria-label={`Mark ${t.title} done`}>□</button><div><strong>{idx + 1}. {t.title}</strong><small><span style={{ color: cat.color }}>{cat.icon || "□"}</span> {cat.label}{t.deadline ? ` · due ${fmtDate(new Date(t.deadline))}` : ""}</small></div><button className="today-row-action" onClick={() => onEditTask?.(t)}>Edit</button></div>;
-          })}</div> : <div className="phase-empty">No open day tasks yet. Add one task or use Plan Today 🌿</div>}
-        </section>
-
+      <div className="today-dashboard-grid today-calendar-habits-grid">
         <section className="phase-card today-side-card">
           <div className="phase-card-head"><span>Calendar</span><button onClick={onOpenCalendar}>Open calendar</button></div>
           {todayEvents.length ? <div className="today-event-list">{todayEvents.map(e => <div key={e.id} className="today-event-row"><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong><small>{e.allDay ? "" : `${fmt(e.start)} – ${fmt(e.end)}`}</small></div></div>)}</div> : <div className="phase-empty">No events scheduled yet.</div>}
@@ -3138,16 +3138,11 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
         </section>
       </div>
 
-      <div className="today-bottom-grid">
+      <div className="today-bottom-grid today-journal-only">
         <section className="phase-card today-journal-card">
           <div className="phase-card-head"><span>Journal Prompt</span><button onClick={onOpenJournal}>Open Journal</button></div>
           <p className="today-prompt">{prompt}</p>
           <div className="today-journal-actions"><button className="tf-cancel" onClick={onOpenJournal}>📔 Write today’s entry</button><button className="tf-save" onClick={onTomorrowReset}>🌙 Start Tomorrow Reset</button></div>
-        </section>
-        <section className="phase-card today-next-card">
-          <div className="phase-card-head"><span>Next gentle step</span><small>Daily loop</small></div>
-          <div className="today-loop"><span>Check in</span><i /> <span>Plan</span><i /> <span>Do</span><i /> <span>Reset</span><i /> <span>Reflect</span></div>
-          <p className="phase-copy">Use this page as your daily home base: choose your top tasks, check habits, read your affirmation, then reset tomorrow before the day ends.</p>
         </section>
       </div>
     </div>
@@ -6531,6 +6526,99 @@ export default function App() {
   .phase-page,.tasks-page,.journal-page,.bloom-room-page,.affirmations-page,.tomorrow-reset-page,.weekly-reset-page{height:100%!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--mobile-nav-h) + 22px)!important;}
 }
 
+
+/* ── Pre Phase 22 final phone-first layout audit ─────────────────────────── */
+.today-top-layout{grid-template-columns:minmax(210px,.72fr) minmax(330px,1.22fr) minmax(280px,.86fr)!important;gap:16px!important;}
+.today-hero-copy{min-width:0;}
+.today-top3-card{min-width:0;}
+.today-top3-card .today-task-row{padding:12px 13px;}
+.today-hero-stack{min-width:0;display:flex;flex-direction:column;gap:12px;}
+.today-rhythm-strip{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;width:100%!important;max-width:100%!important;}
+.today-rhythm-strip button{min-width:0!important;width:100%!important;box-sizing:border-box!important;}
+.today-calendar-habits-grid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;width:100%!important;max-width:100%!important;}
+.today-calendar-habits-grid>.phase-card{min-width:0!important;width:100%!important;box-sizing:border-box!important;}
+.today-next-card,[data-section="next-gentle-step"]{display:none!important;}
+.journal-top-card-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;margin:14px 16px!important;}
+.journal-top-card-row>.journal-checkin-card,.journal-top-card-row>.journal-reset-card{min-width:0!important;width:100%!important;}
+.bloom-card-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;align-items:stretch!important;}
+.bloom-card-row>.game-soft-card,.bloom-card-row>.checkin-rhythm-card,.bloom-card-row>.affirmation-rhythm-card,.bloom-card-row>.tomorrow-reset-rhythm-card,.bloom-card-row>.weekly-reset-rhythm-card{min-width:0!important;width:100%!important;height:100%!important;}
+.checkin-rhythm-current .big-emoji{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;font-size:28px!important;line-height:1!important;}
+@media(max-width:1180px){.today-top-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;}.today-hero-copy{grid-column:1/-1!important;}.today-hero-stack{grid-column:auto!important;}}
+@media(max-width:980px){.today-top-layout{grid-template-columns:1fr!important;}.today-calendar-habits-grid,.bloom-card-row,.journal-top-card-row{grid-template-columns:1fr!important;}.today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
+@media(max-width:768px){
+  :root{--mobile-nav-h:calc(74px + env(safe-area-inset-bottom));}
+  .mobile-nav{height:var(--mobile-nav-h)!important;min-height:var(--mobile-nav-h)!important;padding:5px 5px calc(6px + env(safe-area-inset-bottom))!important;gap:2px!important;}
+  .mobile-nav-btn{height:48px!important;min-height:48px!important;border-radius:14px!important;font-size:17px!important;padding:3px 1px!important;}
+  .mobile-nav-btn span{font-size:8.2px!important;letter-spacing:-.02em!important;}
+  .phase-page,.tasks-page,.journal-page,.bloom-room-page,.affirmations-page,.tomorrow-reset-page,.weekly-reset-page,.calendar-pane{padding-bottom:calc(var(--mobile-nav-h) + 22px)!important;}
+  .today-top-layout{grid-template-columns:1fr!important;gap:10px!important;}
+  .today-hero-copy{padding:14px!important;border-radius:22px!important;}
+  .today-hero-copy h1{font-size:24px!important;margin-bottom:2px!important;}
+  .today-hero-copy p{font-size:12px!important;}
+  .today-hero-actions{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+  .today-hero-actions button{min-height:42px!important;padding:9px 10px!important;}
+  .today-top3-card,.today-checkin-card,.affirmation-daily-card{padding:13px!important;border-radius:20px!important;}
+  .today-top3-card .today-task-list{gap:7px!important;}
+  .today-top3-card .today-task-row{min-height:44px!important;padding:9px 10px!important;}
+  .today-empty-sugar{min-height:118px!important;padding:10px!important;}
+  .today-empty-sugar img{width:72px!important;height:72px!important;}
+  .today-empty-sugar strong{font-size:12px!important;}
+  .today-rhythm-strip{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important;}
+  .today-rhythm-strip button{min-height:58px!important;padding:8px 3px!important;border-radius:16px!important;}
+  .today-rhythm-strip button>span{font-size:16px!important;}
+  .today-rhythm-strip strong{font-size:16px!important;line-height:1!important;}
+  .today-rhythm-strip small{font-size:8px!important;line-height:1!important;}
+  .today-calendar-habits-grid{grid-template-columns:1fr!important;gap:10px!important;}
+  .today-side-card,.today-wide-card,.today-journal-card{padding:13px!important;border-radius:20px!important;}
+
+  /* Journal: compact calendar-first phone layout */
+  .journal-page{padding:8px 8px calc(var(--mobile-nav-h) + 18px)!important;gap:8px!important;}
+  .journal-header{position:sticky!important;top:0!important;z-index:90!important;margin:0 -8px 6px!important;padding:9px 10px!important;min-height:48px!important;border-radius:0 0 18px 18px!important;}
+  .journal-title{font-size:15px!important;}
+  .journal-streak{font-size:10px!important;padding:5px 7px!important;}
+  .journal-today-btn{min-height:34px!important;padding:7px 8px!important;font-size:10px!important;}
+  .mood-stats-bar{margin:4px 0 7px!important;padding:7px 8px!important;gap:5px!important;}
+  .mood-stat-pill{padding:3px 6px!important;font-size:11px!important;}
+  .mood-stats-month{font-size:10px!important;margin-left:auto!important;}
+  .journal-top-card-row{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;margin:7px 0!important;}
+  .journal-checkin-card,.journal-reset-card{padding:9px!important;border-radius:16px!important;min-height:92px!important;}
+  .journal-checkin-main,.journal-reset-main{gap:7px!important;align-items:flex-start!important;}
+  .journal-checkin-main>span,.journal-reset-main>span{font-size:20px!important;width:28px!important;height:28px!important;flex:0 0 28px!important;}
+  .journal-checkin-main strong,.journal-reset-main strong{font-size:11px!important;line-height:1.15!important;}
+  .journal-checkin-main p,.journal-reset-main p{font-size:9.5px!important;line-height:1.25!important;margin-top:2px!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+  .journal-checkin-actions{margin-top:6px!important;gap:4px!important;}
+  .journal-checkin-actions span{font-size:9px!important;}
+  .journal-checkin-actions .journal-today-btn{min-height:30px!important;padding:5px 7px!important;font-size:9px!important;}
+  .journal-weekly-reset-card,.journal-reflection-hub,.memory-search-section,.memory-throwback-section,.journal-recent-list-section{display:none!important;}
+  .memory-book-section{margin-top:8px!important;padding:10px!important;border-radius:18px!important;}
+  .memory-book-head{margin-bottom:7px!important;gap:6px!important;align-items:center!important;}
+  .memory-book-title{font-size:14px!important;}
+  .memory-book-sub{font-size:9.5px!important;}
+  .memory-book-actions{gap:4px!important;}
+  .memory-book-actions .journal-today-btn{min-height:32px!important;padding:6px 7px!important;font-size:9.5px!important;}
+  .memory-filter-row{display:none!important;}
+  .memory-page-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:3px!important;width:100%!important;}
+  .memory-page-card{min-width:0!important;min-height:48px!important;aspect-ratio:1/.98!important;border-radius:10px!important;padding:3px!important;box-shadow:none!important;}
+  .memory-page-date{font-size:9px!important;top:4px!important;left:5px!important;}
+  .memory-page-main{font-size:13px!important;gap:1px!important;}
+  .memory-page-main strong{font-size:8px!important;}
+  .memory-page-meta{display:none!important;}
+  .memory-page-cover{border-radius:9px!important;}
+  .memory-page-shade{border-radius:10px!important;}
+
+  /* Bloom: keep paired cards on one row while staying readable */
+  .bloom-room-page{padding:8px 8px calc(var(--mobile-nav-h) + 18px)!important;}
+  .bloom-card-row{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;margin-bottom:8px!important;}
+  .bloom-card-row .game-soft-card,.bloom-card-row .checkin-rhythm-card,.bloom-card-row .affirmation-rhythm-card,.bloom-card-row .tomorrow-reset-rhythm-card,.bloom-card-row .weekly-reset-rhythm-card{padding:10px!important;border-radius:16px!important;}
+  .bloom-card-row .game-card-title{font-size:11px!important;}
+  .bloom-card-row .game-card-sub{font-size:8.5px!important;}
+  .bloom-card-row .checkin-rhythm-current{gap:7px!important;align-items:flex-start!important;}
+  .bloom-card-row .checkin-rhythm-current .big-emoji{width:30px!important;height:30px!important;flex-basis:30px!important;font-size:21px!important;}
+  .bloom-card-row .checkin-rhythm-current strong{font-size:10.5px!important;line-height:1.18!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+  .bloom-card-row .checkin-rhythm-current p{font-size:9px!important;line-height:1.25!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+  .bloom-card-row .tomorrow-reset-mini-grid{display:none!important;}
+}
+
 `}</style>
 
       <div className="app">
@@ -6540,14 +6628,12 @@ export default function App() {
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
             {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
-            <button type="button" className="sidebar-daily-stats-btn" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}>📊 Rhythm Stats</button>
-            <div className="sidebar-sync-menu-pill">
+            <div className="sidebar-sync-under-user">
+              <button type="button" className="sidebar-sync-now-btn" onClick={forceSyncNow}>↻ Sync now</button>
               <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
             </div>
-            <button type="button" className="mobile-menu-sync-btn" onClick={forceSyncNow}>↻ Sync now</button>
           </div>
           {(() => { const todayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY); const m = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x=>x.id===todayCheckIn.mood) : null; const e = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x=>x.id===todayCheckIn.energy) : null; return m ? <div className="mood-bar" onClick={() => { setShowCheckIn(true); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}{e ? ` · ${e.label} energy` : ""}</div> : null; })()}
-          <LevelBar gameStats={gameStats} />
           <nav className="sidebar-nav">
             <div className="nav-section-label">Main</div>
             <div className={`nav-item ${page==="today"?"active":""}`} onClick={() => { setPage("today"); closeSidebarOnMobile(); }}><span className="nav-icon">🌤️</span>Today</div>
@@ -6562,6 +6648,7 @@ export default function App() {
             <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className={`nav-item ${page==="affirmations"?"active":""}`} onClick={() => { setPage("affirmations"); closeSidebarOnMobile(); }}><span className="nav-icon">💌</span>Affirmations</div>
+            <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">
@@ -7011,6 +7098,54 @@ const loginCSS = `
   .habit-template-library .phase-card-head{align-items:flex-start!important;gap:8px!important;}
   .habit-template-library .phase-card-head button{min-height:40px!important;}
   .reset-hero-oneline{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;}
+}
+
+
+/* ── Pre Phase 22 layout polish requested before Google sync ─────────────── */
+.sidebar-sync-under-user{display:flex;flex-direction:column;gap:7px;margin-top:10px;align-items:flex-start;}
+.sidebar-sync-now-btn{border:1px solid rgba(var(--accent-rgb),.18);background:var(--surface,rgba(255,255,255,.82));color:var(--accent);border-radius:999px;padding:7px 11px;font:inherit;font-size:11px;font-weight:950;cursor:pointer;box-shadow:var(--shadow-sm);}
+.sidebar-sync-under-user .sync-pill{max-width:100%;}
+.today-top-layout{grid-template-columns:minmax(240px,.9fr) minmax(280px,1fr) minmax(300px,.92fr)!important;align-items:stretch!important;}
+.today-top3-card{display:flex;flex-direction:column;min-height:100%;}
+.today-top3-card .today-task-list{flex:1;}
+.today-empty-sugar{min-height:190px;border:1px dashed rgba(var(--accent-rgb),.22);background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,248,251,.72));border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:14px;}
+.today-empty-sugar img{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(116,78,60,.10));}
+.today-empty-sugar strong{display:block;max-width:260px;color:var(--text);font-size:13px;line-height:1.35;}
+.today-rhythm-strip{grid-template-columns:repeat(4,minmax(0,1fr))!important;width:100%;}
+.today-rhythm-strip button{width:100%;min-width:0;}
+.today-calendar-habits-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start;}
+.today-journal-only{grid-template-columns:1fr!important;}
+.today-next-card{display:none!important;}
+.journal-top-card-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:14px 16px;}
+.journal-top-card-row .journal-checkin-card,.journal-top-card-row .journal-reset-card{margin:0!important;height:100%;}
+.bloom-card-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:14px;}
+.bloom-card-row .game-soft-card,.bloom-card-row .checkin-rhythm-card,.bloom-card-row .tomorrow-reset-rhythm-card,.bloom-card-row .weekly-reset-rhythm-card,.bloom-card-row .affirmation-rhythm-card{margin-bottom:0!important;height:100%;}
+.checkin-rhythm-no-icon{padding-left:initial!important;}
+.checkin-rhythm-no-icon::before,.checkin-rhythm-no-icon>span:empty{display:initial!important;content:normal!important;}
+@media(max-width:1180px){
+  .today-top-layout{grid-template-columns:1fr 1fr!important;}
+  .today-hero-copy{grid-column:1/-1;}
+}
+@media(max-width:980px){
+  .today-top-layout,.today-calendar-habits-grid,.journal-top-card-row,.bloom-card-row{grid-template-columns:1fr!important;}
+  .today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+@media(max-width:768px){
+  .sidebar-sync-under-user{margin-top:9px;}
+  .sidebar-sync-under-user .sync-pill{display:none!important;}
+  .sidebar-sync-now-btn{width:100%;justify-content:center;min-height:38px;}
+  .today-top-layout,.today-calendar-habits-grid,.journal-top-card-row,.bloom-card-row{grid-template-columns:1fr!important;gap:12px!important;}
+  .today-empty-sugar{min-height:150px;}
+  .today-empty-sugar img{width:86px;height:86px;}
+  .today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;}
+  .today-rhythm-strip button{min-height:76px!important;padding:12px 10px!important;}
+  .today-rhythm-strip strong{font-size:20px!important;}
+  .today-dashboard-grid,.today-bottom-grid{gap:12px!important;}
+  .journal-top-card-row{margin:12px!important;}
+  .journal-checkin-card,.journal-reset-card{flex-direction:column!important;align-items:flex-start!important;}
+  .journal-checkin-actions{width:100%;justify-content:space-between;}
+  .bloom-card-row{margin-bottom:12px!important;}
+  .bloom-room-page .checkin-rhythm-card{margin-top:0!important;}
 }
 
 `;

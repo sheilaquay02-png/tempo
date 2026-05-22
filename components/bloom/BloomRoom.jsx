@@ -10,7 +10,7 @@ export function LevelBar({ gameStats }) {
     <div className="level-card simplified-rhythm-card">
       <div className="level-topline">
         <div>
-          <div className="level-label">Daily Rhythm</div>
+          <div className="level-label">Consistency</div>
           <div className="level-title">{rhythmDays ? `${rhythmDays} day rhythm` : "Start gently"}</div>
         </div>
         <div className="level-xp">🌿</div>
@@ -47,7 +47,7 @@ export function DailyQuestsCard({ gameStats }) {
   return (
     <div className="daily-quests-card">
       <div className="game-card-head">
-        <div><span className="game-card-title">Daily Rhythm</span><span className="game-card-sub"> {done}/{gameStats.quests.length} done</span></div>
+        <div><span className="game-card-title">Daily Checkpoints</span><span className="game-card-sub"> {done}/{gameStats.quests.length} done</span></div>
         <span className="score-pill">{done}/{gameStats.quests.length} today</span>
       </div>
       <div className="quest-list">
@@ -159,9 +159,8 @@ export function GameDashboard({ gameStats, compact = false }) {
   return (
     <div className={`game-dashboard simplified ${compact ? "compact" : ""}`}>
       <MascotProgressCard gameStats={gameStats} />
-      <DailyQuestsCard gameStats={gameStats} />
       <StreaksCard gameStats={gameStats} />
-      <BloomCollapse title="Skills & rhythm type" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
+      <BloomCollapse title="Gentle stats" defaultOpen={false}><SkillStatsCard gameStats={gameStats} /><PersonalityCard gameStats={gameStats} /></BloomCollapse>
       <BloomCollapse title="Weekly recap & life garden" defaultOpen={false}><WeeklyRecapCard gameStats={gameStats} /><LifeGardenCard gameStats={gameStats} /></BloomCollapse>
     </div>
   );
@@ -176,10 +175,11 @@ export function CheckInRhythmCard({ dailyCheckIns = [] }) {
   return (
     <div className="checkin-rhythm-card game-soft-card">
       <div className="game-card-head"><span className="game-card-title">Mood & Energy</span><span className="game-card-sub">daily context</span></div>
-      <div className="checkin-rhythm-current checkin-rhythm-no-icon">
+      <div className="checkin-rhythm-current">
+        <span className="big-emoji">{mood?.emoji || "🌿"}</span>
         <div>
           <strong>{mood ? `Feeling ${mood.label}` : "No check-in yet"}</strong>
-          <p>{energy ? `${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
+          <p>{energy ? `${energy.emoji} ${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
         </div>
       </div>
       {!recent.length && <div className="empty-game-note">Your mood and energy trail will appear after your first check-in 🌱</div>}
@@ -316,10 +316,14 @@ export function BloomRoomPage({ gameStats, journal = {}, dailyCheckIns = [], tom
         <div className="journal-streak">{gameStats?.streaks?.productive ?? 0} day rhythm</div>
       </div>
       <ReflectionHubCard journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
-      <CheckInRhythmCard dailyCheckIns={dailyCheckIns} />
-      <AffirmationRhythmCard affirmations={affirmations} />
-      <TomorrowResetRhythmCard tomorrowResets={tomorrowResets} />
-      <WeeklyResetRhythmCard weeklyResets={weeklyResets} />
+      <div className="bloom-card-row bloom-mood-affirmation-row">
+        <CheckInRhythmCard dailyCheckIns={dailyCheckIns} />
+        <AffirmationRhythmCard affirmations={affirmations} />
+      </div>
+      <div className="bloom-card-row bloom-reset-row">
+        <TomorrowResetRhythmCard tomorrowResets={tomorrowResets} />
+        <WeeklyResetRhythmCard weeklyResets={weeklyResets} />
+      </div>
       <GameDashboard gameStats={gameStats} />
     </div>
   );
