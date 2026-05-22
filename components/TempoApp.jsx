@@ -6,7 +6,7 @@ const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurrin
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
-import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard } from "./bloom/BloomRoom";
+import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 function RecurrenceEditor({ value, onChange, startDate }) {
   const rec = normalizeRecurrence(value);
@@ -302,9 +302,9 @@ function RhythmStatsPage({ events, tasks, habits = [], habitCompletions = [], jo
           </div>
         </div>
 
-        <div className="rhythm-stats-section rhythm-stats-game-section">
-          <div className="rhythm-section-title">Gentle stats</div>
+        <div className="rhythm-stats-split rhythm-type-stats-row">
           <SkillStatsCard gameStats={gameStats} />
+          <PersonalityCard gameStats={gameStats} />
         </div>
 
         <div className="rhythm-stats-split rhythm-stats-game-grid">
@@ -312,19 +312,20 @@ function RhythmStatsPage({ events, tasks, habits = [], habitCompletions = [], jo
           <StreaksCard gameStats={gameStats} />
         </div>
 
-        <LifeGardenCard gameStats={gameStats} />
-
-        <div className="rhythm-stats-section">
-          <div className="rhythm-section-title">Completion by category</div>
-          {stats.categoryRows.length ? <div className="rhythm-category-list">
-            {stats.categoryRows.map(row => (
-              <div key={row.id} className="rhythm-category-row">
-                <span>{row.icon} {row.label}</span>
-                <div className="rhythm-category-track"><i style={{ width: `${row.rate}%` }} /></div>
-                <strong>{row.done}/{row.total || row.done}</strong>
-              </div>
-            ))}
-          </div> : <p className="stats-mini-note">No completed task categories yet. This will fill in as you use Tempo.</p>}
+        <div className="rhythm-stats-split rhythm-life-category-row">
+          <LifeGardenCard gameStats={gameStats} />
+          <div className="rhythm-stats-section rhythm-category-panel">
+            <div className="rhythm-section-title">Completion by category</div>
+            {stats.categoryRows.length ? <div className="rhythm-category-list">
+              {stats.categoryRows.map(row => (
+                <div key={row.id} className="rhythm-category-row">
+                  <span>{row.icon} {row.label}</span>
+                  <div className="rhythm-category-track"><i style={{ width: `${row.rate}%` }} /></div>
+                  <strong>{row.done}/{row.total || row.done}</strong>
+                </div>
+              ))}
+            </div> : <p className="stats-mini-note">No completed task categories yet. This will fill in as you use Tempo.</p>}
+          </div>
         </div>
 
         <div className="stats-mini-note">No judgement here — these numbers are only here to help you understand what rhythm supports you best.</div>
@@ -334,6 +335,17 @@ function RhythmStatsPage({ events, tasks, habits = [], habitCompletions = [], jo
 }
 
 // ─── Tomorrow Reset ───────────────────────────────────────────────────────────
+function taskFallsOnDateForReset(task, targetDate = TODAY) {
+  if (!task || task.done) return false;
+  if (taskBelongsToPeriod(task, "day", targetDate)) return true;
+  const targetKey = dateKey(targetDate);
+  const scheduledStart = task.scheduledStart ? new Date(task.scheduledStart) : null;
+  if (scheduledStart && !Number.isNaN(scheduledStart.getTime()) && dateKey(scheduledStart) === targetKey) return true;
+  if (task.scheduled && String(task.scheduled).slice(0, 10) === targetKey) return true;
+  if (task.deadline && String(task.deadline).slice(0, 10) === targetKey && taskScopeOf(task) === "day") return true;
+  return false;
+}
+
 function TomorrowResetPage({ tasks, latestReset = null, gameStats, onCompleteReset, onBack }) {
   const actionById = useMemo(() => {
     const initial = {};
@@ -518,7 +530,7 @@ function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns =
       {latestReset && <div className="tomorrow-reset-previous weekly-reset-saved-note"><div><strong>Saved for this week</strong><span>{latestReset.completedAt ? new Date(latestReset.completedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Earlier"}</span></div><span>{latestReset.priorities?.length || 0} priorities · {latestReset.summary?.movedNextWeek || 0} moved forward</span></div>}
 
       <div className="weekly-reset-grid">
-        <section className="tomorrow-reset-section weekly-reset-panel">
+        <section className="tomorrow-reset-section weekly-reset-panel weekly-review-panel wide">
           <div className="tomorrow-reset-section-head"><strong>1. Review last week</strong><span>{formatTaskPeriodLabel("week", TODAY)}</span></div>
           <div className="weekly-reset-mini-grid">
             <div><strong>{tasks.filter(t => t.done && currentWeekDayKeys.has(taskCompletedDateKey(t))).length}</strong><span>tasks done</span></div>
@@ -533,7 +545,7 @@ function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns =
           </div>
         </section>
 
-        <section className="tomorrow-reset-section weekly-reset-panel">
+        <section className="tomorrow-reset-section weekly-reset-panel weekly-priority-panel">
           <div className="tomorrow-reset-section-head"><strong>2. Choose weekly priorities</strong><span>Pick up to 3 main focuses</span></div>
           <div className="weekly-reset-input-list">
             {priorities.map((item, index) => <input key={index} className="tf-input" value={item} onChange={e => updateListItem(setPriorities, index, e.target.value)} placeholder={`Priority ${index + 1}`} />)}
@@ -541,7 +553,7 @@ function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns =
           <label className="weekly-reset-label"><span>Weekly intention</span><textarea value={intention} onChange={e => setIntention(e.target.value)} placeholder="This week, I want to move with…" /></label>
         </section>
 
-        <section className="tomorrow-reset-section weekly-reset-panel wide">
+        <section className="tomorrow-reset-section weekly-reset-panel weekly-clear-panel">
           <div className="tomorrow-reset-section-head"><strong>3. Clear unfinished tasks</strong><div className="reset-quick-actions"><button onClick={() => setAll("nextWeek")}>All next week</button><button onClick={() => setAll("keep")}>Keep all</button><button onClick={() => setAll("drop")}>Drop all</button></div></div>
           {unfinishedTasks.length ? <div className="tomorrow-reset-task-list">
             {unfinishedTasks.map(t => <div key={t.id} className="tomorrow-reset-task weekly-reset-task-row">
@@ -2265,34 +2277,6 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         <span className="mood-stats-month">{formatWithDisplayTimezone(calDate, {month:"long",year:"numeric"})}</span>
       </div>
 
-      <div className="journal-top-card-row">
-        <div className="journal-checkin-card">
-          <div className="journal-checkin-main">
-            <span>{todayCheckInMood?.emoji || "🌿"}</span>
-            <div>
-              <strong>{todayCheckInMood ? `Feeling ${todayCheckInMood.label}` : "No check-in yet"}</strong>
-              <p>{todayCheckInEnergy ? `${todayCheckInEnergy.emoji} ${todayCheckInEnergy.label} energy` : "Add today’s energy level"}{todayCheckIn?.note ? ` · ${todayCheckIn.note.slice(0, 80)}` : ""}</p>
-            </div>
-          </div>
-          <div className="journal-checkin-actions">
-            <span>{monthCheckIns.length} check-in{monthCheckIns.length === 1 ? "" : "s"} this month</span>
-            <button className="tf-save journal-today-btn" onClick={onOpenCheckIn}>{todayCheckIn ? "Edit check-in" : "Check in"}</button>
-          </div>
-        </div>
-
-        <div className="journal-reset-card">
-          <div className="journal-reset-main">
-            <span>🌙</span>
-            <div>
-              <strong>{latestTomorrowReset ? "Tomorrow Reset saved" : "No Tomorrow Reset yet"}</strong>
-              <p>{latestTomorrowReset ? (latestTomorrowReset.reflection?.tomorrowMainThing ? `Tomorrow’s main thing: ${latestTomorrowReset.reflection.tomorrowMainThing}` : `${latestTomorrowReset.summary?.movedTomorrow || 0} moved to tomorrow · ${latestTomorrowReset.summary?.movedWeek || 0} kept this week`) : "Close the day gently when you are ready."}</p>
-            </div>
-          </div>
-          <div className="journal-checkin-actions">
-            <span>{monthTomorrowResets.length} reset{monthTomorrowResets.length === 1 ? "" : "s"} this month</span>
-          </div>
-        </div>
-      </div>
 
       {latestWeeklyReset && (
         <div className="journal-reset-card journal-weekly-reset-card">
@@ -4911,7 +4895,8 @@ export default function App() {
     const tomorrow = addDaysSafe(TODAY, 1);
     const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
     const weekPatch = taskPeriodPatchForScope("week", TODAY);
-    const unfinished = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
+    const actionIds = new Set(Object.keys(taskActions || {}));
+    const unfinished = tasks.filter(t => !t.done && (taskFallsOnDateForReset(t, TODAY) || actionIds.has(t.id)));
     const actionRows = unfinished.map(t => {
       const action = TOMORROW_RESET_TASK_ACTIONS.some(a => a.id === taskActions[t.id]) ? taskActions[t.id] : "tomorrow";
       return { taskId: t.id, taskTitle: t.title, action, duration: taskDurationToMinutes(t), category: t.category };
@@ -6693,6 +6678,34 @@ export default function App() {
 }
 
 
+
+/* ── Pre Phase 22 final requested cleanup 3 ─────────────────────────────── */
+.sidebar-user{margin-top:8px!important;margin-bottom:8px!important;display:block!important;}
+.sidebar-sync-under-user{gap:9px!important;margin-top:8px!important;margin-bottom:12px!important;align-items:flex-start!important;}
+.sidebar-sync-under-user .sync-pill{margin-top:0!important;}
+.sidebar-sync-now-btn{min-height:32px!important;padding:7px 12px!important;border-radius:999px!important;}
+.today-top3-card .today-empty-sugar{flex:1!important;min-height:180px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;border:0!important;background:transparent!important;box-shadow:none!important;}
+.today-top3-card .today-empty-sugar img{width:96px!important;height:96px!important;object-fit:contain!important;}
+.today-top3-card .today-empty-sugar strong{font-size:13px!important;line-height:1.35!important;max-width:280px!important;}
+.weekly-reset-grid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:16px!important;align-items:start!important;}
+.weekly-review-panel{grid-column:1 / -1!important;}
+.weekly-priority-panel,.weekly-clear-panel{grid-column:auto!important;min-width:0!important;}
+.rhythm-type-stats-row,.rhythm-life-category-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:16px!important;align-items:stretch!important;}
+.rhythm-type-stats-row>*{height:100%!important;min-width:0!important;}
+.rhythm-life-category-row>*{height:100%!important;min-width:0!important;}
+.rhythm-category-panel{margin:0!important;}
+.rhythm-life-category-row .life-garden-card{margin:0!important;}
+.journal-top-card-row{display:none!important;}
+@media(max-width:980px){
+  .weekly-reset-grid,.rhythm-type-stats-row,.rhythm-life-category-row{grid-template-columns:1fr!important;}
+}
+@media(max-width:768px){
+  .sidebar-user{margin-bottom:10px!important;}
+  .sidebar-sync-under-user{gap:10px!important;margin-bottom:14px!important;}
+  .today-top3-card .today-empty-sugar{min-height:136px!important;}
+  .today-top3-card .today-empty-sugar img{width:74px!important;height:74px!important;}
+}
+
 `}</style>
 
       <div className="app">
@@ -6713,13 +6726,13 @@ export default function App() {
             <div className={`nav-item ${page==="today"?"active":""}`} onClick={() => { setPage("today"); closeSidebarOnMobile(); }}><span className="nav-icon">🌤️</span>Today</div>
             <div className={`nav-item ${page==="calendar"?"active":""}`} onClick={() => { setPage("calendar"); closeSidebarOnMobile(); }}><span className="nav-icon">🗓️</span>Calendar</div>
             <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
-            <div className={`nav-item ${page==="habits"?"active":""}`} onClick={() => { setPage("habits"); closeSidebarOnMobile(); }}><span className="nav-icon">🌱</span>Habits</div>
-            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
             <div className="nav-section-label" style={{marginTop:8}}>Planning</div>
             <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan Today</div>
             <div className={`nav-item ${page==="tomorrow-reset"?"active":""}`} onClick={() => { setPage("tomorrow-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
             <div className={`nav-item ${page==="weekly-reset"?"active":""}`} onClick={() => { setPage("weekly-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🧺</span>Weekly Reset</div>
             <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
+            <div className={`nav-item ${page==="habits"?"active":""}`} onClick={() => { setPage("habits"); closeSidebarOnMobile(); }}><span className="nav-icon">🌱</span>Habits</div>
+            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
             <div className={`nav-item ${page==="rhythm"?"active":""}`} onClick={() => { setPage("rhythm"); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
@@ -6758,7 +6771,7 @@ export default function App() {
           ) : page === "rhythm" ? (
             <RhythmStatsPage events={visibleEvents} tasks={tasks} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} gameStats={gameStats} />
           ) : page === "tomorrow-reset" ? (
-            <TomorrowResetPage tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
+            <TomorrowResetPage tasks={tasks.filter(t => taskFallsOnDateForReset(t, TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
           ) : page === "weekly-reset" ? (
             <WeeklyResetPage tasks={tasks} events={visibleEvents} habits={habits} dailyCheckIns={dailyCheckIns} latestReset={weeklyResetForDate(weeklyResets, TODAY)} onCompleteReset={saveWeeklyReset} />
           ) : (<>
