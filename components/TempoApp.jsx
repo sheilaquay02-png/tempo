@@ -1892,7 +1892,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     }
   }
   return (
-    <div className="modal-overlay" onClick={requestClose} role="dialog" aria-modal="true" aria-label="Journal entry">
+    <div className="modal-overlay memory-entry-overlay" onClick={requestClose} role="dialog" aria-modal="true" aria-label="Journal entry">
       <div className={`entry-modal memory-entry-modal memory-bg-${backgroundId}`} style={memoryBackgroundStyle(backgroundId)} onClick={e => e.stopPropagation()}>
         <div className="entry-modal-header">
           <div>
@@ -2268,10 +2268,14 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     <div className="journal-page">
       {/* Header */}
       <div className="journal-header">
-        <div className="journal-title">📔 Journal</div>
-        <div className="journal-streak">🔥 {streak} day streak</div>
-        <button className="tf-cancel journal-today-btn" onClick={() => setMemorySettingsOpen(true)}>Memory Settings</button>
-        <button className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
+        <div className="journal-header-main">
+          <div className="journal-title">📔 Journal</div>
+          <div className="journal-streak">🔥 {streak} day streak</div>
+        </div>
+        <div className="journal-header-actions">
+          <button type="button" className="tf-cancel journal-today-btn memory-settings-btn" onClick={() => setMemorySettingsOpen(true)}>Memory Settings</button>
+          <button type="button" className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
+        </div>
       </div>
 
 
@@ -2425,7 +2429,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
 
 
       {memorySettingsOpen && (
-        <div className="modal-overlay" onClick={() => setMemorySettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Memory Settings">
+        <div className="modal-overlay memory-settings-overlay" onClick={() => setMemorySettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Memory Settings">
           <div className="entry-modal memory-settings-modal" onClick={e => e.stopPropagation()}>
             <div className="entry-modal-header">
               <div><div className="entry-modal-date">Memory Settings</div><div className="entry-modal-sub">Manage activities, tags, backgrounds, and stickers</div></div>
@@ -6806,6 +6810,67 @@ export default function App() {
   .today-top3-card .today-empty-sugar img{width:76px!important;height:76px!important;}
   .today-top3-card .today-empty-sugar strong{max-width:230px!important;font-size:12px!important;}
   .tempo-loading-card{transform:translateY(-5vh)!important;}
+}
+
+
+/* ── Pre Phase 22 debug 5: memory modal, mobile journal, sidebar sync, empty tasks ── */
+.journal-header{justify-content:space-between!important;align-items:center!important;}
+.journal-header-main{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto;}
+.journal-header-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+.memory-settings-btn{pointer-events:auto!important;position:relative!important;z-index:3!important;}
+.memory-entry-overlay,.memory-settings-overlay{z-index:2600!important;}
+.memory-entry-modal .entry-modal-body,.memory-settings-modal .entry-modal-body{overscroll-behavior:contain!important;}
+.sidebar-date{padding-bottom:10px!important;}
+.sidebar-sync-under-user{gap:12px!important;margin-bottom:6px!important;}
+.sidebar-sync-under-user .sync-pill{max-width:calc(100% - 4px)!important;}
+.today-top3-card .today-empty-sugar img{width:112px!important;height:112px!important;}
+.today-top3-card .today-empty-sugar{min-height:230px!important;}
+
+@media(max-width:768px){
+  .journal-header{gap:8px!important;align-items:center!important;}
+  .journal-header-main{flex-direction:column!important;align-items:flex-start!important;gap:2px!important;min-width:0!important;}
+  .journal-header-actions{gap:6px!important;flex-shrink:0!important;}
+  .journal-header-actions .journal-today-btn{min-height:34px!important;padding:7px 8px!important;font-size:10px!important;white-space:nowrap!important;}
+  .memory-entry-overlay,.memory-settings-overlay{
+    inset:0 0 var(--mobile-nav-h) 0!important;
+    padding:8px 8px 10px!important;
+    align-items:center!important;
+    justify-content:center!important;
+    overflow:hidden!important;
+  }
+  .memory-entry-overlay .entry-modal.memory-entry-modal,
+  .memory-settings-overlay .entry-modal.memory-settings-modal{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - var(--mobile-nav-h) - 20px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h) - 20px)!important;
+    margin:0!important;
+    overflow:hidden!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  .memory-entry-modal .entry-modal-header,.memory-settings-modal .entry-modal-header{padding:12px 14px 10px!important;}
+  .memory-entry-modal .entry-modal-body,.memory-settings-modal .entry-modal-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding-bottom:16px!important;
+  }
+  .memory-entry-modal .entry-modal-footer,.memory-settings-modal .entry-modal-footer{
+    position:sticky!important;
+    bottom:0!important;
+    z-index:20!important;
+    padding:10px 12px calc(12px + env(safe-area-inset-bottom))!important;
+    background:var(--surface-soft,var(--bg3))!important;
+    border-top:1px solid var(--border)!important;
+  }
+  .memory-entry-modal .entry-modal-footer{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
+  .memory-entry-modal .entry-modal-footer button{width:100%!important;min-height:42px!important;}
+  .sidebar-date{padding-bottom:8px!important;}
+  .sidebar-sync-under-user{gap:9px!important;margin-bottom:4px!important;}
+  .today-top3-card .today-empty-sugar{min-height:190px!important;}
+  .today-top3-card .today-empty-sugar img{width:92px!important;height:92px!important;}
 }
 
 `}</style>
