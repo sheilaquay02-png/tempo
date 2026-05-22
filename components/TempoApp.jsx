@@ -372,7 +372,7 @@ function TomorrowResetPage({ tasks, latestReset = null, gameStats, onCompleteRes
           <div>
             <div className="phase-kicker">Tomorrow Reset</div>
             <h2>🌙 Close today calmly</h2>
-            <p>{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one, then save your reflection into Journal and Bloom Room.` : "No unfinished tasks today. You can still write a quick reflection and set tomorrow’s main thing."}</p>
+            <p className="reset-hero-oneline">{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one, then save your reflection into Journal and Bloom Room.` : "No unfinished tasks today. You can still write a quick reflection and set tomorrow’s main thing."}</p>
           </div>
           {onBack && <button className="tf-cancel tomorrow-reset-back" onClick={onBack}>← Back to Today</button>}
         </div>
@@ -495,7 +495,7 @@ function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns =
         <div>
           <div className="phase-kicker">Weekly Reset</div>
           <h1>🧺 Reset your week calmly</h1>
-          <p>Review what happened, clear unfinished tasks, choose your priorities, and set the rhythm for next week.</p>
+          <p className="reset-hero-oneline">Review what happened, clear unfinished tasks, choose your priorities, and set the rhythm for next week.</p>
         </div>
         <button className="tf-save" disabled={!hasContent} onClick={() => onCompleteReset({
           weekStart: currentWeekStartKey,
@@ -1422,7 +1422,7 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
@@ -1513,6 +1513,14 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
               </div>
             </div>
           )}
+          {/* Onboarding */}
+          <div className="settings-section">
+            <div className="settings-section-label">Onboarding</div>
+            <div className="settings-section-desc">Restart the guided setup to choose your rhythm goals, first rituals, starter habits, day start, wind-down time, and reminder preferences.</div>
+            <div className="settings-action-row">
+              <button className="tf-save" onClick={onRestartOnboarding}>🌿 Restart onboarding</button>
+            </div>
+          </div>
           {/* Theme */}
           <div className="settings-section">
             <div className="settings-section-label">Appearance</div>
@@ -3593,6 +3601,81 @@ function ComingSoonPage({ icon, title, phase, description, bullets = [] }) {
   );
 }
 
+
+function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES }) {
+  const [goals, setGoals] = useState(() => new Set(["organized", "plan", "routines"]));
+  const [startTime, setStartTime] = useState(`${String(Math.max(0, Math.min(23, Number(workStart) || 9))).padStart(2, "0")}:00`);
+  const [windDownTime, setWindDownTime] = useState("21:30");
+  const [selectedRituals, setSelectedRituals] = useState(() => new Set(["morning-reset", "night-wind-down", "weekly-planning"]));
+  const [selectedHabits, setSelectedHabits] = useState(() => new Set(["drink-water", "journal", "plan-tomorrow", "gratitude"]));
+  const [reminders, setReminders] = useState(() => ({
+    journal: Boolean(notificationPreferences?.journal?.enabled ?? true),
+    tomorrowReset: Boolean(notificationPreferences?.tomorrowReset?.enabled ?? true),
+    weeklyReset: Boolean(notificationPreferences?.weeklyReset?.enabled ?? true),
+  }));
+
+  const goalOptions = [
+    ["organized", "Feel more organized", "Bring the day into one calm view."],
+    ["routines", "Build better routines", "Start with repeatable rituals."],
+    ["plan", "Plan my day", "Protect calendar time and priorities."],
+    ["habits", "Track habits", "Return to small daily check-ins."],
+    ["journal", "Journal consistently", "Reflect without overthinking it."],
+  ];
+  const ritualOptions = ["morning-reset", "night-wind-down", "weekly-planning", "sunday-reset", "room-reset"].map(id => RITUAL_TEMPLATES.find(t => t.id === id)).filter(Boolean);
+  const habitOptions = ["drink-water", "journal", "stretch", "read-10", "plan-tomorrow", "tidy-room", "gratitude"].map(id => HABIT_TEMPLATES.find(t => t.id === id)).filter(Boolean);
+  const toggleSet = (setter, value) => setter(prev => { const next = new Set(prev); next.has(value) ? next.delete(value) : next.add(value); return next; });
+  const finish = () => onComplete({ goals: [...goals], startTime, windDownTime, ritualIds: [...selectedRituals], habitIds: [...selectedHabits], reminders });
+
+  return (
+    <div className="modal-overlay onboarding-overlay" role="dialog" aria-modal="true" aria-label="Tempo onboarding" onClick={onClose}>
+      <div className="onboarding-modal" onClick={e => e.stopPropagation()}>
+        <div className="onboarding-hero">
+          <div><div className="phase-kicker">Phase 21 · Onboarding</div><h2>🌿 Set up your daily rhythm</h2><p>Pick a few starting points. Tempo will create a gentle setup you can edit anytime.</p></div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <section className="onboarding-section">
+          <div className="onboarding-section-title">What should Tempo help with?</div>
+          <div className="onboarding-choice-grid">
+            {goalOptions.map(([id, label, desc]) => <button key={id} className={`onboarding-choice ${goals.has(id) ? "selected" : ""}`} onClick={() => toggleSet(setGoals, id)}><strong>{label}</strong><small>{desc}</small></button>)}
+          </div>
+        </section>
+
+        <section className="onboarding-section onboarding-time-grid">
+          <label><span>Start my day around</span><input className="modal-select" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
+          <label><span>Wind down around</span><input className="modal-select" type="time" value={windDownTime} onChange={e => setWindDownTime(e.target.value)} /></label>
+        </section>
+
+        <section className="onboarding-section">
+          <div className="onboarding-section-title">Pick your first rituals</div>
+          <div className="onboarding-template-grid">
+            {ritualOptions.map(t => <button key={t.id} className={`onboarding-template ${selectedRituals.has(t.id) ? "selected" : ""}`} onClick={() => toggleSet(setSelectedRituals, t.id)}><span>{t.emoji}</span><strong>{t.name}</strong><small>{t.estimatedMinutes} min · {t.scheduledTime}</small></button>)}
+          </div>
+        </section>
+
+        <section className="onboarding-section">
+          <div className="onboarding-section-title">Pick starter habits</div>
+          <div className="onboarding-template-grid">
+            {habitOptions.map(t => <button key={t.id} className={`onboarding-template ${selectedHabits.has(t.id) ? "selected" : ""}`} onClick={() => toggleSet(setSelectedHabits, t.id)}><span>{t.emoji}</span><strong>{t.name}</strong><small>{t.frequency === "daily" ? "Daily" : t.frequency}</small></button>)}
+          </div>
+        </section>
+
+        <section className="onboarding-section">
+          <div className="onboarding-section-title">Gentle reminders</div>
+          <div className="onboarding-reminder-row">
+            {[ ["journal", "📓", "Journal"], ["tomorrowReset", "🌙", "Tomorrow Reset"], ["weeklyReset", "🧺", "Weekly Reset"] ].map(([key, emoji, label]) => <label key={key}><input type="checkbox" checked={Boolean(reminders[key])} onChange={e => setReminders(r => ({ ...r, [key]: e.target.checked }))} /><span>{emoji} {label}</span></label>)}
+          </div>
+        </section>
+
+        <div className="onboarding-actions">
+          <button className="tf-cancel" onClick={() => onComplete(null, { skipped: true })}>Skip for now</button>
+          <button className="tf-save" onClick={finish}>Create my rhythm →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a per-session key stored in sessionStorage
@@ -3658,6 +3741,7 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [calendars, setCalendarsRaw] = useState(() => normalizeCalendars(load(`${uk}_calendars`, CALENDARS)));
@@ -3693,6 +3777,18 @@ export default function App() {
     const key = `${uk}_startup_seen_${dateKey(TODAY)}`;
     if (!load(key, false)) setShowStartup(true);
   }, [dataReady, auth.user?.id, uk]);
+
+  useEffect(() => {
+    if (!dataReady || !auth.user?.id) return;
+    const completed = load(`${uk}_onboarding_completed`, false);
+    const skipped = load(`${uk}_onboarding_skipped`, false);
+    const prompted = load(`${uk}_onboarding_prompted`, false);
+    const looksBrandNew = normalizeTasks(tasks).filter(t => !t.deletedAt).length === 0 && reviveEvents(events).filter(e => !e.deletedAt).length === 0;
+    if (!completed && !skipped && !prompted && looksBrandNew) {
+      save(`${uk}_onboarding_prompted`, true);
+      setShowOnboarding(true);
+    }
+  }, [dataReady, auth.user?.id, uk, events.length, tasks.length]);
 
   // Mobile viewport: keep the app-like layout while allowing zoom for accessibility.
   useEffect(() => {
@@ -4537,6 +4633,86 @@ export default function App() {
     save(`${uk}_updated_at`, now);
     queueCloudSave(events, tasks, currentSettings({ deletedRecords: pruned, settingsUpdatedAt: nextSettingsUpdatedAt }));
   }, [auth.user?.id, dataReady]);
+
+  function completeOnboarding(config, options = {}) {
+    const now = new Date().toISOString();
+    if (options?.skipped || !config) {
+      save(`${uk}_onboarding_skipped`, true);
+      save(`${uk}_onboarding_completed_at`, now);
+      setShowOnboarding(false);
+      setToast({ text: "Onboarding skipped. You can restart it in Settings.", ts: Date.now() });
+      return;
+    }
+
+    const hourFromTime = (value, fallback) => {
+      const match = /^([0-2]\d):([0-5]\d)$/.exec(String(value || ""));
+      if (!match) return fallback;
+      return Math.max(0, Math.min(23, Number(match[1])));
+    };
+    const nextWorkStart = hourFromTime(config.startTime, workStart);
+    const nextWorkEnd = Math.max(nextWorkStart + 1, hourFromTime(config.windDownTime, workEnd));
+    setWSRaw(nextWorkStart);
+    setWERaw(Math.min(23, nextWorkEnd));
+    setWorkHoursCtx(nextWorkStart, Math.min(23, nextWorkEnd));
+
+    const currentRituals = normalizeRituals(rituals);
+    const existingRitualKeys = new Set(currentRituals.map(r => `${r.templateId || ""}|${String(r.name || "").trim().toLowerCase()}`));
+    let nextRituals = [...currentRituals];
+    (config.ritualIds || []).forEach(id => {
+      const template = RITUAL_TEMPLATES.find(t => t.id === id);
+      if (!template) return;
+      const key = `${template.id}|${String(template.name || "").trim().toLowerCase()}`;
+      const nameKey = `|${String(template.name || "").trim().toLowerCase()}`;
+      if (existingRitualKeys.has(key) || existingRitualKeys.has(nameKey)) return;
+      const ritual = ritualFromTemplate(template, nextRituals);
+      nextRituals.push(ritual);
+      existingRitualKeys.add(key);
+    });
+
+    const currentHabits = normalizeHabits(habits);
+    const existingHabitKeys = new Set(currentHabits.map(h => `${h.templateId || ""}|${String(h.name || "").trim().toLowerCase()}`));
+    let nextHabits = [...currentHabits];
+    (config.habitIds || []).forEach(id => {
+      const template = HABIT_TEMPLATES.find(t => t.id === id);
+      if (!template) return;
+      const key = `${template.id}|${String(template.name || "").trim().toLowerCase()}`;
+      const nameKey = `|${String(template.name || "").trim().toLowerCase()}`;
+      if (existingHabitKeys.has(key) || existingHabitKeys.has(nameKey)) return;
+      const habit = habitFromTemplate(template, nextHabits);
+      nextHabits.push(habit);
+      existingHabitKeys.add(key);
+    });
+
+    const nextNotificationPreferences = normalizeNotificationPreferences({
+      ...notificationPreferences,
+      journal: { ...(notificationPreferences.journal || {}), enabled: Boolean(config.reminders?.journal) },
+      tomorrowReset: { ...(notificationPreferences.tomorrowReset || {}), enabled: Boolean(config.reminders?.tomorrowReset) },
+      weeklyReset: { ...(notificationPreferences.weeklyReset || {}), enabled: Boolean(config.reminders?.weeklyReset) },
+    });
+
+    setRitualsRaw(nextRituals);
+    setHabitsRaw(nextHabits);
+    setNotificationPreferencesRaw(nextNotificationPreferences);
+    save(`${uk}_rituals`, nextRituals);
+    save(`${uk}_habits`, nextHabits);
+    save(`${uk}_notification_preferences`, nextNotificationPreferences);
+    save(`${uk}_ws`, nextWorkStart);
+    save(`${uk}_we`, Math.min(23, nextWorkEnd));
+    save(`${uk}_onboarding_completed`, true);
+    save(`${uk}_onboarding_completed_at`, now);
+    save(`${uk}_onboarding_skipped`, false);
+    save(`${uk}_updated_at`, now);
+    persistSettings({ workStart: nextWorkStart, workEnd: Math.min(23, nextWorkEnd), rituals: nextRituals, habits: nextHabits, notificationPreferences: nextNotificationPreferences });
+    setShowOnboarding(false);
+    setPage("today");
+    setToast({ text: "Tempo onboarding complete ✓", ts: Date.now() });
+  }
+
+  function restartOnboarding() {
+    save(`${uk}_onboarding_prompted`, true);
+    setSettingsOpen(false);
+    setShowOnboarding(true);
+  }
 
   const setFontSize = v => {
     setFSRaw(v);
@@ -6360,12 +6536,53 @@ export default function App() {
   .dark .topbar,.dark .stats-bar,.dark .sidebar,.dark .journal-header{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;}
   .dark .ritual-step,.dark .habit-week-grid>*,.dark .plan-task-choice,.dark .tomorrow-reset-task,.dark .task-item,.dark .journal-entry-card,.dark .quest-item,.dark .badge-chip,.dark .weekly-mini-grid div,.dark .tomorrow-reset-mini-grid div,.dark .journal-reflection-tile,.dark .affirmation-stats-grid div,.dark .rhythm-mini-panel,.dark .rhythm-insight-card,.dark .stat-big,.dark .rhythm-chip-row,.dark .rhythm-category-row{background:var(--bg2)!important;}
 
+
+  /* ── Phase 21 + debug hotfixes ───────────────────────────────────────── */
+  .content-area{min-height:0!important;}
+  .calendar-pane{min-height:0!important;}
+  .calendar-pane.view-day,.calendar-pane.view-week{display:block!important;overflow-y:auto!important;min-height:0!important;height:100%!important;padding-bottom:28px!important;}
+  .calendar-pane.view-day .day-view,.calendar-pane.view-week .week-timetable{min-height:max-content!important;overflow:visible!important;}
+  .calendar-pane.view-week .wt-grid,.calendar-pane.view-day .day-grid{min-height:calc((var(--calendar-hours, 18))*48px);}
+  .calendar-pane.view-month{container-type:inline-size;min-width:0!important;}
+  .month-view{grid-template-columns:repeat(7,minmax(0,1fr))!important;min-width:0!important;width:100%!important;}
+  .month-day{min-width:0!important;min-height:clamp(82px, 10.4vw, 116px)!important;}
+  .month-event-row,.month-event-name{min-width:0!important;}
+  .task-panel.resizing ~ *,.calendar-pane.view-month .month-day{transition:none!important;}
+  @container (max-width: 900px){.calendar-pane.view-month .month-day{min-height:96px!important;}.calendar-pane.view-month .month-event-row{font-size:9.5px!important;padding-left:3px!important;padding-right:3px!important;}}
+  @container (max-width: 760px){.calendar-pane.view-month .month-day{min-height:84px!important;}.calendar-pane.view-month .month-day-num{font-size:13px!important;}.calendar-pane.view-month .month-event-row{font-size:9px!important;}}
+  .reset-hero-oneline{max-width:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .onboarding-overlay{z-index:260;}
+  .onboarding-modal{width:min(920px,calc(100vw - 28px));max-height:90vh;overflow:auto;background:linear-gradient(180deg,var(--surface,var(--bg2)),var(--surface-warm,var(--bg3)));border:1px solid rgba(var(--accent-rgb),.18);border-radius:32px;box-shadow:var(--shadow-lg);padding:22px;}
+  .onboarding-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border:1px solid rgba(var(--accent-rgb),.14);background:linear-gradient(135deg,rgba(255,250,252,.94),rgba(255,255,255,.72));border-radius:26px;padding:18px;margin-bottom:14px;}
+  .onboarding-hero h2{margin:2px 0 6px;font-size:30px;line-height:1.05;color:var(--text);}
+  .onboarding-hero p{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.45;max-width:620px;}
+  .onboarding-section{border:1px solid rgba(var(--accent-rgb),.14);background:rgba(255,255,255,.58);border-radius:24px;padding:14px;margin-top:12px;}
+  .onboarding-section-title{font-size:12px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px;}
+  .onboarding-choice-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;}
+  .onboarding-choice,.onboarding-template{border:1.5px solid var(--border);background:var(--bg2);border-radius:18px;padding:12px;text-align:left;color:var(--text);font:inherit;cursor:pointer;box-shadow:var(--shadow-sm);}
+  .onboarding-choice.selected,.onboarding-template.selected{border-color:rgba(var(--accent-rgb),.42);background:rgba(var(--accent-rgb),.10);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.08);}
+  .onboarding-choice strong,.onboarding-template strong{display:block;font-size:12px;font-weight:950;line-height:1.25;}
+  .onboarding-choice small,.onboarding-template small{display:block;margin-top:4px;font-size:10.5px;color:var(--text2);font-weight:800;line-height:1.3;}
+  .onboarding-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .onboarding-time-grid label{display:flex;flex-direction:column;gap:6px;color:var(--text2);font-size:12px;font-weight:900;}
+  .onboarding-template-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;}
+  .onboarding-template span{font-size:22px;display:block;margin-bottom:5px;}
+  .onboarding-reminder-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .onboarding-reminder-row label{border:1px solid var(--border);background:var(--bg2);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;color:var(--text2);display:flex;align-items:center;gap:7px;}
+  .onboarding-reminder-row input{accent-color:var(--accent);}
+  .onboarding-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+
   @media(max-width:768px){
     .phase-page,.tasks-page,.journal-page,.bloom-room-page,.affirmations-page,.tomorrow-reset-page,.weekly-reset-page{background:linear-gradient(180deg,var(--bg),var(--bg3))!important;}
     .phase-hero{background:var(--surface)!important;border-radius:0 0 24px 24px!important;box-shadow:0 1px 0 rgba(var(--accent-rgb),.12),var(--shadow-sm)!important;}
     .topbar,.stats-bar,.journal-header,.tasks-page>.journal-header,.bloom-room-page .journal-header{background:var(--surface)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
     .phase-card,.ritual-card,.habit-card,.today-checkin-card,.today-rhythm-strip button,.today-task-row,.today-event-row{border-radius:22px!important;}
     .tomorrow-reset-page,.weekly-reset-page{padding:14px 12px calc(var(--mobile-nav-h) + 24px)!important;}
+    .reset-hero-oneline{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;}
+    .onboarding-modal{width:calc(100vw - 20px);padding:14px;border-radius:24px;max-height:calc(100vh - 28px);}
+    .onboarding-hero{border-radius:20px;padding:14px;}.onboarding-hero h2{font-size:24px;}
+    .onboarding-choice-grid,.onboarding-template-grid,.onboarding-time-grid{grid-template-columns:1fr;}
+    .onboarding-actions{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--surface,var(--bg2)) 32%);padding-top:20px;}
     .tomorrow-reset-task{grid-template-columns:1fr;}
   }
 
@@ -6564,7 +6781,8 @@ export default function App() {
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} onClose={() => setShowStats(false)} />}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} />}
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

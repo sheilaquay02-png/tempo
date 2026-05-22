@@ -263,7 +263,7 @@ export function CheckInRhythmCard({ dailyCheckIns = [] }) {
         <span>{mood?.emoji || "🌿"}</span>
         <div>
           <strong>{mood ? `Feeling ${mood.label}` : "No check-in yet"}</strong>
-          <p>{energy ? `${energy.emoji} ${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
+          <p>{energy ? `${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
         </div>
       </div>
       {recent.length ? (
