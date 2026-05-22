@@ -3231,6 +3231,15 @@ function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
 
 function RitualCard({ ritual, completion, progress, onToggleStep, onSkip, onComplete, onEdit, compact = false }) {
   const category = RITUAL_CATEGORIES.find(c => c.id === ritual.category);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const renderChecklist = () => (
+    <div className="ritual-step-list ritual-focus-step-list">
+      {(ritual.steps || []).map(step => {
+        const checked = (completion?.completedSteps || []).includes(step.id);
+        return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
+      })}
+    </div>
+  );
   return (
     <div className={`ritual-card ${progress.completed ? "ritual-complete" : ""} ${progress.skipped ? "ritual-skipped" : ""}`} style={{ "--ritual-color": ritual.color || "var(--accent)" }}>
       <div className="ritual-card-top">
@@ -3239,14 +3248,29 @@ function RitualCard({ ritual, completion, progress, onToggleStep, onSkip, onComp
       </div>
       <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
       <div className="ritual-progress-label">{progress.skipped ? "Skipped today" : progress.completed ? "Complete for today ✨" : `${progress.done}/${progress.total} steps done`}</div>
-      <div className="ritual-step-list">
-        {(compact ? ritual.steps.slice(0, 3) : ritual.steps).map(step => {
-          const checked = (completion?.completedSteps || []).includes(step.id);
-          return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
-        })}
-        {compact && ritual.steps.length > 3 && <div className="ritual-more">+{ritual.steps.length - 3} more steps</div>}
-      </div>
-      {!compact && <div className="ritual-card-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-save" onClick={() => onComplete(ritual)}>Mark complete</button></div>}
+      {compact ? (
+        <div className="ritual-step-list">
+          {(ritual.steps || []).slice(0, 3).map(step => {
+            const checked = (completion?.completedSteps || []).includes(step.id);
+            return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
+          })}
+          {(ritual.steps || []).length > 3 && <button type="button" className="ritual-open-checklist" onClick={() => setChecklistOpen(true)}>Open full checklist · +{ritual.steps.length - 3} more</button>}
+        </div>
+      ) : renderChecklist()}
+      {!compact && <div className="ritual-card-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-cancel ritual-open-checklist" onClick={() => setChecklistOpen(true)}>Open checklist</button><button className="tf-save" onClick={() => onComplete(ritual)}>Mark complete</button></div>}
+      {checklistOpen && (
+        <div className="ritual-focus-overlay" role="dialog" aria-modal="true" aria-label={`${ritual.name} checklist`} onClick={() => setChecklistOpen(false)}>
+          <div className="ritual-focus-sheet" onClick={e => e.stopPropagation()} style={{ "--ritual-color": ritual.color || "var(--accent)" }}>
+            <div className="ritual-focus-head">
+              <div className="ritual-title-wrap"><div className="ritual-emoji">{ritual.emoji}</div><div><h3>{ritual.name}</h3><p>{progress.skipped ? "Skipped today" : progress.completed ? "Complete for today ✨" : `${progress.done}/${progress.total} steps done`}</p></div></div>
+              <button className="modal-close" onClick={() => setChecklistOpen(false)}>✕</button>
+            </div>
+            <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
+            {renderChecklist()}
+            <div className="ritual-focus-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-save" onClick={() => { onComplete(ritual); setChecklistOpen(false); }}>Mark complete</button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6048,6 +6072,102 @@ export default function App() {
 
   .today-page-v2{gap:18px;}.today-dashboard-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:14px;align-items:stretch;}.today-hero-stack{display:flex;flex-direction:column;gap:12px;min-width:0;}.today-hero-stack .affirmation-daily-card.compact{padding:16px;border-radius:24px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-quote-row blockquote{font-size:15px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-quote-icon{width:42px;height:42px;border-radius:15px;font-size:22px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-card-actions{margin-top:10px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-card-actions .tf-cancel{display:none;}.today-dashboard-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:14px;align-items:stretch;}.today-hero-copy{background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:24px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;}.today-hero-copy h1{font-size:34px;line-height:1.03;margin:0 0 6px;color:var(--text);}.today-hero-copy p{font-size:14px;color:var(--text2);font-weight:900;line-height:1.5;margin:0}.today-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}.today-checkin-card{background:var(--bg2);border:1px solid var(--border);border-radius:28px;padding:18px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;}.today-checkin-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px}.today-checkin-top button,.today-row-action{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer}.today-mood-display{display:flex;align-items:center;gap:10px;background:var(--bg4);border:1px solid var(--border);border-radius:18px;padding:12px}.today-mood-display span{font-size:28px}.today-mood-display strong{font-size:16px;color:var(--text)}.today-energy-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px dashed var(--border);background:var(--bg3);border-radius:14px;padding:9px 11px;font-size:12px;font-weight:900;color:var(--text2)}.today-energy-row strong{color:var(--accent)}.today-checkin-card p{font-size:12px;font-weight:800;line-height:1.45;color:var(--text2);margin:0}.today-rhythm-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.today-rhythm-strip button{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 12px;text-align:left;box-shadow:var(--shadow-sm);cursor:pointer;font-family:var(--font);display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.today-rhythm-strip button>span{font-size:20px;grid-row:1/3}.today-rhythm-strip strong{font-size:23px;line-height:1;color:var(--accent);font-weight:900}.today-rhythm-strip small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}.today-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px;align-items:start}.today-main-card,.today-side-card,.today-wide-card{min-width:0}.today-wide-card{grid-column:span 1}.today-task-list,.today-event-list{display:flex;flex-direction:column;gap:8px}.today-task-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-task-check{width:28px;height:28px;border-radius:999px;border:1.5px solid var(--border);background:var(--bg2);color:var(--accent);font-weight:900;cursor:pointer}.today-task-row strong{display:block;font-size:13px;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-task-row small{display:block;font-size:11px;color:var(--text2);font-weight:900;margin-top:2px}.today-event-row{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-event-row time{font-family:var(--mono);font-size:12px;font-weight:900;color:var(--accent);white-space:nowrap}.today-event-row strong{display:block;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-event-row small{font-size:11px;color:var(--text3);font-weight:900}.today-dashboard-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.today-dashboard-card-grid .ritual-card,.today-dashboard-card-grid .habit-card{box-shadow:none}.today-bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.75fr);gap:14px}.today-prompt{font-size:16px;line-height:1.5;font-weight:900;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:14px;margin:0}.today-journal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.today-loop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}.today-loop span{font-size:11px;font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:6px 9px}.today-loop i{width:14px;height:1px;background:var(--border);display:block}.today-side-card .phase-empty,.today-main-card .phase-empty{min-height:74px;display:flex;align-items:center}@media(min-width:1280px){.today-dashboard-grid{grid-template-columns:1fr 1fr}.today-wide-card{grid-column:span 1}.today-dashboard-card-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}}@media(max-width:980px){.today-dashboard-hero,.today-bottom-grid{grid-template-columns:1fr}.today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.today-dashboard-grid{grid-template-columns:1fr}.today-wide-card{grid-column:auto}}@media(max-width:560px){.today-hero-copy,.today-checkin-card{border-radius:22px;padding:16px}.today-hero-copy h1{font-size:26px}.today-rhythm-strip{grid-template-columns:1fr 1fr}.today-rhythm-strip button{padding:12px 10px}.today-task-row{grid-template-columns:auto minmax(0,1fr)}.today-row-action{grid-column:2;justify-self:start}.today-event-row{grid-template-columns:58px minmax(0,1fr)}.today-journal-actions{flex-direction:column}.today-journal-actions button{width:100%;}}
 
+
+  /* ── Phase 18: mobile-first polish ─────────────────────────────────────── */
+  .mobile-sidebar-scrim{display:none;}
+  .mobile-sync-strip{display:none;}
+  .ritual-open-checklist{white-space:nowrap;}
+  .ritual-focus-overlay{position:fixed;inset:0;z-index:1200;background:rgba(54,32,50,.32);display:flex;align-items:center;justify-content:center;padding:18px;}
+  .ritual-focus-sheet{width:min(560px,calc(100vw - 28px));max-height:min(86vh,780px);overflow:auto;background:var(--bg2);border:1.5px solid var(--border);border-top:5px solid var(--ritual-color);border-radius:28px;box-shadow:0 24px 80px rgba(74,40,64,.22);padding:18px;display:flex;flex-direction:column;gap:14px;}
+  .ritual-focus-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:var(--bg2);z-index:2;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .ritual-focus-step-list{gap:9px;}
+  .ritual-focus-step-list .ritual-step{padding:12px 13px;border-radius:16px;font-size:14px;min-height:48px;}
+  .ritual-focus-actions{display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--bg2);padding-top:10px;border-top:1px solid var(--border);}
+
+  @media(max-width:768px){
+    :root{--mobile-nav-h:calc(70px + env(safe-area-inset-bottom));}
+    body{overscroll-behavior:none;}
+    .app{height:100dvh;padding-bottom:var(--mobile-nav-h);}
+    .main{height:100%;}
+    .content-area{height:100%;padding-bottom:0;}
+    .mobile-sidebar-scrim.open{display:block;position:fixed;inset:0;bottom:var(--mobile-nav-h);z-index:155;background:rgba(54,32,50,.26);border:0;}
+    .sidebar{bottom:var(--mobile-nav-h)!important;border-radius:0 22px 0 0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+    .sidebar.closed + .mobile-sidebar-scrim{display:none!important;}
+    .sidebar-nav{flex:1;min-height:0;overflow-y:auto;padding-bottom:18px;-webkit-overflow-scrolling:touch;}
+    .sidebar-cals{max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+    .mobile-nav{height:var(--mobile-nav-h);padding:7px 6px calc(7px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -8px 30px rgba(184,111,143,.12);gap:3px;}
+    .dark .mobile-nav{background:rgba(35,19,41,.96);}
+    .mobile-nav-btn{min-width:0;border-radius:16px;font-size:20px;font-weight:900;touch-action:manipulation;}
+    .mobile-nav-btn span{font-size:9.5px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mobile-nav-btn.active{background:var(--bg4);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent3);}
+    .mobile-nav-btn:active{transform:scale(.97);}
+    .mobile-sync-strip{display:flex;position:fixed;left:10px;right:10px;bottom:calc(var(--mobile-nav-h) + 8px);z-index:118;justify-content:center;pointer-events:none;}
+    .mobile-sync-strip .sync-pill{pointer-events:auto;max-width:calc(100vw - 28px);white-space:normal;justify-content:center;text-align:center;box-shadow:0 10px 28px rgba(184,111,143,.18);}
+
+    .phase-page,.tasks-page,.journal-page,.bloom-room-page,.affirmations-page,.tomorrow-reset-page,.weekly-reset-page{height:100%;overflow:auto;-webkit-overflow-scrolling:touch;scroll-padding-bottom:calc(var(--mobile-nav-h) + 24px);}
+    .phase-page{padding:12px 12px calc(var(--mobile-nav-h) + 22px)!important;gap:14px;}
+    .phase-hero{position:sticky;top:0;z-index:70;border-radius:0 0 22px 22px;margin:-12px -12px 4px;padding:16px 14px;background:var(--bg2);box-shadow:0 1px 0 var(--border), var(--shadow-sm);}
+    .phase-hero h1{font-size:23px;}
+    .phase-hero p{font-size:12px;}
+    .phase-hero .tf-save,.phase-hero .tf-cancel{min-height:44px;width:100%;}
+    .phase-card{border-radius:20px;padding:15px;}
+    .phase-card-head{align-items:flex-start;gap:8px;}
+    .phase-card-head button,.phase-card-head .tf-cancel,.phase-card-head .tf-save{min-height:38px;padding:8px 11px;}
+
+    .today-page-v2{padding-top:12px!important;}
+    .today-dashboard-hero,.today-dashboard-grid,.today-bottom-grid,.today-dashboard-card-grid{grid-template-columns:1fr!important;}
+    .today-hero-copy{padding:18px;border-radius:24px;}
+    .today-hero-copy h1{font-size:27px;}
+    .today-hero-actions{display:grid;grid-template-columns:1fr;gap:8px;}
+    .today-hero-actions button,.today-journal-actions button{min-height:46px;}
+    .today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .today-rhythm-strip button{min-height:74px;}
+    .today-task-row,.today-event-row,.phase-list-row,.ritual-list-row{min-height:52px;}
+
+    .task-board-nav{top:0!important;padding:10px 0!important;}
+    .tasks-page{padding:0 12px calc(var(--mobile-nav-h) + 18px)!important;}
+    .tasks-page > .journal-header,.journal-header,.bloom-room-page .journal-header{min-height:58px;}
+    .task-item,.task-card-with-move,.today-task-row{touch-action:pan-y;position:relative;}
+    .task-item::after,.today-task-row::after{content:"Swipe-friendly";display:none;position:absolute;right:10px;bottom:6px;font-size:9px;font-weight:900;color:var(--text3);}
+    .task-item button,.task-card-with-move button,.today-task-row button,.tf-save,.tf-cancel,.tf-delete,.modal-close,.mini-pill,.weekday-btn{min-height:40px;touch-action:manipulation;}
+
+    .calendar-pane{padding:10px 10px calc(var(--mobile-nav-h) + 16px)!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+    .calendar-pane.view-week,.calendar-pane.view-month{padding-bottom:calc(var(--mobile-nav-h) + 16px)!important;}
+    .topbar{position:sticky;top:0;z-index:85;background:var(--bg2);box-shadow:0 1px 0 var(--border), var(--shadow-sm);height:auto;min-height:58px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .topbar-btn,.view-tab{min-height:40px;}
+    .event-block{min-height:36px;border-radius:14px;padding:8px 10px;touch-action:manipulation;}
+    .event-resize-handle{opacity:.55;height:12px;}
+    .month-day{touch-action:manipulation;}
+    .wt-day-header{min-height:48px;touch-action:manipulation;}
+
+    .ritual-grid,.habit-grid,.ritual-template-grid,.affirmation-list-grid{grid-template-columns:1fr!important;}
+    .ritual-card,.habit-card{border-radius:22px;padding:15px;}
+    .ritual-card-actions,.habit-card-actions{display:grid;grid-template-columns:1fr;gap:8px;}
+    .ritual-card-actions button,.habit-card-actions button,.habit-check{width:100%;min-height:46px;}
+    .ritual-step{min-height:46px;padding:12px;font-size:13px;}
+    .ritual-step input{width:20px;height:20px;}
+    .ritual-open-checklist{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:9px 12px;font:inherit;font-size:12px;font-weight:950;cursor:pointer;}
+    .ritual-focus-overlay{align-items:flex-end;padding:0;z-index:1250;}
+    .ritual-focus-sheet{width:100vw;max-width:100vw;max-height:calc(100dvh - var(--mobile-nav-h));border-radius:28px 28px 0 0;border-left:0;border-right:0;border-bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));}
+    .ritual-focus-head{margin:-18px -16px 0;padding:16px;background:var(--bg2);}
+    .ritual-focus-step-list .ritual-step{font-size:15px;min-height:54px;}
+    .ritual-focus-actions{display:grid;grid-template-columns:1fr 1fr;margin:0 -16px -18px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));}
+
+    .habit-week-grid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
+    .habit-week-grid{min-width:0!important;grid-template-columns:minmax(120px,1.5fr) repeat(7,minmax(38px,1fr))!important;gap:5px;}
+    .habit-week-grid>*{min-height:42px;padding:6px 4px;}
+
+    .journal-page textarea,.entry-modal textarea,.memory-caption-input,.gratitude-input,.modal-textarea,.checkin-note-input{min-height:48px;line-height:1.5;}
+    .entry-modal .modal-actions,.entry-modal .entry-modal-actions,.modal-actions{position:sticky;bottom:0;background:var(--bg2);z-index:60;padding-top:10px;border-top:1px solid var(--border);}
+
+    .undo-btn{bottom:calc(var(--mobile-nav-h) + 18px);}
+    .chat-fab{bottom:calc(var(--mobile-nav-h) + 14px);right:16px;width:52px;height:52px;}
+    .chat-panel{bottom:calc(var(--mobile-nav-h) + 14px)!important;max-height:calc(100dvh - var(--mobile-nav-h) - 32px);}
+    .event-copy-bar{bottom:calc(var(--mobile-nav-h) + 12px);}
+    .tempo-toast{bottom:calc(var(--mobile-nav-h) + 16px)!important;}
+  }
+
   .notification-pref-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
   .notification-pref-card{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:9px;border:1px solid var(--border);background:var(--bg3);border-radius:16px;padding:10px 12px;cursor:pointer;}
   .notification-pref-card input,.notification-schedule-row input[type="checkbox"]{accent-color:var(--accent);}
@@ -6110,6 +6230,7 @@ export default function App() {
             })}
           </div>
         </div>
+        <button type="button" className={`mobile-sidebar-scrim ${sidebarOpen ? "open" : ""}`} aria-label="Close menu" onClick={() => setSidebarOpen(false)} />
 
         <div className="main">
           {page === "today" ? (
@@ -6274,12 +6395,17 @@ export default function App() {
       <RecurrenceScopeModal />
 
       {/* Mobile bottom nav — visible only on small screens */}
-      <div className="mobile-nav">
-        <button className="mobile-nav-btn" onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("today")}>🌤️<span>Today</span></button>
-        <button className="mobile-nav-btn" onClick={() => { setPage("calendar"); setView("day"); }}>🗓️<span>Calendar</span></button>
-        <button className="mobile-nav-btn" onClick={() => { setPage("tasks"); setTaskScope("day"); }}>✅<span>Tasks</span></button>
-        <button className="mobile-nav-btn" onClick={() => setPage("journal")}>📔<span>Journal</span></button>
+      {((syncStatus?.status && syncStatus.status !== "saved") || pendingLocalChanges > 0) && (
+        <div className="mobile-sync-strip"><SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} /></div>
+      )}
+
+      <div className="mobile-nav" role="navigation" aria-label="Mobile primary navigation">
+        <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
+        <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={() => { setPage("today"); setSidebarOpen(false); }}>🌤️<span>Today</span></button>
+        <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={() => { setPage("calendar"); setView("day"); setSidebarOpen(false); }}>🗓️<span>Calendar</span></button>
+        <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={() => { setPage("tasks"); setTaskScope("day"); setSidebarOpen(false); }}>✅<span>Tasks</span></button>
+        <button className={`mobile-nav-btn ${page === "rituals" ? "active" : ""}`} onClick={() => { setPage("rituals"); setSidebarOpen(false); }}>🕯️<span>Rituals</span></button>
+        <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={() => { setPage("habits"); setSidebarOpen(false); }}>🌱<span>Habits</span></button>
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
