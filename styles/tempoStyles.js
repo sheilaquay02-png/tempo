@@ -1571,14 +1571,14 @@ export function appCSS(cvars, fontScale) { return `
 @media(max-width:900px){.rhythm-stats-page{padding:12px 12px calc(var(--mobile-nav-h,78px) + 28px)!important;}.rhythm-stats-hero{position:sticky!important;top:0!important;z-index:70;background:var(--surface)!important;}.rhythm-stats-card-page{padding:14px!important;border-radius:22px!important;}.rhythm-stats-game-grid{grid-template-columns:1fr!important;}.rhythm-stats-page .streak-grid-five{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;}.rhythm-stats-page .streak-pill{padding:8px 4px!important;}.rhythm-stats-page .streak-pill strong{font-size:14px!important;}.rhythm-stats-page .streak-pill small{font-size:8px!important;}}
 
 
-/* ── Pre Phase 22 debug 7: raise mobile journal viewer above footer ───────── */
+/* ── Pre Phase 22 debug 9: lower mobile journal viewer while staying above footer ── */
 @media(max-width:768px){
   .modal-overlay[aria-label="View journal entry"]{
     position:fixed!important;
-    inset:0 0 calc(var(--mobile-nav-h,78px) + 54px) 0!important;
+    inset:0 0 calc(var(--mobile-nav-h,78px) + 10px) 0!important;
     height:auto!important;
     min-height:0!important;
-    padding:10px 10px 12px!important;
+    padding:12px 10px 14px!important;
     align-items:center!important;
     justify-content:center!important;
     overflow:hidden!important;
@@ -1587,8 +1587,8 @@ export function appCSS(cvars, fontScale) { return `
   .modal-overlay[aria-label="View journal entry"] .entry-view-modal{
     width:calc(100vw - 20px)!important;
     max-width:calc(100vw - 20px)!important;
-    height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
-    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 116px)!important;
+    height:auto!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 42px)!important;
     margin:0 auto!important;
     display:flex!important;
     flex-direction:column!important;
@@ -1607,9 +1607,22 @@ export function appCSS(cvars, fontScale) { return `
     overflow-y:auto!important;
     -webkit-overflow-scrolling:touch!important;
     overscroll-behavior:contain!important;
-    padding-bottom:34px!important;
+    padding-bottom:22px!important;
   }
 }
 
 
 `; }
+
+/* ── Pre Phase 22 debug 8: journal mobile header should scroll normally ── */
+@media(max-width:768px){
+  .journal-page > .journal-header{
+    position:relative!important;
+    top:auto!important;
+    z-index:2!important;
+    background:var(--surface)!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    box-shadow:0 1px 0 var(--border)!important;
+  }
+}
