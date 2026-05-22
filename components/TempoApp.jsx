@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -202,7 +202,7 @@ function TomorrowResetPage({ tasks, latestReset = null, gameStats, onCompleteRes
       <div className="tomorrow-reset-card page-card">
         <div className="tomorrow-reset-head">
           <div>
-            <div className="phase-kicker">Phase 13 · Tomorrow Reset</div>
+            <div className="phase-kicker">Tomorrow Reset</div>
             <h2>🌙 Close today calmly</h2>
             <p>{tasks.length ? `You have ${tasks.length} unfinished task${tasks.length === 1 ? "" : "s"}. Choose what happens to each one, then save your reflection into Journal and Bloom Room.` : "No unfinished tasks today. You can still write a quick reflection and set tomorrow’s main thing."}</p>
           </div>
@@ -1169,13 +1169,13 @@ function normalizeSettingsUpdatedAt(value) {
 function normalizeDeletedRecords(value) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const cleanKind = obj => Object.fromEntries(Object.entries(obj || {}).filter(([id, ts]) => id && ts));
-  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals), habits: cleanKind(src.habits) };
+  return { events: cleanKind(src.events), tasks: cleanKind(src.tasks), calendars: cleanKind(src.calendars), rituals: cleanKind(src.rituals), habits: cleanKind(src.habits), affirmations: cleanKind(src.affirmations) };
 }
 
 function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOString()) {
   const current = normalizeDeletedRecords(records);
-  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals }, habits: { ...current.habits } };
-  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : kind === "habits" ? "habits" : "events";
+  const next = { events: { ...current.events }, tasks: { ...current.tasks }, calendars: { ...current.calendars }, rituals: { ...current.rituals }, habits: { ...current.habits }, affirmations: { ...current.affirmations } };
+  const bucket = kind === "tasks" ? "tasks" : kind === "calendars" ? "calendars" : kind === "rituals" ? "rituals" : kind === "habits" ? "habits" : kind === "affirmations" ? "affirmations" : "events";
   (Array.isArray(ids) ? ids : [ids]).filter(Boolean).forEach(id => { next[bucket][id] = timestamp; });
   return next;
 }
@@ -2662,6 +2662,159 @@ function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
   );
 }
 
+
+function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, onOpenAffirmations, onFavorite, onAddToMorningReset, compact = false }) {
+  const todayAffirmation = affirmationForDate(affirmations, TODAY);
+  if (!todayAffirmation) return null;
+  const category = affirmationCategoryById(todayAffirmation.category);
+  return (
+    <section className={`phase-card affirmation-daily-card ${compact ? "compact" : ""}`}>
+      <div className="phase-card-head"><span>Daily Affirmation</span><button onClick={onOpenAffirmations}>Open</button></div>
+      <div className="affirmation-quote-row">
+        <span className="affirmation-quote-icon">{category.emoji}</span>
+        <div>
+          <blockquote>“{todayAffirmation.text}”</blockquote>
+          <small>{category.label} · Today’s gentle reminder</small>
+        </div>
+      </div>
+      <div className="affirmation-card-actions">
+        <button className={`affirmation-favorite-btn ${todayAffirmation.favorite ? "active" : ""}`} onClick={() => onFavorite?.(todayAffirmation.id)}>{todayAffirmation.favorite ? "♥ Favorited" : "♡ Favorite"}</button>
+        <button className="tf-cancel" onClick={() => onAddToMorningReset?.(todayAffirmation)}>Add to Morning Reset</button>
+      </div>
+    </section>
+  );
+}
+
+function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
+  const initial = affirmation ? normalizeAffirmation(affirmation) : normalizeAffirmation({ id: "affirm-" + uid(), text: "", category: "calm", favorite: false, source: "custom" });
+  const [form, setForm] = useState(initial);
+  const canDelete = Boolean(affirmation?.id && affirmation?.source === "custom");
+  function saveForm() {
+    const text = form.text.trim();
+    if (!text) return;
+    onSave?.({ ...form, text, source: "custom" });
+    onClose?.();
+  }
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Affirmation editor">
+      <div className="affirmation-modal" onClick={e => e.stopPropagation()}>
+        <div className="checkin-modal-head">
+          <div>
+            <div className="phase-kicker">Affirmation</div>
+            <h2>{affirmation ? "Edit your affirmation" : "Create a custom affirmation"}</h2>
+            <p>Keep it grounded, kind, and simple enough to return to daily.</p>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="checkin-section">
+          <div className="checkin-section-title">Text</div>
+          <textarea className="checkin-note-input affirmation-textarea" rows={4} value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} placeholder="Example: I can move through today calmly and clearly." />
+        </div>
+        <div className="checkin-section">
+          <div className="checkin-section-title">Category</div>
+          <div className="affirmation-category-grid">
+            {AFFIRMATION_CATEGORIES.map(cat => (
+              <button type="button" key={cat.id} className={`affirmation-category ${form.category === cat.id ? "active" : ""}`} onClick={() => setForm(f => ({ ...f, category: cat.id }))}>
+                <span>{cat.emoji}</span>{cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="affirmation-inline-toggle">
+          <input type="checkbox" checked={Boolean(form.favorite)} onChange={e => setForm(f => ({ ...f, favorite: e.target.checked }))} />
+          <span>Save as favorite</span>
+        </label>
+        <div className="modal-footer">
+          {canDelete && <button className="modal-delete" onClick={() => { onDelete?.(affirmation); onClose?.(); }}>Delete</button>}
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          <button className="tf-save" disabled={!form.text.trim()} onClick={saveForm}>{affirmation ? "Save affirmation" : "Create affirmation"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSettings = DEFAULT_AFFIRMATION_SETTINGS, onToggleFavorite, onSaveAffirmation, onDeleteAffirmation, onUpdateSettings, onAddToMorningReset }) {
+  const normalized = normalizeAffirmations(affirmations);
+  const settings = normalizeAffirmationSettings(affirmationSettings);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [shuffleOffset, setShuffleOffset] = useState(0);
+  const [editing, setEditing] = useState(null);
+  const daily = affirmationForDate(normalized, TODAY, shuffleOffset);
+  const favorites = normalized.filter(a => a.favorite);
+  const custom = normalized.filter(a => a.source === "custom");
+  const filtered = normalized.filter(a => selectedCategory === "all" || a.category === selectedCategory);
+  const category = daily ? affirmationCategoryById(daily.category) : AFFIRMATION_CATEGORIES[0];
+  return (
+    <div className="phase-page affirmations-page">
+      <div className="affirmation-hero">
+        <div>
+          <div className="phase-kicker">Affirmations</div>
+          <h1>One gentle thought for today</h1>
+          <p>Grounded reminders for your daily rhythm. Favorite the ones that help, or write your own.</p>
+        </div>
+        <button className="tf-save phase-primary" onClick={() => setEditing({ _new: true })}>＋ New affirmation</button>
+      </div>
+
+      <section className="affirmation-feature-card">
+        <div className="affirmation-feature-top">
+          <span className="affirmation-feature-emoji">{category.emoji}</span>
+          <div>
+            <small>{category.label} · Daily affirmation</small>
+            <blockquote>“{daily?.text || "I can move through today calmly and clearly."}”</blockquote>
+          </div>
+        </div>
+        <div className="affirmation-feature-actions">
+          <button className={`affirmation-favorite-btn ${daily?.favorite ? "active" : ""}`} onClick={() => daily && onToggleFavorite?.(daily.id)}>{daily?.favorite ? "♥ Favorited" : "♡ Favorite"}</button>
+          <button className="tf-cancel" onClick={() => setShuffleOffset(v => v + 1)}>Shuffle</button>
+          <button className="tf-cancel" onClick={() => daily && onAddToMorningReset?.(daily)}>Add to Morning Reset</button>
+        </div>
+      </section>
+
+      <div className="affirmation-grid-main">
+        <section className="phase-card affirmation-settings-card">
+          <div className="phase-card-head"><span>Reminder</span><small>optional</small></div>
+          <p className="phase-copy">Get a soft prompt to read your affirmation. This saves your preference for the notification revamp.</p>
+          <div className="affirmation-reminder-row">
+            <label className="affirmation-inline-toggle"><input type="checkbox" checked={settings.reminderEnabled} onChange={e => onUpdateSettings?.({ ...settings, reminderEnabled: e.target.checked })} /><span>Daily reminder</span></label>
+            <input className="modal-select modal-time" type="time" value={settings.reminderTime} onChange={e => onUpdateSettings?.({ ...settings, reminderTime: e.target.value })} />
+          </div>
+        </section>
+        <section className="phase-card affirmation-settings-card">
+          <div className="phase-card-head"><span>Your collection</span><small>{normalized.length} total</small></div>
+          <div className="affirmation-stats-grid">
+            <div><strong>{favorites.length}</strong><span>favorites</span></div>
+            <div><strong>{custom.length}</strong><span>custom</span></div>
+            <div><strong>{AFFIRMATION_CATEGORIES.length}</strong><span>categories</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div className="affirmation-filter-row">
+        <button className={selectedCategory === "all" ? "active" : ""} onClick={() => setSelectedCategory("all")}>All</button>
+        {AFFIRMATION_CATEGORIES.map(cat => <button key={cat.id} className={selectedCategory === cat.id ? "active" : ""} onClick={() => setSelectedCategory(cat.id)}>{cat.emoji} {cat.label}</button>)}
+      </div>
+
+      <div className="affirmation-list-grid">
+        {filtered.map(item => {
+          const cat = affirmationCategoryById(item.category);
+          return (
+            <article key={item.id} className={`affirmation-list-card ${item.favorite ? "favorite" : ""}`}>
+              <div className="affirmation-list-top"><span>{cat.emoji}</span><small>{cat.label}{item.source === "custom" ? " · Custom" : ""}</small></div>
+              <p>“{item.text}”</p>
+              <div className="affirmation-list-actions">
+                <button onClick={() => onToggleFavorite?.(item.id)}>{item.favorite ? "♥" : "♡"}</button>
+                {item.source === "custom" && <button onClick={() => setEditing(item)}>Edit</button>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {editing && <AffirmationEditorModal affirmation={editing._new ? null : editing} onClose={() => setEditing(null)} onSave={onSaveAffirmation} onDelete={onDeleteAffirmation} />}
+    </div>
+  );
+}
+
 function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
   const status = syncStatus?.status || "saved";
   const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
@@ -2674,7 +2827,7 @@ function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSync
   );
 }
 
-function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
+function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], affirmations = DEFAULT_AFFIRMATIONS, categories = CATEGORIES, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenAffirmations, onFavoriteAffirmation, onAddAffirmationToMorningReset, onOpenRituals, onOpenHabits, onPlanToday, onTomorrowReset, onToggleRitualStep, onSkipRitual, onCompleteRitual, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
   const todayKey = dateKey(TODAY);
   const nowHour = new Date().getHours();
   const greeting = nowHour < 12 ? "Good morning" : nowHour < 18 ? "Good afternoon" : "Good evening";
@@ -2760,10 +2913,11 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
           <p className="today-prompt">{prompt}</p>
           <div className="today-journal-actions"><button className="tf-cancel" onClick={onOpenJournal}>📔 Write today’s entry</button><button className="tf-save" onClick={onTomorrowReset}>🌙 Start Tomorrow Reset</button></div>
         </section>
+        <DailyAffirmationCard affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} onAddToMorningReset={onAddAffirmationToMorningReset} />
         <section className="phase-card today-next-card">
           <div className="phase-card-head"><span>Next gentle step</span><small>Daily loop</small></div>
           <div className="today-loop"><span>Check in</span><i /> <span>Plan</span><i /> <span>Do</span><i /> <span>Reset</span><i /> <span>Reflect</span></div>
-          <p className="phase-copy">Use this page as your daily home base: choose your top tasks, follow rituals, check habits, then reset tomorrow before the day ends.</p>
+          <p className="phase-copy">Use this page as your daily home base: choose your top tasks, follow rituals, check habits, read your affirmation, then reset tomorrow before the day ends.</p>
         </section>
       </div>
     </div>
@@ -3217,6 +3371,8 @@ export default function App() {
   const [dailyCheckIns, setDailyCheckInsRaw] = useState(() => normalizeDailyCheckIns(load(`${uk}_daily_checkins`, [])));
   const [tomorrowResets, setTomorrowResetsRaw] = useState(() => normalizeTomorrowResets(load(`${uk}_tomorrow_resets`, [])));
   const [weeklyResets, setWeeklyResetsRaw] = useState(() => normalizeWeeklyResets(load(`${uk}_weekly_resets`, [])));
+  const [affirmations, setAffirmationsRaw] = useState(() => normalizeAffirmations(load(`${uk}_affirmations`, DEFAULT_AFFIRMATIONS)));
+  const [affirmationSettings, setAffirmationSettingsRaw] = useState(() => normalizeAffirmationSettings(load(`${uk}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -3249,7 +3405,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const requestedPage = params.get("page");
-    if (["today", "calendar", "tasks", "journal", "bloom", "rituals", "habits", "affirmations", "weekly-reset"].includes(requestedPage)) {
+    if (["today", "calendar", "tasks", "journal", "bloom", "rituals", "habits", "affirmations", "tomorrow-reset", "weekly-reset"].includes(requestedPage)) {
       setPage(requestedPage);
     }
   }, []);
@@ -3311,6 +3467,8 @@ export default function App() {
       setDailyCheckInsRaw([]);
       setTomorrowResetsRaw([]);
       setWeeklyResetsRaw([]);
+      setAffirmationsRaw([]);
+      setAffirmationSettingsRaw(normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS));
       return;
     }
 
@@ -3334,6 +3492,8 @@ export default function App() {
     setDailyCheckInsRaw(normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])));
     setTomorrowResetsRaw(normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])));
     setWeeklyResetsRaw(normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])));
+    setAffirmationsRaw(normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)));
+    setAffirmationSettingsRaw(normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -3374,6 +3534,8 @@ export default function App() {
         dailyCheckIns: normalizeDailyCheckIns(safeSettings.dailyCheckIns ?? load(`${userKey}_daily_checkins`, [])),
         tomorrowResets: normalizeTomorrowResets(safeSettings.tomorrowResets ?? load(`${userKey}_tomorrow_resets`, [])),
         weeklyResets: normalizeWeeklyResets(safeSettings.weeklyResets ?? load(`${userKey}_weekly_resets`, [])),
+        affirmations: normalizeAffirmations(safeSettings.affirmations ?? load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
+        affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -3403,6 +3565,8 @@ export default function App() {
       setDailyCheckInsRaw(normalizeDailyCheckIns(nextSettings.dailyCheckIns));
       setTomorrowResetsRaw(normalizeTomorrowResets(nextSettings.tomorrowResets));
       setWeeklyResetsRaw(normalizeWeeklyResets(nextSettings.weeklyResets));
+      setAffirmationsRaw(normalizeAffirmations(nextSettings.affirmations));
+      setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -3425,6 +3589,8 @@ export default function App() {
       save(`${userKey}_daily_checkins`, normalizeDailyCheckIns(nextSettings.dailyCheckIns));
       save(`${userKey}_tomorrow_resets`, normalizeTomorrowResets(nextSettings.tomorrowResets));
       save(`${userKey}_weekly_resets`, normalizeWeeklyResets(nextSettings.weeklyResets));
+      save(`${userKey}_affirmations`, normalizeAffirmations(nextSettings.affirmations));
+      save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -3471,6 +3637,8 @@ export default function App() {
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
+          affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
+          affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3521,6 +3689,8 @@ export default function App() {
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
+          affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
+          affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -3568,6 +3738,8 @@ export default function App() {
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
+          affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
+          affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -3602,6 +3774,8 @@ export default function App() {
           dailyCheckIns: [],
           tomorrowResets: [],
           weeklyResets: [],
+          affirmations: normalizeAffirmations(DEFAULT_AFFIRMATIONS),
+          affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -3642,6 +3816,8 @@ export default function App() {
           dailyCheckIns: normalizeDailyCheckIns(load(`${userKey}_daily_checkins`, [])),
           tomorrowResets: normalizeTomorrowResets(load(`${userKey}_tomorrow_resets`, [])),
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
+          affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
+          affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3697,6 +3873,8 @@ export default function App() {
     dailyCheckIns: normalizeDailyCheckIns(dailyCheckIns),
     tomorrowResets: normalizeTomorrowResets(tomorrowResets),
     weeklyResets: normalizeWeeklyResets(weeklyResets),
+    affirmations: normalizeAffirmations(affirmations),
+    affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -3759,6 +3937,8 @@ export default function App() {
         dailyCheckIns: normalizeDailyCheckIns(nextSettings?.dailyCheckIns || dailyCheckIns),
         tomorrowResets: normalizeTomorrowResets(nextSettings?.tomorrowResets || tomorrowResets),
         weeklyResets: normalizeWeeklyResets(nextSettings?.weeklyResets || weeklyResets),
+        affirmations: normalizeAffirmations(nextSettings?.affirmations || affirmations),
+        affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -3795,6 +3975,8 @@ export default function App() {
       setDailyCheckInsRaw(normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
       setTomorrowResetsRaw(normalizeTomorrowResets(normalizedSettings.tomorrowResets));
       setWeeklyResetsRaw(normalizeWeeklyResets(normalizedSettings.weeklyResets));
+      setAffirmationsRaw(normalizeAffirmations(normalizedSettings.affirmations));
+      setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -3826,6 +4008,8 @@ export default function App() {
       save(`${uk}_daily_checkins`, normalizeDailyCheckIns(normalizedSettings.dailyCheckIns));
       save(`${uk}_tomorrow_resets`, normalizeTomorrowResets(normalizedSettings.tomorrowResets));
       save(`${uk}_weekly_resets`, normalizeWeeklyResets(normalizedSettings.weeklyResets));
+      save(`${uk}_affirmations`, normalizeAffirmations(normalizedSettings.affirmations));
+      save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -3963,6 +4147,8 @@ export default function App() {
     save(`${uk}_daily_checkins`, normalizeDailyCheckIns(next.dailyCheckIns));
     save(`${uk}_tomorrow_resets`, normalizeTomorrowResets(next.tomorrowResets));
     save(`${uk}_weekly_resets`, normalizeWeeklyResets(next.weeklyResets));
+    save(`${uk}_affirmations`, normalizeAffirmations(next.affirmations));
+    save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -4354,6 +4540,87 @@ export default function App() {
     const movedNextWeek = actionRows.filter(row => row.action === "nextWeek").length;
     const dropped = actionRows.filter(row => row.action === "drop").length;
     setToast({ text: `Weekly Reset saved · ${movedNextWeek} moved to next week${dropped ? ` · ${dropped} dropped` : ""} ✓`, ts: Date.now() });
+  }
+
+
+  const setAffirmations = v => {
+    const n = normalizeAffirmations(typeof v === "function" ? v(affirmations) : v);
+    setAffirmationsRaw(n);
+    save(`${uk}_affirmations`, n);
+    persistSettings({ affirmations: n });
+  };
+
+  const setAffirmationSettings = v => {
+    const n = normalizeAffirmationSettings(typeof v === "function" ? v(affirmationSettings) : v);
+    setAffirmationSettingsRaw(n);
+    save(`${uk}_affirmation_settings`, n);
+    persistSettings({ affirmationSettings: n });
+  };
+
+  function toggleAffirmationFavorite(id) {
+    const now = new Date().toISOString();
+    setAffirmations(list => normalizeAffirmations(list).map(item => item.id === id ? normalizeAffirmation({ ...item, favorite: !item.favorite, updatedAt: now }) : item));
+  }
+
+  function saveAffirmation(affirmation) {
+    const now = new Date().toISOString();
+    const clean = normalizeAffirmation({ ...affirmation, id: affirmation.id || "affirm-" + uid(), source: "custom", createdAt: affirmation.createdAt || now, updatedAt: now });
+    setAffirmations(list => {
+      const normalized = normalizeAffirmations(list);
+      return normalized.some(item => item.id === clean.id) ? normalized.map(item => item.id === clean.id ? clean : item) : [...normalized, clean];
+    });
+    setToast({ text: "Affirmation saved ✓", ts: Date.now() });
+  }
+
+  function deleteAffirmation(affirmation) {
+    if (!affirmation?.id) return;
+    const now = new Date().toISOString();
+    const nextDeletedRecords = addDeletedRecords(deletedRecords, "affirmations", affirmation.id, now);
+    const nextAffirmations = normalizeAffirmations(affirmations).filter(item => item.id !== affirmation.id);
+    setDeletedRecordsRaw(nextDeletedRecords);
+    save(`${uk}_deleted_records`, nextDeletedRecords);
+    setAffirmationsRaw(nextAffirmations);
+    save(`${uk}_affirmations`, nextAffirmations);
+    persistSettings({ affirmations: nextAffirmations, deletedRecords: nextDeletedRecords });
+    setToast({ text: "Affirmation deleted ✓", ts: Date.now() });
+  }
+
+  function addAffirmationToMorningReset(affirmation) {
+    const stepText = "Read today’s affirmation";
+    const now = new Date().toISOString();
+    const normalized = normalizeRituals(rituals);
+    const existing = normalized.find(r => String(r.name || "").trim().toLowerCase() === "morning reset");
+    if (existing) {
+      const already = (existing.steps || []).some(step => String(step.text || "").trim().toLowerCase() === stepText.toLowerCase());
+      if (already) {
+        setToast({ text: "Morning Reset already includes affirmation ✓", ts: Date.now() });
+        return;
+      }
+      setRituals(list => normalizeRituals(list).map(r => r.id === existing.id ? normalizeRitual({ ...r, steps: [...(r.steps || []), { id: "step-" + uid(), text: stepText }], updatedAt: now }) : r));
+      setToast({ text: "Added affirmation to Morning Reset ✓", ts: Date.now() });
+      return;
+    }
+    const clean = normalizeRitual({
+      id: "ritual-" + uid(),
+      name: "Morning Reset",
+      emoji: "🌤️",
+      category: "personal",
+      steps: [
+        { id: "step-1", text: "Drink water" },
+        { id: "step-2", text: stepText },
+        { id: "step-3", text: "Check today’s calendar" },
+        { id: "step-4", text: "Choose top 3 tasks" },
+      ],
+      estimatedMinutes: 15,
+      scheduledTime: "08:30",
+      repeatDays: [1,2,3,4,5,6,0],
+      reminder: { type: "at", minutesBefore: 0 },
+      color: "#FF7BAC",
+      createdAt: now,
+      updatedAt: now,
+    });
+    setRituals(list => [...normalizeRituals(list), clean]);
+    setToast({ text: "Created Morning Reset with affirmation ✓", ts: Date.now() });
   }
 
 
@@ -5498,7 +5765,6 @@ export default function App() {
             <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
             <div className={`nav-item ${page==="bloom"?"active":""}`} onClick={() => { setPage("bloom"); closeSidebarOnMobile(); }}><span className="nav-icon">🌸</span>Bloom Room</div>
             <div className={`nav-item ${page==="affirmations"?"active":""}`} onClick={() => { setPage("affirmations"); closeSidebarOnMobile(); }}><span className="nav-icon">💌</span>Affirmations</div>
-            <div className="nav-item" onClick={() => { setShowStats(true); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
           </nav>
           <div className="sidebar-cals">
@@ -5525,19 +5791,19 @@ export default function App() {
 
         <div className="main">
           {page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenAffirmations={() => setPage("affirmations")} onFavoriteAffirmation={toggleAffirmationFavorite} onAddAffirmationToMorningReset={addAffirmationToMorningReset} onOpenRituals={() => setPage("rituals")} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleRitualStep={toggleRitualStep} onSkipRitual={skipRitualToday} onCompleteRitual={completeRitualToday} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "bloom" ? (
-            <BloomRoomPage gameStats={gameStats} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} />
+            <BloomRoomPage gameStats={gameStats} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} affirmations={affirmations} />
           ) : page === "rituals" ? (
             <RitualsPage rituals={rituals} completions={ritualCompletions} onAdd={addRitual} onEdit={editRitual} onDelete={deleteRitual} onArchive={archiveRitual} onToggleStep={toggleRitualStep} onSkip={skipRitualToday} onComplete={completeRitualToday} />
           ) : page === "habits" ? (
             <HabitsPage habits={habits} completions={habitCompletions} onAdd={addHabit} onEdit={editHabit} onDelete={deleteHabit} onArchive={archiveHabit} onToggle={toggleHabitToday} onIncrement={incrementHabitToday} />
           ) : page === "affirmations" ? (
-            <ComingSoonPage icon="💌" title="Affirmations" phase="Later phase" description="A soft daily affirmation card for Bloom Room, Today, and future rituals." bullets={["Daily affirmation", "Favorites", "Custom affirmations", "Optional reminder"]} />
+            <AffirmationsPage affirmations={affirmations} affirmationSettings={affirmationSettings} onToggleFavorite={toggleAffirmationFavorite} onSaveAffirmation={saveAffirmation} onDeleteAffirmation={deleteAffirmation} onUpdateSettings={setAffirmationSettings} onAddToMorningReset={addAffirmationToMorningReset} />
           ) : page === "tomorrow-reset" ? (
             <TomorrowResetPage tasks={tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
           ) : page === "weekly-reset" ? (
