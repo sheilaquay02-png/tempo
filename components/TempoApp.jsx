@@ -131,34 +131,202 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
   );
 }
 
-// ─── Stats Card ───────────────────────────────────────────────────────────────
-function StatsCard({ events, tasks, streak, gameStats, onClose }) {
-  const td = getEventsOnDay(events, TODAY); const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY)); const dn = todayTasks.filter(t => t.done).length, tot = todayTasks.length;
-  const catMins = id => td.filter(e => Core.categoryIs(e.category, id)).reduce((a, e) => a + (e.end - e.start) / 60000, 0);
-  const bars = [
-    { label: "Important", mins: catMins("important"),    color: "#B08AE0" },
-    { label: "Meetings",  mins: catMins("meeting"), color: "#FF7BAC" },
-    { label: "Light Task",     mins: catMins("light"),   color: "#A0C8E0" },
-    { label: "Personal",  mins: catMins("personal") + catMins("wellness"), color: "#70C8A0" },
-  ];
-  const mx = Math.max(...bars.map(b => b.mins), 1);
-  const gs = gameStats || calculateGameStats(tasks, {}, events);
+// ─── Rhythm Stats ─────────────────────────────────────────────────────────────
+function pct(done, total) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, Math.round(done / total * 100)));
+}
+
+function dateKeySetForLast(days, endDate = TODAY) {
+  return new Set(dateRangeKeys(days - 1, 0).map(String));
+}
+
+function labelForCheckIn(collection, id) {
+  return collection.find(item => item.id === id)?.label || "Not set";
+}
+
+function emojiForCheckIn(collection, id) {
+  return collection.find(item => item.id === id)?.emoji || "·";
+}
+
+function mostFrequentCheckIn(checkIns, key, collection) {
+  const counts = new Map();
+  checkIns.forEach(item => {
+    const value = item?.[key];
+    if (!value) return;
+    counts.set(value, (counts.get(value) || 0) + 1);
+  });
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (!top) return { id: null, label: "Not enough data", emoji: "·", count: 0 };
+  return { id: top[0], label: labelForCheckIn(collection, top[0]), emoji: emojiForCheckIn(collection, top[0]), count: top[1] };
+}
+
+function buildRhythmStatsSnapshot({ tasks = [], rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES }) {
+  const last7Keys = dateKeySetForLast(7);
+  const last14Keys = dateKeySetForLast(14);
+  const last30Keys = dateKeySetForLast(30);
+  const last7Dates = [...last7Keys].map(k => localDateFromKey(k)).filter(Boolean);
+  const last30Dates = [...last30Keys].map(k => localDateFromKey(k)).filter(Boolean);
+  const activeRituals = normalizeRituals(rituals).filter(r => !r.archived && !r.deletedAt);
+  const activeHabits = normalizeHabits(habits).filter(h => !h.archived && !h.deletedAt);
+  const cleanRitualCompletions = normalizeRitualCompletions(ritualCompletions);
+  const cleanHabitCompletions = normalizeHabitCompletions(habitCompletions);
+  const cleanCheckIns = normalizeDailyCheckIns(dailyCheckIns);
+  const cleanTomorrowResets = normalizeTomorrowResets(tomorrowResets);
+  const cleanWeeklyResets = normalizeWeeklyResets(weeklyResets);
+
+  const ritualScheduled7 = last7Dates.reduce((sum, d) => sum + activeRituals.filter(r => ritualRunsOnDate(r, d)).length, 0);
+  const ritualCompleted7 = last7Dates.reduce((sum, d) => sum + activeRituals.filter(r => ritualRunsOnDate(r, d) && ritualProgress(r, cleanRitualCompletions, d).completed).length, 0);
+
+  const habitScheduled7 = last7Dates.reduce((sum, d) => sum + activeHabits.filter(h => habitRunsOnDate(h, d)).length, 0);
+  const habitCompleted7 = last7Dates.reduce((sum, d) => sum + activeHabits.filter(h => habitRunsOnDate(h, d) && habitProgress(h, cleanHabitCompletions, d).completed).length, 0);
+  const habitStreaks = activeHabits.map(h => ({ habit: h, streak: habitStreak(h, cleanHabitCompletions, TODAY) })).sort((a, b) => b.streak - a.streak);
+
+  const completedTasks30 = tasks.filter(t => {
+    const key = taskCompletedDateKey(t);
+    return t.done && key && last30Keys.has(key);
+  });
+  const plannedTasks30 = tasks.filter(t => {
+    const anchor = taskCompletionTargetKey(t) || taskDayKey(t) || taskWeekKey(t) || taskMonthKey(t) || taskCompletedDateKey(t);
+    return anchor && last30Keys.has(String(anchor).slice(0, 10));
+  });
+  const taskCompletionRate30 = pct(completedTasks30.length, plannedTasks30.length || completedTasks30.length);
+
+  const journalKeys30 = Object.keys(journal || {}).filter(k => last30Keys.has(k) && hasJournalEntryForKey(journal, k));
+  const checkIns14 = cleanCheckIns.filter(c => last14Keys.has(c.date));
+  const checkIns30 = cleanCheckIns.filter(c => last30Keys.has(c.date));
+  const topMood = mostFrequentCheckIn(checkIns14, "mood", DAILY_CHECKIN_MOODS);
+  const topEnergy = mostFrequentCheckIn(checkIns14, "energy", DAILY_CHECKIN_ENERGIES);
+
+  const weekStartKeyNow = dateKey(weekStart(TODAY));
+  const currentWeeklyReset = cleanWeeklyResets.find(r => r.weekStart === weekStartKeyNow);
+  const weeklyResets30 = cleanWeeklyResets.filter(r => last30Keys.has(r.weekStart));
+  const tomorrowResets30 = cleanTomorrowResets.filter(r => last30Keys.has(r.date));
+
+  const weekdayRows = [0,1,2,3,4,5,6].map(day => {
+    const relevantDates = last30Dates.filter(d => d.getDay() === day);
+    const keys = new Set(relevantDates.map(dateKey));
+    const taskDone = completedTasks30.filter(t => keys.has(taskCompletedDateKey(t))).length;
+    const habitDone = cleanHabitCompletions.filter(c => keys.has(c.date) && activeHabits.some(h => h.id === c.habitId && c.count >= Math.max(1, Number(h.targetCount || 1)))).length;
+    const ritualDone = cleanRitualCompletions.filter(c => keys.has(c.date) && c.completedAt).length;
+    const journalDone = Object.keys(journal || {}).filter(k => keys.has(k) && hasJournalEntryForKey(journal, k)).length;
+    const checkInDone = cleanCheckIns.filter(c => keys.has(c.date)).length;
+    const score = taskDone + habitDone + ritualDone + journalDone + checkInDone;
+    return { day, label: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day], score, taskDone, habitDone, ritualDone, journalDone, checkInDone };
+  }).sort((a, b) => b.score - a.score);
+  const mostConsistentDay = weekdayRows[0]?.score ? weekdayRows[0] : null;
+
+  const categoryRows = (categories || CATEGORIES).map(cat => {
+    const total = plannedTasks30.filter(t => Core.categoryIs(t.category, cat.id)).length;
+    const done = completedTasks30.filter(t => Core.categoryIs(t.category, cat.id)).length;
+    return { id: cat.id, label: cat.label || cat.id, icon: cat.icon || "•", done, total, rate: pct(done, total || done) };
+  }).filter(row => row.done || row.total).sort((a, b) => b.rate - a.rate || b.done - a.done).slice(0, 6);
+
+  const rhythmMessage = (() => {
+    const ritualRate = pct(ritualCompleted7, ritualScheduled7);
+    const habitRate = pct(habitCompleted7, habitScheduled7);
+    if (habitRate >= 75 && ritualRate >= 75) return "Your routines and habits are holding a steady rhythm.";
+    if (checkIns14.length >= 4 && journalKeys30.length >= 4) return "You are building good self-awareness through check-ins and reflection.";
+    if (completedTasks30.length >= 10) return "Your task rhythm is moving. A little more reset time can make it feel lighter.";
+    return "A few small check-ins are enough to start seeing your rhythm clearly.";
+  })();
+
+  return {
+    ritualScheduled7,
+    ritualCompleted7,
+    ritualRate7: pct(ritualCompleted7, ritualScheduled7),
+    habitScheduled7,
+    habitCompleted7,
+    habitRate7: pct(habitCompleted7, habitScheduled7),
+    bestHabit: habitStreaks[0] || null,
+    completedTasks30: completedTasks30.length,
+    plannedTasks30: plannedTasks30.length,
+    taskCompletionRate30,
+    journalEntries30: journalKeys30.length,
+    checkIns30: checkIns30.length,
+    topMood,
+    topEnergy,
+    currentWeeklyReset: Boolean(currentWeeklyReset),
+    weeklyResetCount30: weeklyResets30.length,
+    tomorrowResetCount30: tomorrowResets30.length,
+    mostConsistentDay,
+    categoryRows,
+    rhythmMessage,
+  };
+}
+
+function RhythmMeter({ label, value, detail }) {
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily summary">
-      <div className="stats-card" onClick={e => e.stopPropagation()}>
-        <div className="stats-header"><span className="stats-title">📊 Rhythm Summary</span><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="stats-streak">🔥 {gs.streaks?.productive ?? streak} day rhythm streak · Level {gs.level} {gs.title}</div>
-        <div className="stats-row">
-          <div className="stat-big"><div className="stat-num">{dn}/{tot}</div><div className="stat-lbl">Tasks done</div></div>
-          <div className="stat-big"><div className="stat-num">{gs.today.rank}</div><div className="stat-lbl">Daily rank</div></div>
-          <div className="stat-big"><div className="stat-num">{gs.today.score}</div><div className="stat-lbl">Tempo score</div></div>
+    <div className="rhythm-meter">
+      <div className="rhythm-meter-top"><strong>{label}</strong><span>{value}%</span></div>
+      <div className="rhythm-meter-track"><i style={{ width: `${value}%` }} /></div>
+      {detail && <p>{detail}</p>}
+    </div>
+  );
+}
+
+function StatsCard({ events, tasks, rituals = [], ritualCompletions = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES, onClose }) {
+  const stats = buildRhythmStatsSnapshot({ tasks, rituals, ritualCompletions, habits, habitCompletions, journal, dailyCheckIns, tomorrowResets, weeklyResets, categories });
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Rhythm Stats">
+      <div className="stats-card rhythm-stats-card" onClick={e => e.stopPropagation()}>
+        <div className="stats-header"><span className="stats-title">📊 Rhythm Stats</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="stats-streak rhythm-stats-note">Here’s how your rhythm is building.</div>
+        <div className="rhythm-insight-card">{stats.rhythmMessage}</div>
+
+        <div className="stats-row rhythm-stat-grid">
+          <div className="stat-big"><div className="stat-num">{stats.ritualRate7}%</div><div className="stat-lbl">Ritual consistency</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.habitRate7}%</div><div className="stat-lbl">Habit consistency</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.taskCompletionRate30}%</div><div className="stat-lbl">Task completion</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.journalEntries30}</div><div className="stat-lbl">Journal entries</div></div>
         </div>
-        <div className="stats-row">
-          <div className="stat-big"><div className="stat-num">{Math.round(catMins("important") / 60 * 10) / 10}h</div><div className="stat-lbl">Important time</div></div>
-          <div className="stat-big"><div className="stat-num">{td.length}</div><div className="stat-lbl">Events</div></div>
-          <div className="stat-big"><div className="stat-num">{gs.unlockedBadges.length}</div><div className="stat-lbl">Badges</div></div>
+
+        <div className="rhythm-stats-section">
+          <div className="rhythm-section-title">This week</div>
+          <RhythmMeter label="Rituals checked off" value={stats.ritualRate7} detail={`${stats.ritualCompleted7}/${stats.ritualScheduled7 || 0} scheduled rituals completed`} />
+          <RhythmMeter label="Habits checked off" value={stats.habitRate7} detail={`${stats.habitCompleted7}/${stats.habitScheduled7 || 0} habit check-ins completed`} />
         </div>
-        <div className="stats-mini-note">A quick snapshot of today. Deeper game progress now lives in 🌸 Bloom Room.</div>
+
+        <div className="rhythm-stats-split">
+          <div className="rhythm-mini-panel">
+            <div className="rhythm-section-title">Mood & energy</div>
+            <div className="rhythm-chip-row"><span>{stats.topMood.emoji}</span><strong>{stats.topMood.label}</strong><small>Most common mood, 14 days</small></div>
+            <div className="rhythm-chip-row"><span>{stats.topEnergy.emoji}</span><strong>{stats.topEnergy.label}</strong><small>Most common energy, 14 days</small></div>
+            <p>{stats.checkIns30} check-in{stats.checkIns30 === 1 ? "" : "s"} in the last 30 days.</p>
+          </div>
+          <div className="rhythm-mini-panel">
+            <div className="rhythm-section-title">Resets</div>
+            <div className="rhythm-chip-row"><span>{stats.currentWeeklyReset ? "🧺" : "🌱"}</span><strong>{stats.currentWeeklyReset ? "Weekly reset done" : "Weekly reset ready"}</strong><small>This week</small></div>
+            <div className="rhythm-chip-row"><span>🌙</span><strong>{stats.tomorrowResetCount30}</strong><small>Tomorrow resets, 30 days</small></div>
+            <p>{stats.weeklyResetCount30} weekly reset{stats.weeklyResetCount30 === 1 ? "" : "s"} saved in the last 30 days.</p>
+          </div>
+        </div>
+
+        <div className="rhythm-stats-split">
+          <div className="rhythm-mini-panel">
+            <div className="rhythm-section-title">Best habit streak</div>
+            {stats.bestHabit ? <div className="rhythm-chip-row"><span>{stats.bestHabit.habit.emoji}</span><strong>{stats.bestHabit.habit.name}</strong><small>{stats.bestHabit.streak} day streak</small></div> : <p>No habit streak yet. Start with one small habit.</p>}
+          </div>
+          <div className="rhythm-mini-panel">
+            <div className="rhythm-section-title">Most consistent day</div>
+            {stats.mostConsistentDay ? <div className="rhythm-chip-row"><span>🗓️</span><strong>{stats.mostConsistentDay.label}</strong><small>{stats.mostConsistentDay.score} gentle check-ins</small></div> : <p>Not enough rhythm data yet.</p>}
+          </div>
+        </div>
+
+        <div className="rhythm-stats-section">
+          <div className="rhythm-section-title">Completion by category</div>
+          {stats.categoryRows.length ? <div className="rhythm-category-list">
+            {stats.categoryRows.map(row => (
+              <div key={row.id} className="rhythm-category-row">
+                <span>{row.icon} {row.label}</span>
+                <div className="rhythm-category-track"><i style={{ width: `${row.rate}%` }} /></div>
+                <strong>{row.done}/{row.total || row.done}</strong>
+              </div>
+            ))}
+          </div> : <p className="stats-mini-note">No completed task categories yet. This will fill in as you use Tempo.</p>}
+        </div>
+
+        <div className="stats-mini-note">No judgement here — these numbers are only here to help you understand what rhythm supports you best.</div>
       </div>
     </div>
   );
@@ -5996,7 +6164,7 @@ export default function App() {
       <TaskRescheduleDateModal />
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
-      {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
+      {showStats  && <StatsCard events={visibleEvents} tasks={tasks} rituals={rituals} ritualCompletions={ritualCompletions} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} onClose={() => setShowStats(false)} />}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
