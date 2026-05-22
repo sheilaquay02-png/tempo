@@ -63,10 +63,9 @@ async function handleSnooze(admin, row, minutes) {
     actionToken: meta.actionToken,
     type: meta.type || meta.sourceType || 'task',
     sourceType: meta.sourceType || meta.type || 'task',
-    sourceId: meta.sourceId || meta.taskId || meta.habitId || meta.ritualId || meta.id || null,
+    sourceId: meta.sourceId || meta.taskId || meta.habitId || meta.id || null,
     taskId: meta.taskId || (meta.sourceType === 'task' ? meta.sourceId : null),
     habitId: meta.habitId || (meta.sourceType === 'habit' ? meta.sourceId : null),
-    ritualId: meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null),
     date: meta.date || null,
     title: meta.title || 'Tempo reminder 🌸',
     body: meta.body || 'Open Tempo to check this item.',
@@ -131,60 +130,6 @@ async function handleCompleteHabit(admin, row) {
   return { ok: true, action: 'complete_habit', habitId, date };
 }
 
-async function handleCompleteRitual(admin, row) {
-  const meta = row.meta || {};
-  const ritualId = meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null);
-  if (!ritualId) return { ok: false, error: 'No ritual id on reminder' };
-  const date = meta.date || fallbackDateKey();
-  const userData = await loadUserData(admin, row.user_id, 'settings');
-  if (!userData) return { ok: false, error: 'User data not found' };
-  const settings = userData.settings || {};
-  const rituals = Array.isArray(settings.rituals) ? settings.rituals : [];
-  const ritual = rituals.find(r => r.id === ritualId);
-  if (!ritual) return { ok: false, error: 'Ritual not found' };
-  const now = new Date().toISOString();
-  const stepIds = Array.isArray(ritual.steps) ? ritual.steps.map(s => s.id) : [];
-  const current = Array.isArray(settings.ritualCompletions) ? settings.ritualCompletions : [];
-  const existing = current.find(c => c.ritualId === ritualId && c.date === date);
-  const nextCompletion = {
-    ...(existing || { id: `${ritualId}:${date}`, ritualId, date, createdAt: now }),
-    completedSteps: stepIds,
-    completedAt: existing?.completedAt || now,
-    skippedAt: null,
-    note: existing?.note || '',
-    updatedAt: now,
-  };
-  const ritualCompletions = existing ? current.map(c => c.id === existing.id ? nextCompletion : c) : [...current, nextCompletion];
-  const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.ritualId !== ritualId && item.sourceId !== ritualId);
-  await saveUserData(admin, row.user_id, { settings: { ...settings, ritualCompletions, snoozedReminders } });
-  return { ok: true, action: 'complete_ritual', ritualId, date };
-}
-
-async function handleSkipRitual(admin, row) {
-  const meta = row.meta || {};
-  const ritualId = meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null);
-  if (!ritualId) return { ok: false, error: 'No ritual id on reminder' };
-  const date = meta.date || fallbackDateKey();
-  const userData = await loadUserData(admin, row.user_id, 'settings');
-  if (!userData) return { ok: false, error: 'User data not found' };
-  const settings = userData.settings || {};
-  const now = new Date().toISOString();
-  const current = Array.isArray(settings.ritualCompletions) ? settings.ritualCompletions : [];
-  const existing = current.find(c => c.ritualId === ritualId && c.date === date);
-  const nextCompletion = {
-    ...(existing || { id: `${ritualId}:${date}`, ritualId, date, createdAt: now }),
-    completedSteps: [],
-    completedAt: null,
-    skippedAt: now,
-    note: existing?.note || '',
-    updatedAt: now,
-  };
-  const ritualCompletions = existing ? current.map(c => c.id === existing.id ? nextCompletion : c) : [...current, nextCompletion];
-  const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.ritualId !== ritualId && item.sourceId !== ritualId);
-  await saveUserData(admin, row.user_id, { settings: { ...settings, ritualCompletions, snoozedReminders } });
-  return { ok: true, action: 'skip_ritual', ritualId, date };
-}
-
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -197,8 +142,6 @@ export async function POST(request) {
     if (action === 'snooze') return json(await handleSnooze(admin, row, body.minutes));
     if (action === 'complete_task') return json(await handleCompleteTask(admin, row));
     if (action === 'complete_habit') return json(await handleCompleteHabit(admin, row));
-    if (action === 'complete_ritual') return json(await handleCompleteRitual(admin, row));
-    if (action === 'skip_ritual') return json(await handleSkipRitual(admin, row));
     return json({ ok: false, error: 'Unsupported action' }, 400);
   } catch (err) {
     console.error('Push action failed', err);

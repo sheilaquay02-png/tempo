@@ -629,193 +629,7 @@ const PLANNING_MODES = [
   { id: "productive", label: "Productive Day", emoji: "⚡", desc: "Use extra energy for important work.", maxPlanMinutes: 420, maxDeepWorkBlocks: 4, bufferBonus: 0 },
 ];
 
-const DEFAULT_RITUALS = [
-  {
-    id: "ritual-morning-reset",
-    name: "Morning Reset",
-    templateId: "morning-reset",
-    emoji: "☀️",
-    category: "morning",
-    steps: [
-      { id: "drink-water", text: "Drink water" },
-      { id: "check-calendar", text: "Check today’s calendar" },
-      { id: "top-3", text: "Choose your top 3 tasks" },
-      { id: "intention", text: "Write one simple intention" },
-    ],
-    estimatedMinutes: 15,
-    scheduledTime: "08:30",
-    repeatDays: [1,2,3,4,5],
-    reminder: { type: "at", minutesBefore: 0 },
-    color: "#FFB870",
-    archived: false,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "ritual-night-wind-down",
-    name: "Night Wind Down",
-    templateId: "night-wind-down",
-    emoji: "🌙",
-    category: "night",
-    steps: [
-      { id: "review-day", text: "Review what got done" },
-      { id: "move-tasks", text: "Move unfinished tasks" },
-      { id: "prepare-tomorrow", text: "Prepare tomorrow’s main thing" },
-      { id: "gratitude", text: "Write one gratitude" },
-    ],
-    estimatedMinutes: 20,
-    scheduledTime: "21:30",
-    repeatDays: [0,1,2,3,4,5,6],
-    reminder: { type: "at", minutesBefore: 0 },
-    color: "#B08AE0",
-    archived: false,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  },
-];
-
-const RITUAL_TEMPLATES = [
-  {
-    id: "morning-reset",
-    name: "Morning Reset",
-    emoji: "☀️",
-    category: "morning",
-    description: "Start the day with water, calendar clarity, and one simple intention.",
-    steps: ["Drink water", "Make your space feel tidy", "Check today’s calendar", "Choose your top 3 tasks", "Write one simple intention"],
-    estimatedMinutes: 15,
-    scheduledTime: "08:30",
-    repeatDays: [1,2,3,4,5],
-    reminder: { type: "at", minutesBefore: 0 },
-    color: "#FFB870",
-  },
-  {
-    id: "night-wind-down",
-    name: "Night Wind Down",
-    emoji: "🌙",
-    category: "night",
-    description: "Close the day gently and make tomorrow feel lighter before sleep.",
-    steps: ["Review what got done", "Move unfinished tasks", "Prepare tomorrow’s main thing", "Write one gratitude", "Put your phone away"],
-    estimatedMinutes: 20,
-    scheduledTime: "21:30",
-    repeatDays: [0,1,2,3,4,5,6],
-    reminder: { type: "at", minutesBefore: 0 },
-    color: "#B08AE0",
-  },
-  {
-    id: "sunday-reset",
-    name: "Sunday Reset",
-    emoji: "🧺",
-    category: "reset",
-    description: "Reset your space, tasks, and weekly priorities before the new week starts.",
-    steps: ["Review last week", "Clear unfinished tasks", "Choose weekly priorities", "Plan key events", "Write a weekly intention"],
-    estimatedMinutes: 35,
-    scheduledTime: "17:00",
-    repeatDays: [0],
-    reminder: { type: "minutes", minutesBefore: 30 },
-    color: "#FF9F9F",
-  },
-  {
-    id: "workday-start",
-    name: "Workday Start",
-    emoji: "💼",
-    category: "work",
-    description: "A calm launch routine for email, priorities, and first action of the workday.",
-    steps: ["Check calendar", "Review inbox lightly", "Pick today’s main thing", "Schedule important tasks", "Start the first action"],
-    estimatedMinutes: 20,
-    scheduledTime: "09:30",
-    repeatDays: [1,2,3,4,5],
-    reminder: { type: "at", minutesBefore: 0 },
-    color: "#7CBAFF",
-  },
-  {
-    id: "study-reset",
-    name: "Study Reset",
-    emoji: "📚",
-    category: "personal",
-    description: "Prepare your desk, notes, and plan before a focused study block.",
-    steps: ["Clear your desk", "Open the right notes", "Write what you are studying", "Set one target", "Put distractions away"],
-    estimatedMinutes: 10,
-    scheduledTime: "16:00",
-    repeatDays: [1,2,3,4,5],
-    reminder: { type: "none", minutesBefore: null },
-    color: "#C9A0FF",
-  },
-  {
-    id: "room-reset",
-    name: "Room Reset",
-    emoji: "🏡",
-    category: "home",
-    description: "A quick tidy-up ritual to make your room feel clean and peaceful again.",
-    steps: ["Make the bed", "Clear visible clutter", "Put clothes away", "Wipe one surface", "Lightly reset the floor"],
-    estimatedMinutes: 25,
-    scheduledTime: "19:30",
-    repeatDays: [2,4,6],
-    reminder: { type: "none", minutesBefore: null },
-    color: "#70C8A0",
-  },
-  {
-    id: "digital-declutter",
-    name: "Digital Declutter",
-    emoji: "📱",
-    category: "reset",
-    description: "Clear digital noise so your phone and laptop feel lighter.",
-    steps: ["Clear old notifications", "Close unused tabs", "Delete 5 unnecessary screenshots", "Review downloads", "Archive completed messages"],
-    estimatedMinutes: 20,
-    scheduledTime: "20:00",
-    repeatDays: [3],
-    reminder: { type: "none", minutesBefore: null },
-    color: "#7EC8C8",
-  },
-  {
-    id: "weekly-planning",
-    name: "Weekly Planning",
-    emoji: "🗓️",
-    category: "work",
-    description: "Turn your week into a clear plan before it gets crowded.",
-    steps: ["Check major events", "Pick three priorities", "Block important work", "Review deadlines", "Choose one personal reset"],
-    estimatedMinutes: 30,
-    scheduledTime: "18:00",
-    repeatDays: [0],
-    reminder: { type: "minutes", minutesBefore: 30 },
-    color: "#FF7BAC",
-  },
-  {
-    id: "meal-prep-reset",
-    name: "Meal Prep Reset",
-    emoji: "🍱",
-    category: "wellness",
-    description: "Plan simple meals and reduce weekday decision fatigue.",
-    steps: ["Check what food you have", "Pick simple meals", "Write a short grocery list", "Prep one easy item", "Clean the prep area"],
-    estimatedMinutes: 35,
-    scheduledTime: "11:00",
-    repeatDays: [0],
-    reminder: { type: "none", minutesBefore: null },
-    color: "#FFB870",
-  },
-  {
-    id: "clean-desk-reset",
-    name: "Clean Desk Reset",
-    emoji: "🪷",
-    category: "home",
-    description: "Reset your workspace so it feels clear before the next task.",
-    steps: ["Remove cups and wrappers", "Stack loose papers", "Put tools back", "Wipe the desk", "Open only what you need next"],
-    estimatedMinutes: 10,
-    scheduledTime: "14:00",
-    repeatDays: [1,2,3,4,5],
-    reminder: { type: "none", minutesBefore: null },
-    color: "#F4A6C7",
-  },
-];
-
-const RITUAL_CATEGORIES = [
-  { id: "morning", label: "Morning", emoji: "☀️" },
-  { id: "night", label: "Night", emoji: "🌙" },
-  { id: "reset", label: "Reset", emoji: "🧺" },
-  { id: "wellness", label: "Wellness", emoji: "🌿" },
-  { id: "work", label: "Work", emoji: "💼" },
-  { id: "home", label: "Home", emoji: "🏡" },
-  { id: "personal", label: "Personal", emoji: "✨" },
-];
+const DEFAULT_RITUALS = []; // Ritual seeding disabled; legacy ritual data is preserved only for sync compatibility.
 
 const RITUAL_REMINDER_PRESETS = [
   { id: "none", label: "No reminder", minutesBefore: null },
@@ -2031,7 +1845,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         </div>
 
         <div className="entry-section">
-          <div className="entry-section-title">3 Things I'm Grateful For 🌸</div>
+          <div className="entry-section-title">3 Things I&apos;m Grateful For 🌸</div>
           {[0,1,2].map(i => (
             <input key={i} className="gratitude-input" placeholder={`Gratitude ${i+1}…`}
               value={gratitude[i] || ""} onChange={e => updateGratitude(i, e.target.value)} />
@@ -2421,7 +2235,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
           <div className="journal-empty">
             <div className="journal-empty-icon">📔</div>
             <div className="journal-empty-title">No entries yet</div>
-            <div className="journal-empty-sub">Tap "+ Add Memory" to create your first page</div>
+            <div className="journal-empty-sub">Tap &quot;+ Add Memory&quot; to create your first page</div>
             <button className="tf-save" style={{marginTop:16}} onClick={() => setEditing(new Date(TODAY))}>Create memory 🌸</button>
           </div>
         )}
@@ -2675,7 +2489,7 @@ function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining,
               })}
             </div>
           </div>}
-          <div className="plan-break-note">Protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "no meal breaks"}{lifestyleBlocks.length ? ` · ${lifestyleBlocks.length} ritual/habit block${lifestyleBlocks.length === 1 ? "" : "s"}` : ""}. Buffer: {activeRules.bufferMinutes} min. Capacity: {activeRules.maxPlanMinutes} min.</div>
+          <div className="plan-break-note">Protected: {normalizeMealBreaks(mealBreaks).filter(b => b.enabled).map(b => `${b.label} ${b.start}–${b.end}`).join(", ") || "no meal breaks"}{lifestyleBlocks.length ? ` · ${lifestyleBlocks.length} habit block${lifestyleBlocks.length === 1 ? "" : "s"}` : ""}. Buffer: {activeRules.bufferMinutes} min. Capacity: {activeRules.maxPlanMinutes} min.</div>
           {plan.suggestions.length ? <div className="plan-list">{plan.suggestions.map(item => <div key={item.task.id} className="plan-row"><span>{fmt(item.start)} — {item.task.title}</span><strong>{item.minutes}min</strong></div>)}</div> : <div className="task-card-empty">{selectedCount ? "No suitable free slots found for the selected tasks today." : "Tick at least one task for Tempo to plan today."}</div>}
           {lifestyleBlocks.length > 0 && <div className="plan-soft-blocks"><strong>Soft commitments protected</strong>{lifestyleBlocks.slice(0, 4).map(block => <span key={block.id}>{fmt(block.start)} · {block.title.replace(/^Ritual: |^Habit: /, "")}</span>)}{lifestyleBlocks.length > 4 && <span>+{lifestyleBlocks.length - 4} more</span>}</div>}
           {excludedByChoice.length > 0 && <div className="plan-skip-note">Not planned by choice: {excludedByChoice.map(t => t.title).join(", ")}</div>}
@@ -2726,7 +2540,7 @@ function SearchModal({ events, tasks, categories = CATEGORIES, onClose, onEventC
         {q.length >= 2 && (
           <div className="search-results">
             {matchedEvents.length === 0 && matchedTasks.length === 0 && (
-              <div className="search-empty">No results for "{query}"</div>
+              <div className="search-empty">No results for “{query}”</div>
             )}
 
             {matchedEvents.length > 0 && (
@@ -2977,92 +2791,17 @@ function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
   );
 }
 
-function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSettings = DEFAULT_AFFIRMATION_SETTINGS, onToggleFavorite, onSaveAffirmation, onDeleteAffirmation, onUpdateSettings }) {
-  const normalized = normalizeAffirmations(affirmations);
-  const settings = normalizeAffirmationSettings(affirmationSettings);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [shuffleOffset, setShuffleOffset] = useState(0);
-  const [editing, setEditing] = useState(null);
-  const daily = affirmationForDate(normalized, TODAY, shuffleOffset);
-  const favorites = normalized.filter(a => a.favorite);
-  const custom = normalized.filter(a => a.source === "custom");
-  const filtered = normalized.filter(a => selectedCategory === "all" || a.category === selectedCategory);
-  const category = daily ? affirmationCategoryById(daily.category) : AFFIRMATION_CATEGORIES[0];
-  return (
-    <div className="phase-page affirmations-page">
-      <div className="affirmation-hero">
-        <div>
-          <div className="phase-kicker">Affirmations</div>
-          <h1>One gentle thought for today</h1>
-          <p>Grounded reminders for your daily rhythm. Favorite the ones that help, or write your own.</p>
-        </div>
-        <button className="tf-save phase-primary" onClick={() => setEditing({ _new: true })}>＋ New affirmation</button>
-      </div>
-
-      <section className="affirmation-feature-card">
-        <div className="affirmation-feature-top">
-          <span className="affirmation-feature-emoji">{category.emoji}</span>
-          <div>
-            <small>{category.label} · Daily affirmation</small>
-            <blockquote>“{daily?.text || "I can move through today calmly and clearly."}”</blockquote>
-          </div>
-        </div>
-        <div className="affirmation-feature-actions">
-          <button className={`affirmation-favorite-btn ${daily?.favorite ? "active" : ""}`} onClick={() => daily && onToggleFavorite?.(daily.id)}>{daily?.favorite ? "♥ Favorited" : "♡ Favorite"}</button>
-          <button className="tf-cancel" onClick={() => setShuffleOffset(v => v + 1)}>Shuffle</button>
-        </div>
-      </section>
-
-      <div className="affirmation-grid-main">
-        <section className="phase-card affirmation-settings-card">
-          <div className="phase-card-head"><span>Reminder</span><small>optional</small></div>
-          <p className="phase-copy">Get a soft prompt to read your affirmation. This saves your preference for the notification revamp.</p>
-          <div className="affirmation-reminder-row">
-            <label className="affirmation-inline-toggle"><input type="checkbox" checked={settings.reminderEnabled} onChange={e => onUpdateSettings?.({ ...settings, reminderEnabled: e.target.checked })} /><span>Daily reminder</span></label>
-            <input className="modal-select modal-time" type="time" value={settings.reminderTime} onChange={e => onUpdateSettings?.({ ...settings, reminderTime: e.target.value })} />
-          </div>
-        </section>
-        <section className="phase-card affirmation-settings-card">
-          <div className="phase-card-head"><span>Your collection</span><small>{normalized.length} total</small></div>
-          <div className="affirmation-stats-grid">
-            <div><strong>{favorites.length}</strong><span>favorites</span></div>
-            <div><strong>{custom.length}</strong><span>custom</span></div>
-            <div><strong>{AFFIRMATION_CATEGORIES.length}</strong><span>categories</span></div>
-          </div>
-        </section>
-      </div>
-
-      <div className="affirmation-filter-row">
-        <button className={selectedCategory === "all" ? "active" : ""} onClick={() => setSelectedCategory("all")}>All</button>
-        {AFFIRMATION_CATEGORIES.map(cat => <button key={cat.id} className={selectedCategory === cat.id ? "active" : ""} onClick={() => setSelectedCategory(cat.id)}>{cat.emoji} {cat.label}</button>)}
-      </div>
-
-      <div className="affirmation-list-grid">
-        {filtered.map(item => {
-          const cat = affirmationCategoryById(item.category);
-          return (
-            <article key={item.id} className={`affirmation-list-card ${item.favorite ? "favorite" : ""}`}>
-              <div className="affirmation-list-top"><span>{cat.emoji}</span><small>{cat.label}{item.source === "custom" ? " · Custom" : ""}</small></div>
-              <p>“{item.text}”</p>
-              <div className="affirmation-list-actions">
-                <button onClick={() => onToggleFavorite?.(item.id)}>{item.favorite ? "♥" : "♡"}</button>
-                {item.source === "custom" && <button onClick={() => setEditing(item)}>Edit</button>}
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      {editing && <AffirmationEditorModal affirmation={editing._new ? null : editing} onClose={() => setEditing(null)} onSave={onSaveAffirmation} onDelete={onDeleteAffirmation} />}
-    </div>
-  );
-}
+// Affirmations are intentionally a Today-only card; the old standalone page was removed during the pre-Phase 22 audit.
 
 function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
   const status = syncStatus?.status || "saved";
-  const label = pendingLocalChanges > 0 ? "Unsaved Changes" : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
+  const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
+  const label = pendingLocalChanges > 0
+    ? `Unsaved Changes · ${pendingLocalChanges}${lastSyncedLabel}`
+    : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
   const icon = status === "saving" ? "⏳" : status === "failed" ? "⚠️" : status === "offline" ? "📱" : "✓";
   return (
-    <button type="button" className={`sync-pill sync-${status} ${pendingLocalChanges > 0 ? "sync-pending" : ""}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
+    <button type="button" className={`sync-pill sync-${status}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
       <span>{icon}</span><span>{label}</span>
     </button>
   );
@@ -3154,217 +2893,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
   );
 }
 
-function RitualReminderEditor({ value, onChange }) {
-  const reminder = normalizeRitualReminder(value);
-  const presetId = ritualReminderPresetId(reminder);
-  const setPreset = id => {
-    const preset = RITUAL_REMINDER_PRESETS.find(p => p.id === id);
-    if (id === "none") return onChange({ type: "none", minutesBefore: null });
-    if (id === "at") return onChange({ type: "at", minutesBefore: 0 });
-    if (id === "custom") return onChange({ type: "custom", minutesBefore: reminder.minutesBefore ?? 15 });
-    return onChange({ type: "minutes", minutesBefore: preset?.minutesBefore ?? 10 });
-  };
-  return (
-    <div className="reminder-editor">
-      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
-        {RITUAL_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-      </select>
-      {presetId === "custom" && (
-        <div className="modal-row reminder-custom-row">
-          <input type="number" min={0} className="modal-select modal-time" value={reminder.minutesBefore ?? 15} onChange={e => onChange({ type: "custom", minutesBefore: Math.max(0, Number(e.target.value) || 0) })} />
-          <span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>minutes before</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RitualModal({ ritual, onClose, onSave, onDelete, onArchive }) {
-  const isTemplateDraft = Boolean(ritual?._templateDraft);
-  const isExistingRitual = Boolean(ritual?.id && !isTemplateDraft);
-  const initial = ritual ? normalizeRitual(ritual) : normalizeRitual({ id: "ritual-" + uid(), name: "New Ritual", emoji: "🕯️", category: "personal", steps: [{ id: "step-1", text: "First step" }], scheduledTime: "08:30", repeatDays: [1,2,3,4,5], estimatedMinutes: 15, reminder: { type: "at", minutesBefore: 0 }, color: "#FF7BAC" });
-  const [form, setForm] = useState(initial);
-  const days = ["S","M","T","W","T","F","S"];
-  const updateStep = (id, text) => setForm(f => ({ ...f, steps: f.steps.map(s => s.id === id ? { ...s, text } : s) }));
-  const addStep = () => setForm(f => ({ ...f, steps: [...f.steps, { id: "step-" + uid(), text: "" }] }));
-  const removeStep = id => setForm(f => ({ ...f, steps: f.steps.length <= 1 ? f.steps : f.steps.filter(s => s.id !== id) }));
-  const toggleDay = day => setForm(f => {
-    const set = new Set(f.repeatDays || []);
-    if (set.has(day)) set.delete(day); else set.add(day);
-    const next = [...set].sort((a,b) => a-b);
-    return { ...f, repeatDays: next.length ? next : [day] };
-  });
-  const saveForm = () => {
-    const clean = normalizeRitual({ ...form, steps: form.steps.map((s, i) => ({ ...s, text: String(s.text || "").trim() || `Step ${i + 1}` })) });
-    if (!clean.name.trim()) return;
-    onSave(clean);
-  };
-  return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ritual editor">
-      <div className="modal ritual-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isTemplateDraft ? "Customize Template" : isExistingRitual ? "Edit Ritual" : "Create Ritual"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div className="ritual-form-title-row">
-            <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🕯️" }))} aria-label="Ritual emoji" />
-            <input className="modal-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ritual name" />
-          </div>
-          <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{RITUAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
-          <div className="modal-row"><label>Time</label><input type="time" className="modal-select" value={form.scheduledTime} onChange={e => setForm(f => ({ ...f, scheduledTime: e.target.value }))}/></div>
-          <div className="modal-row"><label>Duration</label><input type="number" min={1} max={360} className="modal-select" value={form.estimatedMinutes} onChange={e => setForm(f => ({ ...f, estimatedMinutes: Math.max(1, Number(e.target.value) || 15) }))}/></div>
-          <div className="modal-row"><label>Color</label><input type="color" className="modal-select" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}/></div>
-          <div className="modal-row modal-row-full"><label>Repeat days</label><div className="weekday-picker ritual-weekday-picker">{days.map((d,i) => <button type="button" key={i} className={`weekday-btn ${form.repeatDays?.includes(i) ? "active" : ""}`} onClick={() => toggleDay(i)}>{d}</button>)}</div></div>
-          <div className="modal-row"><label>Reminder</label><RitualReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
-          <div className="ritual-steps-editor">
-            <div className="phase-card-head"><span>Checklist steps</span><button type="button" onClick={addStep}>＋ Add step</button></div>
-            {form.steps.map((step, index) => (
-              <div key={step.id} className="ritual-step-edit-row">
-                <span>{index + 1}</span>
-                <input className="modal-input" value={step.text} onChange={e => updateStep(step.id, e.target.value)} placeholder="Step" />
-                <button type="button" className="mini-move-btn" onClick={() => removeStep(step.id)} disabled={form.steps.length <= 1}>×</button>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="modal-actions">
-          {isExistingRitual && <button className="tf-cancel" onClick={() => onArchive(ritual, !ritual.archived)}>{ritual.archived ? "Restore" : "Archive"}</button>}
-          {isExistingRitual && <button className="tf-delete" onClick={() => onDelete(ritual)}>Delete</button>}
-          <button className="tf-cancel" onClick={onClose}>Cancel</button>
-          <button className="tf-save" onClick={saveForm}>Save Ritual</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RitualCard({ ritual, completion, progress, onToggleStep, onSkip, onComplete, onEdit, compact = false }) {
-  const category = RITUAL_CATEGORIES.find(c => c.id === ritual.category);
-  const [checklistOpen, setChecklistOpen] = useState(false);
-  const renderChecklist = () => (
-    <div className="ritual-step-list ritual-focus-step-list">
-      {(ritual.steps || []).map(step => {
-        const checked = (completion?.completedSteps || []).includes(step.id);
-        return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
-      })}
-    </div>
-  );
-  return (
-    <div className={`ritual-card ${progress.completed ? "ritual-complete" : ""} ${progress.skipped ? "ritual-skipped" : ""}`} style={{ "--ritual-color": ritual.color || "var(--accent)" }}>
-      <div className="ritual-card-top">
-        <div className="ritual-title-wrap"><div className="ritual-emoji">{ritual.emoji}</div><div><h3>{ritual.name}</h3><p>{category?.emoji || "✨"} {category?.label || "Ritual"} · {ritual.scheduledTime} · {ritual.estimatedMinutes} min</p></div></div>
-        {!compact && <button className="tf-cancel ritual-edit-btn" onClick={() => onEdit(ritual)}>Edit</button>}
-      </div>
-      <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
-      <div className="ritual-progress-label">{progress.skipped ? "Skipped today" : progress.completed ? "Complete for today ✨" : `${progress.done}/${progress.total} steps done`}</div>
-      {compact ? (
-        <div className="ritual-step-list">
-          {(ritual.steps || []).slice(0, 3).map(step => {
-            const checked = (completion?.completedSteps || []).includes(step.id);
-            return <label key={step.id} className={`ritual-step ${checked ? "checked" : ""}`}><input type="checkbox" checked={checked} disabled={progress.skipped} onChange={() => onToggleStep(ritual, step.id)} /><span>{step.text}</span></label>;
-          })}
-          {(ritual.steps || []).length > 3 && <button type="button" className="ritual-open-checklist" onClick={() => setChecklistOpen(true)}>Open full checklist · +{ritual.steps.length - 3} more</button>}
-        </div>
-      ) : renderChecklist()}
-      {!compact && <div className="ritual-card-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-cancel ritual-open-checklist" onClick={() => setChecklistOpen(true)}>Open checklist</button><button className="tf-save" onClick={() => onComplete(ritual)}>Mark complete</button></div>}
-      {checklistOpen && (
-        <div className="ritual-focus-overlay" role="dialog" aria-modal="true" aria-label={`${ritual.name} checklist`} onClick={() => setChecklistOpen(false)}>
-          <div className="ritual-focus-sheet" onClick={e => e.stopPropagation()} style={{ "--ritual-color": ritual.color || "var(--accent)" }}>
-            <div className="ritual-focus-head">
-              <div className="ritual-title-wrap"><div className="ritual-emoji">{ritual.emoji}</div><div><h3>{ritual.name}</h3><p>{progress.skipped ? "Skipped today" : progress.completed ? "Complete for today ✨" : `${progress.done}/${progress.total} steps done`}</p></div></div>
-              <button className="modal-close" onClick={() => setChecklistOpen(false)}>✕</button>
-            </div>
-            <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
-            {renderChecklist()}
-            <div className="ritual-focus-actions"><button className="tf-cancel" onClick={() => onSkip(ritual)}>{progress.skipped ? "Undo skip" : "Skip today"}</button><button className="tf-save" onClick={() => { onComplete(ritual); setChecklistOpen(false); }}>Mark complete</button></div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RitualTemplateLibrary({ rituals = [], onUseTemplate, onCustomizeTemplate }) {
-  const [filter, setFilter] = useState("all");
-  const normalized = normalizeRituals(rituals);
-  const categories = ["all", ...RITUAL_CATEGORIES.map(c => c.id)];
-  const filtered = RITUAL_TEMPLATES.filter(t => filter === "all" || t.category === filter);
-  const hasTemplate = template => normalized.some(r => !r.deletedAt && !r.archived && (r.templateId === template.id || String(r.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase()));
-  return (
-    <div className="phase-card phase-wide-card ritual-section-card ritual-template-section">
-      <div className="phase-card-head ritual-template-head">
-        <div><span>Template Library</span><small>Start with a ready-made ritual, then customize it.</small></div>
-        <div className="ritual-template-filters">
-          {categories.map(id => {
-            const cat = RITUAL_CATEGORIES.find(c => c.id === id);
-            return <button key={id} className={`mini-pill ${filter === id ? "active" : ""}`} onClick={() => setFilter(id)}>{id === "all" ? "All" : `${cat?.emoji || "✨"} ${cat?.label || id}`}</button>;
-          })}
-        </div>
-      </div>
-      <div className="ritual-template-grid">
-        {filtered.map(template => {
-          const cat = RITUAL_CATEGORIES.find(c => c.id === template.category);
-          const alreadyAdded = hasTemplate(template);
-          return (
-            <div key={template.id} className={`ritual-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
-              <div className="ritual-template-top">
-                <div className="ritual-template-emoji">{template.emoji}</div>
-                <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Ritual"} · {template.scheduledTime} · {template.estimatedMinutes} min</p></div>
-              </div>
-              <div className="ritual-template-desc">{template.description}</div>
-              <div className="ritual-template-steps">
-                {(template.steps || []).slice(0, 3).map(step => <span key={step}>✓ {step}</span>)}
-                {(template.steps || []).length > 3 && <span>+{template.steps.length - 3} more steps</span>}
-              </div>
-              {alreadyAdded && <div className="template-added-badge">Already in your rituals</div>}
-              <div className="ritual-template-actions">
-                <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
-                <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function RitualsPage({ rituals = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggleStep, onSkip, onComplete }) {
-  const [modalRitual, setModalRitual] = useState(null);
-  const normalized = normalizeRituals(rituals);
-  const active = normalized.filter(r => !r.archived && !r.deletedAt);
-  const archived = normalized.filter(r => r.archived && !r.deletedAt);
-  const todayRituals = active.filter(r => ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
-  const otherRituals = active.filter(r => !ritualRunsOnDate(r, TODAY)).sort((a,b) => String(a.scheduledTime).localeCompare(String(b.scheduledTime)));
-  const saveRitual = ritual => {
-    ritual.id && rituals.some(r => r.id === ritual.id) ? onEdit(ritual.id, ritual) : onAdd(ritual);
-    setModalRitual(null);
-  };
-  const useTemplate = template => onAdd(ritualFromTemplate(template, rituals));
-  const customizeTemplate = template => setModalRitual({ ...ritualFromTemplate(template, rituals), _templateDraft: true });
-  const deleteRitual = ritual => { onDelete(ritual); setModalRitual(null); };
-  return (
-    <div className="phase-page rituals-page">
-      <div className="phase-hero ritual-hero">
-        <div><div className="phase-kicker">Rituals</div><h1>🕯️ Build your daily rhythm</h1><p>Create soft repeatable routines for mornings, nights, resets, and weekly planning.</p></div>
-        <button className="tf-save phase-primary" onClick={() => setModalRitual({})}>＋ Create Ritual</button>
-      </div>
-      <div className="phase-card phase-wide-card ritual-section-card">
-        <div className="phase-card-head"><span>Today’s Rituals</span><small>{todayRituals.length} scheduled today</small></div>
-        {todayRituals.length ? <div className="ritual-grid">{todayRituals.map(r => <RitualCard key={r.id} ritual={r} completion={ritualCompletionFor(completions, r.id, TODAY)} progress={ritualProgress(r, completions, TODAY)} onToggleStep={onToggleStep} onSkip={onSkip} onComplete={onComplete} onEdit={setModalRitual} />)}</div> : <div className="phase-empty">No rituals scheduled today. Create a Morning Reset or Night Wind Down to start gently.</div>}
-      </div>
-      <div className="phase-card phase-wide-card ritual-section-card">
-        <div className="phase-card-head"><span>All Rituals</span><small>{active.length} active</small></div>
-        {active.length ? <div className="ritual-list-compact">{[...todayRituals, ...otherRituals].map(r => {
-          const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => r.repeatDays.includes(i)).join(" · ");
-          return <div key={r.id} className="ritual-list-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>{r.scheduledTime} · {days || "No repeat days"}</small></div><button className="tf-cancel" onClick={() => setModalRitual(r)}>Edit</button></div>;
-        })}</div> : <div className="phase-empty">No rituals yet.</div>}
-      </div>
-      <RitualTemplateLibrary rituals={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
-      {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(r => <div key={r.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{r.emoji}</span><div><strong>{r.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(r, false)}>Restore</button></div>)}</div></div>}
-      {modalRitual !== null && <RitualModal ritual={modalRitual?._templateDraft ? modalRitual : (modalRitual?.id ? modalRitual : null)} onClose={() => setModalRitual(null)} onSave={saveRitual} onDelete={deleteRitual} onArchive={(ritual, archived) => { onArchive(ritual, archived); setModalRitual(null); }} />}
-    </div>
-  );
-}
-
+// Ritual UI was removed from visible product surfaces; legacy ritual data normalizers remain for sync compatibility.
 
 function HabitReminderEditor({ value, onChange }) {
   const reminder = normalizeHabitReminder(value);
@@ -4781,82 +4310,7 @@ export default function App() {
     save(`${uk}_memory_tags`, n);
     persistSettings({ memoryTags: n });
   };
-  const setRituals = v => {
-    const n = normalizeRituals(typeof v === "function" ? v(rituals) : v);
-    setRitualsRaw(n);
-    save(`${uk}_rituals`, n);
-    persistSettings({ rituals: n });
-  };
-
-  const setRitualCompletions = v => {
-    const n = normalizeRitualCompletions(typeof v === "function" ? v(ritualCompletions) : v);
-    setRitualCompletionsRaw(n);
-    save(`${uk}_ritual_completions`, n);
-    persistSettings({ ritualCompletions: n });
-  };
-
-  function addRitual(ritual) {
-    const now = new Date().toISOString();
-    const clean = normalizeRitual({ ...ritual, id: ritual.id || "ritual-" + uid(), createdAt: ritual.createdAt || now, updatedAt: now });
-    setRituals(list => [...list, clean]);
-    setToast({ text: `Created ritual “${clean.name}” ✓`, ts: Date.now() });
-  }
-
-  function editRitual(id, patch) {
-    const now = new Date().toISOString();
-    setRituals(list => list.map(r => r.id === id ? normalizeRitual({ ...r, ...patch, id, updatedAt: now }) : r));
-    setToast({ text: "Ritual updated ✓", ts: Date.now() });
-  }
-
-  function archiveRitual(ritual, archived = true) {
-    if (!ritual?.id) return;
-    editRitual(ritual.id, { archived: Boolean(archived) });
-    setToast({ text: archived ? "Ritual archived ✓" : "Ritual restored ✓", ts: Date.now() });
-  }
-
-  function deleteRitual(ritual) {
-    if (!ritual?.id) return;
-    if (!window.confirm(`Delete ritual "${ritual.name}"? Past check-ins will stay in your history.`)) return;
-    const now = new Date().toISOString();
-    const nextDeletedRecords = addDeletedRecords(deletedRecords, "rituals", ritual.id, now);
-    setDeletedRecordsRaw(nextDeletedRecords);
-    save(`${uk}_deleted_records`, nextDeletedRecords);
-    setRitualsRaw(rituals.filter(r => r.id !== ritual.id));
-    save(`${uk}_rituals`, rituals.filter(r => r.id !== ritual.id));
-    persistSettings({ rituals: rituals.filter(r => r.id !== ritual.id), deletedRecords: nextDeletedRecords });
-    setToast({ text: "Ritual deleted ✓", ts: Date.now() });
-  }
-
-  function upsertRitualCompletion(ritual, updater) {
-    const today = dateKey(TODAY);
-    const now = new Date().toISOString();
-    setRitualCompletions(list => {
-      const cleanList = normalizeRitualCompletions(list);
-      const existing = cleanList.find(c => c.ritualId === ritual.id && c.date === today);
-      const base = existing || { id: `${ritual.id}:${today}`, ritualId: ritual.id, date: today, completedSteps: [], completedAt: null, skippedAt: null, note: "", createdAt: now, updatedAt: now };
-      const next = normalizeRitualCompletion({ ...updater(base), updatedAt: now });
-      return existing ? cleanList.map(c => c.id === existing.id ? next : c) : [...cleanList, next];
-    });
-  }
-
-  function toggleRitualStep(ritual, stepId) {
-    upsertRitualCompletion(ritual, current => {
-      const set = new Set(current.completedSteps || []);
-      if (set.has(stepId)) set.delete(stepId); else set.add(stepId);
-      const completedSteps = [...set];
-      const allDone = ritual.steps.every(step => completedSteps.includes(step.id));
-      return { ...current, completedSteps, skippedAt: null, completedAt: allDone ? (current.completedAt || new Date().toISOString()) : null };
-    });
-  }
-
-  function skipRitualToday(ritual) {
-    upsertRitualCompletion(ritual, current => current.skippedAt ? { ...current, skippedAt: null } : { ...current, skippedAt: new Date().toISOString(), completedAt: null });
-  }
-
-  function completeRitualToday(ritual) {
-    upsertRitualCompletion(ritual, current => ({ ...current, completedSteps: ritual.steps.map(s => s.id), skippedAt: null, completedAt: current.completedAt || new Date().toISOString() }));
-  }
-
+  // Ritual mutation handlers removed: rituals are legacy sync data only.
 
   const setHabits = v => {
     const n = normalizeHabits(typeof v === "function" ? v(habits) : v);

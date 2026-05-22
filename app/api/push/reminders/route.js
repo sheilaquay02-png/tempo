@@ -16,7 +16,7 @@ const SNOOZE_ACTIONS = [
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   events: true,
   tasks: true,
-  rituals: true,
+  rituals: false,
   habits: true,
   journal: { enabled: false, time: '21:30' },
   tomorrowReset: { enabled: false, time: '21:45' },
@@ -74,7 +74,7 @@ function normalizeNotificationPreferences(settings = {}) {
   return {
     events: source.events === undefined ? true : Boolean(source.events),
     tasks: source.tasks === undefined ? true : Boolean(source.tasks),
-    rituals: source.rituals === undefined ? true : Boolean(source.rituals),
+    rituals: false,
     habits: source.habits === undefined ? true : Boolean(source.habits),
     journal: { enabled: Boolean(journal.enabled), time: validTime(journal.time, DEFAULT_NOTIFICATION_PREFERENCES.journal.time) },
     tomorrowReset: { enabled: Boolean(tomorrowReset.enabled), time: validTime(tomorrowReset.time, DEFAULT_NOTIFICATION_PREFERENCES.tomorrowReset.time) },
@@ -195,22 +195,6 @@ function normalizeTaskReminder(reminder) {
   return { type, time: validTime(reminder.time || TASK_REMINDER_TIMES[type] || '09:00', TASK_REMINDER_TIMES[type] || '09:00') };
 }
 
-function normalizeRitualReminder(reminder) {
-  if (reminder === null) return { type: 'none', minutesBefore: null };
-  if (typeof reminder === 'number') return reminder < 0 ? { type: 'none', minutesBefore: null } : { type: 'minutes', minutesBefore: reminder };
-  if (!reminder) return { type: 'at', minutesBefore: 0 };
-  const type = reminder.type || reminder.mode || reminder.id || 'at';
-  if (type === 'none') return { type: 'none', minutesBefore: null };
-  if (type === 'at') return { type: 'at', minutesBefore: 0 };
-  const minutes = Number(reminder.minutesBefore ?? reminder.minutes ?? reminder.offsetMinutes ?? reminder.value ?? 0);
-  return { type: type === 'custom' ? 'custom' : 'minutes', minutesBefore: Math.max(0, Number.isFinite(minutes) ? minutes : 0) };
-}
-
-function ritualReminderMinutes(reminder) {
-  const r = normalizeRitualReminder(reminder);
-  return r.type === 'none' ? null : Math.max(0, Number(r.minutesBefore) || 0);
-}
-
 function normalizeHabitReminder(reminder) {
   if (reminder === null) return { type: 'none', time: '' };
   if (typeof reminder === 'string') {
@@ -223,13 +207,6 @@ function normalizeHabitReminder(reminder) {
   return { type, time: validTime(reminder.time || TASK_REMINDER_TIMES[type] || '09:00', TASK_REMINDER_TIMES[type] || '09:00') };
 }
 
-function ritualRunsOnLocalDate(ritual, parts) {
-  if (!ritual || ritual.archived || ritual.deletedAt) return false;
-  const days = Array.isArray(ritual.repeatDays) ? ritual.repeatDays.map(Number) : [];
-  const d = localDateForParts(parts);
-  return days.includes(d.getUTCDay());
-}
-
 function habitRunsOnLocalDate(habit, parts) {
   if (!habit || habit.archived || habit.deletedAt) return false;
   const days = Array.isArray(habit.repeatDays) && habit.repeatDays.length ? habit.repeatDays.map(Number) : [0, 1, 2, 3, 4, 5, 6];
@@ -240,47 +217,6 @@ function habitRunsOnLocalDate(habit, parts) {
 function habitCompletionFor(settings, habitId, dateKey) {
   const list = Array.isArray(settings?.habitCompletions) ? settings.habitCompletions : [];
   return list.find(c => c.habitId === habitId && c.date === dateKey) || null;
-}
-
-function ritualCompletionFor(settings, ritualId, dateKey) {
-  const list = Array.isArray(settings?.ritualCompletions) ? settings.ritualCompletions : [];
-  return list.find(c => c.ritualId === ritualId && c.date === dateKey) || null;
-}
-
-function ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
-  const prefs = normalizeNotificationPreferences(settings);
-  if (!prefs.rituals) return [];
-  const timeZone = settings?.timezone || 'Asia/Singapore';
-  const parts = localTimeParts(now, timeZone);
-  const list = Array.isArray(settings?.rituals) ? settings.rituals : [];
-  const candidates = [];
-  for (const ritual of list) {
-    if (!ritualRunsOnLocalDate(ritual, parts)) continue;
-    const minutesBefore = ritualReminderMinutes(ritual.reminder);
-    if (minutesBefore === null) continue;
-    const clock = parseClock(ritual.scheduledTime || ritual.time || '08:30');
-    if (!clock) continue;
-    const dueMs = Date.UTC(parts.year, parts.month - 1, parts.day, clock.hour, clock.minute, 0, 0) - minutesBefore * 60000;
-    const nowMs = localDateTimeMs(parts);
-    if (dueMs < nowMs - lookbackMinutes * 60000 || dueMs > nowMs + lookaheadMinutes * 60000) continue;
-    const completion = ritualCompletionFor(settings, ritual.id, parts.dateKey);
-    const stepIds = Array.isArray(ritual.steps) ? ritual.steps.map(s => s.id) : [];
-    if (completion?.completedAt || (stepIds.length && stepIds.every(id => completion?.completedSteps?.includes(id)))) continue;
-    candidates.push({
-      type: 'ritual',
-      key: `ritual:${ritual.id || ritual.name}:${parts.dateKey}:${ritual.scheduledTime || ''}:${minutesBefore}m`,
-      title: `${ritual.emoji || '🕯️'} ${ritual.name || 'Your ritual'} is ready`,
-      body: minutesBefore === 0 ? 'A calm moment to follow your routine.' : `Starts in ${minutesBefore} minutes.`,
-      url: '/?page=rituals',
-      start: new Date(dueMs),
-      count: 1,
-      sourceId: ritual.id || null,
-      sourceType: 'ritual',
-      ritualId: ritual.id || null,
-      date: parts.dateKey,
-    });
-  }
-  return candidates;
 }
 
 function habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
@@ -605,9 +541,8 @@ function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinu
       count: 1,
       taskId: item.taskId || null,
       habitId: item.habitId || null,
-      ritualId: item.ritualId || null,
       date: item.date || null,
-      sourceId: item.sourceId || item.taskId || item.habitId || item.ritualId || null,
+      sourceId: item.sourceId || item.taskId || item.habitId || null,
       sourceType: item.sourceType || item.type || 'task',
       snoozeId: item.id || null,
       originalActionToken: item.actionToken || null,
@@ -640,10 +575,6 @@ function notificationActionsFor(reminder) {
   const actions = [...SNOOZE_ACTIONS];
   if (reminder.type === 'task' && reminder.taskId) actions.push({ action: 'mark_done', title: 'Mark done' });
   if (reminder.type === 'habit' && reminder.habitId) actions.push({ action: 'complete_habit', title: 'Complete habit' });
-  if (reminder.type === 'ritual' && reminder.ritualId) {
-    actions.push({ action: 'start_ritual', title: 'Start ritual' });
-    actions.push({ action: 'skip_ritual', title: 'Skip ritual' });
-  }
   if (reminder.type === 'journal') actions.push({ action: 'open_journal', title: 'Open journal' });
   if (reminder.type === 'tomorrow_reset') actions.push({ action: 'start_reset', title: 'Start reset' });
   if (reminder.type === 'weekly_reset') actions.push({ action: 'start_reset', title: 'Start reset' });
@@ -715,7 +646,6 @@ async function runReminderCheck(request) {
         ...snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...eventReminderCandidates(row.events || [], settings, now, lookbackMinutes, lookaheadMinutes),
         ...taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes),
-        ...ritualReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
       ];
@@ -743,7 +673,6 @@ async function runReminderCheck(request) {
             actionToken: marked.actionToken,
             taskId: reminder.taskId || null,
             habitId: reminder.habitId || null,
-            ritualId: reminder.ritualId || null,
             date: reminder.date || null,
             sourceType: reminder.sourceType || reminder.type,
             sourceId: reminder.sourceId || reminder.id || null,
