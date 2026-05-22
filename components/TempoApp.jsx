@@ -1437,6 +1437,7 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
 
 function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
+  const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
@@ -1499,29 +1500,36 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
                 <button className="signout-btn" onClick={onSignOut}>Sign out</button>
               </div>
               {syncStatus?.message && <div className="settings-section-desc">Sync status: {syncStatus.message}</div>}
-              <div className="sync-debug-panel">
-                <div className="sync-debug-top"><strong>Sync debug</strong><span>{debug.dataReady ? "Ready" : "Loading"}</span></div>
-                <div className="sync-debug-grid">
-                  <div><strong>{debug.pendingLocalChanges || 0}</strong><span>pending edits</span></div>
-                  <div><strong>{tombstoneCount}</strong><span>delete records</span></div>
-                  <div><strong>{recentConflicts.length}</strong><span>recent conflicts</span></div>
-                  <div><strong>{debug.lastSyncedAt ? new Date(debug.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</strong><span>last sync</span></div>
-                </div>
-                <div className="sync-debug-datasets">
-                  {Object.entries(datasetCounts).map(([key, value]) => <span key={key}>{key}: {value}</span>)}
-                </div>
-                {recentConflicts.length > 0 && (
-                  <div className="sync-conflict-list">
-                    {recentConflicts.map(item => (
-                      <div key={item.id} className="sync-conflict-row">
-                        <span>{item.kind}</span>
-                        <strong>{item.recordLabel}</strong>
-                        <em>{item.kept === "local" ? "This device kept" : item.kept === "cloud" ? "Cloud kept" : "Latest kept"}</em>
+              <div className={`sync-debug-panel ${syncDebugOpen ? "open" : "collapsed"}`}>
+                <button type="button" className="sync-debug-top sync-debug-toggle" onClick={() => setSyncDebugOpen(v => !v)} aria-expanded={syncDebugOpen}>
+                  <strong>Sync debug</strong>
+                  <span>{debug.dataReady ? "Ready" : "Loading"} {syncDebugOpen ? "⌃" : "⌄"}</span>
+                </button>
+                {syncDebugOpen && (
+                  <div className="sync-debug-content">
+                    <div className="sync-debug-grid">
+                      <div><strong>{debug.pendingLocalChanges || 0}</strong><span>pending edits</span></div>
+                      <div><strong>{tombstoneCount}</strong><span>delete records</span></div>
+                      <div><strong>{recentConflicts.length}</strong><span>recent conflicts</span></div>
+                      <div><strong>{debug.lastSyncedAt ? new Date(debug.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</strong><span>last sync</span></div>
+                    </div>
+                    <div className="sync-debug-datasets">
+                      {Object.entries(datasetCounts).map(([key, value]) => <span key={key}>{key}: {value}</span>)}
+                    </div>
+                    {recentConflicts.length > 0 && (
+                      <div className="sync-conflict-list">
+                        {recentConflicts.map(item => (
+                          <div key={item.id} className="sync-conflict-row">
+                            <span>{item.kind}</span>
+                            <strong>{item.recordLabel}</strong>
+                            <em>{item.kept === "local" ? "This device kept" : item.kept === "cloud" ? "Cloud kept" : "Latest kept"}</em>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                    <div className="settings-section-desc">Deleted-item tombstones are kept for 90 days so removed items do not reappear on another device.</div>
                   </div>
                 )}
-                <div className="settings-section-desc">Deleted-item tombstones are kept for 90 days so removed items do not reappear on another device.</div>
               </div>
             </div>
           )}
@@ -3047,11 +3055,10 @@ function AffirmationsPage({ affirmations = DEFAULT_AFFIRMATIONS, affirmationSett
 
 function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
   const status = syncStatus?.status || "saved";
-  const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
-  const label = pendingLocalChanges > 0 ? `Offline edits pending · ${pendingLocalChanges} change${pendingLocalChanges === 1 ? "" : "s"} waiting${lastSyncedLabel}` : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
+  const label = pendingLocalChanges > 0 ? "Unsaved Changes" : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
   const icon = status === "saving" ? "⏳" : status === "failed" ? "⚠️" : status === "offline" ? "📱" : "✓";
   return (
-    <button type="button" className={`sync-pill sync-${status}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
+    <button type="button" className={`sync-pill sync-${status} ${pendingLocalChanges > 0 ? "sync-pending" : ""}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
       <span>{icon}</span><span>{label}</span>
     </button>
   );
@@ -6112,7 +6119,7 @@ export default function App() {
   if (auth.loading && !auth.user) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -6129,7 +6136,7 @@ export default function App() {
   if (!dataReady || loadedUserId !== auth.user.id) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -6704,6 +6711,101 @@ export default function App() {
   .sidebar-sync-under-user{gap:10px!important;margin-bottom:14px!important;}
   .today-top3-card .today-empty-sugar{min-height:136px!important;}
   .today-top3-card .today-empty-sugar img{width:74px!important;height:74px!important;}
+}
+
+
+/* ── Pre Phase 22 final cleanup 4: phone/header/sync polish ─────────────── */
+.today-top3-card{display:flex!important;flex-direction:column!important;}
+.today-top3-card .today-empty-sugar{
+  flex:1 1 auto!important;
+  min-height:220px!important;
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  padding:18px 12px!important;
+  margin:0!important;
+  text-align:center!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.today-top3-card .today-empty-sugar img{
+  width:88px!important;
+  height:88px!important;
+  object-fit:contain!important;
+  display:block!important;
+  margin:0 auto!important;
+  flex:0 0 auto!important;
+}
+.today-top3-card .today-empty-sugar strong{
+  display:block!important;
+  max-width:260px!important;
+  margin:0 auto!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+  text-align:center!important;
+}
+.sidebar-sync-under-user{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
+  margin-top:10px!important;
+  margin-bottom:14px!important;
+  align-items:flex-start!important;
+}
+.sidebar-sync-under-user .sync-pill{
+  max-width:calc(100% - 2px)!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.sync-pill span:last-child{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;min-width:0!important;}
+.sync-debug-panel.collapsed{padding:10px 12px!important;gap:0!important;}
+.sync-debug-panel.collapsed .sync-debug-top{margin:0!important;}
+.sync-debug-toggle{width:100%;border:0;background:transparent;font:inherit;cursor:pointer;padding:0;text-align:left;}
+.journal-reflection-hub{margin-top:16px!important;}
+.tempo-loading-page{min-height:100dvh!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:20px!important;box-sizing:border-box!important;}
+.tempo-loading-card{margin:auto!important;transform:translateY(-3vh)!important;}
+@media(max-width:768px){
+  .journal-page,.rhythm-stats-page,.weekly-reset-page{background:linear-gradient(180deg,var(--bg),var(--bg3))!important;}
+  .journal-page .journal-header,
+  .rhythm-stats-page .phase-hero,
+  .weekly-reset-page .phase-hero{
+    background:var(--surface)!important;
+    background-color:var(--surface)!important;
+    opacity:1!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    box-shadow:0 1px 0 rgba(var(--accent-rgb),.14),0 10px 22px rgba(116,78,60,.06)!important;
+    z-index:120!important;
+    isolation:isolate!important;
+  }
+  .journal-page .journal-header::before,
+  .rhythm-stats-page .phase-hero::before,
+  .weekly-reset-page .phase-hero::before{
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    background:var(--surface)!important;
+    border-radius:inherit!important;
+    z-index:-1!important;
+  }
+  .mobile-sync-strip .sync-pill{
+    max-width:180px!important;
+    min-height:34px!important;
+    padding:7px 10px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .mobile-sync-strip .sync-pill.sync-pending{max-width:164px!important;}
+  .mobile-sync-strip .sync-pill span:last-child{max-width:124px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+  .today-top3-card .today-empty-sugar{min-height:180px!important;gap:8px!important;}
+  .today-top3-card .today-empty-sugar img{width:76px!important;height:76px!important;}
+  .today-top3-card .today-empty-sugar strong{max-width:230px!important;font-size:12px!important;}
+  .tempo-loading-card{transform:translateY(-5vh)!important;}
 }
 
 `}</style>
