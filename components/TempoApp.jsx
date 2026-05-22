@@ -7397,5 +7397,71 @@ const loginCSS = `
   .bloom-room-page .checkin-rhythm-card{margin-top:0!important;}
 }
 
+
+/* ── Pre Phase 22 debug 6: mobile journal viewer, opaque journal top, empty image scale ── */
+.today-top3-card .today-empty-sugar img{
+  width:168px!important;
+  height:168px!important;
+  object-fit:contain!important;
+}
+.today-top3-card .today-empty-sugar{
+  min-height:250px!important;
+}
+@media(max-width:768px){
+  .today-top3-card .today-empty-sugar img{
+    width:138px!important;
+    height:138px!important;
+  }
+  .today-top3-card .today-empty-sugar{
+    min-height:210px!important;
+  }
+  .journal-page{
+    background:var(--bg)!important;
+    isolation:isolate!important;
+  }
+  .journal-page::before{
+    content:""!important;
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
+    height:calc(env(safe-area-inset-top) + 18px)!important;
+    background:var(--bg)!important;
+    z-index:78!important;
+    pointer-events:none!important;
+  }
+  .journal-header{
+    background:var(--surface,var(--bg2))!important;
+    border-bottom:1px solid var(--border)!important;
+    box-shadow:0 1px 0 var(--border),0 8px 20px rgba(80,44,64,.06)!important;
+  }
+  .modal-overlay[aria-label="View journal entry"]{
+    align-items:center!important;
+    justify-content:center!important;
+    padding:10px 10px calc(var(--mobile-nav-h,78px) + 18px)!important;
+    overflow:hidden!important;
+  }
+  .entry-view-modal{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    height:auto!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 28px)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+  }
+  .entry-view-modal .entry-modal-header{
+    flex:0 0 auto!important;
+  }
+  .entry-view-body{
+    min-height:0!important;
+    flex:1 1 auto!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    padding-bottom:18px!important;
+  }
+}
+
 `;
 
