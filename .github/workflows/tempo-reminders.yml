@@ -10,9 +10,39 @@ on:
 jobs:
   call-reminder-endpoint:
     runs-on: ubuntu-latest
+    env:
+      TEMPO_APP_URL: ${{ secrets.TEMPO_APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
       - name: Trigger Tempo reminders
+        shell: bash
         run: |
-          curl -fsS -X POST "${{ secrets.TEMPO_APP_URL }}/api/push/reminders" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json"
+          set -euo pipefail
+
+          APP_URL="${TEMPO_APP_URL:-}"
+          SECRET="${CRON_SECRET:-}"
+
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Missing GitHub repository secret TEMPO_APP_URL. Add your deployed app URL, for example: https://your-tempo-app.vercel.app"
+            exit 1
+          fi
+
+          if [ -z "$SECRET" ]; then
+            echo "::error::Missing GitHub repository secret CRON_SECRET. It must match the CRON_SECRET environment variable in Vercel."
+            exit 1
+          fi
+
+          if [[ ! "$APP_URL" =~ ^https?:// ]]; then
+            echo "::error::TEMPO_APP_URL must start with https:// or http://. Current value is missing the protocol."
+            exit 1
+          fi
+
+          APP_URL="${APP_URL%/}"
+          ENDPOINT="$APP_URL/api/push/reminders"
+
+          echo "Calling Tempo reminder endpoint..."
+          curl --fail-with-body --silent --show-error --location \
+            --request POST "$ENDPOINT" \
+            --header "Authorization: Bearer $SECRET" \
+            --header "Content-Type: application/json" \
+            --data '{}'
