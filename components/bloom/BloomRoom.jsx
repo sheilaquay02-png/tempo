@@ -5,17 +5,17 @@ const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurrin
 // ─── Gamification UI ──────────────────────────────────────────────────────────
 export function LevelBar({ gameStats }) {
   if (!gameStats) return null;
+  const rhythmDays = gameStats?.streaks?.productive ?? 0;
   return (
-    <div className="level-card">
+    <div className="level-card simplified-rhythm-card">
       <div className="level-topline">
         <div>
-          <div className="level-label">Level {gameStats.level}</div>
-          <div className="level-title">{gameStats.title}</div>
+          <div className="level-label">Daily Rhythm</div>
+          <div className="level-title">{rhythmDays ? `${rhythmDays} day rhythm` : "Start gently"}</div>
         </div>
-        <div className="level-xp">{gameStats.xpIntoLevel}/{gameStats.nextXP} XP</div>
+        <div className="level-xp">🌿</div>
       </div>
-      <div className="level-track"><div className="level-fill" style={{ width: `${gameStats.levelPct}%` }} /></div>
-      <div className="level-meta"><span>🔥 {gameStats.streaks.productive}d rhythm</span><span>🌿 gentle progress</span></div>
+      <div className="level-meta"><span>Calm consistency</span><span>No pressure</span></div>
     </div>
   );
 }
@@ -100,21 +100,6 @@ export function WeeklyRecapCard({ gameStats }) {
   );
 }
 
-export function ThemeUnlocksCard({ gameStats, limit = 6 }) {
-  if (!gameStats?.themeUnlocks) return null;
-  return (
-    <div className="theme-unlocks-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Theme Unlocks</span><span className="game-card-sub">earned styles</span></div>
-      <div className="theme-unlock-list">
-        {gameStats.themeUnlocks.slice(0, limit).map(t => (
-          <div key={t.id} className={`theme-unlock-pill ${t.unlocked ? "unlocked" : "locked"}`} title={t.reason}>
-            <span>{t.unlocked ? "✓" : "🔒"}</span><span>{t.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function LifeGardenCard({ gameStats }) {
   if (!gameStats?.lifeGarden) return null;
@@ -135,59 +120,8 @@ export function LifeGardenCard({ gameStats }) {
   );
 }
 
-export function BadgesPreview({ gameStats, limit = 6 }) {
-  if (!gameStats) return null;
-  const badges = gameStats.badges.slice(0, limit);
-  return (
-    <div className="badges-card">
-      <div className="game-card-head"><span className="game-card-title">Achievements</span><span className="game-card-sub">{gameStats.unlockedBadges.length}/{gameStats.badges.length}</span></div>
-      <div className="badge-grid">
-        {badges.map(b => (
-          <div key={b.id} className={`badge-chip ${b.unlocked ? "unlocked" : "locked"}`} title={b.desc}>
-            <span className="badge-icon">{b.icon}</span>
-            <span className="badge-name">{b.name}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-export function WeeklyMissionsCard({ gameStats }) {
-  if (!gameStats?.weeklyMissions) return null;
-  const done = gameStats.weeklyMissions.filter(m => m.done).length;
-  return (
-    <div className="weekly-missions-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Weekly Rhythm</span><span className="game-card-sub">{done}/{gameStats.weeklyMissions.length} done</span></div>
-      <div className="mission-list">
-        {gameStats.weeklyMissions.map(m => (
-          <div key={m.id} className={`mission-item ${m.done ? "done" : ""}`}>
-            <div className="mission-top"><span>{m.icon} {m.title}</span><strong>{m.desc}</strong></div>
-            <div className="mission-track"><div className="mission-fill" style={{ width: `${m.pct}%` }} /></div>
-            <div className="mission-reward">+{m.xp} XP</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-export function ComboCard({ gameStats }) {
-  if (!gameStats?.combos) return null;
-  const done = gameStats.combos.filter(c => c.done).length;
-  return (
-    <div className="combo-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Combos</span><span className="game-card-sub">{done}/{gameStats.combos.length} active</span></div>
-      <div className="combo-list">
-        {gameStats.combos.map(c => (
-          <div key={c.id} className={`combo-chip ${c.done ? "done" : ""}`} title={c.desc}>
-            <span>{c.done ? "✓" : c.icon}</span><div><strong>{c.title}</strong><small>+{c.xp} XP</small></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function StreaksCard({ gameStats }) {
   if (!gameStats?.streaks) return null;
@@ -219,19 +153,6 @@ export function PersonalityCard({ gameStats }) {
   );
 }
 
-export function PersonalLeaderboardCard({ gameStats }) {
-  if (!gameStats?.leaderboard) return null;
-  return (
-    <div className="leaderboard-card game-soft-card">
-      <div className="game-card-head"><span className="game-card-title">Best Days</span><span className="game-card-sub">your strongest days</span></div>
-      {gameStats.leaderboard.length ? <div className="leaderboard-list">
-        {gameStats.leaderboard.map(d => (
-          <div key={d.key} className="leaderboard-row"><span className="leader-place">#{d.place}</span><strong>{d.label}</strong><span>{d.completed.length} tasks</span><span>{d.rank} · {d.score}</span></div>
-        ))}
-      </div> : <div className="empty-game-note">Your best days will appear here after you complete tasks, plan, or journal 🌱</div>}
-    </div>
-  );
-}
 
 export function GameDashboard({ gameStats, compact = false }) {
   if (!gameStats) return null;
@@ -255,8 +176,7 @@ export function CheckInRhythmCard({ dailyCheckIns = [] }) {
   return (
     <div className="checkin-rhythm-card game-soft-card">
       <div className="game-card-head"><span className="game-card-title">Mood & Energy</span><span className="game-card-sub">daily context</span></div>
-      <div className="checkin-rhythm-current">
-        <span>{mood?.emoji || "🌿"}</span>
+      <div className="checkin-rhythm-current checkin-rhythm-no-icon">
         <div>
           <strong>{mood ? `Feeling ${mood.label}` : "No check-in yet"}</strong>
           <p>{energy ? `${energy.label} energy` : "Energy not set"}{today?.note ? ` · ${today.note.slice(0, 90)}` : ""}</p>
