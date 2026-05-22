@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -1229,9 +1229,13 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const themeUnlockMap = new Map((gameStats?.themeUnlocks || THEMES.map(t => ({ id: t.id, unlocked: true, reason: "Unlocked" }))).map(t => [t.id, t]));
+  const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
+  const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
+  const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
+  const reminderDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
   async function toggleClosedPush() {
     if (!pushEnabled) {
@@ -1382,6 +1386,30 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <div className="settings-section-label">Closed-app push notifications</div>
             <div className="settings-section-desc">Registers this device for server-sent reminders while Tempo is closed. Requires the push setup files and VAPID keys.</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush}><div className="toggle-thumb" /></button><span>On</span></div>
+          </div>
+          <div className="settings-section">
+            <div className="settings-section-label">Reminder categories</div>
+            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, ritual, and habit reminders still use the individual times you set on each item.</div>
+            <div className="notification-pref-grid">
+              {[
+                ["events", "🗓️", "Events", "Calendar reminders"],
+                ["tasks", "✅", "Tasks", "Task reminders"],
+                ["rituals", "🕯️", "Rituals", "Start or skip from notification"],
+                ["habits", "🌱", "Habits", "Complete from notification"],
+              ].map(([key, emoji, label, desc]) => (
+                <label key={key} className="notification-pref-card">
+                  <input type="checkbox" checked={Boolean(reminderPrefs[key])} onChange={e => updateReminderPrefs({ [key]: e.target.checked })} />
+                  <span className="notification-pref-emoji">{emoji}</span>
+                  <span><strong>{label}</strong><small>{desc}</small></span>
+                </label>
+              ))}
+            </div>
+            <div className="notification-schedule-list">
+              <label className="notification-schedule-row"><span><strong>📔 Journal reminder</strong><small>Want to do a quick journal check-in?</small></span><input type="checkbox" checked={reminderPrefs.journal.enabled} onChange={e => updateReminderNested("journal", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.journal.time} onChange={e => updateReminderNested("journal", { time: e.target.value })} /></label>
+              <label className="notification-schedule-row"><span><strong>🌙 Tomorrow Reset</strong><small>A gentle reminder to plan tomorrow.</small></span><input type="checkbox" checked={reminderPrefs.tomorrowReset.enabled} onChange={e => updateReminderNested("tomorrowReset", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.tomorrowReset.time} onChange={e => updateReminderNested("tomorrowReset", { time: e.target.value })} /></label>
+              <label className="notification-schedule-row"><span><strong>🧺 Weekly Reset</strong><small>Review the week and set your next rhythm.</small></span><input type="checkbox" checked={reminderPrefs.weeklyReset.enabled} onChange={e => updateReminderNested("weeklyReset", { enabled: e.target.checked })} /><select className="tf-select notification-day-select" value={reminderPrefs.weeklyReset.day} onChange={e => updateReminderNested("weeklyReset", { day: Number(e.target.value) })}>{reminderDayLabels.map((day, index) => <option key={day} value={index}>{day}</option>)}</select><input type="time" className="tf-input meal-time" value={reminderPrefs.weeklyReset.time} onChange={e => updateReminderNested("weeklyReset", { time: e.target.value })} /></label>
+              <label className="notification-schedule-row"><span><strong>💌 Daily affirmation</strong><small>Time for one grounded thought.</small></span><input type="checkbox" checked={reminderPrefs.affirmations.enabled} onChange={e => updateReminderNested("affirmations", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.affirmations.time} onChange={e => updateReminderNested("affirmations", { time: e.target.value })} /></label>
+            </div>
           </div>
         </div>
       </div>
@@ -2869,11 +2897,14 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
             <button className="tf-cancel" onClick={onTomorrowReset}>🌙 Tomorrow Reset</button>
           </div>
         </div>
-        <div className="today-checkin-card">
-          <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenCheckIn}>{checkIn ? "Update" : "Add"}</button></div>
-          <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No check-in yet</strong></>}</div>
-          <div className="today-energy-row"><span>Energy</span><strong>{energy ? `${energy.emoji} ${energy.label}` : "Not set"}</strong></div>
-          <p>{checkIn?.note ? checkIn.note.slice(0, 90) : "Start with a quick mood and energy check-in, then let Tempo help you shape the day."}</p>
+        <div className="today-hero-stack">
+          <DailyAffirmationCard compact affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} onAddToMorningReset={onAddAffirmationToMorningReset} />
+          <div className="today-checkin-card">
+            <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenCheckIn}>{checkIn ? "Update" : "Add"}</button></div>
+            <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No check-in yet</strong></>}</div>
+            <div className="today-energy-row"><span>Energy</span><strong>{energy ? `${energy.emoji} ${energy.label}` : "Not set"}</strong></div>
+            <p>{checkIn?.note ? checkIn.note.slice(0, 90) : "Start with a quick mood and energy check-in, then let Tempo help you shape the day."}</p>
+          </div>
         </div>
       </div>
 
@@ -2913,7 +2944,6 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
           <p className="today-prompt">{prompt}</p>
           <div className="today-journal-actions"><button className="tf-cancel" onClick={onOpenJournal}>📔 Write today’s entry</button><button className="tf-save" onClick={onTomorrowReset}>🌙 Start Tomorrow Reset</button></div>
         </section>
-        <DailyAffirmationCard affirmations={affirmations} onOpenAffirmations={onOpenAffirmations} onFavorite={onFavoriteAffirmation} onAddToMorningReset={onAddAffirmationToMorningReset} />
         <section className="phase-card today-next-card">
           <div className="phase-card-head"><span>Next gentle step</span><small>Daily loop</small></div>
           <div className="today-loop"><span>Check in</span><i /> <span>Plan</span><i /> <span>Do</span><i /> <span>Reset</span><i /> <span>Reflect</span></div>
@@ -3373,6 +3403,7 @@ export default function App() {
   const [weeklyResets, setWeeklyResetsRaw] = useState(() => normalizeWeeklyResets(load(`${uk}_weekly_resets`, [])));
   const [affirmations, setAffirmationsRaw] = useState(() => normalizeAffirmations(load(`${uk}_affirmations`, DEFAULT_AFFIRMATIONS)));
   const [affirmationSettings, setAffirmationSettingsRaw] = useState(() => normalizeAffirmationSettings(load(`${uk}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
+  const [notificationPreferences, setNotificationPreferencesRaw] = useState(() => normalizeNotificationPreferences(load(`${uk}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -3469,6 +3500,7 @@ export default function App() {
       setWeeklyResetsRaw([]);
       setAffirmationsRaw([]);
       setAffirmationSettingsRaw(normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS));
+      setNotificationPreferencesRaw(normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES));
       return;
     }
 
@@ -3494,6 +3526,7 @@ export default function App() {
     setWeeklyResetsRaw(normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])));
     setAffirmationsRaw(normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)));
     setAffirmationSettingsRaw(normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
+    setNotificationPreferencesRaw(normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -3536,6 +3569,7 @@ export default function App() {
         weeklyResets: normalizeWeeklyResets(safeSettings.weeklyResets ?? load(`${userKey}_weekly_resets`, [])),
         affirmations: normalizeAffirmations(safeSettings.affirmations ?? load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
         affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
+        notificationPreferences: normalizeNotificationPreferences(safeSettings.notificationPreferences ?? load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
       };
@@ -3567,6 +3601,7 @@ export default function App() {
       setWeeklyResetsRaw(normalizeWeeklyResets(nextSettings.weeklyResets));
       setAffirmationsRaw(normalizeAffirmations(nextSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
+      setNotificationPreferencesRaw(normalizeNotificationPreferences(nextSettings.notificationPreferences));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
       save(`${userKey}_fs`, nextSettings.fontSize);
@@ -3591,6 +3626,7 @@ export default function App() {
       save(`${userKey}_weekly_resets`, normalizeWeeklyResets(nextSettings.weeklyResets));
       save(`${userKey}_affirmations`, normalizeAffirmations(nextSettings.affirmations));
       save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
+      save(`${userKey}_notification_preferences`, normalizeNotificationPreferences(nextSettings.notificationPreferences));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
       save(`${userKey}_settings_updated_at`, normalizeSettingsUpdatedAt(nextSettings.settingsUpdatedAt));
@@ -3639,6 +3675,7 @@ export default function App() {
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
+          notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3691,6 +3728,7 @@ export default function App() {
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
+          notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
           },
@@ -3740,6 +3778,7 @@ export default function App() {
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
+          notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         };
@@ -3776,6 +3815,7 @@ export default function App() {
           weeklyResets: [],
           affirmations: normalizeAffirmations(DEFAULT_AFFIRMATIONS),
           affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
+          notificationPreferences: normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES),
           memoryStorageMigratedAt: null,
           journal: {},
         };
@@ -3818,6 +3858,7 @@ export default function App() {
           weeklyResets: normalizeWeeklyResets(load(`${userKey}_weekly_resets`, [])),
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
+          notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
         },
@@ -3875,6 +3916,7 @@ export default function App() {
     weeklyResets: normalizeWeeklyResets(weeklyResets),
     affirmations: normalizeAffirmations(affirmations),
     affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
+    notificationPreferences: normalizeNotificationPreferences(notificationPreferences),
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -3939,6 +3981,7 @@ export default function App() {
         weeklyResets: normalizeWeeklyResets(nextSettings?.weeklyResets || weeklyResets),
         affirmations: normalizeAffirmations(nextSettings?.affirmations || affirmations),
         affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
+        notificationPreferences: normalizeNotificationPreferences(nextSettings?.notificationPreferences || notificationPreferences),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -3977,6 +4020,7 @@ export default function App() {
       setWeeklyResetsRaw(normalizeWeeklyResets(normalizedSettings.weeklyResets));
       setAffirmationsRaw(normalizeAffirmations(normalizedSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
+      setNotificationPreferencesRaw(normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
       setWorkHoursCtx(Number(normalizedSettings.workStart ?? workStart), Number(normalizedSettings.workEnd ?? workEnd));
@@ -4010,6 +4054,7 @@ export default function App() {
       save(`${uk}_weekly_resets`, normalizeWeeklyResets(normalizedSettings.weeklyResets));
       save(`${uk}_affirmations`, normalizeAffirmations(normalizedSettings.affirmations));
       save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
+      save(`${uk}_notification_preferences`, normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
 
@@ -4149,6 +4194,7 @@ export default function App() {
     save(`${uk}_weekly_resets`, normalizeWeeklyResets(next.weeklyResets));
     save(`${uk}_affirmations`, normalizeAffirmations(next.affirmations));
     save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
+    save(`${uk}_notification_preferences`, normalizeNotificationPreferences(next.notificationPreferences));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -4215,6 +4261,19 @@ export default function App() {
     const n = typeof v === "function" ? v(pushEnabled) : v;
     setPushEnabledRaw(Boolean(n));
     persistSettings({ pushEnabled: Boolean(n) });
+  };
+  const setNotificationPreferences = v => {
+    const n = normalizeNotificationPreferences(typeof v === "function" ? v(notificationPreferences) : v);
+    setNotificationPreferencesRaw(n);
+    save(`${uk}_notification_preferences`, n);
+    const nextAffirmationSettings = normalizeAffirmationSettings({
+      ...affirmationSettings,
+      reminderEnabled: Boolean(n.affirmations.enabled),
+      reminderTime: n.affirmations.time || DEFAULT_NOTIFICATION_PREFERENCES.affirmations.time,
+    });
+    setAffirmationSettingsRaw(nextAffirmationSettings);
+    save(`${uk}_affirmation_settings`, nextAffirmationSettings);
+    persistSettings({ notificationPreferences: n, affirmationSettings: nextAffirmationSettings });
   };
   async function enableClosedPushNotifications() {
     try {
@@ -4554,7 +4613,13 @@ export default function App() {
     const n = normalizeAffirmationSettings(typeof v === "function" ? v(affirmationSettings) : v);
     setAffirmationSettingsRaw(n);
     save(`${uk}_affirmation_settings`, n);
-    persistSettings({ affirmationSettings: n });
+    const nextNotificationPreferences = normalizeNotificationPreferences({
+      ...notificationPreferences,
+      affirmations: { enabled: Boolean(n.reminderEnabled), time: n.reminderTime || DEFAULT_NOTIFICATION_PREFERENCES.affirmations.time },
+    });
+    setNotificationPreferencesRaw(nextNotificationPreferences);
+    save(`${uk}_notification_preferences`, nextNotificationPreferences);
+    persistSettings({ affirmationSettings: n, notificationPreferences: nextNotificationPreferences });
   };
 
   function toggleAffirmationFavorite(id) {
@@ -5731,7 +5796,14 @@ export default function App() {
   .habit-modal{max-width:640px;width:min(94vw,640px);}.habit-target-row{display:grid;grid-template-columns:96px 1fr;gap:8px;width:100%;}.habit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.habit-card{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:22px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}.habit-complete{border-color:rgba(112,200,160,.45);background:linear-gradient(180deg,var(--bg2),rgba(112,200,160,.08))}.habit-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.habit-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}.habit-emoji{width:42px;height:42px;border-radius:16px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}.habit-title-wrap h3{font-size:16px;margin:0 0 2px;color:var(--text);line-height:1.1}.habit-title-wrap p{font-size:11px;color:var(--text2);font-weight:900;margin:0}.habit-card-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.habit-check{width:100%;justify-content:flex-start}.today-habit-stack{display:flex;flex-direction:column;gap:10px}.today-habit-stack .habit-card{box-shadow:none;border-radius:18px;padding:12px}.today-habit-stack .habit-title-wrap h3{font-size:14px}.today-habit-stack .habit-emoji{width:34px;height:34px;border-radius:12px;font-size:20px}.habit-week-grid-wrap{display:flex;flex-direction:column;gap:6px;overflow:auto}.habit-week-grid{display:grid;grid-template-columns:minmax(180px,1fr) repeat(7,48px);gap:6px;align-items:center;min-width:560px}.habit-week-grid>*{background:var(--bg3);border:1px solid var(--border);border-radius:12px;min-height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--text2);padding:6px}.habit-week-grid strong{justify-content:flex-start;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.habit-week-grid-head>*{background:transparent;border:0;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-size:10px}.habit-week-grid span.done{background:rgba(112,200,160,.14);border-color:rgba(112,200,160,.35);color:#2f8b62}.habit-week-grid span.muted{opacity:.45}@media(max-width:900px){.habit-grid{grid-template-columns:1fr}.habit-target-row{grid-template-columns:82px 1fr}}@media(max-width:560px){.habit-card-top{flex-direction:column}.habit-week-grid{grid-template-columns:minmax(150px,1fr) repeat(7,42px);min-width:500px}.habit-modal .modal-actions{flex-wrap:wrap}}
   .phase-page{height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px;background:var(--bg);}.phase-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow-sm);}.phase-kicker{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:4px;}.phase-hero h1{font-size:30px;line-height:1.05;margin:0 0 6px;color:var(--text);}.phase-hero p,.phase-copy{margin:0;color:var(--text2);font-size:13px;font-weight:800;line-height:1.55;}.phase-primary{white-space:nowrap;}.phase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}.phase-summary-grid button{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:14px 12px;text-align:left;cursor:pointer;box-shadow:var(--shadow-sm);font-family:var(--font);}.phase-summary-grid strong{display:block;color:var(--accent);font-size:24px;line-height:1;font-weight:900;}.phase-summary-grid span{font-size:11px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}.phase-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow-sm);}.phase-wide-card{max-width:900px;}.phase-page>.phase-wide-card{width:100%;max-width:none;}.phase-page .ritual-section-card{width:100%;max-width:none;}.phase-page .ritual-grid,.phase-page .habit-grid{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));}.phase-page .ritual-template-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}.habits-page .phase-card,.rituals-page .phase-card{width:100%;}.habit-week-grid-wrap{width:100%;}.habit-week-grid{grid-template-columns:minmax(260px,1fr) repeat(7,minmax(54px,72px));}.phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}.phase-card-head span{font-size:15px;font-weight:900;color:var(--text);}.phase-card-head button{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer;}.phase-card-head small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}.phase-list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px;font-weight:850;color:var(--text);}.phase-list-row:first-child{border-top:0;}.phase-list-row small{color:var(--text3);font-weight:900;white-space:nowrap;}.phase-empty{font-size:13px;font-weight:800;color:var(--text2);line-height:1.5;background:var(--bg3);border:1px dashed var(--border);border-radius:16px;padding:14px;}.phase-placeholder-card{opacity:.92;}.phase-bullet-list{display:flex;flex-direction:column;}.coming-soon-page .phase-wide-card{width:min(720px,100%);}@media(max-width:768px){.phase-page{padding:14px 12px 90px;}.phase-hero{align-items:flex-start;flex-direction:column;border-radius:22px;padding:18px;}.phase-hero h1{font-size:24px;}.phase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.phase-grid-two{grid-template-columns:1fr;}.phase-card{border-radius:18px;padding:14px;}}.reminder-editor{display:flex;flex-direction:column;gap:8px}.reminder-custom-row{margin:0!important;grid-template-columns:auto 1fr!important}.task-progress-mini{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2);font-weight:900;margin:6px 0}.task-progress-track{height:6px;border-radius:999px;background:var(--border);overflow:hidden}.task-progress-track i{display:block;height:100%;border-radius:999px;background:var(--accent)}.task-progress-mini strong{color:var(--accent)}.plan-day-btn{background:linear-gradient(135deg,var(--accent),#B08AE0)!important;color:#fff!important;border-color:transparent!important}.plan-summary{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;font-weight:800;color:var(--text2)}.plan-summary strong{color:var(--accent)}.plan-list{display:flex;flex-direction:column;gap:8px}.plan-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;font-weight:800}.plan-row strong{color:var(--accent);white-space:nowrap}.plan-warning{font-size:12px;color:#C07820;font-weight:900;background:#FFF6E6;border:1px solid #FFE2A8;border-radius:14px;padding:10px}.day-plan-modal .modal-body{gap:12px}
 
-  .today-page-v2{gap:18px;}.today-dashboard-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:14px;align-items:stretch;}.today-hero-copy{background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:24px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;}.today-hero-copy h1{font-size:34px;line-height:1.03;margin:0 0 6px;color:var(--text);}.today-hero-copy p{font-size:14px;color:var(--text2);font-weight:900;line-height:1.5;margin:0}.today-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}.today-checkin-card{background:var(--bg2);border:1px solid var(--border);border-radius:28px;padding:18px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;}.today-checkin-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px}.today-checkin-top button,.today-row-action{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer}.today-mood-display{display:flex;align-items:center;gap:10px;background:var(--bg4);border:1px solid var(--border);border-radius:18px;padding:12px}.today-mood-display span{font-size:28px}.today-mood-display strong{font-size:16px;color:var(--text)}.today-energy-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px dashed var(--border);background:var(--bg3);border-radius:14px;padding:9px 11px;font-size:12px;font-weight:900;color:var(--text2)}.today-energy-row strong{color:var(--accent)}.today-checkin-card p{font-size:12px;font-weight:800;line-height:1.45;color:var(--text2);margin:0}.today-rhythm-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.today-rhythm-strip button{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 12px;text-align:left;box-shadow:var(--shadow-sm);cursor:pointer;font-family:var(--font);display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.today-rhythm-strip button>span{font-size:20px;grid-row:1/3}.today-rhythm-strip strong{font-size:23px;line-height:1;color:var(--accent);font-weight:900}.today-rhythm-strip small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}.today-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px;align-items:start}.today-main-card,.today-side-card,.today-wide-card{min-width:0}.today-wide-card{grid-column:span 1}.today-task-list,.today-event-list{display:flex;flex-direction:column;gap:8px}.today-task-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-task-check{width:28px;height:28px;border-radius:999px;border:1.5px solid var(--border);background:var(--bg2);color:var(--accent);font-weight:900;cursor:pointer}.today-task-row strong{display:block;font-size:13px;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-task-row small{display:block;font-size:11px;color:var(--text2);font-weight:900;margin-top:2px}.today-event-row{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-event-row time{font-family:var(--mono);font-size:12px;font-weight:900;color:var(--accent);white-space:nowrap}.today-event-row strong{display:block;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-event-row small{font-size:11px;color:var(--text3);font-weight:900}.today-dashboard-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.today-dashboard-card-grid .ritual-card,.today-dashboard-card-grid .habit-card{box-shadow:none}.today-bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.75fr);gap:14px}.today-prompt{font-size:16px;line-height:1.5;font-weight:900;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:14px;margin:0}.today-journal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.today-loop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}.today-loop span{font-size:11px;font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:6px 9px}.today-loop i{width:14px;height:1px;background:var(--border);display:block}.today-side-card .phase-empty,.today-main-card .phase-empty{min-height:74px;display:flex;align-items:center}@media(min-width:1280px){.today-dashboard-grid{grid-template-columns:1fr 1fr}.today-wide-card{grid-column:span 1}.today-dashboard-card-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}}@media(max-width:980px){.today-dashboard-hero,.today-bottom-grid{grid-template-columns:1fr}.today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.today-dashboard-grid{grid-template-columns:1fr}.today-wide-card{grid-column:auto}}@media(max-width:560px){.today-hero-copy,.today-checkin-card{border-radius:22px;padding:16px}.today-hero-copy h1{font-size:26px}.today-rhythm-strip{grid-template-columns:1fr 1fr}.today-rhythm-strip button{padding:12px 10px}.today-task-row{grid-template-columns:auto minmax(0,1fr)}.today-row-action{grid-column:2;justify-self:start}.today-event-row{grid-template-columns:58px minmax(0,1fr)}.today-journal-actions{flex-direction:column}.today-journal-actions button{width:100%;}}
+  .today-page-v2{gap:18px;}.today-dashboard-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:14px;align-items:stretch;}.today-hero-stack{display:flex;flex-direction:column;gap:12px;min-width:0;}.today-hero-stack .affirmation-daily-card.compact{padding:16px;border-radius:24px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-quote-row blockquote{font-size:15px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-quote-icon{width:42px;height:42px;border-radius:15px;font-size:22px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-card-actions{margin-top:10px;}.today-hero-stack .affirmation-daily-card.compact .affirmation-card-actions .tf-cancel{display:none;}.today-dashboard-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:14px;align-items:stretch;}.today-hero-copy{background:linear-gradient(135deg,var(--bg2),var(--bg4));border:1px solid var(--border);border-radius:28px;padding:24px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;}.today-hero-copy h1{font-size:34px;line-height:1.03;margin:0 0 6px;color:var(--text);}.today-hero-copy p{font-size:14px;color:var(--text2);font-weight:900;line-height:1.5;margin:0}.today-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}.today-checkin-card{background:var(--bg2);border:1px solid var(--border);border-radius:28px;padding:18px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;}.today-checkin-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.8px}.today-checkin-top button,.today-row-action{border:1px solid var(--border);background:var(--bg3);color:var(--accent);border-radius:999px;padding:5px 9px;font-family:var(--font);font-weight:900;font-size:11px;cursor:pointer}.today-mood-display{display:flex;align-items:center;gap:10px;background:var(--bg4);border:1px solid var(--border);border-radius:18px;padding:12px}.today-mood-display span{font-size:28px}.today-mood-display strong{font-size:16px;color:var(--text)}.today-energy-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px dashed var(--border);background:var(--bg3);border-radius:14px;padding:9px 11px;font-size:12px;font-weight:900;color:var(--text2)}.today-energy-row strong{color:var(--accent)}.today-checkin-card p{font-size:12px;font-weight:800;line-height:1.45;color:var(--text2);margin:0}.today-rhythm-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.today-rhythm-strip button{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 12px;text-align:left;box-shadow:var(--shadow-sm);cursor:pointer;font-family:var(--font);display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.today-rhythm-strip button>span{font-size:20px;grid-row:1/3}.today-rhythm-strip strong{font-size:23px;line-height:1;color:var(--accent);font-weight:900}.today-rhythm-strip small{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}.today-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px;align-items:start}.today-main-card,.today-side-card,.today-wide-card{min-width:0}.today-wide-card{grid-column:span 1}.today-task-list,.today-event-list{display:flex;flex-direction:column;gap:8px}.today-task-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-task-check{width:28px;height:28px;border-radius:999px;border:1.5px solid var(--border);background:var(--bg2);color:var(--accent);font-weight:900;cursor:pointer}.today-task-row strong{display:block;font-size:13px;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-task-row small{display:block;font-size:11px;color:var(--text2);font-weight:900;margin-top:2px}.today-event-row{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:10px}.today-event-row time{font-family:var(--mono);font-size:12px;font-weight:900;color:var(--accent);white-space:nowrap}.today-event-row strong{display:block;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-event-row small{font-size:11px;color:var(--text3);font-weight:900}.today-dashboard-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.today-dashboard-card-grid .ritual-card,.today-dashboard-card-grid .habit-card{box-shadow:none}.today-bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.75fr);gap:14px}.today-prompt{font-size:16px;line-height:1.5;font-weight:900;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:14px;margin:0}.today-journal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.today-loop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}.today-loop span{font-size:11px;font-weight:900;color:var(--accent);background:var(--bg4);border:1px solid var(--border);border-radius:999px;padding:6px 9px}.today-loop i{width:14px;height:1px;background:var(--border);display:block}.today-side-card .phase-empty,.today-main-card .phase-empty{min-height:74px;display:flex;align-items:center}@media(min-width:1280px){.today-dashboard-grid{grid-template-columns:1fr 1fr}.today-wide-card{grid-column:span 1}.today-dashboard-card-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}}@media(max-width:980px){.today-dashboard-hero,.today-bottom-grid{grid-template-columns:1fr}.today-rhythm-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.today-dashboard-grid{grid-template-columns:1fr}.today-wide-card{grid-column:auto}}@media(max-width:560px){.today-hero-copy,.today-checkin-card{border-radius:22px;padding:16px}.today-hero-copy h1{font-size:26px}.today-rhythm-strip{grid-template-columns:1fr 1fr}.today-rhythm-strip button{padding:12px 10px}.today-task-row{grid-template-columns:auto minmax(0,1fr)}.today-row-action{grid-column:2;justify-self:start}.today-event-row{grid-template-columns:58px minmax(0,1fr)}.today-journal-actions{flex-direction:column}.today-journal-actions button{width:100%;}}
+
+  .notification-pref-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
+  .notification-pref-card{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:9px;border:1px solid var(--border);background:var(--bg3);border-radius:16px;padding:10px 12px;cursor:pointer;}
+  .notification-pref-card input,.notification-schedule-row input[type="checkbox"]{accent-color:var(--accent);}
+  .notification-pref-emoji{font-size:18px;}.notification-pref-card strong,.notification-schedule-row strong{display:block;color:var(--text);font-size:12px;font-weight:950;}.notification-pref-card small,.notification-schedule-row small{display:block;color:var(--text3);font-size:10px;font-weight:850;margin-top:2px;}
+  .notification-schedule-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}.notification-schedule-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;border:1px solid var(--border);background:var(--bg2);border-radius:16px;padding:10px 12px;}.notification-day-select{min-width:118px;padding:8px 10px;}
+  @media(max-width:560px){.notification-pref-grid{grid-template-columns:1fr}.notification-schedule-row{grid-template-columns:minmax(0,1fr) auto;}.notification-schedule-row .meal-time,.notification-day-select{grid-column:1/-1;width:100%;}}
 
 `}</style>
 
@@ -5927,7 +5999,7 @@ export default function App() {
       {showStats  && <StatsCard events={visibleEvents} tasks={tasks} streak={streak} gameStats={gameStats} onClose={() => setShowStats(false)} />}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
+      {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

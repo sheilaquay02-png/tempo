@@ -27,6 +27,9 @@ function notificationOptions(payload) {
       url: data.url || payload.url || '/',
       actionToken: data.actionToken || payload.actionToken || null,
       taskId: data.taskId || payload.taskId || null,
+      habitId: data.habitId || payload.habitId || null,
+      ritualId: data.ritualId || payload.ritualId || null,
+      date: data.date || payload.date || null,
       sourceType: data.sourceType || payload.sourceType || null,
       sourceId: data.sourceId || payload.sourceId || null,
     },
@@ -87,6 +90,43 @@ self.addEventListener('notificationclick', event => {
         data: { url },
       });
       return;
+    }
+
+    if (action === 'complete_habit') {
+      const result = await postReminderAction(data, { action: 'complete_habit' });
+      await self.registration.showNotification(result?.ok ? 'Habit checked off 🌱' : 'Could not complete habit', {
+        body: result?.ok ? 'Tempo updated this habit.' : 'Open Tempo to check the habit.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url },
+      });
+      return;
+    }
+
+    if (action === 'skip_ritual') {
+      const result = await postReminderAction(data, { action: 'skip_ritual' });
+      await self.registration.showNotification(result?.ok ? 'Ritual skipped gently' : 'Could not skip ritual', {
+        body: result?.ok ? 'Tempo updated this ritual for today.' : 'Open Tempo to check the ritual.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url },
+      });
+      return;
+    }
+
+    if (action === 'complete_ritual') {
+      const result = await postReminderAction(data, { action: 'complete_ritual' });
+      await self.registration.showNotification(result?.ok ? 'Ritual completed 🕯️' : 'Could not complete ritual', {
+        body: result?.ok ? 'Tempo updated this ritual.' : 'Open Tempo to check the ritual.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url },
+      });
+      return;
+    }
+
+    if (action === 'start_ritual' || action === 'open_journal' || action === 'start_reset' || action === 'open') {
+      return openTempoWindow(url);
     }
 
     return openTempoWindow(url);

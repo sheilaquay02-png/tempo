@@ -13,7 +13,7 @@ function getAdminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function todayKey() {
+function fallbackDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -33,16 +33,28 @@ function normalizeSnoozedReminders(settings) {
   return Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
 }
 
+async function loadUserData(admin, userId, select = 'events,tasks,settings') {
+  const { data, error } = await admin
+    .from('user_data')
+    .select(select)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function saveUserData(admin, userId, patch) {
+  const { error } = await admin
+    .from('user_data')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 async function handleSnooze(admin, row, minutes) {
   const safeMinutes = Math.max(1, Math.min(24 * 60, Number(minutes) || 10));
   const meta = row.meta || {};
-  const { data: userData, error: loadError } = await admin
-    .from('user_data')
-    .select('settings')
-    .eq('user_id', row.user_id)
-    .maybeSingle();
-  if (loadError) throw loadError;
-
+  const userData = await loadUserData(admin, row.user_id, 'settings');
   const settings = userData?.settings || {};
   const snoozed = normalizeSnoozedReminders(settings);
   const dueAt = new Date(Date.now() + safeMinutes * 60000).toISOString();
@@ -51,35 +63,28 @@ async function handleSnooze(admin, row, minutes) {
     actionToken: meta.actionToken,
     type: meta.type || meta.sourceType || 'task',
     sourceType: meta.sourceType || meta.type || 'task',
-    sourceId: meta.sourceId || meta.taskId || meta.id || null,
-    taskId: meta.taskId || meta.sourceId || null,
+    sourceId: meta.sourceId || meta.taskId || meta.habitId || meta.ritualId || meta.id || null,
+    taskId: meta.taskId || (meta.sourceType === 'task' ? meta.sourceId : null),
+    habitId: meta.habitId || (meta.sourceType === 'habit' ? meta.sourceId : null),
+    ritualId: meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null),
+    date: meta.date || null,
     title: meta.title || 'Tempo reminder 🌸',
     body: meta.body || 'Open Tempo to check this item.',
-    url: meta.url || (meta.taskId ? `/?taskId=${encodeURIComponent(meta.taskId)}&page=tasks` : '/'),
+    url: meta.url || '/',
     dueAt,
     createdAt: new Date().toISOString(),
   };
 
-  const nextSettings = { ...settings, snoozedReminders: [...snoozed, item] };
-  const { error: updateError } = await admin
-    .from('user_data')
-    .update({ settings: nextSettings, updated_at: new Date().toISOString() })
-    .eq('user_id', row.user_id);
-  if (updateError) throw updateError;
+  await saveUserData(admin, row.user_id, { settings: { ...settings, snoozedReminders: [...snoozed, item] } });
   return { ok: true, action: 'snooze', minutes: safeMinutes, dueAt };
 }
 
 async function handleCompleteTask(admin, row) {
   const meta = row.meta || {};
-  const taskId = meta.taskId || meta.sourceId;
+  const taskId = meta.taskId || (meta.sourceType === 'task' ? meta.sourceId : null);
   if (!taskId) return { ok: false, error: 'No task id on reminder' };
 
-  const { data: userData, error: loadError } = await admin
-    .from('user_data')
-    .select('events,tasks,settings')
-    .eq('user_id', row.user_id)
-    .maybeSingle();
-  if (loadError) throw loadError;
+  const userData = await loadUserData(admin, row.user_id);
   if (!userData) return { ok: false, error: 'User data not found' };
 
   const now = new Date().toISOString();
@@ -87,19 +92,97 @@ async function handleCompleteTask(admin, row) {
   const tasks = (Array.isArray(userData.tasks) ? userData.tasks : []).map(task => {
     if (task?.id !== taskId) return task;
     changed = true;
-    return { ...task, done: true, completedAt: now, completedDate: task.completedDate || todayKey(), updatedAt: now };
+    return { ...task, done: true, completedAt: now, completedDate: task.completedDate || meta.date || fallbackDateKey(), updatedAt: now };
   });
 
   if (!changed) return { ok: false, error: 'Task not found' };
   const settings = userData.settings || {};
   const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.taskId !== taskId && item.sourceId !== taskId);
 
-  const { error: updateError } = await admin
-    .from('user_data')
-    .update({ tasks, settings: { ...settings, snoozedReminders }, updated_at: now })
-    .eq('user_id', row.user_id);
-  if (updateError) throw updateError;
+  await saveUserData(admin, row.user_id, { tasks, settings: { ...settings, snoozedReminders } });
   return { ok: true, action: 'complete_task', taskId };
+}
+
+async function handleCompleteHabit(admin, row) {
+  const meta = row.meta || {};
+  const habitId = meta.habitId || (meta.sourceType === 'habit' ? meta.sourceId : null);
+  if (!habitId) return { ok: false, error: 'No habit id on reminder' };
+  const date = meta.date || fallbackDateKey();
+  const userData = await loadUserData(admin, row.user_id, 'settings');
+  if (!userData) return { ok: false, error: 'User data not found' };
+  const settings = userData.settings || {};
+  const habits = Array.isArray(settings.habits) ? settings.habits : [];
+  const habit = habits.find(h => h.id === habitId);
+  if (!habit) return { ok: false, error: 'Habit not found' };
+  const target = Math.max(1, Number(habit.targetCount || 1));
+  const now = new Date().toISOString();
+  const current = Array.isArray(settings.habitCompletions) ? settings.habitCompletions : [];
+  const existing = current.find(c => c.habitId === habitId && c.date === date);
+  const nextCompletion = {
+    ...(existing || { id: `${habitId}:${date}`, habitId, date, createdAt: now }),
+    completedAt: existing?.completedAt || now,
+    count: Math.max(target, Number(existing?.count || 0)),
+    note: existing?.note || '',
+    updatedAt: now,
+  };
+  const habitCompletions = existing ? current.map(c => c.id === existing.id ? nextCompletion : c) : [...current, nextCompletion];
+  const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.habitId !== habitId && item.sourceId !== habitId);
+  await saveUserData(admin, row.user_id, { settings: { ...settings, habitCompletions, snoozedReminders } });
+  return { ok: true, action: 'complete_habit', habitId, date };
+}
+
+async function handleCompleteRitual(admin, row) {
+  const meta = row.meta || {};
+  const ritualId = meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null);
+  if (!ritualId) return { ok: false, error: 'No ritual id on reminder' };
+  const date = meta.date || fallbackDateKey();
+  const userData = await loadUserData(admin, row.user_id, 'settings');
+  if (!userData) return { ok: false, error: 'User data not found' };
+  const settings = userData.settings || {};
+  const rituals = Array.isArray(settings.rituals) ? settings.rituals : [];
+  const ritual = rituals.find(r => r.id === ritualId);
+  if (!ritual) return { ok: false, error: 'Ritual not found' };
+  const now = new Date().toISOString();
+  const stepIds = Array.isArray(ritual.steps) ? ritual.steps.map(s => s.id) : [];
+  const current = Array.isArray(settings.ritualCompletions) ? settings.ritualCompletions : [];
+  const existing = current.find(c => c.ritualId === ritualId && c.date === date);
+  const nextCompletion = {
+    ...(existing || { id: `${ritualId}:${date}`, ritualId, date, createdAt: now }),
+    completedSteps: stepIds,
+    completedAt: existing?.completedAt || now,
+    skippedAt: null,
+    note: existing?.note || '',
+    updatedAt: now,
+  };
+  const ritualCompletions = existing ? current.map(c => c.id === existing.id ? nextCompletion : c) : [...current, nextCompletion];
+  const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.ritualId !== ritualId && item.sourceId !== ritualId);
+  await saveUserData(admin, row.user_id, { settings: { ...settings, ritualCompletions, snoozedReminders } });
+  return { ok: true, action: 'complete_ritual', ritualId, date };
+}
+
+async function handleSkipRitual(admin, row) {
+  const meta = row.meta || {};
+  const ritualId = meta.ritualId || (meta.sourceType === 'ritual' ? meta.sourceId : null);
+  if (!ritualId) return { ok: false, error: 'No ritual id on reminder' };
+  const date = meta.date || fallbackDateKey();
+  const userData = await loadUserData(admin, row.user_id, 'settings');
+  if (!userData) return { ok: false, error: 'User data not found' };
+  const settings = userData.settings || {};
+  const now = new Date().toISOString();
+  const current = Array.isArray(settings.ritualCompletions) ? settings.ritualCompletions : [];
+  const existing = current.find(c => c.ritualId === ritualId && c.date === date);
+  const nextCompletion = {
+    ...(existing || { id: `${ritualId}:${date}`, ritualId, date, createdAt: now }),
+    completedSteps: [],
+    completedAt: null,
+    skippedAt: now,
+    note: existing?.note || '',
+    updatedAt: now,
+  };
+  const ritualCompletions = existing ? current.map(c => c.id === existing.id ? nextCompletion : c) : [...current, nextCompletion];
+  const snoozedReminders = normalizeSnoozedReminders(settings).filter(item => item.ritualId !== ritualId && item.sourceId !== ritualId);
+  await saveUserData(admin, row.user_id, { settings: { ...settings, ritualCompletions, snoozedReminders } });
+  return { ok: true, action: 'skip_ritual', ritualId, date };
 }
 
 export async function POST(request) {
@@ -113,6 +196,9 @@ export async function POST(request) {
 
     if (action === 'snooze') return json(await handleSnooze(admin, row, body.minutes));
     if (action === 'complete_task') return json(await handleCompleteTask(admin, row));
+    if (action === 'complete_habit') return json(await handleCompleteHabit(admin, row));
+    if (action === 'complete_ritual') return json(await handleCompleteRitual(admin, row));
+    if (action === 'skip_ritual') return json(await handleSkipRitual(admin, row));
     return json({ ok: false, error: 'Unsupported action' }, 400);
   } catch (err) {
     console.error('Push action failed', err);
