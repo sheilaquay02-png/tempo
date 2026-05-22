@@ -1,8 +1,8 @@
 export function appCSS(cvars, fontScale) { return `
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Inconsolata:wght@300;400;500&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  :root{${cvars}--mint:#B8F0E0;--radius:16px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow:0 2px 16px rgba(0,0,0,0.08);--shadow-md:0 4px 24px rgba(0,0,0,0.12);--fs:${fontScale};--accent-rgb:255,123,172;}
-  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
+  :root{${cvars}--cream:#FBF4EC;--cream-2:#FFF9F5;--surface:#FFFFFF;--surface-warm:#FFFDFB;--surface-soft:#FFF9F5;--blush:#D989A2;--blush-soft:#F8E7E0;--lavender-soft:#F2EAF7;--mint:#B8F0E0;--success-soft:#EAF6EF;--warning-soft:#FFF3DA;--ring:rgba(var(--accent-rgb),.16);--radius:22px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow-sm:0 10px 28px rgba(116,78,60,.055);--shadow:0 16px 42px rgba(116,78,60,.075);--shadow-md:0 22px 58px rgba(116,78,60,.11);--shadow-lg:0 30px 80px rgba(116,78,60,.14);--fs:${fontScale};}
+  body{background:radial-gradient(circle at 8% 0%,rgba(var(--accent-rgb),.10),transparent 30%),linear-gradient(180deg,var(--bg),var(--bg3));color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
   .app{display:flex;height:100vh;overflow:hidden;}
   .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow-y:auto;overflow-x:hidden;min-height:0;}
   .sidebar.closed{width:0;}
