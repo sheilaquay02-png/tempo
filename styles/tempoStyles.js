@@ -2,12 +2,14 @@ export function appCSS(cvars, fontScale) { return `
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Inconsolata:wght@300;400;500&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   :root{${cvars}--cream:#FBF4EC;--cream-2:#FFF9F5;--surface:#FFFFFF;--surface-warm:#FFFDFB;--surface-soft:#FFF9F5;--blush:#D989A2;--blush-soft:#F8E7E0;--lavender-soft:#F2EAF7;--mint:#B8F0E0;--success-soft:#EAF6EF;--warning-soft:#FFF3DA;--ring:rgba(var(--accent-rgb),.16);--radius:22px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow-sm:0 10px 28px rgba(116,78,60,.055);--shadow:0 16px 42px rgba(116,78,60,.075);--shadow-md:0 22px 58px rgba(116,78,60,.11);--shadow-lg:0 30px 80px rgba(116,78,60,.14);--fs:${fontScale};}
+  .dark{--cream:var(--bg);--cream-2:var(--bg3);--surface:var(--bg2);--surface-warm:var(--bg3);--surface-soft:var(--bg3);--blush-soft:var(--bg4);--lavender-soft:var(--bg4);--success-soft:rgba(112,200,160,.14);--warning-soft:rgba(255,184,112,.14);--shadow-sm:0 10px 28px rgba(0,0,0,.20);--shadow:0 16px 42px rgba(0,0,0,.26);--shadow-md:0 22px 58px rgba(0,0,0,.34);--shadow-lg:0 30px 80px rgba(0,0,0,.44);}
   body{background:radial-gradient(circle at 8% 0%,rgba(var(--accent-rgb),.10),transparent 30%),linear-gradient(180deg,var(--bg),var(--bg3));color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
   .app{display:flex;height:100vh;overflow:hidden;}
   .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow-y:auto;overflow-x:hidden;min-height:0;}
   .sidebar.closed{width:0;}
   .sidebar-logo{padding:20px;border-bottom:1px solid var(--border);font-size:20px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:8px;}
-  .sidebar-logo .logo-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .sidebar-logo .logo-icon{width:32px;height:32px;border-radius:12px;background:rgba(var(--accent-rgb),.12);border:1px solid rgba(var(--accent-rgb),.18);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px;}
+  .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
   .sidebar-logo span{color:var(--accent);}
   .sidebar-date{padding:14px 20px;font-family:var(--mono);font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg3);}
   .sidebar-date .date-big{font-size:30px;font-weight:900;font-family:var(--font);background:linear-gradient(135deg,var(--accent),#C060A0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:4px;}
@@ -1623,5 +1625,17 @@ export function appCSS(cvars, fontScale) { return `
     box-shadow:0 1px 0 var(--border)!important;
   }
 }
+
+
+/* ── Current design/debug hotfixes: stickers, floral contrast, dark surfaces ── */
+.tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
+.sidebar-logo .logo-icon,.login-mascot .mascot-icon{overflow:hidden;}
+.dark .app,.dark .content,.dark .main-content{background:linear-gradient(180deg,var(--bg),var(--bg2))!important;color:var(--text)!important;}
+.dark .sidebar,.dark .mobile-nav,.dark .settings-panel,.dark .settings-modal,.dark .settings-card,.dark .modal,.dark .modal-card,.dark .entry-view-modal,.dark .journal-entry-card,.dark .phase-card,.dark .task-panel,.dark .task-card,.dark .calendar-panel,.dark .calendar-card,.dark .journal-page,.dark .today-card,.dark .memory-panel,.dark .chat-window{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;box-shadow:0 18px 45px rgba(0,0,0,.30)!important;}
+.dark input,.dark textarea,.dark select,.dark .modal-input,.dark .modal-select,.dark .settings-input,.dark .journal-input,.dark .chat-input,.dark .tf-input,.dark .theme-swatch-btn,.dark .habit-row,.dark .journal-reflection-tile{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
+.today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;max-width:52vw!important;max-height:52vw!important;}
+.today-top3-card .today-empty-sugar{min-height:250px!important;}
+@media(max-width:768px){.sidebar-sync-under-user .sync-pill{display:none!important;}.today-top3-card .today-empty-sugar{min-height:230px!important;}}
 
 `; }

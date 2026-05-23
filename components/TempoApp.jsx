@@ -8,6 +8,15 @@ import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCl
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
+
+const TEMPO_LOGO_STICKER_PACKS = ["sugar", "lola", "luna", "truffle"];
+const TEMPO_LOGO_STICKERS = TEMPO_LOGO_STICKER_PACKS.flatMap(pack =>
+  Array.from({ length: 9 }, (_, index) => `${MEMORY_ASSET_BASE}/stickers/${pack}/${index + 1}.png`)
+);
+const randomTempoLogoSticker = () => TEMPO_LOGO_STICKERS[Math.floor(Math.random() * TEMPO_LOGO_STICKERS.length)] || `${MEMORY_ASSET_BASE}/stickers/sugar/1.png`;
+function TempoLogoMark({ src, className = "" }) {
+  return <img className={`tempo-logo-sticker ${className}`.trim()} src={src || TEMPO_LOGO_STICKERS[0]} alt="Tempo" draggable="false" />;
+}
 function RecurrenceEditor({ value, onChange, startDate }) {
   const rec = normalizeRecurrence(value);
   const freq = rec?.frequency || "";
@@ -2087,7 +2096,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
           <div className="journal-streak">🔥 {streak} day streak</div>
         </div>
         <div className="journal-header-actions">
-          <button type="button" className="tf-cancel journal-today-btn memory-settings-btn" onClick={() => setMemorySettingsOpen(true)}>Memory Settings</button>
+          <button type="button" className="tf-cancel journal-today-btn memory-settings-btn" onClick={e => { e.preventDefault(); e.stopPropagation(); setMemorySettingsOpen(true); }}>Memory Settings</button>
           <button type="button" className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
         </div>
       </div>
@@ -2735,7 +2744,6 @@ function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, compact = f
         <span className="affirmation-quote-icon">{category.emoji}</span>
         <div>
           <blockquote>“{todayAffirmation.text}”</blockquote>
-          <small>{category.label} · Today’s gentle reminder</small>
         </div>
       </div>
     </section>
@@ -3197,6 +3205,16 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fontSize,  setFSRaw]       = useState(() => load(`${uk}_fs`, "md"));
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
+  const tempoLogoSticker = useMemo(() => randomTempoLogoSticker(), []);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle("dark", Boolean(darkMode));
+    document.body?.classList.toggle("dark", Boolean(darkMode));
+    return () => {
+      document.documentElement.classList.remove("dark");
+      document.body?.classList.remove("dark");
+    };
+  }, [darkMode]);
   const [workStart, setWSRaw]       = useState(() => load(`${uk}_ws`, 9));
   const [workEnd,   setWERaw]       = useState(() => load(`${uk}_we`, 19));
   const [mealBreaks, setMealBreaksRaw] = useState(() => normalizeMealBreaks(load(`${uk}_meal_breaks`, DEFAULT_MEAL_BREAKS)));
@@ -5577,7 +5595,7 @@ export default function App() {
   if (auth.loading && !auth.user) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark src={tempoLogoSticker} /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -5594,7 +5612,7 @@ export default function App() {
   if (!dataReady || loadedUserId !== auth.user.id) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon">🌸</div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark src={tempoLogoSticker} /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -6368,11 +6386,27 @@ export default function App() {
     padding-bottom:18px!important;
   }
 }
+
+/* ── Current design/debug hotfixes ───────────────────────────────────────── */
+.tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
+.login-mascot .mascot-icon{width:52px!important;height:52px!important;border-radius:18px!important;background:rgba(255,255,255,.38)!important;border:1px solid rgba(255,255,255,.55)!important;display:grid!important;place-items:center!important;padding:5px!important;overflow:hidden!important;}
+.chat-fab .tempo-logo-sticker{width:34px!important;height:34px!important;}
+.dark .sidebar,.dark .sidebar-logo,.dark .sidebar-date,.dark .settings-panel,.dark .settings-header,.dark .settings-body,.dark .settings-section,.dark .mobile-nav,.dark .memory-settings-modal,.dark .entry-modal,.dark .entry-view-modal{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;}
+.dark .theme-swatch-btn,.dark .choice-row,.dark .memory-manager-panel,.dark .manager-group-card,.dark .manager-row,.dark .memory-bg-choice,.dark .sticker-asset-picker-row button,.dark .sticker-preview-chip,.dark .sticker-position-pad,.dark .scrapbook-empty-note,.dark .journal-reflection-tile,.dark .tomorrow-reset-section,.dark .weekly-event-preview span{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;}
+.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
+.dark .mobile-nav{box-shadow:0 -10px 28px rgba(0,0,0,.34)!important;}
+.today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;max-width:52vw!important;max-height:52vw!important;}
+.today-top3-card .today-empty-sugar{min-height:250px!important;}
+@media(max-width:768px){
+  .sidebar-sync-under-user .sync-pill{display:none!important;}
+  .today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;}
+  .today-top3-card .today-empty-sugar{min-height:230px!important;}
+}
 `}</style>
 
       <div className="app">
         <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
-          <div className="sidebar-logo"><div className="logo-icon">🌸</div><span>Tempo</span></div>
+          <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark src={tempoLogoSticker} /></div><span>Tempo</span></div>
           <div className="sidebar-date">
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
@@ -6594,7 +6628,7 @@ export default function App() {
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
-      <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : "🌸"}</button>
+      <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : <TempoLogoMark src={tempoLogoSticker} />}</button>
     </>
   );
 }
@@ -6657,6 +6691,8 @@ const loginCSS = `
   .mascot-ring-inner{inset:8px;background:linear-gradient(135deg,#FFC0D8,#D8B0FF);opacity:.70;animation:ringPulse 3s ease-in-out infinite .6s;}
   @keyframes ringPulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.08);opacity:.80;}}
   .mascot-icon{position:relative;z-index:1;font-size:34px;filter:drop-shadow(0 4px 10px rgba(255,123,172,.45));animation:mascotBounce 2.4s ease-in-out infinite;}
+  .login-mascot .mascot-icon{width:52px;height:52px;border-radius:18px;background:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.55);display:grid;place-items:center;padding:5px;overflow:hidden;}
+  .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 10px rgba(255,123,172,.32));}
   @keyframes mascotBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
   .login-brand{display:flex;align-items:center;gap:8px;}
   .login-logo-text{font-size:28px;font-weight:900;background:linear-gradient(135deg,#FF7BAC 0%,#C060C8 60%,#8080E0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px;}
