@@ -26,12 +26,34 @@ const SCRAPBOOK_ITEM_DEFAULTS = {
   divider: { x: 15, y: 54, w: 70, h: 7, rotate: 0 },
   quote: { x: 14, y: 20, w: 58, h: 18, rotate: -1 },
 };
+const SCRAPBOOK_CANVAS_PRESETS = [
+  { id: "landscape", label: "Landscape", width: 840, height: 520 },
+  { id: "square", label: "Square", width: 680, height: 680 },
+  { id: "portrait", label: "Portrait", width: 560, height: 760 },
+  { id: "wide", label: "Wide", width: 960, height: 440 },
+];
+const SCRAPBOOK_DEFAULT_SIZE = SCRAPBOOK_CANVAS_PRESETS[0];
 const SCRAPBOOK_SAFE_TYPES = new Set(["text", "tape", "sticker", "divider", "quote"]);
 const scrapbookClamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const scrapbookNumber = (value, fallback) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 };
+function normalizeScrapbookCanvasSize(size = {}) {
+  const fallback = SCRAPBOOK_DEFAULT_SIZE;
+  return {
+    width: scrapbookClamp(Math.round(scrapbookNumber(size.width, fallback.width)), 320, 1100),
+    height: scrapbookClamp(Math.round(scrapbookNumber(size.height, fallback.height)), 260, 900),
+  };
+}
+function scrapbookCanvasStyle(size) {
+  const clean = normalizeScrapbookCanvasSize(size);
+  return {
+    "--scrapbook-canvas-width": `${clean.width}px`,
+    "--scrapbook-canvas-height": `${clean.height}px`,
+    aspectRatio: `${clean.width} / ${clean.height}`,
+  };
+}
 function scrapbookItemType(item) {
   const raw = item?.type === "quote" ? "tape" : item?.type;
   return SCRAPBOOK_SAFE_TYPES.has(raw) ? raw : "text";
@@ -1562,6 +1584,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [newTag,     setNewTag]     = useState("");
   const [blocks,     setBlocks]     = useState(() => normalizeScrapbookBlocksForSave(normalized.blocks));
   const [backgroundId, setBackgroundId] = useState(normalized.backgroundId || "plain");
+  const [scrapbookSize, setScrapbookSize] = useState(() => normalizeScrapbookCanvasSize(normalized.scrapbookSize));
   const [highlights, setHighlights] = useState(normalized.highlights);
   const [newActivity, setNewActivity] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -1570,6 +1593,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const scrapbookCanvasRef = useRef(null);
   const scrapbookDragRef = useRef(null);
+  const scrapbookPageResizeRef = useRef(null);
   const initialSnapshot = useMemo(() => JSON.stringify({
     mood: normalized.mood,
     activities: normalized.activities,
@@ -1580,42 +1604,69 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     tags: normalized.tags,
     blocks: normalizeScrapbookBlocksForSave(normalized.blocks),
     backgroundId: normalized.backgroundId || "plain",
+    scrapbookSize: normalizeScrapbookCanvasSize(normalized.scrapbookSize),
     highlights: normalized.highlights,
   }), [entry]);
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
   const stickerPacks = Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }];
-  const renderStickerPackPicker = (selectedSrc, onPick, { previewOnly = false } = {}) => (
-    <div className="sticker-pack-list">
-      {stickerPacks.map(pack => (
-        <div key={pack.id} className="sticker-pack-section">
-          <div className="sticker-pack-title">{pack.label}</div>
-          <div className="sticker-asset-picker-row">
-            {(pack.stickers || []).map(st => {
-              const content = (
-                <>
-                  <img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} />
-                  <span className="sticker-choice-label">{st.number || st.label}</span>
-                </>
-              );
-              return previewOnly
-                ? <span key={st.id} className="sticker-preview-chip">{content}</span>
-                : <button key={st.id} type="button" className={selectedSrc === st.src ? "selected" : ""} title={st.label} onClick={() => onPick(st)}>{content}</button>;
-            })}
-          </div>
+  const [activeStickerPackId, setActiveStickerPackId] = useState(stickerPacks.find(p => p.id === "sugar")?.id || stickerPacks[0]?.id || "cozy");
+  const renderStickerPackPicker = (selectedSrc, onPick, { previewOnly = false } = {}) => {
+    const activePack = stickerPacks.find(pack => pack.id === activeStickerPackId) || stickerPacks[0];
+    const activeStickers = activePack?.stickers || [];
+    return (
+      <div className="sticker-pack-browser">
+        <div className="sticker-pack-tabs" role="tablist" aria-label="Sticker packs">
+          {stickerPacks.map(pack => {
+            const icon = pack.stickers?.[0];
+            return (
+              <button
+                key={pack.id}
+                type="button"
+                className={pack.id === activePack?.id ? "active" : ""}
+                title={pack.label}
+                aria-label={`${pack.label} sticker pack`}
+                onClick={() => setActiveStickerPackId(pack.id)}
+              >
+                {icon?.src ? <img src={icon.src} alt="" onError={e => { e.currentTarget.style.display = "none"; }} /> : <span>🌸</span>}
+                <small>{pack.label}</small>
+              </button>
+            );
+          })}
         </div>
-      ))}
-    </div>
-  );
+        <div className="sticker-pack-active-title">{activePack?.label || "Stickers"}</div>
+        <div className="sticker-asset-picker-row compact">
+          {activeStickers.map(st => {
+            const content = (
+              <>
+                <img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} />
+                <span className="sticker-choice-label">{st.number || st.label}</span>
+              </>
+            );
+            return previewOnly
+              ? <span key={st.id} className="sticker-preview-chip">{content}</span>
+              : <button key={st.id} type="button" className={selectedSrc === st.src ? "selected" : ""} title={st.label} onClick={() => onPick(st)}>{content}</button>;
+          })}
+        </div>
+      </div>
+    );
+  };
   const visibleActivitiesCatalog = (activitiesCatalog || []).filter(a => !a.archived);
   const groups = [...new Set(visibleActivitiesCatalog.map(a => a.group || "Custom"))];
   const [showActivityManager, setShowActivityManager] = useState(false);
   const [showTagManager, setShowTagManager] = useState(false);
   const [dragActivityId, setDragActivityId] = useState(null);
   const availableTags = [...new Set([...(memoryTagsCatalog || MEMORY_TAGS), ...tags].map(memoryTagLabel).filter(Boolean))];
+  const editableScrapbookBlocks = normalizeScrapbookBlocksForSave(blocks);
+  const selectedBlock = editableScrapbookBlocks.find(b => b.id === selectedBlockId) || editableScrapbookBlocks[0] || null;
+  useEffect(() => {
+    if (!selectedBlock?.stickerAsset) return;
+    const pack = stickerPacks.find(p => (p.stickers || []).some(st => st.src === selectedBlock.stickerAsset));
+    if (pack && pack.id !== activeStickerPackId) setActiveStickerPackId(pack.id);
+  }, [selectedBlock?.id, selectedBlock?.stickerAsset]);
   const currentSnapshot = JSON.stringify({
     mood, activities, note, gratitude,
     photos: photos.map(p => ({ id:p.id, caption:p.caption || "", storagePath:p.storagePath || "", thumbStoragePath:p.thumbStoragePath || "", pending: Boolean(p.pendingFile) })),
-    coverPhotoId, tags, blocks, backgroundId, highlights,
+    coverPhotoId, tags, blocks, backgroundId, scrapbookSize, highlights,
   });
   const hasUnsavedChanges = currentSnapshot !== initialSnapshot;
   function requestClose() {
@@ -1734,6 +1785,30 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     if (!Number.isFinite(n)) return;
     updateBlock(id, { [key]: n });
   }
+  function updateScrapbookCanvasSize(key, value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return;
+    setScrapbookSize(size => normalizeScrapbookCanvasSize({ ...size, [key]: n }));
+  }
+  function applyScrapbookCanvasPreset(preset) {
+    setScrapbookSize(normalizeScrapbookCanvasSize(preset));
+  }
+  function beginScrapbookPageResize(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    scrapbookPageResizeRef.current = { startX: e.clientX, startY: e.clientY, size: normalizeScrapbookCanvasSize(scrapbookSize) };
+  }
+  function moveScrapbookPageResize(e) {
+    const drag = scrapbookPageResizeRef.current;
+    if (!drag) return;
+    e.preventDefault();
+    setScrapbookSize(normalizeScrapbookCanvasSize({
+      width: drag.size.width + (e.clientX - drag.startX),
+      height: drag.size.height + (e.clientY - drag.startY),
+    }));
+  }
+  function endScrapbookPageResize() { scrapbookPageResizeRef.current = null; }
   function beginScrapbookPointer(blockId, mode, layout, e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1762,9 +1837,6 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     }
   }
   function endScrapbookPointer() { scrapbookDragRef.current = null; }
-
-  const editableScrapbookBlocks = normalizeScrapbookBlocksForSave(blocks);
-  const selectedBlock = editableScrapbookBlocks.find(b => b.id === selectedBlockId) || editableScrapbookBlocks[0] || null;
 
   async function handleSave() {
     const memoryKey = dateKey(date);
@@ -1804,6 +1876,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
           coverPhotoId: coverPhotoId || uploadedPhotos[0]?.id || null,
           tags: cleanTags,
           backgroundId,
+          scrapbookSize: normalizeScrapbookCanvasSize(scrapbookSize),
           highlights,
           blocks: cleanBlocks,
           updatedAt: new Date().toISOString()
@@ -1990,11 +2063,22 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <button type="button" onClick={() => addBlock("sticker")}>+ Sticker</button>
             <button type="button" onClick={() => addBlock("divider")}>+ Divider</button>
           </div>
-          <div className="scrapbook-canvas-shell">
+          <div className="scrapbook-page-size-panel">
+            <div className="scrapbook-size-presets">
+              {SCRAPBOOK_CANVAS_PRESETS.map(preset => (
+                <button key={preset.id} type="button" onClick={() => applyScrapbookCanvasPreset(preset)}>{preset.label}</button>
+              ))}
+            </div>
+            <div className="scrapbook-size-sliders">
+              <label>Width <input type="range" min="320" max="1100" value={scrapbookSize.width} onChange={e => updateScrapbookCanvasSize("width", e.target.value)} /> <span>{scrapbookSize.width}px</span></label>
+              <label>Height <input type="range" min="260" max="900" value={scrapbookSize.height} onChange={e => updateScrapbookCanvasSize("height", e.target.value)} /> <span>{scrapbookSize.height}px</span></label>
+            </div>
+          </div>
+          <div className="scrapbook-canvas-shell" style={scrapbookCanvasStyle(scrapbookSize)}>
             <div
               ref={scrapbookCanvasRef}
               className="scrapbook-canvas"
-              style={memoryBackgroundStyle(backgroundId)}
+              style={{ ...memoryBackgroundStyle(backgroundId), ...scrapbookCanvasStyle(scrapbookSize) }}
               onPointerLeave={endScrapbookPointer}
             >
               {editableScrapbookBlocks.length === 0 && (
@@ -2060,6 +2144,14 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 );
               })}
             </div>
+            <span
+              className="scrapbook-page-resize-handle"
+              title="Resize scrapbook page"
+              onPointerDown={beginScrapbookPageResize}
+              onPointerMove={moveScrapbookPageResize}
+              onPointerUp={endScrapbookPageResize}
+              onPointerCancel={endScrapbookPageResize}
+            />
           </div>
 
           {selectedBlock ? (() => {
@@ -2086,7 +2178,6 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 {selectedType === "sticker" && (
                   <div className="scrapbook-sticker-controls">
                     {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateBlock(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
-                    <div className="sticker-picker-row">{SCRAPBOOK_STICKERS.map(st => <button key={st} type="button" className={!selectedBlock.stickerAsset && selectedBlock.sticker===st?"selected":""} onClick={() => updateBlock(selectedBlock.id,{sticker:st, stickerAsset:null})}>{st}</button>)}</div>
                   </div>
                 )}
               </div>
@@ -2512,7 +2603,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {scrapbookBlocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-canvas" style={memoryBackgroundStyle(entry.backgroundId)}>{scrapbookBlocks.map((b, idx) => { const type = scrapbookItemType(b); const layout = scrapbookItemLayout(b, idx); return <div key={b.id} className={`scrapbook-view-item scrapbook-${type}`} style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}>{(type === "text" || type === "tape") && <div className="scrapbook-view-text">{b.text}</div>}{type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}{type === "sticker" && <div className="scrapbook-view-sticker">{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}</div>; })}</div></div>}
+                {scrapbookBlocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>{scrapbookBlocks.map((b, idx) => { const type = scrapbookItemType(b); const layout = scrapbookItemLayout(b, idx); return <div key={b.id} className={`scrapbook-view-item scrapbook-${type}`} style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}>{(type === "text" || type === "tape") && <div className="scrapbook-view-text">{b.text}</div>}{type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}{type === "sticker" && <div className="scrapbook-view-sticker">{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
