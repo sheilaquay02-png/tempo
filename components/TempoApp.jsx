@@ -1597,7 +1597,7 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
   );
 }
 
-function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, imageUrls = {} }) {
+function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, imageUrls = {} }) {
   const normalized = normalizeMemoryEntry(entry);
   const originalStoragePaths = useMemo(() => normalized.photos.flatMap(allMemoryPhotoStoragePaths), [entry]);
   const [mood,       setMoodLocal]  = useState(normalized.mood);
@@ -1951,7 +1951,8 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
         await deleteMemoryStoragePaths(removedPaths);
       }
       setUploadStatus("Memory saved ✓");
-      onClose();
+      if (onSaved) onSaved(memoryKey);
+      else onClose();
     } catch (err) {
       console.warn("Memory save failed", err);
       setUploadError(err?.message || "Could not save memory. Please check your connection and Supabase Storage setup.");
@@ -2755,7 +2756,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         );
       })()}
 
-      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
+      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} onSaved={(key) => { setEditing(null); setViewingKey(key); }} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
     </div>
   );
 }
