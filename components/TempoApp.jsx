@@ -5722,7 +5722,7 @@ export default function App() {
     .sidebar-cals{max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
     .mobile-nav{height:var(--mobile-nav-h);padding:7px 6px calc(7px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -8px 30px rgba(184,111,143,.12);gap:3px;}
-    .dark .mobile-nav{background:rgba(35,19,41,.96);}
+    .dark .mobile-nav{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.34)!important;}
     .mobile-nav-btn{min-width:0;border-radius:16px;font-size:20px;font-weight:900;touch-action:manipulation;}
     .mobile-nav-btn span{font-size:9.5px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .mobile-nav-btn.active{background:var(--bg4);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent3);}
@@ -5912,9 +5912,9 @@ export default function App() {
   .modal-footer,.chat-input-row{background:var(--surface-soft)!important;border-color:rgba(var(--accent-rgb),.12)!important;}
   .color-dot,.weekday-btn{box-shadow:0 3px 10px rgba(116,78,60,.06);}
 
-  .dark .phase-card,.dark .task-period-card,.dark .task-panel.standalone,.dark .tomorrow-reset-card.page-card,.dark .tomorrow-reset-section,.dark .weekly-reset-panel,.dark .stats-card,.dark .daily-quests-card,.dark .badges-card,.dark .game-soft-card,.dark .bloom-collapse,.dark .reflection-hub-card,.dark .checkin-rhythm-card,.dark .tomorrow-reset-rhythm-card,.dark .weekly-reset-rhythm-card,.dark .affirmation-feature-card,.dark .affirmation-list-card,.dark .affirmation-daily-card,.dark .affirmation-rhythm-card,.dark .journal-reflection-hub,.dark .journal-checkin-card,.dark .journal-reset-card,.dark .memory-page-card,.dark .plan-task-picker,.dark .modal,.dark .checkin-modal,.dark .entry-modal,.dark .entry-view-modal,.dark .settings-panel,.dark .templates-panel,.dark .search-modal{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;border-color:rgba(var(--accent-rgb),.20)!important;}
-  .dark .topbar,.dark .stats-bar,.dark .sidebar,.dark .journal-header{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;}
-  .dark .ritual-step,.dark .habit-week-grid>*,.dark .plan-task-choice,.dark .tomorrow-reset-task,.dark .task-item,.dark .journal-entry-card,.dark .quest-item,.dark .badge-chip,.dark .weekly-mini-grid div,.dark .tomorrow-reset-mini-grid div,.dark .journal-reflection-tile,.dark .affirmation-stats-grid div,.dark .rhythm-mini-panel,.dark .rhythm-insight-card,.dark .stat-big,.dark .rhythm-chip-row,.dark .rhythm-category-row{background:var(--bg2)!important;}
+  .dark .phase-card,.dark .task-period-card,.dark .task-panel.standalone,.dark .tomorrow-reset-card.page-card,.dark .tomorrow-reset-section,.dark .weekly-reset-panel,.dark .stats-card,.dark .daily-quests-card,.dark .badges-card,.dark .game-soft-card,.dark .bloom-collapse,.dark .reflection-hub-card,.dark .checkin-rhythm-card,.dark .tomorrow-reset-rhythm-card,.dark .weekly-reset-rhythm-card,.dark .affirmation-feature-card,.dark .affirmation-list-card,.dark .affirmation-daily-card,.dark .affirmation-rhythm-card,.dark .journal-reflection-hub,.dark .journal-checkin-card,.dark .journal-reset-card,.dark .memory-page-card,.dark .plan-task-picker,.dark .modal,.dark .checkin-modal,.dark .entry-modal,.dark .entry-view-modal,.dark .settings-panel,.dark .templates-panel,.dark .search-modal{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;box-shadow:0 18px 45px rgba(0,0,0,.34)!important;}
+  .dark .topbar,.dark .stats-bar,.dark .sidebar,.dark .journal-header{background:var(--dark-panel)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
+  .dark .ritual-step,.dark .habit-week-grid>*,.dark .plan-task-choice,.dark .tomorrow-reset-task,.dark .task-item,.dark .journal-entry-card,.dark .quest-item,.dark .badge-chip,.dark .weekly-mini-grid div,.dark .tomorrow-reset-mini-grid div,.dark .journal-reflection-tile,.dark .affirmation-stats-grid div,.dark .rhythm-mini-panel,.dark .rhythm-insight-card,.dark .stat-big,.dark .rhythm-chip-row,.dark .rhythm-category-row{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
 
 
   /* ── Phase 21 + debug hotfixes ───────────────────────────────────────── */
@@ -6388,12 +6388,18 @@ export default function App() {
 }
 
 /* ── Current design/debug hotfixes ───────────────────────────────────────── */
+.affirmation-daily-card .affirmation-quote-row{align-items:center!important;justify-content:center!important;text-align:center!important;flex-direction:column!important;gap:10px!important;}
+.affirmation-daily-card .affirmation-quote-row>div{width:100%!important;display:flex!important;justify-content:center!important;}
+.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0 auto!important;text-align:center!important;}
+html.dark body,body.dark{background:var(--dark-page)!important;}
+.dark .app,.dark .content-area,.dark .main{background:var(--dark-page)!important;}
+
 .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
 .login-mascot .mascot-icon{width:52px!important;height:52px!important;border-radius:18px!important;background:rgba(255,255,255,.38)!important;border:1px solid rgba(255,255,255,.55)!important;display:grid!important;place-items:center!important;padding:5px!important;overflow:hidden!important;}
 .chat-fab .tempo-logo-sticker{width:34px!important;height:34px!important;}
-.dark .sidebar,.dark .sidebar-logo,.dark .sidebar-date,.dark .settings-panel,.dark .settings-header,.dark .settings-body,.dark .settings-section,.dark .mobile-nav,.dark .memory-settings-modal,.dark .entry-modal,.dark .entry-view-modal{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;}
-.dark .theme-swatch-btn,.dark .choice-row,.dark .memory-manager-panel,.dark .manager-group-card,.dark .manager-row,.dark .memory-bg-choice,.dark .sticker-asset-picker-row button,.dark .sticker-preview-chip,.dark .sticker-position-pad,.dark .scrapbook-empty-note,.dark .journal-reflection-tile,.dark .tomorrow-reset-section,.dark .weekly-event-preview span{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;}
-.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
+.dark .sidebar,.dark .sidebar-logo,.dark .sidebar-date,.dark .settings-panel,.dark .settings-header,.dark .settings-body,.dark .settings-section,.dark .mobile-nav,.dark .memory-settings-modal,.dark .entry-modal,.dark .entry-view-modal{background:var(--dark-panel)!important;border-color:rgba(var(--accent-rgb),.30)!important;color:var(--text)!important;}
+.dark .theme-swatch-btn,.dark .choice-row,.dark .memory-manager-panel,.dark .manager-group-card,.dark .manager-row,.dark .memory-bg-choice,.dark .sticker-asset-picker-row button,.dark .sticker-preview-chip,.dark .sticker-position-pad,.dark .scrapbook-empty-note,.dark .journal-reflection-tile,.dark .tomorrow-reset-section,.dark .weekly-event-preview span{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;}
+.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
 .dark .mobile-nav{box-shadow:0 -10px 28px rgba(0,0,0,.34)!important;}
 .today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;max-width:52vw!important;max-height:52vw!important;}
 .today-top3-card .today-empty-sugar{min-height:250px!important;}
@@ -6829,7 +6835,7 @@ const loginCSS = `
     background:rgba(255,255,255,.97)!important;border-top:1px solid rgba(var(--accent-rgb),.16)!important;
     box-shadow:0 -10px 28px rgba(80,44,64,.12)!important;
   }
-  .dark .mobile-nav{background:rgba(35,19,41,.97)!important;}
+  .dark .mobile-nav{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.34)!important;}
   .mobile-nav-btn{
     min-width:0!important;min-height:52px!important;height:52px!important;padding:4px 2px!important;
     border-radius:15px!important;font-size:18px!important;line-height:1!important;gap:3px!important;

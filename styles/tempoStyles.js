@@ -2,8 +2,9 @@ export function appCSS(cvars, fontScale) { return `
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Inconsolata:wght@300;400;500&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   :root{${cvars}--cream:#FBF4EC;--cream-2:#FFF9F5;--surface:#FFFFFF;--surface-warm:#FFFDFB;--surface-soft:#FFF9F5;--blush:#D989A2;--blush-soft:#F8E7E0;--lavender-soft:#F2EAF7;--mint:#B8F0E0;--success-soft:#EAF6EF;--warning-soft:#FFF3DA;--ring:rgba(var(--accent-rgb),.16);--radius:22px;--font:'Nunito',sans-serif;--mono:'Inconsolata',monospace;--shadow-sm:0 10px 28px rgba(116,78,60,.055);--shadow:0 16px 42px rgba(116,78,60,.075);--shadow-md:0 22px 58px rgba(116,78,60,.11);--shadow-lg:0 30px 80px rgba(116,78,60,.14);--fs:${fontScale};}
-  .dark{--cream:var(--bg);--cream-2:var(--bg3);--surface:var(--bg2);--surface-warm:var(--bg3);--surface-soft:var(--bg3);--blush-soft:var(--bg4);--lavender-soft:var(--bg4);--success-soft:rgba(112,200,160,.14);--warning-soft:rgba(255,184,112,.14);--shadow-sm:0 10px 28px rgba(0,0,0,.20);--shadow:0 16px 42px rgba(0,0,0,.26);--shadow-md:0 22px 58px rgba(0,0,0,.34);--shadow-lg:0 30px 80px rgba(0,0,0,.44);}
+  .dark{--cream:var(--bg);--cream-2:var(--bg3);--surface:var(--bg2);--surface-warm:var(--bg3);--surface-soft:var(--bg3);--blush-soft:var(--bg4);--lavender-soft:var(--bg4);--success-soft:rgba(112,200,160,.14);--warning-soft:rgba(255,184,112,.14);--dark-page:radial-gradient(circle at 7% 0%,rgba(var(--accent-rgb),.28),transparent 30%),radial-gradient(circle at 100% 12%,rgba(var(--accent-rgb),.16),transparent 34%),linear-gradient(145deg,var(--bg),var(--bg2) 42%,var(--bg3));--dark-panel:radial-gradient(circle at top left,rgba(var(--accent-rgb),.16),transparent 36%),linear-gradient(160deg,var(--bg2),var(--bg3) 70%,var(--bg4));--dark-card:radial-gradient(circle at top left,rgba(var(--accent-rgb),.12),transparent 38%),linear-gradient(150deg,var(--bg2),var(--bg3) 74%,var(--bg4));--dark-field:linear-gradient(145deg,rgba(var(--accent-rgb),.10),rgba(var(--accent-rgb),.03)),var(--bg3);--dark-nav:linear-gradient(180deg,var(--bg3),var(--bg2));--shadow-sm:0 10px 28px rgba(0,0,0,.24);--shadow:0 16px 42px rgba(0,0,0,.31);--shadow-md:0 22px 58px rgba(0,0,0,.40);--shadow-lg:0 30px 80px rgba(0,0,0,.50);}
   body{background:radial-gradient(circle at 8% 0%,rgba(var(--accent-rgb),.10),transparent 30%),linear-gradient(180deg,var(--bg),var(--bg3));color:var(--text);font-family:var(--font);font-size:calc(var(--fs)*14px);overflow:hidden;height:100vh;}
+  html.dark body,body.dark{background:var(--dark-page)!important;}
   .app{display:flex;height:100vh;overflow:hidden;}
   .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow-y:auto;overflow-x:hidden;min-height:0;}
   .sidebar.closed{width:0;}
@@ -1394,7 +1395,7 @@ export function appCSS(cvars, fontScale) { return `
   .dark .affirmation-rhythm-card,
   .dark .affirmation-daily-card,
   .dark .checkin-rhythm-current .big-emoji,
-  .dark .checkin-rhythm-dot{background:var(--bg2);}
+  .dark .checkin-rhythm-dot{background:var(--dark-card);border-color:rgba(var(--accent-rgb),.26);}
 
   @media(max-width:768px){
     .affirmations-page{padding:16px 12px 88px;}
@@ -1507,7 +1508,7 @@ export function appCSS(cvars, fontScale) { return `
     background:rgba(255,255,255,.97)!important;border-top:1px solid rgba(var(--accent-rgb),.16)!important;
     box-shadow:0 -10px 28px rgba(80,44,64,.12)!important;
   }
-  .dark .mobile-nav{background:rgba(35,19,41,.97)!important;}
+  .dark .mobile-nav{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.34)!important;}
   .mobile-nav-btn{
     min-width:0!important;min-height:52px!important;height:52px!important;padding:4px 2px!important;
     border-radius:15px!important;font-size:18px!important;line-height:1!important;gap:3px!important;
@@ -1630,10 +1631,14 @@ export function appCSS(cvars, fontScale) { return `
 /* ── Current design/debug hotfixes: stickers, floral contrast, dark surfaces ── */
 .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
 .sidebar-logo .logo-icon,.login-mascot .mascot-icon{overflow:hidden;}
-.dark .app,.dark .content,.dark .main-content{background:linear-gradient(180deg,var(--bg),var(--bg2))!important;color:var(--text)!important;}
-.dark .sidebar,.dark .mobile-nav,.dark .settings-panel,.dark .settings-modal,.dark .settings-card,.dark .modal,.dark .modal-card,.dark .entry-view-modal,.dark .journal-entry-card,.dark .phase-card,.dark .task-panel,.dark .task-card,.dark .calendar-panel,.dark .calendar-card,.dark .journal-page,.dark .today-card,.dark .memory-panel,.dark .chat-window{background:linear-gradient(180deg,var(--bg2),var(--bg3))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--text)!important;box-shadow:0 18px 45px rgba(0,0,0,.30)!important;}
-.dark input,.dark textarea,.dark select,.dark .modal-input,.dark .modal-select,.dark .settings-input,.dark .journal-input,.dark .chat-input,.dark .tf-input,.dark .theme-swatch-btn,.dark .habit-row,.dark .journal-reflection-tile{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
-.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--bg3)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
+.dark .app,.dark .content,.dark .main-content{background:var(--dark-page)!important;color:var(--text)!important;}
+.dark .sidebar,.dark .mobile-nav,.dark .settings-panel,.dark .settings-modal,.dark .settings-card,.dark .modal,.dark .modal-card,.dark .entry-view-modal,.dark .journal-entry-card,.dark .phase-card,.dark .task-panel,.dark .task-card,.dark .calendar-panel,.dark .calendar-card,.dark .journal-page,.dark .today-card,.dark .memory-panel,.dark .chat-window{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;box-shadow:0 18px 45px rgba(0,0,0,.34)!important;}
+.dark input,.dark textarea,.dark select,.dark .modal-input,.dark .modal-select,.dark .settings-input,.dark .journal-input,.dark .chat-input,.dark .tf-input,.dark .theme-swatch-btn,.dark .habit-row,.dark .journal-reflection-tile{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.30)!important;color:var(--text)!important;}
+.dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+
+.affirmation-daily-card .affirmation-quote-row{align-items:center!important;justify-content:center!important;text-align:center!important;flex-direction:column!important;gap:10px!important;}
+.affirmation-daily-card .affirmation-quote-row>div{width:100%!important;display:flex!important;justify-content:center!important;}
+.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0 auto!important;text-align:center!important;}
 .today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;max-width:52vw!important;max-height:52vw!important;}
 .today-top3-card .today-empty-sugar{min-height:250px!important;}
 @media(max-width:768px){.sidebar-sync-under-user .sync-pill{display:none!important;}.today-top3-card .today-empty-sugar{min-height:230px!important;}}
