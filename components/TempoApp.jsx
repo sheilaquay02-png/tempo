@@ -21,6 +21,19 @@ const CALENDAR_COLOR_PRESETS = [
 
 const cleanCalendarColor = value => /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value).toUpperCase() : "#FF7BAC";
 
+const EVENT_TEMPLATES = [
+  { id: "meeting", label: "Meeting", emoji: "💬", title: "Meeting", minutes: 30, category: "meeting", color: "#FF7BAC", notes: "" },
+  { id: "deep-work", label: "Deep Work", emoji: "🎯", title: "Deep Work", minutes: 90, category: "important", color: "#B08AE0", notes: "Protected focus block." },
+  { id: "personal", label: "Personal", emoji: "🌿", title: "Personal Time", minutes: 60, category: "personal", color: "#70C8A0", notes: "" },
+  { id: "exercise", label: "Exercise", emoji: "🏃", title: "Exercise", minutes: 45, category: "wellness", color: "#70C8A0", notes: "" },
+  { id: "admin", label: "Admin", emoji: "🧾", title: "Admin Block", minutes: 45, category: "light", color: "#A0C8E0", notes: "Clear small tasks and follow-ups." },
+];
+
+const calendarEventSource = (event, calendar) => event?.source === "habit" ? "habit" : (event?.source === "google" || calendar?.source === "google" ? "google" : "tempo");
+const calendarSourceLabel = source => source === "google" ? "Google" : source === "habit" ? "Habit" : "Tempo";
+const calendarSourceIcon = source => source === "google" ? "G" : source === "habit" ? "🌱" : "T";
+const calendarEventReadOnly = event => Boolean(event?.readOnly || event?.source === "google" || event?.source === "habit");
+
 
 const SCRAPBOOK_ITEM_DEFAULTS = {
   text: { x: 10, y: 10, w: 44, h: 18, rotate: 0 },
@@ -201,9 +214,11 @@ function EventReminderEditor({ value, onChange }) {
   );
 }
 
-function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy }) {
+function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy, onDuplicate }) {
   const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay), reminder: Core.normalizeEventReminder(event.reminder) });
   const cal = calendars.find(c => c.id === form.calendar);
+  const source = calendarEventSource(form, cal);
+  const isReferenceEvent = calendarEventReadOnly(form);
   const COLORS = ["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
   const startDate = toDateInput(form.start);
   const endDateForInput = form.allDay ? dateKey(addDaysSafe(form.end, -1)) : toDateInput(form.end);
@@ -230,6 +245,7 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
     }
   }
   async function saveForm() {
+    if (isReferenceEvent) return;
     if (!form.title.trim()) return;
     if (form.end <= form.start) return;
     const saved = await onSave({ ...form, title: form.title.trim() });
@@ -239,23 +255,24 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Edit event">
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderLeft: `4px solid ${form.color || cal?.color || "#FF7BAC"}` }}>
-          <input className="modal-title-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title" />
+          <input className="modal-title-input" value={form.title} disabled={isReferenceEvent} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title" />
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <div className="modal-row"><label>All day</label><input type="checkbox" checked={form.allDay} onChange={e => updateAllDay(e.target.checked)}/></div>
-          <div className="modal-row"><label>Start date</label><input type="date" className="modal-select" value={startDate} onChange={e => updateStartDate(e.target.value)} /></div>
-          <div className="modal-row"><label>End date</label><input type="date" className="modal-select" value={endDateForInput} onChange={e => updateEndDate(e.target.value)} /></div>
-          {!form.allDay && <div className="modal-row"><label>Start</label><input type="time" className="modal-select modal-time" value={toTimeInputValue(form.start)} onChange={e => setForm(f => ({ ...f, start: applyDateAndTime(toDateInput(f.start), e.target.value) }))} /><label style={{marginLeft:8}}>End</label><input type="time" className="modal-select modal-time" value={toTimeInputValue(form.end)} onChange={e => setForm(f => ({ ...f, end: applyDateAndTime(toDateInput(f.end), e.target.value) }))} /></div>}
-          <div className="modal-row"><label>Calendar</label><select className="modal-select" value={form.calendar} onChange={e => setForm(f => ({ ...f, calendar: e.target.value }))}>{calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-          <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
-          <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={form.start} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div>
-          <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
-          <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
-          <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
-          <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
+          <div className={`event-source-notice event-source-${source}`}><span>{calendarSourceIcon(source)}</span><strong>{calendarSourceLabel(source)} event</strong>{isReferenceEvent && <em>Reference only inside Tempo</em>}</div>
+          <div className="modal-row"><label>All day</label><input type="checkbox" disabled={isReferenceEvent} checked={form.allDay} onChange={e => updateAllDay(e.target.checked)}/></div>
+          <div className="modal-row"><label>Start date</label><input type="date" className="modal-select" disabled={isReferenceEvent} value={startDate} onChange={e => updateStartDate(e.target.value)} /></div>
+          <div className="modal-row"><label>End date</label><input type="date" className="modal-select" disabled={isReferenceEvent} value={endDateForInput} onChange={e => updateEndDate(e.target.value)} /></div>
+          {!form.allDay && <div className="modal-row"><label>Start</label><input type="time" className="modal-select modal-time" disabled={isReferenceEvent} value={toTimeInputValue(form.start)} onChange={e => setForm(f => ({ ...f, start: applyDateAndTime(toDateInput(f.start), e.target.value) }))} /><label style={{marginLeft:8}}>End</label><input type="time" className="modal-select modal-time" disabled={isReferenceEvent} value={toTimeInputValue(form.end)} onChange={e => setForm(f => ({ ...f, end: applyDateAndTime(toDateInput(f.end), e.target.value) }))} /></div>}
+          <div className="modal-row"><label>Calendar</label><select className="modal-select" disabled={isReferenceEvent} value={form.calendar} onChange={e => setForm(f => ({ ...f, calendar: e.target.value }))}>{calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="modal-row"><label>Category</label><select className="modal-select" disabled={isReferenceEvent} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
+          {!isReferenceEvent ? <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={form.start} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div> : <div className="modal-row"><label>Recurrence</label><span className="reference-field">Managed by {calendarSourceLabel(source)}</span></div>}
+          {!isReferenceEvent ? <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div> : <div className="modal-row"><label>Reminder</label><span className="reference-field">Managed by {calendarSourceLabel(source)}</span></div>}
+          <div className="modal-row"><label>Fixed</label><input type="checkbox" disabled={isReferenceEvent} checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
+          <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} disabled={isReferenceEvent} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" disabled={isReferenceEvent} onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
+          <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" disabled={isReferenceEvent} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
         </div>
-        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button><button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Duplicate / Copy</button></div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={saveForm}>Save changes</button></div></div>
+        <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{!isReferenceEvent && <button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button>}<button className="tf-cancel" onClick={() => { onDuplicate?.(form); onClose(); }}>⧉ Duplicate</button>{!isReferenceEvent && <button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Copy to paste</button>}</div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>{isReferenceEvent ? "Close" : "Cancel"}</button>{!isReferenceEvent && <button className="tf-save" onClick={saveForm}>Save changes</button>}</div></div>
       </div>
     </div>
   );
@@ -2814,6 +2831,21 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
     calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
   });
   const [err, setErr] = useState("");
+  function applyEventTemplate(template) {
+    const start = applyDateAndTime(form.startDate, form.startTime);
+    const end = new Date(start.getTime() + Number(template.minutes || 60) * 60000);
+    setForm(f => ({
+      ...f,
+      title: template.title,
+      category: template.category || f.category,
+      color: template.color || f.color,
+      notes: template.notes || "",
+      fixed: Boolean(template.fixed),
+      allDay: false,
+      endDate: toDateInput(end),
+      endTime: toTimeInputValue(end),
+    }));
+  }
   async function handleSave() {
     if (!form.title.trim()) { setErr("Please enter a title."); return; }
     const start = form.allDay ? applyDateAndTime(form.startDate, "00:00") : applyDateAndTime(form.startDate, form.startTime);
@@ -2831,6 +2863,12 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
+          <div className="event-template-strip">
+            <span>Templates</span>
+            <div>
+              {EVENT_TEMPLATES.map(template => <button key={template.id} type="button" onClick={() => applyEventTemplate(template)}><b>{template.emoji}</b>{template.label}</button>)}
+            </div>
+          </div>
           <div className="modal-row"><label>All day</label><input type="checkbox" checked={form.allDay} onChange={e=>setForm(f=>({...f,allDay:e.target.checked}))}/></div>
           <div className="modal-row"><label>Start date</label><input type="date" className="modal-select" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value,endDate:f.endDate < e.target.value ? e.target.value : f.endDate}))}/></div>
           <div className="modal-row"><label>End date</label><input type="date" className="modal-select" value={form.endDate} onChange={e=>setForm(f=>({...f,endDate:e.target.value}))}/></div>
@@ -2952,7 +2990,7 @@ function DailyPlanModal({ plan, onClose, onApply, onRegenerate, onMoveRemaining,
 }
 
 // ─── Search Modal ─────────────────────────────────────────────────────────────
-function SearchModal({ events, tasks, categories = CATEGORIES, onClose, onEventClick, onTaskEdit, onNavigate }) {
+function SearchModal({ events, tasks, calendars = CALENDARS, categories = CATEGORIES, onClose, onEventClick, onTaskEdit, onNavigate }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -2998,14 +3036,15 @@ function SearchModal({ events, tasks, categories = CATEGORIES, onClose, onEventC
                 {matchedEvents.map(e => {
                   const cal = calendars.find(c => c.id === e.calendar);
                   const color = e.color || cal?.color || "#FF7BAC";
+                  const source = calendarEventSource(e, cal);
                   return (
-                    <div key={e.id} className="search-result-row" onClick={() => { onNavigate(e.start); onEventClick(e); onClose(); }}>
+                    <div key={e.id} className={`search-result-row event-source-${source}`} onClick={() => { onNavigate(e.start); onEventClick(e); onClose(); }}>
                       <div className="search-result-dot" style={{ background: color }} />
                       <div className="search-result-body">
                         <div className="search-result-title">{highlightMatch(e.title, q)}</div>
                         <div className="search-result-meta">
                           {formatWithDisplayTimezone(e.start, { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.start)}–{fmt(e.end)}
-                          {e._recurring && <span className="search-recurring-badge">↻ recurring</span>}
+                          <span className="search-recurring-badge">{calendarSourceLabel(source)}</span>{e._recurring && <span className="search-recurring-badge">↻ recurring</span>}
                         </div>
                         {e.notes && <div className="search-result-notes">{highlightMatch(e.notes.slice(0, 80), q)}</div>}
                       </div>
@@ -3389,7 +3428,7 @@ function HabitModal({ habit, onClose, onSave, onDelete, onArchive }) {
             <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🌱" }))} aria-label="Habit emoji" />
             <input className="modal-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Habit name" />
           </div>
-          <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{HABIT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
+          <div className="modal-row"><label>Category</label><select className="modal-select" disabled={isReferenceEvent} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{HABIT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
           <div className="modal-row"><label>Frequency</label><select className="modal-select" value={form.frequency} onChange={e => setFrequency(e.target.value)}><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option><option value="custom">Custom days</option></select></div>
           <div className="modal-row modal-row-full"><label>Repeat days</label><div className="weekday-picker ritual-weekday-picker">{days.map((d,i) => <button type="button" key={i} className={`weekday-btn ${form.repeatDays?.includes(i) ? "active" : ""}`} onClick={() => toggleDay(i)}>{d}</button>)}</div></div>
           <div className="modal-row"><label>Daily target</label><div className="habit-target-row"><input type="number" min={1} max={20} className="modal-select modal-time" value={form.targetCount} onChange={e => setForm(f => ({ ...f, targetCount: Math.max(1, Number(e.target.value) || 1) }))}/><input className="modal-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="check-in" /></div></div>
@@ -3792,6 +3831,7 @@ export default function App() {
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [calendars, setCalendarsRaw] = useState(() => normalizeCalendars(load(`${uk}_calendars`, CALENDARS)));
   const [hiddenCals,    setHiddenCals]    = useState(() => load(`${uk}_hidden_cals`, []));
+  const [hiddenCalendarSources, setHiddenCalendarSources] = useState(() => load(`${uk}_hidden_calendar_sources`, ["habit"]));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
@@ -3958,6 +3998,7 @@ export default function App() {
         deletedRecords: normalizeDeletedRecords(safeSettings.deletedRecords ?? load(`${userKey}_deleted_records`, {})),
         calendars: normalizeCalendars(safeSettings.calendars ?? load(`${userKey}_calendars`, CALENDARS)),
         hiddenCals: Array.isArray(safeSettings.hiddenCals) ? safeSettings.hiddenCals : load(`${userKey}_hidden_cals`, []),
+        hiddenCalendarSources: Array.isArray(safeSettings.hiddenCalendarSources) ? safeSettings.hiddenCalendarSources : load(`${userKey}_hidden_calendar_sources`, ["habit"]),
         notifs: safeSettings.notifs ?? load(`${userKey}_nf`, false),
         pushEnabled: safeSettings.pushEnabled ?? load(`${userKey}_push_enabled`, false),
         timezone: safeSettings.timezone ?? load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -3992,6 +4033,7 @@ export default function App() {
       setDeletedRecordsRaw(normalizeDeletedRecords(nextSettings.deletedRecords));
       setCalendarsRaw(normalizeCalendars(nextSettings.calendars));
       setHiddenCals(Array.isArray(nextSettings.hiddenCals) ? nextSettings.hiddenCals : []);
+      setHiddenCalendarSources(Array.isArray(nextSettings.hiddenCalendarSources) ? nextSettings.hiddenCalendarSources : ["habit"]);
       setNfRaw(Boolean(nextSettings.notifs));
       setPushEnabledRaw(Boolean(nextSettings.pushEnabled));
       setTzRaw(nextSettings.timezone);
@@ -4044,6 +4086,7 @@ export default function App() {
       save(`${userKey}_deleted_records`, normalizeDeletedRecords(nextSettings.deletedRecords));
       save(`${userKey}_calendars`, normalizeCalendars(nextSettings.calendars));
       save(`${userKey}_hidden_cals`, Array.isArray(nextSettings.hiddenCals) ? nextSettings.hiddenCals : []);
+      save(`${userKey}_hidden_calendar_sources`, Array.isArray(nextSettings.hiddenCalendarSources) ? nextSettings.hiddenCalendarSources : ["habit"]);
       saveJournalLocal(userKey, userId, nextSettings.journal || {});
       setWorkHoursCtx(Number(nextSettings.workStart), Number(nextSettings.workEnd));
       setStreak(computeAndSaveStreak(userKey));
@@ -4070,6 +4113,7 @@ export default function App() {
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
           hiddenCals: load(`${userKey}_hidden_cals`, []),
+          hiddenCalendarSources: load(`${userKey}_hidden_calendar_sources`, ["habit"]),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -4125,6 +4169,7 @@ export default function App() {
             deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
           hiddenCals: load(`${userKey}_hidden_cals`, []),
+          hiddenCalendarSources: load(`${userKey}_hidden_calendar_sources`, ["habit"]),
             notifs: load(`${userKey}_nf`, false),
             pushEnabled: load(`${userKey}_push_enabled`, false),
             timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -4177,6 +4222,7 @@ export default function App() {
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
           hiddenCals: load(`${userKey}_hidden_cals`, []),
+          hiddenCalendarSources: load(`${userKey}_hidden_calendar_sources`, ["habit"]),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -4261,6 +4307,7 @@ export default function App() {
           deletedRecords: normalizeDeletedRecords(load(`${userKey}_deleted_records`, {})),
           calendars: normalizeCalendars(load(`${userKey}_calendars`, CALENDARS)),
           hiddenCals: load(`${userKey}_hidden_cals`, []),
+          hiddenCalendarSources: load(`${userKey}_hidden_calendar_sources`, ["habit"]),
           notifs: load(`${userKey}_nf`, false),
           pushEnabled: load(`${userKey}_push_enabled`, false),
           timezone: load(`${userKey}_tz`, Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -4321,6 +4368,7 @@ export default function App() {
     deletedRecords: Core.pruneDeletedRecords(normalizeDeletedRecords(deletedRecords)),
     calendars: normalizeCalendars(calendars),
     hiddenCals: Array.isArray(hiddenCals) ? hiddenCals : [],
+    hiddenCalendarSources: Array.isArray(hiddenCalendarSources) ? hiddenCalendarSources : [],
     notifs,
     pushEnabled,
     timezone,
@@ -4414,6 +4462,7 @@ export default function App() {
         deletedRecords: normalizeDeletedRecords(nextSettings?.deletedRecords || deletedRecords),
         calendars: normalizeCalendars(nextSettings?.calendars || calendars),
         hiddenCals: Array.isArray(nextSettings?.hiddenCals) ? nextSettings.hiddenCals : (Array.isArray(hiddenCals) ? hiddenCals : []),
+        hiddenCalendarSources: Array.isArray(nextSettings?.hiddenCalendarSources) ? nextSettings.hiddenCalendarSources : (Array.isArray(hiddenCalendarSources) ? hiddenCalendarSources : []),
         journal: nextSettings?.journal || journal,
       };
 
@@ -4430,6 +4479,7 @@ export default function App() {
       setDeletedRecordsRaw(normalizedSettings.deletedRecords);
       setCalendarsRaw(normalizeCalendars(normalizedSettings.calendars));
       setHiddenCals(Array.isArray(normalizedSettings.hiddenCals) ? normalizedSettings.hiddenCals : []);
+      setHiddenCalendarSources(Array.isArray(normalizedSettings.hiddenCalendarSources) ? normalizedSettings.hiddenCalendarSources : ["habit"]);
       setNfRaw(Boolean(normalizedSettings.notifs));
       setPushEnabledRaw(Boolean(normalizedSettings.pushEnabled));
       setTzRaw(normalizedSettings.timezone || timezone);
@@ -4466,6 +4516,7 @@ export default function App() {
       save(`${uk}_deleted_records`, normalizedSettings.deletedRecords);
       save(`${uk}_calendars`, normalizeCalendars(normalizedSettings.calendars));
       save(`${uk}_hidden_cals`, Array.isArray(normalizedSettings.hiddenCals) ? normalizedSettings.hiddenCals : []);
+      save(`${uk}_hidden_calendar_sources`, Array.isArray(normalizedSettings.hiddenCalendarSources) ? normalizedSettings.hiddenCalendarSources : ["habit"]);
       save(`${uk}_nf`, normalizedSettings.notifs);
       save(`${uk}_push_enabled`, Boolean(normalizedSettings.pushEnabled));
       save(`${uk}_tz`, normalizedSettings.timezone);
@@ -4608,6 +4659,7 @@ export default function App() {
     save(`${uk}_deleted_records`, normalizeDeletedRecords(next.deletedRecords));
     save(`${uk}_calendars`, normalizeCalendars(next.calendars));
     save(`${uk}_hidden_cals`, Array.isArray(next.hiddenCals) ? next.hiddenCals : []);
+    save(`${uk}_hidden_calendar_sources`, Array.isArray(next.hiddenCalendarSources) ? next.hiddenCalendarSources : ["habit"]);
     save(`${uk}_nf`, next.notifs);
     save(`${uk}_push_enabled`, Boolean(next.pushEnabled));
     save(`${uk}_tz`, next.timezone);
@@ -5401,6 +5453,50 @@ export default function App() {
     persistCalendarConfig(calendars, n);
   };
 
+  const calendarSourceVisible = source => !hiddenCalendarSources.includes(source);
+  const toggleCalendarSource = source => {
+    const next = hiddenCalendarSources.includes(source)
+      ? hiddenCalendarSources.filter(item => item !== source)
+      : [...hiddenCalendarSources, source];
+    setHiddenCalendarSources(next);
+    save(`${uk}_hidden_calendar_sources`, next);
+    persistSettings({ hiddenCalendarSources: next });
+  };
+
+  function habitReminderEventsForRange(startDate, endDate) {
+    if (!calendarSourceVisible("habit")) return [];
+    const start = dayStart(startDate);
+    const end = dayStart(endDate);
+    const out = [];
+    const activeHabits = normalizeHabits(habits).filter(h => !h.archived && !h.deletedAt);
+    for (let cursor = new Date(start); cursor <= end; cursor = addDaysSafe(cursor, 1)) {
+      activeHabits.forEach(habit => {
+        if (!habitRunsOnDate(habit, cursor)) return;
+        const reminder = normalizeHabitReminder(habit.reminder);
+        if (reminder.type === "none" || !reminder.time) return;
+        const st = dayStart(cursor);
+        st.setMinutes(timeStringToMinutes(reminder.time));
+        const en = new Date(st.getTime() + 10 * 60000);
+        out.push({
+          id: `habit-reminder-${habit.id}-${dateKey(cursor)}`,
+          title: `Habit: ${habit.name}`,
+          start: st,
+          end: en,
+          allDay: false,
+          calendar: "personal",
+          category: habit.category || "personal",
+          fixed: true,
+          readOnly: true,
+          source: "habit",
+          color: habit.color || null,
+          notes: "Habit reminder shown only inside Tempo. It is not synced to Google Calendar.",
+          habitId: habit.id,
+        });
+      });
+    }
+    return out;
+  }
+
   const addCalendar = () => {
     setCalendarEditor({ mode: "add", calendar: { name: "New Calendar", color: "#FF7BAC", source: "tempo", account: null } });
   };
@@ -6009,6 +6105,34 @@ export default function App() {
     return true;
   }
 
+  async function duplicateEvent(ev) {
+    if (!ev) return false;
+    const clean = stripOccurrenceMeta(ev);
+    const start = clean.start instanceof Date ? new Date(clean.start) : new Date(clean.start);
+    const end = clean.end instanceof Date ? new Date(clean.end) : new Date(clean.end);
+    const duplicated = {
+      ...clean,
+      id: "e" + uid(),
+      title: `${String(clean.title || "Untitled Event").replace(/\s+copy$/i, "")} copy`,
+      start,
+      end,
+      source: "tempo",
+      readOnly: false,
+      googleEventId: null,
+      googleCalendarId: null,
+      googleHtmlLink: null,
+      googleUpdatedAt: null,
+      recurrence: null,
+      copiedFrom: clean.id || clean.title || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (!(await confirmEventPlacement(duplicated, duplicated.id, "Duplicate event"))) return false;
+    await addEvent(duplicated, { skipConflictCheck: true });
+    setToast({ text: `Duplicated “${clean.title || "event"}” ✓`, ts: Date.now() });
+    return true;
+  }
+
   async function handleCalendarSlotClick(date, options = {}) {
     if (copiedEvent) {
       await pasteCopiedEvent(date, options);
@@ -6310,7 +6434,11 @@ export default function App() {
 
   const rangeStart = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth(), 1) : view === "week" ? weekStart(viewDate) : viewDate;
   const rangeEnd = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0) : view === "week" ? addDaysSafe(weekStart(viewDate), 6) : viewDate;
-  const expandedEvents  = expandRecurring(events, rangeStart, rangeEnd);
+  const sourceForEvent = event => calendarEventSource(event, calendars.find(c => c.id === event.calendar));
+  const eventSourceVisible = event => calendarSourceVisible(sourceForEvent(event));
+  const habitReminderEvents = habitReminderEventsForRange(rangeStart, rangeEnd);
+  const calendarDisplayEvents = [...events.filter(eventSourceVisible), ...habitReminderEvents];
+  const expandedEvents  = expandRecurring(calendarDisplayEvents, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
   const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
   // Gamification must be calculated from a stable event window, not the current
@@ -6324,7 +6452,7 @@ export default function App() {
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
   const dayFreeMinutes = freeSlotsForDate(TODAY, [], null, { clampToNow: false }).reduce((sum, slot) => sum + slot.minutes, 0);
-  const todayDashboardEvents = expandRecurring(events, dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
+  const todayDashboardEvents = expandRecurring([...events.filter(eventSourceVisible), ...habitReminderEventsForRange(TODAY, TODAY)], dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
     .filter(e => !hiddenCals.includes(e.calendar) && eventOccursOnDay(e, TODAY));
   const firstScheduledEvent = todayDashboardEvents
     .filter(e => e.start instanceof Date)
@@ -7378,6 +7506,46 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .calendar-color-presets{grid-template-columns:repeat(4,minmax(0,1fr));}
 }
 
+
+/* ── Phase 23: calendar polish ────────────────────────────────────────── */
+.calendar-source-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px;padding:0 2px;}
+.calendar-source-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:6px 8px;font-size:10px;font-weight:900;cursor:pointer;}
+.calendar-source-chip span{width:16px;height:16px;border-radius:999px;display:grid;place-items:center;background:rgba(var(--accent-rgb),.12);color:var(--accent);font-size:10px;}
+.calendar-source-chip.source-hidden{opacity:.48;text-decoration:line-through;background:transparent;}
+.event-source-notice{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--border);border-radius:16px;background:var(--bg3);font-size:12px;color:var(--text2);font-weight:850;}
+.event-source-notice>span,.event-source-label>span,.wt-event-source>span{width:18px;height:18px;border-radius:999px;display:grid;place-items:center;background:rgba(var(--accent-rgb),.14);color:var(--accent);font-size:10px;font-weight:950;}
+.event-source-notice strong{color:var(--text);font-weight:950;}.event-source-notice em{font-style:normal;color:var(--text3);margin-left:auto;font-size:11px;}
+.reference-field{font-size:12px;font-weight:850;color:var(--text3);}
+.event-source-label,.wt-event-source{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:950;color:var(--text3);margin-top:3px;}
+.event-block.event-source-google,.wt-event.event-source-google,.month-event-row.event-source-google{border-style:solid;border-top:1px solid rgba(66,133,244,.22)!important;border-right:1px solid rgba(66,133,244,.22)!important;border-bottom:1px solid rgba(66,133,244,.22)!important;}
+.event-block.event-source-google{background:linear-gradient(135deg,rgba(66,133,244,.10),rgba(255,255,255,.16))!important;}
+.wt-event.event-source-google{background:linear-gradient(135deg,rgba(66,133,244,.10),rgba(255,255,255,.13))!important;}
+.event-block.event-source-habit,.wt-event.event-source-habit,.month-event-row.event-source-habit{border-style:dashed!important;opacity:.92;}
+.reference-event{cursor:pointer!important;}
+.event-resize-handle{position:absolute;left:10px;right:10px;bottom:2px;height:8px;border-radius:99px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.82),transparent);opacity:.0;cursor:ns-resize;}
+.event-block:hover .event-resize-handle,.wt-event:hover .event-resize-handle{opacity:.9;}
+.wt-resize-handle{left:6px;right:6px;height:7px;}
+.polished-all-day-list{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.all-day-label b{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--bg4);color:var(--accent);margin-left:4px;}
+.all-day-chip{display:inline-flex!important;align-items:center;gap:7px;max-width:100%;}
+.all-day-chip-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.all-day-source-pill,.week-all-day-chip em{font-style:normal;font-size:9px;font-weight:950;line-height:1;border-radius:999px;padding:3px 6px;background:rgba(255,255,255,.58);color:inherit;opacity:.88;}
+.week-all-day-cell{min-height:34px;padding:4px;display:flex;flex-direction:column;gap:4px;}
+.week-all-day-cell.has-all-day{background:rgba(var(--accent-rgb),.035);}
+.week-all-day-chip{display:flex!important;align-items:center;justify-content:space-between;gap:4px;min-height:24px;border-radius:10px;padding:4px 6px;font-size:10px;font-weight:900;text-align:left;}
+.week-all-day-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.week-all-day-more{border:1px dashed var(--border);background:var(--bg3);color:var(--text3);border-radius:10px;padding:4px 6px;font-size:10px;font-weight:900;cursor:pointer;text-align:left;}
+.month-event-row{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px;}
+.month-event-source{width:15px;height:15px;border-radius:999px;display:grid;place-items:center;background:rgba(var(--accent-rgb),.12);color:var(--accent);font-size:8px;font-weight:950;}
+.event-template-strip{display:grid;gap:8px;padding:10px;border:1px solid var(--border);background:var(--bg3);border-radius:18px;}
+.event-template-strip>span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:950;color:var(--text3);}
+.event-template-strip>div{display:flex;gap:7px;flex-wrap:wrap;}
+.event-template-strip button{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+.event-template-strip button:hover{border-color:var(--accent3);background:var(--bg4);color:var(--accent);}
+.dark .calendar-source-chip,.dark .event-source-notice,.dark .event-template-strip,.dark .week-all-day-more{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
+.dark .event-template-strip button{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
+@media(max-width:760px){.calendar-source-filter-row{gap:5px}.calendar-source-chip{font-size:9px;padding:5px 7px}.event-template-strip>div{display:grid;grid-template-columns:1fr 1fr}.event-template-strip button{justify-content:center}.week-all-day-chip em,.all-day-source-pill{display:none}}
+
 `}</style>
 
       <div className="app">
@@ -7412,6 +7580,12 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
             <div className="cal-label-row">
               <span className="cal-label">My Calendars</span>
               <button type="button" className="cal-add-btn" onClick={addCalendar} title="Create calendar">＋</button>
+            </div>
+            <div className="calendar-source-filter-row" aria-label="Calendar source filters">
+              {[{id:"tempo", label:"Tempo", icon:"T"}, ...(calendars.some(c => c.source === "google") ? [{id:"google", label:"Google", icon:"G"}] : []), {id:"habit", label:"Habits", icon:"🌱"}].map(src => {
+                const hidden = hiddenCalendarSources.includes(src.id);
+                return <button key={src.id} type="button" className={`calendar-source-chip ${hidden ? "source-hidden" : ""}`} onClick={() => toggleCalendarSource(src.id)} title={hidden ? `Show ${src.label}` : `Hide ${src.label}`}><span>{src.icon}</span>{src.label}</button>;
+              })}
             </div>
             {calendars.map(c => {
               const hidden = hiddenCals.includes(c.id);
@@ -7553,9 +7727,9 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
-      {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
+      {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={calendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
       {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={calendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       <EventConflictModal />

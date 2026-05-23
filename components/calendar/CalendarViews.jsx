@@ -2,6 +2,12 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, DAY_END, HOUR_H, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
 
+const calendarEventSource = (event, calendar) => event?.source === "habit" ? "habit" : (event?.source === "google" || calendar?.source === "google" ? "google" : "tempo");
+const calendarSourceLabel = source => source === "google" ? "Google" : source === "habit" ? "Habit" : "Tempo";
+const calendarSourceIcon = source => source === "google" ? "G" : source === "habit" ? "🌱" : "T";
+const calendarEventEditable = event => !(event?.readOnly || event?.source === "google" || event?.source === "habit");
+const eventTitleWithContinuations = event => `${event?._continuesBefore ? "‹ " : ""}${event?.title || "Untitled"}${event?._continuesAfter ? " ›" : ""}`;
+
 // ─── Overlap layout algorithm ─────────────────────────────────────────────────
 // Returns a map of eventId -> { col, totalCols } for side-by-side rendering
 export function computeColumns(events) {
@@ -41,7 +47,9 @@ export function EventBlock({ event, calendars, categories, onReschedule, onClick
   const top  = (sh - DAY_START) * HOUR_H;
   const height = Math.max((eh - sh) * HOUR_H - 2, 22);
   const color  = event.color || cal?.color || "#FF7BAC";
-  const draggable = !event.fixed;
+  const source = calendarEventSource(event, cal);
+  const sourceLabel = calendarSourceLabel(source);
+  const draggable = !event.fixed && calendarEventEditable(event);
   const ref = useRef(null);
   const suppressClick = useRef(false);
   const [holdState, setHoldState] = useState("idle");
@@ -199,17 +207,18 @@ export function EventBlock({ event, calendars, categories, onReschedule, onClick
   }
 
   return (
-    <div ref={ref} className={`event-block ${event.fixed ? "fixed" : ""} hold-${holdState}`}
+    <div ref={ref} className={`event-block event-source-${source} ${event.fixed ? "fixed" : ""} ${!calendarEventEditable(event) ? "reference-event" : ""} hold-${holdState}`}
       onPointerDown={startPressHoldDrag}
       onClick={(e) => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onClick(event); }}
       style={{ top, height, color, borderLeft: `3px solid ${color}`, background: `${color}18`, ...colStyle, touchAction: draggable ? "none" : "auto" }}
-      title={draggable ? "Tap to edit · Hold to move" : "Fixed event · Tap to edit"}>
+      title={draggable ? "Tap to edit · Hold to move" : `${sourceLabel} reference · Tap to view`}>
       <div className="event-title">{event.title}</div>
-      {height > 38 && <div className="event-time">{fmt(event.start)} - {fmt(event.end)}</div>}
+      {height > 34 && <div className="event-source-label"><span>{calendarSourceIcon(source)}</span>{sourceLabel}</div>}
+      {height > 48 && <div className="event-time">{fmt(event.start)} - {fmt(event.end)}</div>}
       {cat && height > 55 && <div className="event-cat"><span>{cat.icon}</span> {cat.label}</div>}
-      {event.fixed && <span className="fixed-badge">🔒</span>}
-      {!event.fixed && <span className="hold-cue">{holdState === "holding" ? "Keep holding…" : holdState === "dragging" ? "Move event" : "Tap to edit · Hold to move"}</span>}
-      {!event.fixed && <span className="event-resize-handle" onPointerDown={startResizeDrag} title="Drag to extend event" aria-label="Drag to extend event" />}
+      {(event.fixed || !calendarEventEditable(event)) && <span className="fixed-badge">{source === "google" ? "G" : source === "habit" ? "🌱" : "🔒"}</span>}
+      {draggable && <span className="hold-cue">{holdState === "holding" ? "Keep holding…" : holdState === "dragging" ? "Move event" : "Tap to edit · Hold to move"}</span>}
+      {draggable && <span className="event-resize-handle" onPointerDown={startResizeDrag} title="Drag to resize duration" aria-label="Drag to resize duration" />}
     </div>
   );
 }
@@ -301,12 +310,13 @@ export function DayView({ events, calendars, categories, onReschedule, onEventCl
       <div className="drag-hint">⠿ Drag events to reschedule · Click empty slot to add/paste event · Drag tasks from panel</div>
       {allDayEvents.length > 0 && (
         <div className="all-day-strip">
-          <span className="all-day-label">All-day</span>
-          <div className="all-day-list">
+          <span className="all-day-label">All-day <b>{allDayEvents.length}</b></span>
+          <div className="all-day-list polished-all-day-list">
             {allDayEvents.map(e => {
               const cal = calendars.find(c => c.id === e.calendar);
               const color = e.color || cal?.color || "#FF7BAC";
-              return <button key={e.id} className="all-day-chip" style={{ borderLeft: `3px solid ${color}`, background: `${color}18`, color }} onClick={() => onEventClick(e)}>{e._continuesBefore ? "‹ " : ""}{e.title}{e._continuesAfter ? " ›" : ""}</button>;
+              const source = calendarEventSource(e, cal);
+              return <button key={e.id} className={`all-day-chip event-source-${source}`} style={{ borderLeft: `3px solid ${color}`, background: `${color}18`, color }} onClick={() => onEventClick(e)}><span className="all-day-chip-title">{eventTitleWithContinuations(e)}</span><span className="all-day-source-pill">{calendarSourceLabel(source)}</span></button>;
             })}
           </div>
         </div>
@@ -344,6 +354,9 @@ export function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEv
   const cal = calendars.find(c => c.id === ev.calendar);
   const cat = categories.find(c => c.id === ev.category);
   const color = ev.color || cal?.color || "#FF7BAC";
+  const source = calendarEventSource(ev, cal);
+  const sourceLabel = calendarSourceLabel(source);
+  const draggable = !ev.fixed && calendarEventEditable(ev);
   const sh = ev.start.getHours() + ev.start.getMinutes() / 60;
   const eh = ev.end.getHours() + ev.end.getMinutes() / 60;
   const top = (sh - DAY_START) * HOUR_H;
@@ -358,7 +371,7 @@ export function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEv
   const [holdState, setHoldState] = useState("idle");
 
   function onPointerDown(e) {
-    if (ev.fixed || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (!draggable || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, dur = (ev.end - ev.start) / 60000;
     let started = false;
@@ -432,14 +445,88 @@ export function WeekEventBlock({ ev, dayIndex, rect, calendars, categories, onEv
     document.addEventListener("pointercancel", cancel);
   }
 
+  function startWeekResizeDrag(e) {
+    if (!draggable || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const sy = e.clientY;
+    const originalEnd = ev.end instanceof Date ? ev.end : new Date(ev.end);
+    const pointerId = e.pointerId;
+    let ghost = null;
+    let tip = null;
+    ref.current?.setPointerCapture?.(pointerId);
+    document.body.classList.add("tempo-dragging");
+    suppressClick.current = true;
+    setHoldState("dragging");
+    function nextEndFromPointer(pe) {
+      const dy = pe.clientY - sy;
+      const deltaMinutes = Math.round((dy / HOUR_H) * 60 / 15) * 15;
+      const minEnd = new Date(ev.start.getTime() + 15 * 60000);
+      const dayLimit = cloneDate(ev.start); dayLimit.setHours(DAY_END, 0, 0, 0);
+      const candidate = new Date(originalEnd.getTime() + deltaMinutes * 60000);
+      return new Date(Math.max(minEnd.getTime(), Math.min(dayLimit.getTime(), candidate.getTime())));
+    }
+    function ensureGhost() {
+      if (ghost) return ghost;
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return null;
+      ghost = document.createElement("div");
+      ghost.style.cssText = `position:fixed;width:${r.width}px;height:${r.height}px;background:${color}35;border:2px dashed ${color};border-radius:10px;pointer-events:none;z-index:9999;left:${r.left}px;top:${r.top}px;`;
+      document.body.appendChild(ghost);
+      return ghost;
+    }
+    function ensureTip() {
+      if (tip) return tip;
+      tip = document.createElement("div");
+      tip.style.cssText = `position:fixed;background:#4A2840;color:white;padding:4px 10px;border-radius:8px;font-family:'Inconsolata',monospace;font-size:12px;font-weight:600;z-index:10000;pointer-events:none;`;
+      document.body.appendChild(tip);
+      return tip;
+    }
+    function move(pe) {
+      pe.preventDefault?.();
+      const ne = nextEndFromPointer(pe);
+      const newHeight = Math.max((ne - ev.start) / 60000 / 60 * HOUR_H - 2, 20);
+      const g = ensureGhost();
+      if (g) g.style.height = `${newHeight}px`;
+      const t = ensureTip();
+      t.textContent = `Resize event · ${fmt(ev.start)} – ${fmt(ne)}`;
+      t.style.left = `${pe.clientX + 12}px`;
+      t.style.top = `${pe.clientY - 10}px`;
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      ref.current?.releasePointerCapture?.(pointerId);
+      if (ghost?.parentNode) ghost.remove();
+      if (tip?.parentNode) tip.remove();
+      document.body.classList.remove("tempo-dragging");
+      setHoldState("idle");
+    }
+    function cancel() { cleanup(); setTimeout(() => { suppressClick.current = false; }, 80); }
+    function up(pe) {
+      const ne = nextEndFromPointer(pe);
+      cleanup();
+      if (ne.getTime() !== ev.end.getTime()) onReschedule(ev.id, ev.start, ne);
+      setTimeout(() => { suppressClick.current = false; }, 80);
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+  }
+
   return (
-    <div ref={ref} className={`wt-event hold-${holdState}`} onPointerDown={onPointerDown} onClick={e => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onEventClick(ev); }}
-      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: ev.fixed ? "pointer" : "grab", touchAction: ev.fixed ? "auto" : "none" }}
-      title={ev.fixed ? "Fixed · Click to edit" : "Tap to edit · Hold to move"}>
+    <div ref={ref} className={`wt-event event-source-${source} ${!calendarEventEditable(ev) ? "reference-event" : ""} hold-${holdState}`} onPointerDown={onPointerDown} onClick={e => { e.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onEventClick(ev); }}
+      style={{ top, height, color, background: `${color}18`, borderLeft: `3px solid ${color}`, left, width, cursor: draggable ? "grab" : "pointer", touchAction: draggable ? "none" : "auto" }}
+      title={draggable ? "Tap to edit · Hold to move" : `${sourceLabel} reference · Tap to view`}>
       <div className="wt-event-title">{ev.title}</div>
-      {height > 30 && <div className="wt-event-time">{fmt(ev.start)} - {fmt(ev.end)}</div>}
+      {height > 28 && <div className="wt-event-source"><span>{calendarSourceIcon(source)}</span>{sourceLabel}</div>}
+      {height > 42 && <div className="wt-event-time">{fmt(ev.start)} - {fmt(ev.end)}</div>}
       {height > 52 && cat && <div className="wt-event-cat">{cat.icon}</div>}
-      {ev.fixed && <span className="fixed-badge">🔒</span>}
+      {(ev.fixed || !calendarEventEditable(ev)) && <span className="fixed-badge">{source === "google" ? "G" : source === "habit" ? "🌱" : "🔒"}</span>}
+      {draggable && <span className="event-resize-handle wt-resize-handle" onPointerDown={startWeekResizeDrag} title="Drag to resize duration" aria-label="Drag to resize duration" />}
     </div>
   );
 }
@@ -496,10 +583,10 @@ export function WeekView({ events, calendars, categories, onEventClick, viewDate
         <div className="wt-time-gutter"><span className="all-day-mini-label">All-day</span></div>
         {days.map(day => {
           const dayEvents = events.filter(e => eventOccursOnDay(e, day) && isAllDayOrMulti(e));
-          return <div key={dateKey(day)} className="week-all-day-cell">{dayEvents.slice(0,3).map(e => {
-            const cal = calendars.find(c => c.id === e.calendar); const color = e.color || cal?.color || "#FF7BAC";
-            return <button key={e.id} className="week-all-day-chip" style={{ background: `${color}18`, borderLeft: `3px solid ${color}`, color }} onClick={() => onEventClick(e)}>{e.title}</button>;
-          })}</div>;
+          return <div key={dateKey(day)} className={`week-all-day-cell ${dayEvents.length ? "has-all-day" : ""}`}>{dayEvents.slice(0,4).map(e => {
+            const cal = calendars.find(c => c.id === e.calendar); const color = e.color || cal?.color || "#FF7BAC"; const source = calendarEventSource(e, cal);
+            return <button key={e.id} className={`week-all-day-chip event-source-${source}`} style={{ background: `${color}18`, borderLeft: `3px solid ${color}`, color }} onClick={() => onEventClick(e)}><span>{eventTitleWithContinuations(e)}</span><em>{calendarSourceLabel(source)}</em></button>;
+          })}{dayEvents.length > 4 && <button type="button" className="week-all-day-more" onClick={() => onDayClick(day)}>+{dayEvents.length - 4} more</button>}</div>;
         })}
       </div>
 
@@ -535,6 +622,7 @@ export function WeekView({ events, calendars, categories, onEventClick, viewDate
 
 
 export function MonthEventRow({ event, color, onOpen, onReschedule }) {
+  const source = calendarEventSource(event, null);
   const suppressClick = useRef(false);
   const ref = useRef(null);
   const timerRef = useRef(null);
@@ -560,7 +648,7 @@ export function MonthEventRow({ event, color, onOpen, onReschedule }) {
   }
 
   function startPressDrag(e) {
-    if (event.fixed) return;
+    if (event.fixed || !calendarEventEditable(event)) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.stopPropagation();
     const startX = e.clientX;
@@ -622,12 +710,12 @@ export function MonthEventRow({ event, color, onOpen, onReschedule }) {
   }
 
   return (
-    <div ref={ref} className="month-event-row" onPointerDown={startPressDrag}
+    <div ref={ref} className={`month-event-row event-source-${source} ${!calendarEventEditable(event) ? "reference-event" : ""}`} onPointerDown={startPressDrag}
       style={{ background: `${color}20`, borderLeft: `2px solid ${color}`, color: "var(--text)", cursor: event.fixed ? "pointer" : "grab", touchAction: "none", userSelect: "none" }}
       onClick={ev => { ev.stopPropagation(); if (suppressClick.current) { suppressClick.current = false; return; } onOpen(event); }}
-      title={event.fixed ? "Fixed · Click to edit" : "Tap to edit · Hold to move"}>
+      title={calendarEventEditable(event) ? "Tap to edit · Hold to move" : `${calendarSourceLabel(source)} reference · Tap to view`}>
       <span className="month-event-time">{isAllDayEvent(event) ? "All day" : `${event.start.getHours()}:${String(event.start.getMinutes()).padStart(2,"0")}`}</span>
-      <span className="month-event-name" style={{ color }}>{event.title}</span>
+      <span className="month-event-name" style={{ color }}>{event.title}</span><span className="month-event-source">{calendarSourceIcon(source)}</span>
     </div>
   );
 }
