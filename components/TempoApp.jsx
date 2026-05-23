@@ -3137,10 +3137,10 @@ function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, compact = f
     <section className={`phase-card affirmation-daily-card ${compact ? "compact" : ""}`}>
       <div className="phase-card-head"><span>Daily Affirmation</span><small>Randomized daily</small></div>
       <div className="affirmation-quote-row">
-        <span className="affirmation-quote-icon">{category.emoji}</span>
-        <div>
+        <div className="affirmation-quote-text">
           <blockquote>“{todayAffirmation.text}”</blockquote>
         </div>
+        <span className="affirmation-quote-icon">{category.emoji}</span>
       </div>
     </section>
   );
@@ -6783,9 +6783,10 @@ export default function App() {
 }
 
 /* ── Current design/debug hotfixes ───────────────────────────────────────── */
-.affirmation-daily-card .affirmation-quote-row{align-items:center!important;justify-content:center!important;text-align:center!important;flex-direction:column!important;gap:10px!important;}
-.affirmation-daily-card .affirmation-quote-row>div{width:100%!important;display:flex!important;justify-content:center!important;}
-.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0 auto!important;text-align:center!important;}
+.affirmation-daily-card .affirmation-quote-row{display:grid!important;grid-template-columns:minmax(0,1fr) 52px!important;align-items:center!important;justify-content:stretch!important;text-align:left!important;column-gap:14px!important;row-gap:0!important;}
+.affirmation-daily-card .affirmation-quote-text{width:100%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;min-width:0!important;}
+.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0 auto!important;text-align:center!important;width:100%!important;}
+.affirmation-daily-card .affirmation-quote-icon{justify-self:end!important;align-self:center!important;display:grid!important;place-items:center!important;line-height:1!important;}
 html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .app,.dark .content-area,.dark .main{background:var(--dark-page)!important;}
 
