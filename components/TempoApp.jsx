@@ -3099,25 +3099,180 @@ function highlightMatch(text, query) {
   );
 }
 
+// ─── Tempo Assistant Context Engine ─────────────────────────────────────────
+const assistantHours = minutes => {
+  const safe = Math.max(0, Math.round(Number(minutes || 0)));
+  if (safe < 60) return `${safe}m`;
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+};
+const assistantTimeRange = item => `${fmt(item.start)}–${fmt(item.end)}`;
+const assistantEventSource = (event, calendars = []) => calendarEventSource(event, calendars.find(c => c.id === event?.calendar));
+const assistantOpenDayTasks = (tasks = []) => normalizeTasks(tasks).filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
+const assistantTaskRank = t => {
+  const priority = { high: 0, medium: 1, low: 2 }[t.priority] ?? 1;
+  const mainBoost = Core.categoryIs?.(t.category, "main") ? -1 : 0;
+  const dueToday = t.deadline && dateKey(new Date(t.deadline)) === dateKey(TODAY) ? -1 : 0;
+  return priority + mainBoost + dueToday;
+};
+function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], hiddenCals = [], hiddenCalendarSources = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], freeSlots = [] }) {
+  const now = new Date();
+  const visibleEvents = getEventsOnDay(events, TODAY)
+    .filter(e => !e.deletedAt && !hiddenCals.includes(e.calendar))
+    .filter(e => !hiddenCalendarSources.includes(assistantEventSource(e, calendars)))
+    .sort((a, b) => a.start - b.start);
+  const sourceCounts = visibleEvents.reduce((acc, e) => {
+    const src = assistantEventSource(e, calendars);
+    acc[src] = (acc[src] || 0) + 1;
+    return acc;
+  }, { tempo: 0, google: 0, habit: 0 });
+  const nextEvent = visibleEvents.find(e => !isAllDayEvent(e) && e.end > now) || null;
+  const allDayEvents = visibleEvents.filter(e => isAllDayEvent(e));
+  const timedEvents = visibleEvents.filter(e => !isAllDayEvent(e));
+  const openTasks = assistantOpenDayTasks(tasks).sort((a, b) => assistantTaskRank(a) - assistantTaskRank(b));
+  const topTasks = openTasks.slice(0, 3);
+  const taskMinutes = openTasks.reduce((sum, t) => sum + taskDurationToMinutes(t.duration, 30), 0);
+  const cleanHabits = normalizeHabits(habits).filter(h => habitRunsOnDate(h, TODAY));
+  const completedHabits = cleanHabits.filter(h => habitProgress(h, habitCompletions, TODAY).completed);
+  const checkIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const mood = checkIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === checkIn.mood) : null;
+  const energy = checkIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === checkIn.energy) : null;
+  const journalEntry = normalizeMemoryEntry(journal[dateKey(TODAY)] || {});
+  const hasJournal = hasJournalEntryForKey(journal, dateKey(TODAY));
+  const freeMinutes = freeSlots.reduce((sum, slot) => sum + Math.max(0, Number(slot.minutes || 0)), 0);
+  const largestFreeSlot = [...freeSlots].sort((a, b) => Number(b.minutes || 0) - Number(a.minutes || 0))[0] || null;
+  const freeSlotLabels = freeSlots.slice(0, 4).map(slot => `${assistantTimeRange(slot)} (${assistantHours(slot.minutes)})`);
+  const loadRatio = freeMinutes ? taskMinutes / freeMinutes : (taskMinutes ? 99 : 0);
+  const insights = [];
+  if (sourceCounts.google > 0) insights.push(`${sourceCounts.google} Google reference event${sourceCounts.google !== 1 ? "s" : ""} visible today.`);
+  if (openTasks.length && !topTasks.some(t => t.scheduled)) insights.push("Top tasks are not fully time-blocked yet.");
+  if (loadRatio > 0.9) insights.push("Your open tasks may be too much for the available free time.");
+  else if (freeMinutes >= 120) insights.push("You have enough open space to protect one focused block.");
+  if (cleanHabits.length && completedHabits.length < cleanHabits.length) insights.push(`${cleanHabits.length - completedHabits.length} habit${cleanHabits.length - completedHabits.length !== 1 ? "s" : ""} left for today.`);
+  if (mood && energy && ["low", "tired", "drained"].includes(String(energy.id))) insights.push("Low energy check-in detected — keep the plan lighter.");
+  if (!hasJournal) insights.push("No journal reflection yet today.");
+  return {
+    dateKey: dateKey(TODAY),
+    greeting: new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening",
+    events: visibleEvents,
+    timedEvents,
+    allDayEvents,
+    nextEvent,
+    sourceCounts,
+    tasks: openTasks,
+    topTasks,
+    taskMinutes,
+    habits: cleanHabits,
+    completedHabits,
+    habitLabel: `${completedHabits.length}/${cleanHabits.length}`,
+    mood,
+    energy,
+    checkIn,
+    journalEntry,
+    hasJournal,
+    freeSlots,
+    freeMinutes,
+    freeHoursLabel: assistantHours(freeMinutes),
+    largestFreeSlot,
+    freeSlotLabels,
+    loadRatio,
+    insights,
+  };
+}
+function buildAssistantGreeting(ctx) {
+  const freeLine = ctx.freeMinutes ? ` You have ${ctx.freeHoursLabel} of open space today.` : " Your calendar has no clear open space inside the planning window.";
+  const nextLine = ctx.nextEvent ? ` Next: ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : " No more timed events are coming up today.";
+  return `${ctx.greeting} ✨ I’m looking at your rhythm now: ${ctx.events.length} event${ctx.events.length !== 1 ? "s" : ""}, ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""}, and ${ctx.habitLabel} habits done.${freeLine}${nextLine}\n\nAsk me what to focus on, where your free time is, or how to make today lighter.`;
+}
+function assistantTaskLine(task, index) {
+  const dur = taskDurationToMinutes(task.duration, 30);
+  const due = task.deadline ? ` · due ${fmtDate(new Date(task.deadline))}` : "";
+  return `${index + 1}. ${task.title}${dur ? ` (${assistantHours(dur)})` : ""}${due}`;
+}
+function assistantReplyFromContext(input, ctx) {
+  const msg = String(input || "").toLowerCase();
+  if (/\b(summary|summarize|overview|today|status|rhythm)\b/.test(msg)) {
+    const lines = [
+      `Here’s today’s rhythm:`,
+      `• ${ctx.events.length} visible event${ctx.events.length !== 1 ? "s" : ""} (${ctx.sourceCounts.tempo || 0} Tempo · ${ctx.sourceCounts.google || 0} Google · ${ctx.sourceCounts.habit || 0} Habit)`,
+      `• ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""} (${assistantHours(ctx.taskMinutes)} estimated)`,
+      `• ${ctx.habitLabel} habits completed`,
+      `• ${ctx.freeHoursLabel} free inside your planning window`,
+      ctx.mood ? `• Check-in: ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` · ${ctx.energy.label} energy` : ""}` : `• No mood check-in yet`,
+    ];
+    if (ctx.insights.length) lines.push(`\nWhat I notice:\n${ctx.insights.slice(0, 3).map(x => `• ${x}`).join("\n")}`);
+    return lines.join("\n");
+  }
+  if (/\b(focus|priorit|important|next task|what should i do|what to do|do next)\b/.test(msg)) {
+    if (!ctx.topTasks.length) return ctx.nextEvent ? `Your task list is clear for today. I’d protect the next transition before ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : `Your task list is clear for today. Use the open space for a gentle reset, journal, or plan tomorrow.`;
+    const lines = [`I’d keep today focused on these ${Math.min(3, ctx.topTasks.length)} things:`];
+    lines.push(...ctx.topTasks.map(assistantTaskLine));
+    if (ctx.largestFreeSlot) lines.push(`\nBest slot to protect: ${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)}).`);
+    if (ctx.loadRatio > 0.9) lines.push(`Your estimated task load is close to your free time, so I’d move anything outside the top 3 to tomorrow.`);
+    return lines.join("\n");
+  }
+  if (/\b(free|space|available|slot|when can|time block|calendar gap)\b/.test(msg)) {
+    if (!ctx.freeSlots.length) return `I don’t see a clear free block inside your planning window today. You may need to move a task or protect tomorrow instead.`;
+    return `Your clearest free blocks today:\n${ctx.freeSlotLabels.map(x => `• ${x}`).join("\n")}\n\nLargest block: ${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)}).`;
+  }
+  if (/\b(busy|packed|overwhelm|too much|enough time|realistic|load)\b/.test(msg)) {
+    if (!ctx.tasks.length) return `Your task load is light today. The main risk is calendar fragmentation, not task volume.`;
+    const verdict = ctx.loadRatio > 1 ? "too full" : ctx.loadRatio > 0.75 ? "tight but manageable" : "realistic";
+    const advice = ctx.loadRatio > 1 ? "Move at least one non-essential task to tomorrow." : ctx.loadRatio > 0.75 ? "Keep only your top 2–3 tasks and avoid adding new work." : "You have room for one focused block and a small admin block.";
+    return `Your day looks ${verdict}.\n\nOpen task estimate: ${assistantHours(ctx.taskMinutes)}\nAvailable free time: ${ctx.freeHoursLabel}\n\n${advice}`;
+  }
+  if (/\b(next|upcoming|coming up)\b/.test(msg)) {
+    if (ctx.nextEvent) return `Next up: ${ctx.nextEvent.title}\n${fmt(ctx.nextEvent.start)}–${fmt(ctx.nextEvent.end)} · ${calendarSourceLabel(assistantEventSource(ctx.nextEvent))}.\n\nAfter that, check whether your top task still fits the next free block.`;
+    if (ctx.topTasks.length) return `No more timed events today. Next useful move: ${ctx.topTasks[0].title}.`;
+    return `Nothing urgent is coming up. This is a good moment for a short reset or journal entry.`;
+  }
+  if (/\b(habit|routine|streak)\b/.test(msg)) {
+    if (!ctx.habits.length) return `You don’t have habits scheduled today. Start small: one gentle daily habit is enough.`;
+    const todo = ctx.habits.filter(h => !ctx.completedHabits.some(done => done.id === h.id));
+    return `Habits today: ${ctx.habitLabel} complete.\n${todo.length ? `Still left:\n${todo.slice(0, 4).map(h => `• ${h.emoji || "🌱"} ${h.name}`).join("\n")}` : "All scheduled habits are done — nice gentle consistency."}`;
+  }
+  if (/\b(journal|reflect|reflection|mood|energy|reset)\b/.test(msg)) {
+    const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
+    const moodLine = ctx.mood ? `You checked in as ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` with ${ctx.energy.label.toLowerCase()} energy` : ""}.` : "You haven’t done a mood check-in yet.";
+    return `${moodLine}\n\nA useful reflection prompt:\n“${prompt}”\n\nTry writing 3 lines: what happened, what you noticed, and what you want to make easier tomorrow.`;
+  }
+  if (/\b(tomorrow|prepare|carry over|move)\b/.test(msg)) {
+    const carry = ctx.tasks.slice(3);
+    if (!carry.length) return `Tomorrow prep looks simple: keep today’s top tasks clear, then use Tomorrow Reset to choose one intention.`;
+    return `For tomorrow, I’d consider carrying over:\n${carry.slice(0, 4).map((t, i) => assistantTaskLine(t, i)).join("\n")}\n\nKeep today to the top 3 so the day stays calm.`;
+  }
+  return null;
+}
+
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
-function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAddEvent }) {
-  const [messages, setMessages] = useState([{ role: "assistant", text: buildGreeting(events, tasks) }]);
+function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
+  const ctx = assistantContext || buildTempoAssistantContext({ events, tasks });
+  const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
   const bottomRef = useRef(null);
-  // Use refs so send() always reads current events/tasks without needing them in its closure
+  // Use refs so send() always reads current data without needing it in its closure.
   const eventsRef = useRef(events);
   const tasksRef  = useRef(tasks);
   const pendingRef = useRef(pending);
+  const ctxRef = useRef(ctx);
   useEffect(() => { eventsRef.current  = events;  }, [events]);
   useEffect(() => { tasksRef.current   = tasks;   }, [tasks]);
   useEffect(() => { pendingRef.current = pending; }, [pending]);
+  useEffect(() => { ctxRef.current = ctx; }, [ctx]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
   function send(ov) {
     const text = (ov ?? input).trim(); if (!text) return;
     setInput(""); setMessages(p => [...p, { role: "user", text }]);
-    // CHAT_REPLY_DELAY_MS adds a brief pause to feel natural — purely cosmetic
+    // CHAT_REPLY_DELAY_MS adds a brief pause to feel natural — purely cosmetic.
     setTimeout(() => {
+      const contextReply = assistantReplyFromContext(text, ctxRef.current);
+      if (contextReply) {
+        setMessages(p => [...p, { role: "assistant", text: contextReply }]);
+        return;
+      }
       const { text: rt, newEv, newTk, newP } = processMessage(text, eventsRef.current, tasksRef.current, pendingRef.current);
       setMessages(p => [...p, { role: "assistant", text: rt }]);
       if (newEv && Array.isArray(newEv)) onUpdateEvents(newEv);
@@ -3126,20 +3281,56 @@ function ChatPanel({ events, tasks, onClose, onUpdateEvents, onUpdateTasks, onAd
     }, CHAT_REPLY_DELAY_MS);
   }
   function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
-  const sugg = ["What's on today?","When am I free?","Show my tasks","How busy am I?","What's next?","Help"];
+
+  const contextStats = [
+    { label: "Events", value: ctx.events.length, hint: `${ctx.sourceCounts.tempo || 0} Tempo · ${ctx.sourceCounts.google || 0} Google`, action: onOpenCalendar },
+    { label: "Free", value: ctx.freeHoursLabel, hint: ctx.largestFreeSlot ? `Best ${fmt(ctx.largestFreeSlot.start)}–${fmt(ctx.largestFreeSlot.end)}` : "No clear block", action: onOpenCalendar },
+    { label: "Tasks", value: ctx.tasks.length, hint: `${assistantHours(ctx.taskMinutes)} estimated`, action: onOpenTasks },
+    { label: "Habits", value: ctx.habitLabel, hint: ctx.habits.length ? "today" : "none scheduled", action: onOpenHabits },
+  ];
+  const promptGroups = [
+    { label: "Plan my day", prompt: "What should I focus on today?" },
+    { label: "Find free time", prompt: "When am I free today?" },
+    { label: "Check load", prompt: "Is my day too packed?" },
+    { label: "Next move", prompt: "What should I do next?" },
+    { label: "Reflect", prompt: "Help me reflect today" },
+    { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
+  ];
   return (
-    <div className="chat-panel">
-      <div className="chat-header"><div className="chat-title-row"><div className="chat-avatar">🌸</div><div><div className="chat-name">Tempo Assistant</div><div className="chat-status">● always here</div></div></div><button className="chat-close" onClick={onClose} aria-label="Close chat">✕</button></div>
-      <div className="chat-messages">
+    <div className="chat-panel tempo-assistant-panel">
+      <div className="chat-header assistant-header">
+        <div className="chat-title-row"><div className="chat-avatar">🌸</div><div><div className="chat-name">Tempo Assistant</div><div className="chat-status">● reading today’s rhythm</div></div></div>
+        <button className="chat-close" onClick={onClose} aria-label="Close chat">✕</button>
+      </div>
+
+      <div className="assistant-context-card">
+        <div className="assistant-context-top">
+          <div><span className="assistant-kicker">Today context</span><strong>{ctx.greeting} ✨</strong></div>
+          <button type="button" onClick={onPlanToday}>Plan Today</button>
+        </div>
+        <div className="assistant-context-grid">
+          {contextStats.map(item => <button key={item.label} type="button" onClick={item.action}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></button>)}
+        </div>
+        {ctx.insights.length > 0 && <div className="assistant-insights">{ctx.insights.slice(0, 3).map((x, i) => <span key={i}>• {x}</span>)}</div>}
+        <div className="assistant-action-row">
+          <button type="button" onClick={onOpenCheckIn}>Check in</button>
+          <button type="button" onClick={onOpenJournal}>Journal</button>
+          <button type="button" onClick={onTomorrowReset}>Tomorrow Reset</button>
+        </div>
+      </div>
+
+      <div className="assistant-prompt-bank">
+        {promptGroups.map(item => <button key={item.label} type="button" onClick={() => send(item.prompt)}>{item.label}</button>)}
+      </div>
+
+      <div className="chat-messages assistant-messages">
         {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
         <div ref={bottomRef} />
       </div>
-      {messages.length <= 2 && <div className="suggestions">{sugg.map((s, i) => <button key={i} className="suggestion-pill" onClick={() => send(s)}>{s}</button>)}</div>}
-      <div className="chat-input-row"><textarea className="chat-input" placeholder="Ask about your schedule..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
+      <div className="chat-input-row"><textarea className="chat-input" placeholder="Ask what to focus on, where you’re free, or how to reset…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
     </div>
   );
 }
-
 
 
 function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
@@ -6451,7 +6642,8 @@ export default function App() {
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
-  const dayFreeMinutes = freeSlotsForDate(TODAY, [], null, { clampToNow: false }).reduce((sum, slot) => sum + slot.minutes, 0);
+  const todayFreeSlots = freeSlotsForDate(TODAY, [], null, { clampToNow: false });
+  const dayFreeMinutes = todayFreeSlots.reduce((sum, slot) => sum + slot.minutes, 0);
   const todayDashboardEvents = expandRecurring([...events.filter(eventSourceVisible), ...habitReminderEventsForRange(TODAY, TODAY)], dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
     .filter(e => !hiddenCals.includes(e.calendar) && eventOccursOnDay(e, TODAY));
   const firstScheduledEvent = todayDashboardEvents
@@ -6464,6 +6656,18 @@ export default function App() {
     mainThings: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && Core.categoryIs(t.category, "main")).length,
     firstEvent: firstScheduledEvent ? `${fmt(firstScheduledEvent.start)} — ${firstScheduledEvent.title}` : null,
   };
+  const assistantContext = buildTempoAssistantContext({
+    events: todayDashboardEvents,
+    tasks,
+    calendars,
+    hiddenCals,
+    hiddenCalendarSources,
+    habits,
+    habitCompletions,
+    journal,
+    dailyCheckIns,
+    freeSlots: todayFreeSlots,
+  });
   const syncSettingsSnapshot = currentSettings();
   const syncDebug = {
     dataReady,
@@ -7546,6 +7750,34 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .event-template-strip button{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.22)!important;}
 @media(max-width:760px){.calendar-source-filter-row{gap:5px}.calendar-source-chip{font-size:9px;padding:5px 7px}.event-template-strip>div{display:grid;grid-template-columns:1fr 1fr}.event-template-strip button{justify-content:center}.week-all-day-chip em,.all-day-source-pill{display:none}}
 
+
+/* ── Phase 24A/B Tempo Assistant ─────────────────────────────────────── */
+.tempo-assistant-panel{width:min(430px,calc(100vw - 32px))!important;height:min(680px,calc(100dvh - 112px))!important;border-radius:28px!important;background:linear-gradient(180deg,var(--surface),var(--surface-warm))!important;box-shadow:0 28px 80px rgba(var(--accent-rgb),.22)!important;overflow:hidden!important;}
+.assistant-header{padding:15px 16px!important;background:linear-gradient(135deg,var(--surface),var(--surface-soft))!important;}
+.assistant-context-card{margin:12px 12px 0;padding:12px;border:1.5px solid rgba(var(--accent-rgb),.14);border-radius:22px;background:radial-gradient(circle at top left,rgba(var(--accent-rgb),.11),transparent 45%),linear-gradient(135deg,var(--bg2),var(--bg3));box-shadow:0 12px 28px rgba(var(--accent-rgb),.08);}
+.assistant-context-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.assistant-context-top strong{display:block;font-size:16px;font-weight:950;color:var(--text);letter-spacing:-.02em;}
+.assistant-kicker{display:block;font-family:var(--mono);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px;}
+.assistant-context-top button{border:1px solid rgba(var(--accent-rgb),.20);background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;cursor:pointer;box-shadow:0 8px 18px rgba(var(--accent-rgb),.18);white-space:nowrap;}
+.assistant-context-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;}
+.assistant-context-grid button{min-width:0;border:1px solid rgba(var(--accent-rgb),.13);background:rgba(255,255,255,.62);border-radius:16px;padding:9px 6px;text-align:center;cursor:pointer;color:var(--text);}
+.assistant-context-grid strong{display:block;font-size:15px;font-weight:950;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.assistant-context-grid span{display:block;font-size:10px;font-weight:950;color:var(--text2);margin-top:3px;}
+.assistant-context-grid small{display:block;font-size:8.5px;font-weight:800;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.assistant-insights{display:grid;gap:3px;margin-top:10px;padding:9px 10px;border-radius:14px;background:rgba(255,255,255,.46);border:1px dashed rgba(var(--accent-rgb),.17);}
+.assistant-insights span{font-size:11px;font-weight:800;color:var(--text2);line-height:1.35;}
+.assistant-action-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.assistant-action-row button,.assistant-prompt-bank button{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;}
+.assistant-action-row button:hover,.assistant-prompt-bank button:hover{border-color:var(--accent3);color:var(--accent);background:var(--bg4);}
+.assistant-prompt-bank{display:flex;gap:7px;overflow-x:auto;padding:10px 12px 8px;background:transparent;flex:0 0 auto;scrollbar-width:none;}
+.assistant-prompt-bank::-webkit-scrollbar{display:none;}
+.assistant-prompt-bank button{flex:0 0 auto;background:var(--bg2);}
+.assistant-messages{padding-top:8px!important;background:linear-gradient(180deg,transparent,var(--bg))!important;}
+.tempo-assistant-panel .msg-bubble{font-size:calc(var(--fs)*12.6px)!important;max-width:84%!important;}
+.dark .tempo-assistant-panel,.dark .assistant-context-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-context-grid button,.dark .assistant-insights,.dark .assistant-action-row button,.dark .assistant-prompt-bank button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+@media(max-width:760px){.tempo-assistant-panel{left:10px!important;right:10px!important;width:calc(100vw - 20px)!important;bottom:calc(var(--mobile-nav-h) + 12px)!important;height:min(720px,calc(100dvh - var(--mobile-nav-h) - 28px))!important;border-radius:24px!important}.assistant-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.assistant-context-top{align-items:center}.assistant-context-top button{padding:8px 11px}.assistant-prompt-bank{padding-top:8px}.tempo-assistant-panel .msg-bubble{max-width:88%!important;}}
+
 `}</style>
 
       <div className="app">
@@ -7761,7 +7993,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
         </div>
       )}
 
-      {chatOpen && <ChatPanel events={events} tasks={tasks} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onAddEvent={addEvent} />}
+      {chatOpen && <ChatPanel events={events} tasks={tasks} assistantContext={assistantContext} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
       <RecurrenceScopeModal />
 
       {/* Mobile bottom nav — visible only on small screens */}
