@@ -1371,7 +1371,7 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
@@ -1535,6 +1535,42 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
               {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
             </select>
           </div>
+
+          <div className="settings-section google-calendar-settings">
+            <div className="settings-section-label">Google Calendar Sync</div>
+            <div className="settings-section-desc">Connect Google Calendar safely for reference inside Tempo. Tokens stay server-side, and Google events import into Tempo as read-only reference events.</div>
+            <div className="google-sync-status-row">
+              <span className={`google-sync-dot ${googleSync?.connected ? "connected" : "disconnected"}`} />
+              <strong>{googleSync?.connected ? "Connected" : "Not connected"}</strong>
+              {googleSync?.lastImportAt && <small>Last import {new Date(googleSync.lastImportAt).toLocaleString()}</small>}
+              {googleSync?.error && <small className="google-sync-error">{googleSync.error}</small>}
+            </div>
+            <div className="settings-action-row google-sync-actions">
+              {!googleSync?.connected
+                ? <button className="tf-save" onClick={onGoogleConnect} disabled={googleSync?.loading}>Connect Google Calendar</button>
+                : <>
+                    <button className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading}>{googleSync?.loading ? "Syncing…" : "Import Google events"}</button>
+                    <button className="tf-cancel" onClick={onGoogleDisconnect} disabled={googleSync?.loading}>Disconnect</button>
+                  </>}
+            </div>
+            {googleSync?.message && <div className="settings-section-desc">{googleSync.message}</div>}
+            {googleSync?.connected && (
+              <div className="google-calendar-list">
+                {(googleSync.calendars || []).length ? googleSync.calendars.map(cal => (
+                  <div key={cal.id} className="google-calendar-row">
+                    <span className="google-calendar-color" style={{ background: cal.color || "var(--accent)" }} />
+                    <div className="google-calendar-meta">
+                      <strong>{cal.name}</strong>
+                      <small>{cal.readOnly ? "Read-only" : "Writable"} · {cal.googleCalendarId}</small>
+                    </div>
+                    <label><input type="checkbox" checked={cal.visible !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { visible: e.target.checked })} /> Show</label>
+                    <label><input type="checkbox" checked={cal.syncEnabled !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { syncEnabled: e.target.checked })} /> Sync</label>
+                  </div>
+                )) : <div className="settings-section-desc">No Google calendars loaded yet. Click “Import Google events” after connecting.</div>}
+              </div>
+            )}
+          </div>
+
 
           {/* Categories */}
           <div className="settings-section">
@@ -3663,6 +3699,7 @@ export default function App() {
   const lastRealtimeSyncRef = useRef(0);
   const [dataReady,    setDataReady]    = useState(false);
   const [loadedUserId, setLoadedUserId] = useState(null);
+  const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null });
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
   // Real streak: count consecutive days the user has been active
@@ -3681,6 +3718,13 @@ export default function App() {
       setPage("rhythm");
     } else if (requestedPage === "affirmations") {
       setPage("today");
+    }
+    if (params.get("google") === "connected") {
+      setSettingsOpen(true);
+      setToast({ text: "Google Calendar connected ✓", ts: Date.now() });
+    } else if (params.get("google") === "error") {
+      setSettingsOpen(true);
+      setToast({ text: `Google Calendar setup failed: ${params.get("reason") || "unknown error"}`, ts: Date.now() });
     }
   }, []);
 
@@ -4657,6 +4701,13 @@ export default function App() {
     setDisplayTimezoneCtx(timezone);
   }, [timezone]);
 
+  useEffect(() => {
+    if (!auth.user?.id || !dataReady) return;
+    refreshGoogleCalendarStatus({ silent: true });
+    // Google status should refresh only after auth/data readiness changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, dataReady]);
+
 
   const setNotifs = v => {
     const n = typeof v === "function" ? v(notifs) : v;
@@ -4691,6 +4742,129 @@ export default function App() {
       console.warn("Push notification setup failed", err);
       setToast(err?.message || "Push setup failed. Check VAPID/server setup.");
       return false;
+    }
+  }
+
+  function mergeGoogleCalendarsLocal(googleCalendars = [], baseCalendars = calendars) {
+    const nonGoogle = normalizeCalendars(baseCalendars).filter(cal => cal.source !== "google");
+    return normalizeCalendars([...nonGoogle, ...googleCalendars]);
+  }
+
+  function applyGoogleCalendarPayload(payload = {}) {
+    let nextCalendars = calendars;
+    const googleCalendars = Array.isArray(payload.calendars) ? payload.calendars : [];
+    if (googleCalendars.length || payload.connected === false) {
+      nextCalendars = payload.calendars?.some?.(cal => cal.source !== "google")
+        ? normalizeCalendars(payload.calendars)
+        : mergeGoogleCalendarsLocal(googleCalendars);
+      setCalendarsRaw(nextCalendars);
+      save(`${uk}_calendars`, nextCalendars);
+    }
+    if (Array.isArray(payload.hiddenCals)) {
+      setHiddenCals(payload.hiddenCals);
+      save(`${uk}_hidden_cals`, payload.hiddenCals);
+    }
+    if (Array.isArray(payload.events)) {
+      const nextEvents = reviveEvents(payload.events);
+      setEvRaw(nextEvents);
+      save(`${uk}_ev`, nextEvents);
+      markUpdated();
+    }
+    const nextGoogleCalendars = normalizeCalendars(nextCalendars).filter(cal => cal.source === "google");
+    setGoogleSync(prev => ({
+      ...prev,
+      connected: payload.connected ?? (payload.ok ? true : prev.connected),
+      calendars: nextGoogleCalendars,
+      lastImportAt: payload.googleCalendarSync?.lastImportAt || payload.lastImportAt || prev.lastImportAt,
+      message: payload.message || prev.message,
+      error: "",
+      loading: false,
+    }));
+  }
+
+  async function googleCalendarRequest(path, options = {}) {
+    const res = await fetch(`/api/google/${path}`, {
+      ...options,
+      headers: {
+        "content-type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || `Google Calendar request failed (${res.status})`);
+    return data;
+  }
+
+  async function refreshGoogleCalendarStatus({ silent = false } = {}) {
+    if (!auth.user?.id) return;
+    if (!silent) setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
+    try {
+      const data = await googleCalendarRequest(`status?userId=${encodeURIComponent(auth.user.id)}`);
+      applyGoogleCalendarPayload(data);
+      setGoogleSync(prev => ({ ...prev, connected: Boolean(data.connected), loading: false, message: data.connected ? "Google Calendar is ready." : "Connect Google Calendar to import events.", error: "" }));
+    } catch (err) {
+      console.warn("Google Calendar status failed", err);
+      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not check Google Calendar status" }));
+    }
+  }
+
+  function connectGoogleCalendar() {
+    if (!auth.user?.id) {
+      setToast("Sign in before connecting Google Calendar.");
+      return;
+    }
+    const returnTo = `${window.location.pathname || "/"}?page=calendar`;
+    window.location.href = `/api/google/auth/start?userId=${encodeURIComponent(auth.user.id)}&returnTo=${encodeURIComponent(returnTo)}`;
+  }
+
+  async function importGoogleCalendarNow() {
+    if (!auth.user?.id) return;
+    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Importing Google Calendar…" }));
+    try {
+      const data = await googleCalendarRequest("sync", {
+        method: "POST",
+        body: JSON.stringify({ userId: auth.user.id }),
+      });
+      applyGoogleCalendarPayload(data);
+      setToast({ text: `Imported ${data.imported || 0} Google event${Number(data.imported || 0) === 1 ? "" : "s"} ✓`, ts: Date.now() });
+    } catch (err) {
+      console.warn("Google Calendar import failed", err);
+      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
+      setToast(err.message || "Google import failed");
+    }
+  }
+
+  async function disconnectGoogleCalendar() {
+    if (!auth.user?.id) return;
+    if (!window.confirm("Disconnect Google Calendar from Tempo? Imported Google events will be removed from Tempo.")) return;
+    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Disconnecting Google Calendar…" }));
+    try {
+      const data = await googleCalendarRequest("disconnect", {
+        method: "POST",
+        body: JSON.stringify({ userId: auth.user.id }),
+      });
+      applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
+      setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null });
+      setToast("Google Calendar disconnected ✓");
+    } catch (err) {
+      console.warn("Google Calendar disconnect failed", err);
+      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Disconnect failed", message: "" }));
+    }
+  }
+
+  async function updateGoogleCalendarPreference(calendarId, patch) {
+    if (!auth.user?.id) return;
+    setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
+    try {
+      const data = await googleCalendarRequest("calendars", {
+        method: "POST",
+        body: JSON.stringify({ userId: auth.user.id, calendarId, patch }),
+      });
+      applyGoogleCalendarPayload(data);
+      setGoogleSync(prev => ({ ...prev, loading: false, message: "Google calendar preference updated.", error: "" }));
+    } catch (err) {
+      console.warn("Google calendar preference failed", err);
+      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not update Google calendar preference" }));
     }
   }
 
@@ -6937,6 +7111,32 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 }
 .tempo-logo-emoji{display:inline!important;width:auto!important;height:auto!important;background:transparent!important;border:0!important;filter:none!important;transform:none!important;}
 
+
+/* ── Google Calendar sync settings ─────────────────────────────────────── */
+.google-calendar-settings{position:relative;}
+.google-sync-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:16px;background:var(--bg3);}
+.google-sync-dot{width:10px;height:10px;border-radius:999px;background:var(--text3);box-shadow:0 0 0 4px rgba(var(--accent-rgb),.08);}
+.google-sync-dot.connected{background:#70C8A0;}
+.google-sync-dot.disconnected{background:#D989A2;}
+.google-sync-status-row strong{font-size:13px;color:var(--text);font-weight:900;}
+.google-sync-status-row small{font-size:11px;color:var(--text3);font-weight:800;}
+.google-sync-error{color:#B94D6A!important;}
+.google-sync-actions{gap:8px;flex-wrap:wrap;}
+.google-calendar-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.google-calendar-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);background:rgba(255,255,255,.54);border-radius:16px;}
+.google-calendar-color{width:13px;height:13px;border-radius:999px;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.08);}
+.google-calendar-meta{min-width:0;}
+.google-calendar-meta strong{display:block;font-size:13px;color:var(--text);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.google-calendar-meta small{display:block;font-size:10px;color:var(--text3);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;}
+.google-calendar-row label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);font-weight:900;white-space:nowrap;}
+.google-calendar-row input{accent-color:var(--accent);}
+.dark .google-sync-status-row,.dark .google-calendar-row{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
+@media(max-width:640px){
+  .google-calendar-row{grid-template-columns:auto minmax(0,1fr);align-items:flex-start;}
+  .google-calendar-row label{grid-column:2;}
+  .google-sync-actions button{width:100%;}
+}
+
 `}</style>
 
       <div className="app">
@@ -7124,7 +7324,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
-            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>

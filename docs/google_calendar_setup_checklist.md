@@ -46,7 +46,7 @@ Start with primary calendar only.
 
 Use scope:
 
-- `https://www.googleapis.com/auth/calendar.events`
+- ``
 
 This is enough to read/write events on the selected calendar. Add calendar-list selection later if needed.
 

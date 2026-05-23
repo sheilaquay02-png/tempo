@@ -59,7 +59,7 @@ if (error || !user) return Response.json({ error: 'Unauthorized' }, { status: 40
    - `access_type=offline`
    - `prompt=consent` on first connect
    - `include_granted_scopes=true`
-   - scope `https://www.googleapis.com/auth/calendar.events`
+   - scope ``
 5. Google redirects to `/api/google/oauth/callback`.
 6. Callback validates `state`, exchanges code for tokens, encrypts tokens, stores connection.
 7. Run initial full sync.
@@ -145,7 +145,7 @@ On Vercel Hobby, do not use frequent Vercel Cron. Daily cron is acceptable for r
 - Store event link rows
 - Read-only external event flag first
 
-### Phase 3 — Two-way sync
+### Phase 3 — Future bidirectional sync, intentionally excluded from Phase 22
 
 - Tempo create/update/delete pushes to Google
 - Google incremental sync pulls changes back
