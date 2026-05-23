@@ -82,10 +82,35 @@ function makeScrapbookItem(type = "text", index = 0) {
   const cleanType = scrapbookItemType({ type });
   const layout = scrapbookItemLayout({ type: cleanType }, index);
   const base = { id: `b${uid()}`, type: cleanType, ...layout };
-  if (cleanType === "sticker") return { ...base, sticker: "🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null };
+  if (cleanType === "sticker") return { ...base, sticker: "🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null, flipX: false, flipY: false };
   if (cleanType === "divider") return { ...base, text: "✦ ✦ ✦", h: 6 };
   if (cleanType === "tape") return { ...base, text: "" };
   return { ...base, text: "" };
+}
+function scrapbookTextFitStyle(item = {}, layout = {}, type = "text") {
+  const text = String(item?.text || "");
+  const chars = text.replace(/\s+/g, " ").trim().length || 1;
+  const lines = Math.max(1, text.split(/\n/).length);
+  const area = Math.max(1, scrapbookNumber(layout.w, 40) * scrapbookNumber(layout.h, 16));
+  const density = chars / area;
+  let size = type === "tape" ? 13 : 13;
+  if (density > 0.085 || lines > 2) size = 12;
+  if (density > 0.125 || lines > 3) size = 11;
+  if (density > 0.18 || lines > 4) size = 10;
+  if (density > 0.27 || lines > 5) size = 9;
+  if (density > 0.38 || lines > 6) size = 8;
+  if (layout.h < 11) size = Math.min(size, 10);
+  if (layout.w < 18) size = Math.min(size, 9);
+  const line = size <= 9 ? 1.16 : size <= 11 ? 1.24 : 1.34;
+  return {
+    "--scrapbook-text-size": `${size}px`,
+    "--scrapbook-text-line": line,
+  };
+}
+function scrapbookStickerFlipStyle(item = {}) {
+  return {
+    transform: `scale(${item?.flipX ? -1 : 1}, ${item?.flipY ? -1 : 1})`,
+  };
 }
 function normalizeScrapbookBlocksForSave(blocks = []) {
   return (Array.isArray(blocks) ? blocks : [])
@@ -100,6 +125,8 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
         text: block?.text || "",
         sticker: block?.sticker || "🌸",
         stickerAsset: block?.stickerAsset || null,
+        flipX: Boolean(block?.flipX),
+        flipY: Boolean(block?.flipY),
         ...layout,
       };
     });
@@ -1749,6 +1776,24 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     setSelectedBlockId(nextItem.id);
   }
   function updateBlock(id, patch) { setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
+  function updateScrapbookText(id, text) {
+    setBlocks(bs => bs.map((b, idx) => {
+      if (b.id !== id) return b;
+      const type = scrapbookItemType(b);
+      const layout = scrapbookItemLayout(b, idx);
+      const cleanText = String(text || "");
+      const charsPerLine = Math.max(10, Math.floor(layout.w * 1.35));
+      const estimatedLines = cleanText.split(/\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil((line.length || 1) / charsPerLine)), 0);
+      const neededH = type === "tape" ? 10 + estimatedLines * 4.2 : 8 + estimatedLines * 3.8;
+      const nextH = scrapbookClamp(Math.max(layout.h, neededH), type === "divider" ? 4 : 8, 72);
+      return { ...b, text: cleanText, h: nextH, y: scrapbookClamp(layout.y, 0, 100 - nextH) };
+    }));
+  }
+  function toggleStickerFlip(id, axis) {
+    if (!id) return;
+    const key = axis === "y" ? "flipY" : "flipX";
+    setBlocks(bs => bs.map(b => b.id === id ? { ...b, [key]: !Boolean(b[key]) } : b));
+  }
   function removeBlock(id) {
     setBlocks(bs => bs.filter(b => b.id !== id));
     setSelectedBlockId(current => current === id ? null : current);
@@ -2096,6 +2141,8 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                   transform: `rotate(${layout.rotate}deg)`,
                   zIndex: layout.z,
                 };
+                const textFitStyle = scrapbookTextFitStyle(b, layout, type);
+                const stickerFlipStyle = scrapbookStickerFlipStyle(b);
                 return (
                   <div
                     key={b.id}
@@ -2117,7 +2164,8 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                         className="scrapbook-canvas-textarea"
                         placeholder={type === "tape" ? "Type on tape…" : "Type here…"}
                         value={b.text || ""}
-                        onChange={e => updateBlock(b.id, { text: e.target.value })}
+                        style={textFitStyle}
+                        onChange={e => updateScrapbookText(b.id, e.target.value)}
                         onFocus={() => setSelectedBlockId(b.id)}
                       />
                     )}
@@ -2131,7 +2179,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                       />
                     )}
                     {type === "sticker" && (
-                      <div className="scrapbook-canvas-sticker">
+                      <div className="scrapbook-canvas-sticker" style={stickerFlipStyle}>
                         {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"} /> : <span>{b.sticker || "🌸"}</span>}
                       </div>
                     )}
@@ -2177,6 +2225,10 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 </div>
                 {selectedType === "sticker" && (
                   <div className="scrapbook-sticker-controls">
+                    <div className="scrapbook-flip-row" aria-label="Sticker flip controls">
+                      <button type="button" className={selectedBlock.flipX ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "x")}>Flip horizontal</button>
+                      <button type="button" className={selectedBlock.flipY ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "y")}>Flip vertical</button>
+                    </div>
                     {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateBlock(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
                   </div>
                 )}
@@ -2603,7 +2655,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {scrapbookBlocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>{scrapbookBlocks.map((b, idx) => { const type = scrapbookItemType(b); const layout = scrapbookItemLayout(b, idx); return <div key={b.id} className={`scrapbook-view-item scrapbook-${type}`} style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}>{(type === "text" || type === "tape") && <div className="scrapbook-view-text">{b.text}</div>}{type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}{type === "sticker" && <div className="scrapbook-view-sticker">{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}</div>; })}</div></div>}
+                {scrapbookBlocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>{scrapbookBlocks.map((b, idx) => { const type = scrapbookItemType(b); const layout = scrapbookItemLayout(b, idx); const textFitStyle = scrapbookTextFitStyle(b, layout, type); const stickerFlipStyle = scrapbookStickerFlipStyle(b); return <div key={b.id} className={`scrapbook-view-item scrapbook-${type}`} style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}>{(type === "text" || type === "tape") && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}{type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}{type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}</div>; })}</div></div>}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
