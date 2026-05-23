@@ -1,14 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import * as Core from "../../lib/tempo/core";
 const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
-const LOGIN_LOGO_STICKER_PACKS = ["sugar", "lola", "luna", "truffle"];
-const LOGIN_LOGO_STICKERS = LOGIN_LOGO_STICKER_PACKS.flatMap(pack =>
-  Array.from({ length: 9 }, (_, index) => `${Core.MEMORY_ASSET_BASE}/stickers/${pack}/${index + 1}.png`)
-);
-const pickLoginLogoSticker = () => LOGIN_LOGO_STICKERS[Math.floor(Math.random() * LOGIN_LOGO_STICKERS.length)] || `${Core.MEMORY_ASSET_BASE}/stickers/sugar/1.png`;
-function LoginLogoSticker({ src }) {
-  return <img className="tempo-logo-sticker" src={src || LOGIN_LOGO_STICKERS[0]} alt="Tempo" draggable="false" />;
+function LoginLogoSticker() {
+  return <span className="tempo-logo-emoji" role="img" aria-label="Tempo">🌸</span>;
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -347,7 +342,6 @@ export function LoginScreen({ auth }) {
   const [password, setPassword] = useState("");
   const [name, setName]         = useState("");
   const [showPass, setShowPass] = useState(false);
-  const loginLogoSticker = useMemo(() => pickLoginLogoSticker(), []);
 
   const showVerify = auth.error === "__verify__";
 
@@ -385,7 +379,7 @@ export function LoginScreen({ auth }) {
           <div className="login-mascot">
             <div className="mascot-ring mascot-ring-outer" />
             <div className="mascot-ring mascot-ring-inner" />
-            <div className="mascot-icon"><LoginLogoSticker src={loginLogoSticker} /></div>
+            <div className="mascot-icon"><LoginLogoSticker /></div>
           </div>
           <div className="login-brand">
             <span className="login-logo-text">Tempo</span>

@@ -9,13 +9,8 @@ import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 
-const TEMPO_LOGO_STICKER_PACKS = ["sugar", "lola", "luna", "truffle"];
-const TEMPO_LOGO_STICKERS = TEMPO_LOGO_STICKER_PACKS.flatMap(pack =>
-  Array.from({ length: 9 }, (_, index) => `${MEMORY_ASSET_BASE}/stickers/${pack}/${index + 1}.png`)
-);
-const randomTempoLogoSticker = () => TEMPO_LOGO_STICKERS[Math.floor(Math.random() * TEMPO_LOGO_STICKERS.length)] || `${MEMORY_ASSET_BASE}/stickers/sugar/1.png`;
-function TempoLogoMark({ src, className = "" }) {
-  return <img className={`tempo-logo-sticker ${className}`.trim()} src={src || TEMPO_LOGO_STICKERS[0]} alt="Tempo" draggable="false" />;
+function TempoLogoMark({ className = "" }) {
+  return <span className={`tempo-logo-emoji ${className}`.trim()} role="img" aria-label="Tempo">🌸</span>;
 }
 
 
@@ -23,6 +18,7 @@ const SCRAPBOOK_ITEM_DEFAULTS = {
   text: { x: 10, y: 10, w: 44, h: 18, rotate: 0 },
   tape: { x: 12, y: 28, w: 50, h: 18, rotate: -2 },
   sticker: { x: 64, y: 12, w: 22, h: 16, rotate: 0 },
+  photo: { x: 8, y: 10, w: 34, h: 30, rotate: 0 },
   divider: { x: 15, y: 54, w: 70, h: 7, rotate: 0 },
   quote: { x: 14, y: 20, w: 58, h: 18, rotate: -1 },
 };
@@ -33,7 +29,7 @@ const SCRAPBOOK_CANVAS_PRESETS = [
   { id: "wide", label: "Wide", width: 960, height: 440 },
 ];
 const SCRAPBOOK_DEFAULT_SIZE = SCRAPBOOK_CANVAS_PRESETS[0];
-const SCRAPBOOK_SAFE_TYPES = new Set(["text", "tape", "sticker", "divider", "quote"]);
+const SCRAPBOOK_SAFE_TYPES = new Set(["text", "tape", "sticker", "photo", "divider", "quote"]);
 const scrapbookClamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const scrapbookNumber = (value, fallback) => {
   const n = Number(value);
@@ -59,7 +55,7 @@ function scrapbookItemType(item) {
   return SCRAPBOOK_SAFE_TYPES.has(raw) ? raw : "text";
 }
 function scrapbookItemLabel(type) {
-  return type === "tape" ? "Tape note" : type === "sticker" ? "Sticker" : type === "divider" ? "Divider" : "Text";
+  return type === "tape" ? "Tape note" : type === "sticker" ? "Sticker" : type === "photo" ? "Photo" : type === "divider" ? "Divider" : "Text";
 }
 function scrapbookItemLayout(item = {}, index = 0) {
   const type = scrapbookItemType(item);
@@ -83,6 +79,7 @@ function makeScrapbookItem(type = "text", index = 0) {
   const layout = scrapbookItemLayout({ type: cleanType }, index);
   const base = { id: `b${uid()}`, type: cleanType, ...layout };
   if (cleanType === "sticker") return { ...base, sticker: "🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null, flipX: false, flipY: false };
+  if (cleanType === "photo") return { ...base, photoId: null, caption: "" };
   if (cleanType === "divider") return { ...base, text: "✦ ✦ ✦", h: 6 };
   if (cleanType === "tape") return { ...base, text: "" };
   return { ...base, text: "" };
@@ -125,6 +122,8 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
         text: block?.text || "",
         sticker: block?.sticker || "🌸",
         stickerAsset: block?.stickerAsset || null,
+        photoId: block?.photoId || null,
+        caption: block?.caption || "",
         flipX: Boolean(block?.flipX),
         flipY: Boolean(block?.flipY),
         ...layout,
@@ -1771,7 +1770,24 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
     setBlocks(bs => bs.filter(b => b.photoId !== id && !(Array.isArray(b.photoIds) && b.photoIds.includes(id))));
   }
   function addBlock(type) {
+    if (type === "photo") {
+      addPhotoBlock();
+      return;
+    }
     const nextItem = makeScrapbookItem(type, blocks.length);
+    setBlocks(bs => [...bs, nextItem]);
+    setSelectedBlockId(nextItem.id);
+  }
+  function photoById(id) {
+    return photos.find(photo => photo.id === id) || null;
+  }
+  function addPhotoBlock(photoId = photos[0]?.id) {
+    if (!photoId) {
+      setUploadError("Add a journal photo first, then place it inside the scrapbook.");
+      return;
+    }
+    const chosen = photoById(photoId);
+    const nextItem = { ...makeScrapbookItem("photo", blocks.length), photoId, caption: chosen?.caption || "" };
     setBlocks(bs => [...bs, nextItem]);
     setSelectedBlockId(nextItem.id);
   }
@@ -2106,6 +2122,7 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
             <button type="button" onClick={() => addBlock("text")}>+ Text</button>
             <button type="button" onClick={() => addBlock("tape")}>+ Tape Block</button>
             <button type="button" onClick={() => addBlock("sticker")}>+ Sticker</button>
+            <button type="button" onClick={() => addBlock("photo")} disabled={!photos.length} title={photos.length ? "Add a journal photo to the scrapbook" : "Add photos above first"}>+ Photo</button>
             <button type="button" onClick={() => addBlock("divider")}>+ Divider</button>
           </div>
           <div className="scrapbook-page-size-panel">
@@ -2143,6 +2160,8 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                 };
                 const textFitStyle = scrapbookTextFitStyle(b, layout, type);
                 const stickerFlipStyle = scrapbookStickerFlipStyle(b);
+                const photo = type === "photo" ? photoById(b.photoId) : null;
+                const photoSrc = photo ? memoryPhotoSrc(photo, imageUrls) : "";
                 return (
                   <div
                     key={b.id}
@@ -2181,6 +2200,11 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                     {type === "sticker" && (
                       <div className="scrapbook-canvas-sticker" style={stickerFlipStyle}>
                         {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"} /> : <span>{b.sticker || "🌸"}</span>}
+                      </div>
+                    )}
+                    {type === "photo" && (
+                      <div className="scrapbook-canvas-photo">
+                        {photoSrc ? <img src={photoSrc} alt={photo?.caption || "Journal photo"} /> : <span className="scrapbook-photo-placeholder">📷 Choose photo</span>}
                       </div>
                     )}
                     <span
@@ -2230,6 +2254,23 @@ function DayEntryModal({ date, entry, onSave, onClose, activitiesCatalog = JOURN
                       <button type="button" className={selectedBlock.flipY ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "y")}>Flip vertical</button>
                     </div>
                     {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateBlock(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
+                  </div>
+                )}
+                {selectedType === "photo" && (
+                  <div className="scrapbook-photo-controls">
+                    <div className="scrapbook-photo-picker-title">Choose from journal photos</div>
+                    {photos.length ? (
+                      <div className="scrapbook-photo-picker">
+                        {photos.map(photo => {
+                          const src = memoryPhotoSrc(photo, imageUrls);
+                          return (
+                            <button key={photo.id} type="button" className={selectedBlock.photoId === photo.id ? "selected" : ""} onClick={() => updateBlock(selectedBlock.id, { photoId: photo.id, caption: photo.caption || "" })}>
+                              {src ? <img src={src} alt={photo.caption || "Journal photo"} /> : <span>📷</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : <div className="scrapbook-empty-note">Add photos above first, then place them here.</div>}
                   </div>
                 )}
               </div>
@@ -2424,7 +2465,6 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
           <div className="journal-streak">🔥 {streak} day streak</div>
         </div>
         <div className="journal-header-actions">
-          <button type="button" className="tf-cancel journal-today-btn memory-settings-btn" onClick={e => { e.preventDefault(); e.stopPropagation(); setMemorySettingsOpen(true); }}>Memory Settings</button>
           <button type="button" className="tf-save journal-today-btn" onClick={() => setEditing(new Date(TODAY))}>+ Add Memory</button>
         </div>
       </div>
@@ -2655,7 +2695,33 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {scrapbookBlocks.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Scrapbook Page 🎀</div><div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>{scrapbookBlocks.map((b, idx) => { const type = scrapbookItemType(b); const layout = scrapbookItemLayout(b, idx); const textFitStyle = scrapbookTextFitStyle(b, layout, type); const stickerFlipStyle = scrapbookStickerFlipStyle(b); return <div key={b.id} className={`scrapbook-view-item scrapbook-${type}`} style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}>{(type === "text" || type === "tape") && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}{type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}{type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}</div>; })}</div></div>}
+                {scrapbookBlocks.length > 0 && (
+                  <div className="entry-view-section">
+                    <div className="entry-section-title">Scrapbook Page 🎀</div>
+                    <div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>
+                      {scrapbookBlocks.map((b, idx) => {
+                        const type = scrapbookItemType(b);
+                        const layout = scrapbookItemLayout(b, idx);
+                        const textFitStyle = scrapbookTextFitStyle(b, layout, type);
+                        const stickerFlipStyle = scrapbookStickerFlipStyle(b);
+                        const photo = type === "photo" ? entry.photos.find(p => p.id === b.photoId) : null;
+                        const photoSrc = photo ? memoryPhotoSrc(photo, memoryImageUrls) : "";
+                        return (
+                          <div
+                            key={b.id}
+                            className={`scrapbook-view-item scrapbook-${type}`}
+                            style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}
+                          >
+                            {(type === "text" || type === "tape") && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}
+                            {type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}
+                            {type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}
+                            {type === "photo" && <div className="scrapbook-view-photo">{photoSrc ? <img src={photoSrc} alt={photo?.caption || "Journal photo"} /> : <span className="scrapbook-photo-placeholder">📷 Photo removed</span>}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -3534,7 +3600,6 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fontSize,  setFSRaw]       = useState(() => load(`${uk}_fs`, "md"));
   const [darkMode,  setDMRaw]       = useState(() => load(`${uk}_dm`, false));
-  const tempoLogoSticker = useMemo(() => randomTempoLogoSticker(), []);
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("dark", Boolean(darkMode));
@@ -5924,7 +5989,7 @@ export default function App() {
   if (auth.loading && !auth.user) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark src={tempoLogoSticker} /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -5941,7 +6006,7 @@ export default function App() {
   if (!dataReady || loadedUserId !== auth.user.id) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark src={tempoLogoSticker} /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
     </>
   );
 
@@ -6737,11 +6802,123 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;}
   .today-top3-card .today-empty-sugar{min-height:230px!important;}
 }
+
+/* ── Logo + scrapbook photo support ───────────────────────────────────── */
+.tempo-logo-emoji{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  font-size:22px;
+  line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));
+}
+.chat-fab .tempo-logo-emoji{font-size:28px!important;}
+.login-mascot .tempo-logo-emoji{font-size:30px!important;}
+.scrapbook-toolbar button:disabled{
+  opacity:.48!important;
+  cursor:not-allowed!important;
+  filter:saturate(.65);
+}
+.scrapbook-canvas-item.scrapbook-photo,
+.scrapbook-view-item.scrapbook-photo{
+  background:rgba(255,255,255,.38);
+  border-color:rgba(255,255,255,.76);
+  box-shadow:0 12px 26px rgba(75,45,62,.16);
+  overflow:hidden;
+}
+.scrapbook-canvas-photo,
+.scrapbook-view-photo{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:14px;
+  background:rgba(255,255,255,.54);
+}
+.scrapbook-canvas-photo img,
+.scrapbook-view-photo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  pointer-events:none;
+}
+.scrapbook-photo-placeholder{
+  display:grid;
+  place-items:center;
+  width:100%;
+  height:100%;
+  padding:10px;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  color:var(--text3);
+  background:repeating-linear-gradient(135deg,rgba(var(--accent-rgb),.08) 0 8px,rgba(255,255,255,.42) 8px 16px);
+}
+.scrapbook-photo-controls{
+  margin-top:12px;
+  display:grid;
+  gap:9px;
+}
+.scrapbook-photo-picker-title{
+  font-size:10px;
+  font-family:var(--mono);
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--text3);
+}
+.scrapbook-photo-picker{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(76px,1fr));
+  gap:9px;
+  max-height:220px;
+  overflow-y:auto;
+  padding:2px 2px 6px;
+}
+.scrapbook-photo-picker button{
+  height:76px;
+  border:1.5px solid var(--border);
+  border-radius:16px;
+  background:rgba(255,255,255,.70);
+  padding:4px;
+  cursor:pointer;
+  overflow:hidden;
+  box-shadow:0 6px 14px rgba(var(--accent-rgb),.06);
+}
+.scrapbook-photo-picker button.selected{
+  border-color:var(--accent)!important;
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.14),0 8px 18px rgba(var(--accent-rgb),.10);
+}
+.scrapbook-photo-picker img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:12px;
+  display:block;
+}
+.dark .scrapbook-canvas-item.scrapbook-photo,
+.dark .scrapbook-view-item.scrapbook-photo{
+  background:rgba(44,28,52,.66);
+  border-color:rgba(var(--accent-rgb),.26);
+}
+.dark .scrapbook-canvas-photo,
+.dark .scrapbook-view-photo{
+  background:rgba(255,255,255,.06);
+}
+.dark .scrapbook-photo-picker button{
+  background:var(--dark-field);
+  border-color:rgba(var(--accent-rgb),.28);
+}
+
 `}</style>
 
       <div className="app">
         <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
-          <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark src={tempoLogoSticker} /></div><span>Tempo</span></div>
+          <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark /></div><span>Tempo</span></div>
           <div className="sidebar-date">
             <div className="date-big">{TODAY.getDate()}</div>
             {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
@@ -6963,7 +7140,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
-      <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : <TempoLogoMark src={tempoLogoSticker} />}</button>
+      <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : <TempoLogoMark />}</button>
     </>
   );
 }
