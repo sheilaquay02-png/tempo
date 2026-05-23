@@ -1636,9 +1636,9 @@ export function appCSS(cvars, fontScale) { return `
 .dark input,.dark textarea,.dark select,.dark .modal-input,.dark .modal-select,.dark .settings-input,.dark .journal-input,.dark .chat-input,.dark .tf-input,.dark .theme-swatch-btn,.dark .habit-row,.dark .journal-reflection-tile{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.30)!important;color:var(--text)!important;}
 .dark .modal-footer,.dark .entry-modal-footer,.dark .chat-input-row{background:var(--dark-nav)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
 
-.affirmation-daily-card .affirmation-quote-row{align-items:center!important;justify-content:center!important;text-align:center!important;flex-direction:column!important;gap:10px!important;}
-.affirmation-daily-card .affirmation-quote-row>div{width:100%!important;display:flex!important;justify-content:center!important;}
-.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0 auto!important;text-align:center!important;}
+.affirmation-daily-card .affirmation-quote-row{align-items:center!important;justify-content:center!important;text-align:center!important;flex-direction:row!important;gap:12px!important;}
+.affirmation-daily-card .affirmation-quote-row>div{width:auto!important;max-width:680px!important;display:flex!important;justify-content:center!important;align-items:center!important;}
+.affirmation-daily-card .affirmation-quote-row blockquote{max-width:680px!important;margin:0!important;text-align:center!important;}
 .today-top3-card .today-empty-sugar img{width:150px!important;height:150px!important;max-width:52vw!important;max-height:52vw!important;}
 .today-top3-card .today-empty-sugar{min-height:250px!important;}
 @media(max-width:768px){.sidebar-sync-under-user .sync-pill{display:none!important;}.today-top3-card .today-empty-sugar{min-height:230px!important;}}
