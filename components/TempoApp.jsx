@@ -3246,12 +3246,13 @@ function assistantReplyFromContext(input, ctx) {
 }
 
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
-function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
+function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORIES, assistantContext, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
   const ctx = assistantContext || buildTempoAssistantContext({ events, tasks });
   const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
   const [contextCollapsed, setContextCollapsed] = useState(false);
+  const [assistantBuilder, setAssistantBuilder] = useState(null);
   const bottomRef = useRef(null);
   // Use refs so send() always reads current data without needing it in its closure.
   const eventsRef = useRef(events);
@@ -3294,9 +3295,90 @@ function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, o
     { label: "Find free time", prompt: "When am I free today?" },
     { label: "Check load", prompt: "Is my day too packed?" },
     { label: "Next move", prompt: "What should I do next?" },
+    { label: "Add event", builder: "event" },
+    { label: "Add task", builder: "task" },
     { label: "Reflect", prompt: "Help me reflect today" },
     { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
   ];
+
+  const calendarChoices = normalizeCalendars(calendars).filter(c => c.source !== "google" && c.readOnly !== true);
+  const defaultCalendarId = calendarChoices.find(c => c.id === "personal")?.id || calendarChoices[0]?.id || "personal";
+  const defaultCategoryId = categories.find(c => c.id === "personal")?.id || categories[0]?.id || "personal";
+  const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
+  const durationOptions = [15, 30, 60, 90, 120];
+  const startAssistantBuilder = type => {
+    if (type === "event") setAssistantBuilder({ type, title: "", datePreset: "today", customDate: dateKey(TODAY), startTime: "09:00", duration: 60, calendar: defaultCalendarId, category: categories.find(c => c.id === "meeting")?.id || defaultCategoryId });
+    if (type === "task") setAssistantBuilder({ type, title: "", scope: "day", duration: 30, priority: "medium", category: defaultCategoryId });
+  };
+  const updateAssistantBuilder = patch => setAssistantBuilder(prev => prev ? { ...prev, ...patch } : prev);
+  const assistantBuilderDate = builder => {
+    if (builder?.datePreset === "tomorrow") return addDaysSafe(TODAY, 1);
+    if (builder?.datePreset === "custom" && builder.customDate) return localDateFromKey(builder.customDate);
+    return new Date(TODAY);
+  };
+  const createAssistantEvent = () => {
+    const builder = assistantBuilder;
+    const title = String(builder?.title || "").trim();
+    if (!title) { setMessages(p => [...p, { role: "assistant", text: "What should I call this event? Add a short title first." }]); return; }
+    const baseDate = assistantBuilderDate(builder);
+    const [hh, mm] = String(builder.startTime || "09:00").split(":").map(Number);
+    const start = new Date(baseDate);
+    start.setHours(Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0, 0, 0);
+    const duration = Math.max(15, Math.min(480, Number(builder.duration || 60)));
+    const end = new Date(start.getTime() + duration * 60000);
+    const now = new Date().toISOString();
+    const ev = { id: "e" + uid(), title, start, end, allDay: false, calendar: builder.calendar || defaultCalendarId, category: builder.category || "meeting", fixed: false, color: null, notes: "Created with Tempo Assistant", recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }, source: "tempo", createdAt: now, updatedAt: now };
+    onUpdateEvents([...(eventsRef.current || []), ev]);
+    setAssistantBuilder(null);
+    setMessages(p => [...p, { role: "assistant", text: `Added event: ${title}
+${fmt(start)}–${fmt(end)} on ${fmtDate(start)}.` }]);
+  };
+  const createAssistantTask = () => {
+    const builder = assistantBuilder;
+    const title = String(builder?.title || "").trim();
+    if (!title) { setMessages(p => [...p, { role: "assistant", text: "What task should I add? Add a short task name first." }]); return; }
+    const now = new Date().toISOString();
+    const scope = ["day", "week", "month"].includes(builder.scope) ? builder.scope : "day";
+    const task = withTaskPeriod({ id: "t" + uid(), title, duration: Math.max(5, Math.min(480, Number(builder.duration || 30))), category: builder.category || defaultCategoryId, scope, done: false, deadline: null, priority: builder.priority || "medium", notes: "Created with Tempo Assistant", scheduled: null, createdAt: now, updatedAt: now }, TODAY);
+    onUpdateTasks([...(tasksRef.current || []), task]);
+    setAssistantBuilder(null);
+    setMessages(p => [...p, { role: "assistant", text: `Added task: ${title}
+Placed in ${scope === "day" ? "Today" : scope === "week" ? "This week" : "This month"} with ${builder.priority || "medium"} priority.` }]);
+  };
+  const renderAssistantBuilder = () => {
+    const builder = assistantBuilder;
+    if (!builder) return null;
+    const isEvent = builder.type === "event";
+    return (
+      <div className="assistant-builder-card">
+        <div className="assistant-builder-head">
+          <div><span>{isEvent ? "Create event" : "Create task"}</span><strong>{isEvent ? "Let’s shape the calendar block" : "Let’s shape the task"}</strong></div>
+          <button type="button" onClick={() => setAssistantBuilder(null)}>×</button>
+        </div>
+        <label className="assistant-builder-field"><span>{isEvent ? "What is the event?" : "What is the task?"}</span><input value={builder.title || ""} onChange={e => updateAssistantBuilder({ title: e.target.value })} placeholder={isEvent ? "e.g. Dentist appointment" : "e.g. Prepare slides"} autoFocus /></label>
+        {isEvent ? (
+          <>
+            <div className="assistant-builder-question"><span>When is it?</span><div>{[["today","Today"],["tomorrow","Tomorrow"],["custom","Choose date"]].map(([id,label]) => <button key={id} type="button" className={builder.datePreset === id ? "active" : ""} onClick={() => updateAssistantBuilder({ datePreset: id })}>{label}</button>)}</div></div>
+            {builder.datePreset === "custom" && <label className="assistant-builder-field"><span>Date</span><input type="date" value={builder.customDate || dateKey(TODAY)} onChange={e => updateAssistantBuilder({ customDate: e.target.value })} /></label>}
+            <div className="assistant-builder-question"><span>Start time</span><div>{timeOptions.map(t => <button key={t} type="button" className={builder.startTime === t ? "active" : ""} onClick={() => updateAssistantBuilder({ startTime: t })}>{t}</button>)}</div></div>
+            <label className="assistant-builder-field compact"><span>Custom time</span><input type="time" value={builder.startTime || "09:00"} onChange={e => updateAssistantBuilder({ startTime: e.target.value })} /></label>
+            <div className="assistant-builder-question"><span>How long?</span><div>{durationOptions.slice(1).map(d => <button key={d} type="button" className={Number(builder.duration) === d ? "active" : ""} onClick={() => updateAssistantBuilder({ duration: d })}>{assistantHours(d)}</button>)}</div></div>
+            <div className="assistant-builder-row"><label><span>Calendar</span><select value={builder.calendar || defaultCalendarId} onChange={e => updateAssistantBuilder({ calendar: e.target.value })}>{calendarChoices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label><span>Type</span><select value={builder.category || "meeting"} onChange={e => updateAssistantBuilder({ category: e.target.value })}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon || "•"} {c.label}</option>)}</select></label></div>
+            <button type="button" className="assistant-builder-submit" onClick={createAssistantEvent}>Add event</button>
+          </>
+        ) : (
+          <>
+            <div className="assistant-builder-question"><span>Where should it live?</span><div>{[["day","Today"],["week","This week"],["month","This month"]].map(([id,label]) => <button key={id} type="button" className={builder.scope === id ? "active" : ""} onClick={() => updateAssistantBuilder({ scope: id })}>{label}</button>)}</div></div>
+            <div className="assistant-builder-question"><span>How long will it take?</span><div>{durationOptions.map(d => <button key={d} type="button" className={Number(builder.duration) === d ? "active" : ""} onClick={() => updateAssistantBuilder({ duration: d })}>{assistantHours(d)}</button>)}</div></div>
+            <div className="assistant-builder-question"><span>Priority</span><div>{[["high","High"],["medium","Medium"],["low","Low"]].map(([id,label]) => <button key={id} type="button" className={builder.priority === id ? "active" : ""} onClick={() => updateAssistantBuilder({ priority: id })}>{label}</button>)}</div></div>
+            <label className="assistant-builder-field"><span>Category</span><select value={builder.category || defaultCategoryId} onChange={e => updateAssistantBuilder({ category: e.target.value })}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon || "•"} {c.label}</option>)}</select></label>
+            <button type="button" className="assistant-builder-submit" onClick={createAssistantTask}>Add task</button>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="chat-panel tempo-assistant-panel">
       <div className="chat-header assistant-header">
@@ -3335,8 +3417,10 @@ function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, o
       </div>
 
       <div className="assistant-prompt-bank">
-        {promptGroups.map(item => <button key={item.label} type="button" onClick={() => send(item.prompt)}>{item.label}</button>)}
+        {promptGroups.map(item => <button key={item.label} type="button" className={item.builder ? "assistant-create-chip" : ""} onClick={() => item.builder ? startAssistantBuilder(item.builder) : send(item.prompt)}>{item.label}</button>)}
       </div>
+
+      {renderAssistantBuilder()}
 
       <div className="chat-messages assistant-messages">
         {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
@@ -7813,6 +7897,43 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 }
 .dark .assistant-context-compact span{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
 
+
+
+/* ── Phase 24C-lite Assistant guided creation + compact mobile calendar list ── */
+.assistant-create-chip{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:#fff!important;border-color:transparent!important;box-shadow:0 8px 18px rgba(var(--accent-rgb),.16)!important;}
+.assistant-builder-card{margin:0 12px 10px;padding:12px;border:1.5px solid rgba(var(--accent-rgb),.16);border-radius:22px;background:linear-gradient(135deg,var(--surface),var(--surface-soft));box-shadow:0 14px 34px rgba(var(--accent-rgb),.10);display:grid;gap:10px;flex:0 0 auto;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.assistant-builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.assistant-builder-head span{display:block;font-family:var(--mono);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+.assistant-builder-head strong{display:block;font-size:14px;font-weight:950;color:var(--text);line-height:1.15;}
+.assistant-builder-head button{width:26px;height:26px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-weight:950;cursor:pointer;}
+.assistant-builder-field{display:grid;gap:5px;}
+.assistant-builder-field span,.assistant-builder-question>span,.assistant-builder-row label span{font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);}
+.assistant-builder-field input,.assistant-builder-field select,.assistant-builder-row select{width:100%;border:1.5px solid var(--border);background:var(--bg2);color:var(--text);border-radius:14px;padding:9px 11px;font-family:var(--font);font-size:12px;font-weight:850;outline:none;}
+.assistant-builder-field input:focus,.assistant-builder-field select:focus,.assistant-builder-row select:focus{border-color:var(--accent3);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.10);}
+.assistant-builder-field.compact{grid-template-columns:auto 1fr;align-items:center;gap:8px;}
+.assistant-builder-question{display:grid;gap:6px;}
+.assistant-builder-question>div{display:flex;gap:6px;flex-wrap:wrap;}
+.assistant-builder-question button{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:999px;padding:7px 9px;font-size:11px;font-weight:900;cursor:pointer;}
+.assistant-builder-question button.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;box-shadow:0 8px 18px rgba(var(--accent-rgb),.14);}
+.assistant-builder-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.assistant-builder-row label{display:grid;gap:5px;min-width:0;}
+.assistant-builder-submit{width:100%;border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border-radius:16px;padding:10px 12px;font-size:12px;font-weight:950;cursor:pointer;box-shadow:0 10px 22px rgba(var(--accent-rgb),.18);}
+.dark .assistant-builder-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-builder-field input,.dark .assistant-builder-field select,.dark .assistant-builder-row select,.dark .assistant-builder-question button,.dark .assistant-builder-head button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+@media(max-width:768px){
+  .sidebar{overflow:hidden!important;}
+  .sidebar-nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;padding-bottom:12px!important;}
+  .sidebar-cals{flex:0 0 auto!important;max-height:clamp(96px,18dvh,142px)!important;min-height:76px!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;padding:8px 12px 10px!important;border-top:1px solid var(--border)!important;}
+  .sidebar-cals .cal-label-row{position:sticky;top:0;z-index:2;background:var(--bg2);padding:2px 0 6px;margin-bottom:4px!important;}
+  .sidebar-cals .cal-label{font-size:9px!important;margin-bottom:0!important;}
+  .sidebar-cals .cal-item{margin-bottom:4px!important;font-size:11px!important;min-height:24px!important;}
+  .sidebar-cals .cal-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sidebar-cals .cal-action-btn,.sidebar-cals .cal-visible-btn{transform:scale(.9);transform-origin:center;}
+  .dark .sidebar-cals .cal-label-row{background:var(--dark-panel)!important;}
+  .assistant-builder-card{max-height:34dvh;margin-bottom:8px!important;}
+  .assistant-builder-row{grid-template-columns:1fr;}
+}
+
 `}</style>
 
       <div className="app">
@@ -8028,7 +8149,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
         </div>
       )}
 
-      {chatOpen && <ChatPanel events={events} tasks={tasks} assistantContext={assistantContext} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
+      {chatOpen && <ChatPanel events={events} tasks={tasks} calendars={calendars} categories={categories} assistantContext={assistantContext} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
       <RecurrenceScopeModal />
 
       {/* Mobile bottom nav — visible only on small screens */}
