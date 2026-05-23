@@ -9,7 +9,7 @@ export function appCSS(cvars, fontScale) { return `
   .sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow-y:auto;overflow-x:hidden;min-height:0;}
   .sidebar.closed{width:0;}
   .sidebar-logo{padding:20px;border-bottom:1px solid var(--border);font-size:20px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:8px;}
-  .sidebar-logo .logo-icon{width:32px;height:32px;border-radius:12px;background:rgba(var(--accent-rgb),.12);border:1px solid rgba(var(--accent-rgb),.18);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px;}
+  .sidebar-logo .logo-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:16px;}
   .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
   .sidebar-logo span{color:var(--accent);}
   .sidebar-date{padding:14px 20px;font-family:var(--mono);font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg3);}
@@ -1630,7 +1630,7 @@ export function appCSS(cvars, fontScale) { return `
 
 /* ── Current design/debug hotfixes: stickers, floral contrast, dark surfaces ── */
 .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
-.sidebar-logo .logo-icon,.login-mascot .mascot-icon{overflow:hidden;}
+.sidebar-logo .logo-icon{overflow:hidden;}
 .dark .app,.dark .content,.dark .main-content{background:var(--dark-page)!important;color:var(--text)!important;}
 .dark .sidebar,.dark .mobile-nav,.dark .settings-panel,.dark .settings-modal,.dark .settings-card,.dark .modal,.dark .modal-card,.dark .entry-view-modal,.dark .journal-entry-card,.dark .phase-card,.dark .task-panel,.dark .task-card,.dark .calendar-panel,.dark .calendar-card,.dark .journal-page,.dark .today-card,.dark .memory-panel,.dark .chat-window{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;box-shadow:0 18px 45px rgba(0,0,0,.34)!important;}
 .dark input,.dark textarea,.dark select,.dark .modal-input,.dark .modal-select,.dark .settings-input,.dark .journal-input,.dark .chat-input,.dark .tf-input,.dark .theme-swatch-btn,.dark .habit-row,.dark .journal-reflection-tile{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.30)!important;color:var(--text)!important;}
@@ -1840,24 +1840,7 @@ export function appCSS(cvars, fontScale) { return `
 
 
 /* ── Logo + scrapbook photo support ───────────────────────────────────── */
-.tempo-logo-emoji{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:22px;
-  line-height:1;
-  text-align:center;
-  transform:translate(-0.5px,-1px);
-  transform-origin:center center;
-  filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));
-}
-.sidebar-logo .logo-icon{padding:0!important;}
-.sidebar-logo .tempo-logo-emoji{font-size:20px!important;}
-.login-mascot .mascot-icon{padding:0!important;}
-.login-mascot .tempo-logo-emoji{font-size:28px!important;}
-.chat-fab .tempo-logo-emoji{font-size:28px!important;}
+.tempo-logo-emoji{display:inline;line-height:1;filter:none;}
 .scrapbook-toolbar button:disabled{
   opacity:.48!important;
   cursor:not-allowed!important;
@@ -1956,5 +1939,36 @@ export function appCSS(cvars, fontScale) { return `
   background:var(--dark-field);
   border-color:rgba(var(--accent-rgb),.28);
 }
+
+
+/* Revert logo treatment after sticker-logo experiment */
+.sidebar-logo .logo-icon{
+  width:32px!important;
+  height:32px!important;
+  border-radius:10px!important;
+  background:linear-gradient(135deg,var(--accent),var(--accent2))!important;
+  border:0!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:16px!important;
+  line-height:1!important;
+  overflow:visible!important;
+}
+.login-mascot .mascot-icon{
+  width:auto!important;
+  height:auto!important;
+  border-radius:0!important;
+  background:transparent!important;
+  border:0!important;
+  padding:0!important;
+  display:block!important;
+  place-items:initial!important;
+  overflow:visible!important;
+  font-size:34px!important;
+  line-height:1!important;
+}
+.tempo-logo-emoji{display:inline!important;width:auto!important;height:auto!important;background:transparent!important;border:0!important;filter:none!important;transform:none!important;}
 
 `; }

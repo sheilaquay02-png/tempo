@@ -3,7 +3,7 @@ import * as Core from "../../lib/tempo/core";
 const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
 function LoginLogoSticker() {
-  return <span className="tempo-logo-emoji" role="img" aria-label="Tempo">🌸</span>;
+  return <>🌸</>;
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────

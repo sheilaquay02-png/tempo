@@ -9,8 +9,8 @@ import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 
-function TempoLogoMark({ className = "" }) {
-  return <span className={`tempo-logo-emoji ${className}`.trim()} role="img" aria-label="Tempo">🌸</span>;
+function TempoLogoMark() {
+  return <>🌸</>;
 }
 
 
@@ -6791,7 +6791,6 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .app,.dark .content-area,.dark .main{background:var(--dark-page)!important;}
 
 .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));}
-.login-mascot .mascot-icon{width:52px!important;height:52px!important;border-radius:18px!important;background:rgba(255,255,255,.38)!important;border:1px solid rgba(255,255,255,.55)!important;display:grid!important;place-items:center!important;padding:5px!important;overflow:hidden!important;}
 .chat-fab .tempo-logo-sticker{width:34px!important;height:34px!important;}
 .dark .sidebar,.dark .sidebar-logo,.dark .sidebar-date,.dark .settings-panel,.dark .settings-header,.dark .settings-body,.dark .settings-section,.dark .mobile-nav,.dark .memory-settings-modal,.dark .entry-modal,.dark .entry-view-modal{background:var(--dark-panel)!important;border-color:rgba(var(--accent-rgb),.30)!important;color:var(--text)!important;}
 .dark .theme-swatch-btn,.dark .choice-row,.dark .memory-manager-panel,.dark .manager-group-card,.dark .manager-row,.dark .memory-bg-choice,.dark .sticker-asset-picker-row button,.dark .sticker-preview-chip,.dark .sticker-position-pad,.dark .scrapbook-empty-note,.dark .journal-reflection-tile,.dark .tomorrow-reset-section,.dark .weekly-event-preview span{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;}
@@ -6806,24 +6805,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 }
 
 /* ── Logo + scrapbook photo support ───────────────────────────────────── */
-.tempo-logo-emoji{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:22px;
-  line-height:1;
-  text-align:center;
-  transform:translate(-0.5px,-1px);
-  transform-origin:center center;
-  filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));
-}
-.sidebar-logo .logo-icon{padding:0!important;}
-.sidebar-logo .tempo-logo-emoji{font-size:20px!important;}
-.login-mascot .mascot-icon{padding:0!important;}
-.login-mascot .tempo-logo-emoji{font-size:28px!important;}
-.chat-fab .tempo-logo-emoji{font-size:28px!important;}
+.tempo-logo-emoji{display:inline;line-height:1;filter:none;}
 .scrapbook-toolbar button:disabled{
   opacity:.48!important;
   cursor:not-allowed!important;
@@ -6922,6 +6904,37 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   background:var(--dark-field);
   border-color:rgba(var(--accent-rgb),.28);
 }
+
+
+/* Revert logo treatment after sticker-logo experiment */
+.sidebar-logo .logo-icon{
+  width:32px!important;
+  height:32px!important;
+  border-radius:10px!important;
+  background:linear-gradient(135deg,var(--accent),var(--accent2))!important;
+  border:0!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:16px!important;
+  line-height:1!important;
+  overflow:visible!important;
+}
+.login-mascot .mascot-icon{
+  width:auto!important;
+  height:auto!important;
+  border-radius:0!important;
+  background:transparent!important;
+  border:0!important;
+  padding:0!important;
+  display:block!important;
+  place-items:initial!important;
+  overflow:visible!important;
+  font-size:34px!important;
+  line-height:1!important;
+}
+.tempo-logo-emoji{display:inline!important;width:auto!important;height:auto!important;background:transparent!important;border:0!important;filter:none!important;transform:none!important;}
 
 `}</style>
 
@@ -7212,8 +7225,6 @@ const loginCSS = `
   .mascot-ring-inner{inset:8px;background:linear-gradient(135deg,#FFC0D8,#D8B0FF);opacity:.70;animation:ringPulse 3s ease-in-out infinite .6s;}
   @keyframes ringPulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.08);opacity:.80;}}
   .mascot-icon{position:relative;z-index:1;font-size:34px;filter:drop-shadow(0 4px 10px rgba(255,123,172,.45));animation:mascotBounce 2.4s ease-in-out infinite;}
-  .login-mascot .mascot-icon{width:52px;height:52px;border-radius:18px;background:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.55);display:grid;place-items:center;padding:5px;overflow:hidden;}
-  .tempo-logo-sticker{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 10px rgba(255,123,172,.32));}
   @keyframes mascotBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
   .login-brand{display:flex;align-items:center;gap:8px;}
   .login-logo-text{font-size:28px;font-weight:900;background:linear-gradient(135deg,#FF7BAC 0%,#C060C8 60%,#8080E0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px;}
