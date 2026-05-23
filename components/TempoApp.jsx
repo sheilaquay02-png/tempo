@@ -3251,6 +3251,7 @@ function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, o
   const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
+  const [contextCollapsed, setContextCollapsed] = useState(false);
   const bottomRef = useRef(null);
   // Use refs so send() always reads current data without needing it in its closure.
   const eventsRef = useRef(events);
@@ -3303,20 +3304,34 @@ function ChatPanel({ events, tasks, assistantContext, onClose, onUpdateEvents, o
         <button className="chat-close" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 
-      <div className="assistant-context-card">
+      <div className={`assistant-context-card ${contextCollapsed ? "collapsed" : ""}`}>
         <div className="assistant-context-top">
           <div><span className="assistant-kicker">Today context</span><strong>{ctx.greeting} ✨</strong></div>
-          <button type="button" onClick={onPlanToday}>Plan Today</button>
+          <div className="assistant-context-controls">
+            <button type="button" className="assistant-context-toggle" onClick={() => setContextCollapsed(v => !v)}>{contextCollapsed ? "Show" : "Hide"}</button>
+            <button type="button" onClick={onPlanToday}>Plan Today</button>
+          </div>
         </div>
-        <div className="assistant-context-grid">
-          {contextStats.map(item => <button key={item.label} type="button" onClick={item.action}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></button>)}
-        </div>
-        {ctx.insights.length > 0 && <div className="assistant-insights">{ctx.insights.slice(0, 3).map((x, i) => <span key={i}>• {x}</span>)}</div>}
-        <div className="assistant-action-row">
-          <button type="button" onClick={onOpenCheckIn}>Check in</button>
-          <button type="button" onClick={onOpenJournal}>Journal</button>
-          <button type="button" onClick={onTomorrowReset}>Tomorrow Reset</button>
-        </div>
+        {contextCollapsed ? (
+          <div className="assistant-context-compact">
+            <span>{ctx.events.length} events</span>
+            <span>{ctx.tasks.length} tasks</span>
+            <span>{ctx.freeHoursLabel} free</span>
+            <span>{ctx.habitLabel} habits</span>
+          </div>
+        ) : (
+          <>
+            <div className="assistant-context-grid">
+              {contextStats.map(item => <button key={item.label} type="button" onClick={item.action}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></button>)}
+            </div>
+            {ctx.insights.length > 0 && <div className="assistant-insights">{ctx.insights.slice(0, 3).map((x, i) => <span key={i}>• {x}</span>)}</div>}
+            <div className="assistant-action-row">
+              <button type="button" onClick={onOpenCheckIn}>Check in</button>
+              <button type="button" onClick={onOpenJournal}>Journal</button>
+              <button type="button" onClick={onTomorrowReset}>Tomorrow Reset</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="assistant-prompt-bank">
@@ -7777,6 +7792,26 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .tempo-assistant-panel,.dark .assistant-context-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
 .dark .assistant-context-grid button,.dark .assistant-insights,.dark .assistant-action-row button,.dark .assistant-prompt-bank button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
 @media(max-width:760px){.tempo-assistant-panel{left:10px!important;right:10px!important;width:calc(100vw - 20px)!important;bottom:calc(var(--mobile-nav-h) + 12px)!important;height:min(720px,calc(100dvh - var(--mobile-nav-h) - 28px))!important;border-radius:24px!important}.assistant-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.assistant-context-top{align-items:center}.assistant-context-top button{padding:8px 11px}.assistant-prompt-bank{padding-top:8px}.tempo-assistant-panel .msg-bubble{max-width:88%!important;}}
+
+
+/* ── Phase 24 assistant polish ─────────────────────────────────────────── */
+.assistant-context-card.collapsed{padding-bottom:12px!important;}
+.assistant-context-controls{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
+.assistant-context-controls button{white-space:nowrap;}
+.assistant-context-toggle{background:var(--surface)!important;color:var(--accent)!important;border-color:rgba(var(--accent-rgb),.22)!important;box-shadow:none!important;}
+.assistant-context-compact{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.assistant-context-compact span{border:1px solid rgba(var(--accent-rgb),.14);background:rgba(255,255,255,.58);color:var(--text2);border-radius:999px;padding:5px 8px;font-size:10.5px;font-weight:900;}
+@media(min-width:761px){
+  .assistant-prompt-bank{flex-wrap:wrap!important;overflow:visible!important;scrollbar-width:auto!important;padding:10px 12px 6px!important;max-height:none!important;}
+  .assistant-prompt-bank button{flex:0 0 auto!important;}
+}
+@media(max-width:560px){
+  .today-top3-card .today-task-row{grid-template-columns:auto minmax(0,1fr) auto!important;align-items:flex-start!important;column-gap:8px!important;}
+  .today-top3-card .today-task-row>div{min-width:0!important;grid-column:2!important;}
+  .today-top3-card .today-row-action{grid-column:3!important;grid-row:1!important;align-self:start!important;justify-self:end!important;min-height:30px!important;padding:6px 9px!important;font-size:10px!important;margin-top:0!important;}
+  .today-top3-card .today-task-check{grid-column:1!important;grid-row:1!important;}
+}
+.dark .assistant-context-compact span{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
 
 `}</style>
 

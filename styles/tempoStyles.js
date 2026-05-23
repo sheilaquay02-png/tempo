@@ -2184,4 +2184,24 @@ export function appCSS(cvars, fontScale) { return `
 .dark .assistant-context-grid button,.dark .assistant-insights,.dark .assistant-action-row button,.dark .assistant-prompt-bank button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
 @media(max-width:760px){.tempo-assistant-panel{left:10px!important;right:10px!important;width:calc(100vw - 20px)!important;bottom:calc(var(--mobile-nav-h) + 12px)!important;height:min(720px,calc(100dvh - var(--mobile-nav-h) - 28px))!important;border-radius:24px!important}.assistant-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.assistant-context-top{align-items:center}.assistant-context-top button{padding:8px 11px}.assistant-prompt-bank{padding-top:8px}.tempo-assistant-panel .msg-bubble{max-width:88%!important;}}
 
+
+/* ── Phase 24 assistant polish ─────────────────────────────────────────── */
+.assistant-context-card.collapsed{padding-bottom:12px!important;}
+.assistant-context-controls{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
+.assistant-context-controls button{white-space:nowrap;}
+.assistant-context-toggle{background:var(--surface)!important;color:var(--accent)!important;border-color:rgba(var(--accent-rgb),.22)!important;box-shadow:none!important;}
+.assistant-context-compact{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.assistant-context-compact span{border:1px solid rgba(var(--accent-rgb),.14);background:rgba(255,255,255,.58);color:var(--text2);border-radius:999px;padding:5px 8px;font-size:10.5px;font-weight:900;}
+@media(min-width:761px){
+  .assistant-prompt-bank{flex-wrap:wrap!important;overflow:visible!important;scrollbar-width:auto!important;padding:10px 12px 6px!important;max-height:none!important;}
+  .assistant-prompt-bank button{flex:0 0 auto!important;}
+}
+@media(max-width:560px){
+  .today-top3-card .today-task-row{grid-template-columns:auto minmax(0,1fr) auto!important;align-items:flex-start!important;column-gap:8px!important;}
+  .today-top3-card .today-task-row>div{min-width:0!important;grid-column:2!important;}
+  .today-top3-card .today-row-action{grid-column:3!important;grid-row:1!important;align-self:start!important;justify-self:end!important;min-height:30px!important;padding:6px 9px!important;font-size:10px!important;margin-top:0!important;}
+  .today-top3-card .today-task-check{grid-column:1!important;grid-row:1!important;}
+}
+.dark .assistant-context-compact span{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+
 `; }
