@@ -3231,7 +3231,7 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
   const catFor = id => categories.find(c => c.id === id) || categories.find(c => Core.categoryIs?.(id, c.id)) || { label: "Task", icon: "□", color: "var(--accent)" };
   const todayHabitsAll = normalizeHabits(habits).filter(h => habitRunsOnDate(h, TODAY));
   const todayHabits = todayHabitsAll.slice(0, 4);
-  const completedHabits = todayHabitsAll.filter(h => habitProgress(h, habitCompletions, TODAY).complete).length;
+  const completedHabits = todayHabitsAll.filter(h => habitProgress(h, habitCompletions, TODAY).completed).length;
   const rhythmItems = [
     { label: "Events", value: summary?.events ?? todayEvents.length, action: onOpenCalendar, emoji: "🗓️" },
     { label: "Tasks", value: summary?.tasks ?? todayTasks.length, action: onOpenTasks, emoji: "✅" },
@@ -5428,8 +5428,9 @@ export default function App() {
     return blocks.filter(block => block.end > block.start);
   }
 
-  function freeSlotsForDate(date, extraEvents = [], rulesOverride = null) {
+  function freeSlotsForDate(date, extraEvents = [], rulesOverride = null, options = {}) {
     const safeExtraEvents = Array.isArray(extraEvents) ? extraEvents : [];
+    const clampToNow = options?.clampToNow !== false;
     // getFreeBlocks returns minute offsets, so convert those offsets back into
     // real Date objects before comparing with the current time or durations.
     const rules = rulesOverride ? normalizePlanningRules(rulesOverride) : normalizePlanningRules(planningRules);
@@ -5466,7 +5467,7 @@ export default function App() {
         const blockStart = toDateAtMinute(b.start);
         const blockEnd = toDateAtMinute(b.end);
         const roundedNow = new Date(Math.ceil(now.getTime() / (5 * 60000)) * 5 * 60000);
-        const start = sameDay(date, now) && blockStart < roundedNow ? roundedNow : blockStart;
+        const start = clampToNow && sameDay(date, now) && blockStart < roundedNow ? roundedNow : blockStart;
         return { start, end: blockEnd, minutes: Math.max(0, Math.round((blockEnd - start) / 60000)) };
       })
       .filter(b => b.minutes >= 15);
@@ -6026,7 +6027,7 @@ export default function App() {
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
-  const dayFreeMinutes = freeSlotsForDate(TODAY).reduce((sum, slot) => sum + slot.minutes, 0);
+  const dayFreeMinutes = freeSlotsForDate(TODAY, [], null, { clampToNow: false }).reduce((sum, slot) => sum + slot.minutes, 0);
   const todayDashboardEvents = expandRecurring(events, dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
     .filter(e => !hiddenCals.includes(e.calendar) && eventOccursOnDay(e, TODAY));
   const firstScheduledEvent = todayDashboardEvents
