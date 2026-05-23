@@ -6809,14 +6809,21 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .tempo-logo-emoji{
   width:100%;
   height:100%;
-  display:grid;
-  place-items:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   font-size:22px;
   line-height:1;
+  text-align:center;
+  transform:translate(-0.5px,-1px);
+  transform-origin:center center;
   filter:drop-shadow(0 4px 8px rgba(var(--accent-rgb),.20));
 }
+.sidebar-logo .logo-icon{padding:0!important;}
+.sidebar-logo .tempo-logo-emoji{font-size:20px!important;}
+.login-mascot .mascot-icon{padding:0!important;}
+.login-mascot .tempo-logo-emoji{font-size:28px!important;}
 .chat-fab .tempo-logo-emoji{font-size:28px!important;}
-.login-mascot .tempo-logo-emoji{font-size:30px!important;}
 .scrapbook-toolbar button:disabled{
   opacity:.48!important;
   cursor:not-allowed!important;
