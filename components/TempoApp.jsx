@@ -13,6 +13,14 @@ function TempoLogoMark() {
   return <>🌸</>;
 }
 
+const CALENDAR_COLOR_PRESETS = [
+  "#FF7BAC", "#B08AE0", "#70C8A0", "#A0C8E0", "#FFB870",
+  "#D989A2", "#C060A0", "#7C8FE8", "#5FB8A8", "#F2A65A",
+  "#CB416B", "#8E6AD8"
+];
+
+const cleanCalendarColor = value => /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value).toUpperCase() : "#FF7BAC";
+
 
 const SCRAPBOOK_ITEM_DEFAULTS = {
   text: { x: 10, y: 10, w: 44, h: 18, rotate: 0 },
@@ -3611,6 +3619,99 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, not
   );
 }
 
+
+function CalendarEditModal({ mode = "edit", calendar, calendars = [], onClose, onSave, onDelete }) {
+  const isNew = mode === "add" || !calendar?.id;
+  const isDeleteMode = mode === "delete";
+  const isGoogle = calendar?.source === "google";
+  const initialColor = cleanCalendarColor(calendar?.color || "#FF7BAC");
+  const [name, setName] = useState(calendar?.name || "New Calendar");
+  const [color, setColor] = useState(initialColor);
+  const [confirmDelete, setConfirmDelete] = useState(isDeleteMode);
+
+  const canDelete = !isNew && !isGoogle && calendars.length > 1;
+  const title = isNew ? "Create Calendar" : isDeleteMode ? "Remove Calendar" : "Edit Calendar";
+
+  function submit() {
+    const cleanName = name.trim();
+    if (!isGoogle && !cleanName) return;
+    onSave?.({
+      ...(calendar || {}),
+      name: isGoogle ? (calendar?.name || "Google Calendar") : cleanName,
+      color: cleanCalendarColor(color),
+      source: calendar?.source || "tempo",
+    });
+  }
+
+  return (
+    <div className="modal-overlay calendar-editor-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="calendar-editor-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span>{title}</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="calendar-editor-preview">
+          <span className="calendar-editor-dot" style={{ background: color }} />
+          <div>
+            <strong>{isGoogle ? (calendar?.name || "Google Calendar") : (name.trim() || "New Calendar")}</strong>
+            <small>{isGoogle ? "Google Calendar reference calendar" : "Tempo calendar"}</small>
+          </div>
+        </div>
+
+        <div className="modal-row">
+          <label>Calendar name</label>
+          <input
+            className="modal-input"
+            value={name}
+            disabled={isGoogle}
+            onChange={e => setName(e.target.value)}
+            placeholder="Calendar name"
+          />
+        </div>
+        {isGoogle && <div className="settings-section-desc">Google calendar names are managed in Google Calendar. You can still change the display color inside Tempo.</div>}
+
+        <div className="modal-row calendar-color-row">
+          <label>Color</label>
+          <div className="calendar-color-picker">
+            <div className="calendar-color-presets">
+              {CALENDAR_COLOR_PRESETS.map(preset => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`calendar-color-swatch ${cleanCalendarColor(color) === preset ? "selected" : ""}`}
+                  style={{ background: preset }}
+                  aria-label={`Choose ${preset}`}
+                  onClick={() => setColor(preset)}
+                />
+              ))}
+            </div>
+            <label className="calendar-native-color">
+              <span>Custom color</span>
+              <input type="color" value={cleanCalendarColor(color)} onChange={e => setColor(e.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        {confirmDelete && canDelete && (
+          <div className="calendar-delete-confirm">
+            <strong>Remove “{calendar?.name}”?</strong>
+            <span>Existing events will move to another calendar.</span>
+            <button className="tf-delete" onClick={() => onDelete?.(calendar)}>Yes, remove calendar</button>
+          </div>
+        )}
+
+        <div className="modal-footer">
+          {canDelete && !confirmDelete && <button className="tf-delete" onClick={() => setConfirmDelete(true)}>Remove</button>}
+          <button className="tf-cancel" onClick={onClose}>Cancel</button>
+          {!confirmDelete && <button className="tf-save" onClick={submit}>{isNew ? "Create Calendar" : "Save Calendar"}</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a per-session key stored in sessionStorage
@@ -3657,6 +3758,7 @@ export default function App() {
   const [undoStack, setUndo]        = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [copiedEvent, setCopiedEvent] = useState(null);
+  const [calendarEditor, setCalendarEditor] = useState(null);
   const [toast, setToast] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [scheduleTaskTarget, setScheduleTaskTarget] = useState(null);
@@ -5300,28 +5402,47 @@ export default function App() {
   };
 
   const addCalendar = () => {
-    const name = window.prompt("New calendar name", "New Calendar");
-    if (!name?.trim()) return;
-    const color = window.prompt("Calendar color hex", "#FF7BAC") || "#FF7BAC";
-    const now = new Date().toISOString();
-    const baseId = name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "calendar";
-    let id = baseId, i = 2;
-    while (calendars.some(c => c.id === id)) id = `${baseId}-${i++}`;
-    persistCalendarConfig([...calendars, { id, name: name.trim(), color: /^#[0-9a-f]{6}$/i.test(color) ? color : "#FF7BAC", source: "tempo", account: null, createdAt: now, updatedAt: now }], hiddenCals);
+    setCalendarEditor({ mode: "add", calendar: { name: "New Calendar", color: "#FF7BAC", source: "tempo", account: null } });
   };
 
   const editCalendar = cal => {
-    const name = window.prompt("Calendar name", cal.name);
-    if (name === null) return;
-    const color = window.prompt("Calendar color hex", cal.color || "#FF7BAC");
-    if (color === null) return;
+    setCalendarEditor({ mode: "edit", calendar: cal });
+  };
+
+  const requestRemoveCalendar = cal => {
+    if (cal.source === "google") {
+      setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() });
+      return;
+    }
+    setCalendarEditor({ mode: "delete", calendar: cal });
+  };
+
+  const saveCalendarFromModal = cal => {
     const now = new Date().toISOString();
-    persistCalendarConfig(calendars.map(c => c.id === cal.id ? { ...c, name: name.trim() || c.name, color: /^#[0-9a-f]{6}$/i.test(color) ? color : c.color, updatedAt: now } : c), hiddenCals);
+    if (!cal?.id) {
+      const name = String(cal?.name || "New Calendar").trim() || "New Calendar";
+      const baseId = name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "calendar";
+      let id = baseId, i = 2;
+      while (calendars.some(c => c.id === id)) id = `${baseId}-${i++}`;
+      persistCalendarConfig([...calendars, { id, name, color: cleanCalendarColor(cal?.color), source: "tempo", account: null, readOnly: false, visible: true, syncEnabled: true, createdAt: now, updatedAt: now }], hiddenCals);
+    } else {
+      persistCalendarConfig(calendars.map(c => {
+        if (c.id !== cal.id) return c;
+        const isGoogle = c.source === "google";
+        return {
+          ...c,
+          name: isGoogle ? c.name : (String(cal.name || "").trim() || c.name),
+          color: cleanCalendarColor(cal.color || c.color),
+          updatedAt: now,
+        };
+      }), hiddenCals);
+    }
+    setCalendarEditor(null);
   };
 
   const removeCalendar = cal => {
+    if (cal.source === "google") { setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() }); return; }
     if (calendars.length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
-    if (!window.confirm(`Remove calendar "${cal.name}"? Existing events will move to another calendar.`)) return;
     const timestamp = new Date().toISOString();
     const remaining = calendars.filter(c => c.id !== cal.id);
     const fallback = remaining[0]?.id || "personal";
@@ -5334,6 +5455,7 @@ export default function App() {
     save(`${uk}_deleted_records`, nextDeletedRecords);
     save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
     persistCalendarConfig(remaining, nextHidden, nextEvents, { deletedRecords: nextDeletedRecords, settingsUpdatedAt: nextSettingsUpdatedAt });
+    setCalendarEditor(null);
   };
   const setJournal   = v => {
     const n = typeof v === "function" ? v(journal) : v;
@@ -7137,6 +7259,125 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .google-sync-actions button{width:100%;}
 }
 
+
+/* ── Calendar editor modal + color selector ────────────────────────────── */
+.calendar-editor-overlay{z-index:2200!important;}
+.calendar-editor-modal{
+  width:min(440px,calc(100vw - 32px));
+  max-height:90vh;
+  overflow:auto;
+  border:1.5px solid var(--border);
+  border-radius:28px;
+  background:linear-gradient(180deg,var(--surface),var(--surface-warm));
+  box-shadow:0 26px 70px rgba(var(--accent-rgb),.18);
+  padding:18px;
+}
+.calendar-editor-preview{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:var(--bg3);
+  margin:10px 0 14px;
+}
+.calendar-editor-dot{
+  width:28px;
+  height:28px;
+  border-radius:10px;
+  box-shadow:0 0 0 4px rgba(var(--accent-rgb),.08),0 8px 18px rgba(0,0,0,.08);
+  flex:0 0 auto;
+}
+.calendar-editor-preview strong{
+  display:block;
+  color:var(--text);
+  font-size:15px;
+  font-weight:950;
+  line-height:1.15;
+}
+.calendar-editor-preview small{
+  display:block;
+  color:var(--text3);
+  font-size:11px;
+  font-weight:850;
+  margin-top:3px;
+}
+.calendar-color-row{align-items:flex-start!important;}
+.calendar-color-picker{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  width:100%;
+}
+.calendar-color-presets{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:8px;
+}
+.calendar-color-swatch{
+  width:100%;
+  aspect-ratio:1;
+  min-height:34px;
+  border:2px solid rgba(255,255,255,.76);
+  border-radius:13px;
+  cursor:pointer;
+  box-shadow:0 7px 16px rgba(0,0,0,.08);
+  position:relative;
+}
+.calendar-color-swatch.selected{
+  outline:3px solid rgba(var(--accent-rgb),.22);
+  border-color:var(--accent);
+}
+.calendar-color-swatch.selected:after{
+  content:"✓";
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-weight:950;
+  text-shadow:0 1px 5px rgba(0,0,0,.35);
+}
+.calendar-native-color{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:var(--bg3);
+  color:var(--text2);
+  font-size:12px;
+  font-weight:900;
+}
+.calendar-native-color input{
+  width:46px;
+  height:34px;
+  padding:0;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+}
+.calendar-delete-confirm{
+  display:grid;
+  gap:7px;
+  margin-top:14px;
+  padding:12px;
+  border:1.5px solid rgba(185,77,106,.26);
+  border-radius:18px;
+  background:rgba(185,77,106,.08);
+}
+.calendar-delete-confirm strong{font-size:13px;color:var(--text);font-weight:950;}
+.calendar-delete-confirm span{font-size:12px;color:var(--text2);font-weight:800;}
+.dark .calendar-editor-modal{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
+.dark .calendar-editor-preview,.dark .calendar-native-color{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
+@media(max-width:560px){
+  .calendar-editor-modal{width:calc(100vw - 22px);padding:14px;border-radius:24px;}
+  .calendar-color-presets{grid-template-columns:repeat(4,minmax(0,1fr));}
+}
+
 `}</style>
 
       <div className="app">
@@ -7182,7 +7423,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
                   </button>
                   <span className="cal-name" onClick={() => toggleCalVisibility(c.id)}>{c.id === "work" && !c.name ? (auth.user?.email ?? c.name) : c.name}</span>
                   <button type="button" className="cal-action-btn" onClick={() => editCalendar(c)} title="Rename/edit calendar">✎</button>
-                  <button type="button" className="cal-action-btn" onClick={() => removeCalendar(c)} title="Remove calendar">×</button>
+                  {c.source !== "google" && <button type="button" className="cal-action-btn" onClick={() => requestRemoveCalendar(c)} title="Remove calendar">×</button>}
                 </div>
               );
             })}
@@ -7315,6 +7556,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
       {showSearch && <SearchModal events={expandedEvents} tasks={tasks} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} />}
+      {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={calendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       <EventConflictModal />
       <RecurringTaskScopeModal />
