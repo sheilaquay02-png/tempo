@@ -58,16 +58,19 @@ function scrapbookItemLayout(item = {}, index = 0) {
   const type = scrapbookItemType(item) || "tape";
   const fallback = JOURNAL_DECORATION_DEFAULTS[type] || JOURNAL_DECORATION_DEFAULTS.tape;
   const stagger = (index % 6) * 5;
-  const x = scrapbookClamp(scrapbookNumber(item.x, fallback.x + stagger), 0, 98);
-  const y = scrapbookClamp(scrapbookNumber(item.y, fallback.y + stagger), 0, 98);
-  const w = scrapbookClamp(scrapbookNumber(item.w, fallback.w), type === "sticker" ? 8 : 18, 96);
-  const h = scrapbookClamp(scrapbookNumber(item.h, fallback.h), type === "sticker" ? 8 : 8, 60);
+  const minX = -12;
+  const minY = -8;
+  const maxEdge = 112;
+  const w = scrapbookClamp(scrapbookNumber(item.w, fallback.w), type === "sticker" ? 8 : 16, 110);
+  const h = scrapbookClamp(scrapbookNumber(item.h, fallback.h), type === "sticker" ? 8 : 8, 82);
+  const x = scrapbookClamp(scrapbookNumber(item.x, fallback.x + stagger), minX, maxEdge);
+  const y = scrapbookClamp(scrapbookNumber(item.y, fallback.y + stagger), minY, maxEdge);
   return {
-    x: scrapbookClamp(x, 0, Math.max(0, 100 - Math.min(w, 96))),
-    y: scrapbookClamp(y, 0, Math.max(0, 100 - Math.min(h, 60))),
+    x: scrapbookClamp(x, minX, Math.max(minX, maxEdge - Math.min(w, 110))),
+    y: scrapbookClamp(y, minY, Math.max(minY, maxEdge - Math.min(h, 82))),
     w,
     h,
-    rotate: scrapbookClamp(scrapbookNumber(item.rotate, fallback.rotate || 0), -28, 28),
+    rotate: scrapbookClamp(scrapbookNumber(item.rotate, fallback.rotate || 0), -180, 180),
     z: scrapbookNumber(item.z, index + 1),
   };
 }
@@ -127,11 +130,17 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
 function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false }) {
   const decorationCanvasRef = useRef(null);
   const decorationDragRef = useRef(null);
+  const lastTapRef = useRef({ id: null, at: 0 });
+  const [quickMenuBlockId, setQuickMenuBlockId] = useState(null);
   const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
   const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
   const canEdit = Boolean(editing && setBlocks && setSelectedBlockId);
 
-  function updateDecoration(id, patch) {
+  useEffect(() => {
+    if (!selectedBlockId) setQuickMenuBlockId(null);
+  }, [selectedBlockId]);
+
+  function patchDecoration(id, patch) {
     if (!canEdit) return;
     setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b));
   }
@@ -145,17 +154,80 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
       const charsPerLine = Math.max(10, Math.floor(layout.w * 1.35));
       const estimatedLines = cleanText.split(/\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil((line.length || 1) / charsPerLine)), 0);
       const neededH = 10 + estimatedLines * 4.2;
-      const nextH = scrapbookClamp(Math.max(layout.h, neededH), 8, 60);
-      return { ...b, type, text: cleanText, h: nextH, y: scrapbookClamp(layout.y, 0, 100 - nextH) };
+      const nextH = scrapbookClamp(Math.max(layout.h, neededH), 8, 82);
+      return { ...b, type, text: cleanText, h: nextH, y: scrapbookClamp(layout.y, -8, 112 - nextH) };
     }));
+  }
+  function layerDecoration(id, dir) {
+    if (!canEdit) return;
+    setBlocks(bs => {
+      const current = normalizeScrapbookBlocksForSave(bs);
+      const zValues = current.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1);
+      const currentMax = Math.max(1, ...zValues);
+      const currentMin = Math.min(1, ...zValues);
+      return bs.map((b, idx) => {
+        if (b.id !== id) return b;
+        const layout = scrapbookItemLayout(b, idx);
+        return { ...b, z: dir > 0 ? currentMax + 1 : currentMin - 1 };
+      });
+    });
+  }
+  function duplicateDecoration(id) {
+    if (!canEdit) return;
+    const sourceIndex = normalizedBlocks.findIndex(b => b.id === id);
+    if (sourceIndex < 0) return;
+    const source = normalizedBlocks[sourceIndex];
+    const layout = scrapbookItemLayout(source, sourceIndex);
+    const copy = {
+      ...source,
+      id: `b${uid()}`,
+      x: scrapbookClamp(layout.x + 4, -12, 104),
+      y: scrapbookClamp(layout.y + 4, -8, 104),
+      z: Math.max(1, ...normalizedBlocks.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1)) + 1,
+    };
+    setBlocks(bs => [...bs, copy]);
+    setSelectedBlockId(copy.id);
+    setQuickMenuBlockId(copy.id);
+  }
+  function removeDecoration(id) {
+    if (!canEdit) return;
+    setBlocks(bs => bs.filter(b => b.id !== id));
+    setSelectedBlockId(current => current === id ? null : current);
+    setQuickMenuBlockId(null);
+  }
+  function toggleFlip(id, axis) {
+    if (!canEdit) return;
+    const source = normalizedBlocks.find(b => b.id === id);
+    const key = axis === "y" ? "flipY" : "flipX";
+    patchDecoration(id, { [key]: !Boolean(source?.[key]) });
   }
   function beginDecorationPointer(blockId, mode, layout, e) {
     if (!canEdit) return;
+    if (e.target?.closest?.("textarea,button")) return;
     e.preventDefault();
     e.stopPropagation();
     setSelectedBlockId(blockId);
+    if (mode === "move") {
+      const now = Date.now();
+      const last = lastTapRef.current;
+      if (last.id === blockId && now - last.at < 360) {
+        setQuickMenuBlockId(blockId);
+        lastTapRef.current = { id: null, at: 0 };
+      } else {
+        setQuickMenuBlockId(null);
+        lastTapRef.current = { id: blockId, at: now };
+      }
+    } else {
+      setQuickMenuBlockId(null);
+    }
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    decorationDragRef.current = { blockId, mode, layout, startX: e.clientX, startY: e.clientY };
+    const board = decorationCanvasRef.current;
+    const rect = board?.getBoundingClientRect?.();
+    const cx = rect ? rect.left + ((layout.x + layout.w / 2) / 100) * rect.width : e.clientX;
+    const cy = rect ? rect.top + ((layout.y + layout.h / 2) / 100) * rect.height : e.clientY;
+    const startDistance = Math.max(12, Math.hypot(e.clientX - cx, e.clientY - cy));
+    const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+    decorationDragRef.current = { blockId, mode, layout, startX: e.clientX, startY: e.clientY, centerX: cx, centerY: cy, startDistance, startAngle, moved: false };
   }
   function moveDecorationPointer(e) {
     const drag = decorationDragRef.current;
@@ -163,21 +235,49 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     if (!canEdit || !drag || !board) return;
     e.preventDefault();
     const rect = board.getBoundingClientRect();
-    const dx = ((e.clientX - drag.startX) / Math.max(1, rect.width)) * 100;
-    const dy = ((e.clientY - drag.startY) / Math.max(1, rect.height)) * 100;
-    if (drag.mode === "resize") {
-      updateDecoration(drag.blockId, {
-        w: scrapbookClamp(Math.round((drag.layout.w + dx) * 10) / 10, 8, 96),
-        h: scrapbookClamp(Math.round((drag.layout.h + dy) * 10) / 10, 8, 60),
+    const dxPx = e.clientX - drag.startX;
+    const dyPx = e.clientY - drag.startY;
+    if (Math.hypot(dxPx, dyPx) > 3) drag.moved = true;
+    if (drag.mode === "transform") {
+      const distance = Math.max(12, Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY));
+      const ratio = scrapbookClamp(distance / Math.max(12, drag.startDistance), .35, 3.2);
+      const angle = Math.atan2(e.clientY - drag.centerY, e.clientX - drag.centerX);
+      const rotate = scrapbookClamp(drag.layout.rotate + ((angle - drag.startAngle) * 180 / Math.PI), -180, 180);
+      const nextW = scrapbookClamp(Math.round((drag.layout.w * ratio) * 10) / 10, 8, 110);
+      const nextH = scrapbookClamp(Math.round((drag.layout.h * ratio) * 10) / 10, 8, 82);
+      const centerXPct = drag.layout.x + drag.layout.w / 2;
+      const centerYPct = drag.layout.y + drag.layout.h / 2;
+      patchDecoration(drag.blockId, {
+        w: nextW,
+        h: nextH,
+        x: scrapbookClamp(Math.round((centerXPct - nextW / 2) * 10) / 10, -12, 112 - nextW),
+        y: scrapbookClamp(Math.round((centerYPct - nextH / 2) * 10) / 10, -8, 112 - nextH),
+        rotate: Math.round(rotate * 10) / 10,
       });
     } else {
-      updateDecoration(drag.blockId, {
-        x: scrapbookClamp(Math.round((drag.layout.x + dx) * 10) / 10, 0, 100 - drag.layout.w),
-        y: scrapbookClamp(Math.round((drag.layout.y + dy) * 10) / 10, 0, 100 - drag.layout.h),
+      const dx = (dxPx / Math.max(1, rect.width)) * 100;
+      const dy = (dyPx / Math.max(1, rect.height)) * 100;
+      patchDecoration(drag.blockId, {
+        x: scrapbookClamp(Math.round((drag.layout.x + dx) * 10) / 10, -12, 112 - drag.layout.w),
+        y: scrapbookClamp(Math.round((drag.layout.y + dy) * 10) / 10, -8, 112 - drag.layout.h),
       });
     }
   }
   function endDecorationPointer() { decorationDragRef.current = null; }
+  function handleDecorationClick(blockId, e) {
+    if (!canEdit) return;
+    e.stopPropagation();
+    setSelectedBlockId(blockId);
+    const now = Date.now();
+    const last = lastTapRef.current;
+    if (e.detail >= 2 || (last.id === blockId && now - last.at < 360)) {
+      setQuickMenuBlockId(blockId);
+      lastTapRef.current = { id: null, at: 0 };
+    } else {
+      setQuickMenuBlockId(current => current === blockId ? current : null);
+      lastTapRef.current = { id: blockId, at: now };
+    }
+  }
 
   if (!normalizedBlocks.length && !canEdit) return null;
   return (
@@ -186,50 +286,56 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
       className={`journal-decoration-layer journal-view-decoration-layer ${canEdit ? "journal-decoration-editing" : ""}`}
       aria-hidden={!canEdit}
       onPointerLeave={endDecorationPointer}
+      onPointerMove={canEdit ? moveDecorationPointer : undefined}
+      onPointerUp={canEdit ? endDecorationPointer : undefined}
+      onPointerCancel={canEdit ? endDecorationPointer : undefined}
+      onClick={canEdit ? () => setQuickMenuBlockId(null) : undefined}
     >
       {normalizedBlocks.map((b, idx) => {
         const type = scrapbookItemType(b);
         if (!type) return null;
         const layout = scrapbookItemLayout(b, idx);
         const selected = selectedBlock?.id === b.id;
+        const quickOpen = canEdit && quickMenuBlockId === b.id;
         const textFitStyle = scrapbookTextFitStyle(b, layout, type);
-        const stickerFlipStyle = scrapbookStickerFlipStyle(b);
-        const style = { left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z };
+        const flipStyle = scrapbookStickerFlipStyle(b);
+        const style = { left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:(layout.z || idx + 1) + (selected && canEdit ? 300 : 0), "--decoration-rotate": `${layout.rotate}deg` };
         return (
           <div
             key={b.id}
-            className={`scrapbook-view-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""}`}
+            className={`scrapbook-view-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""} ${canEdit ? "story-editable" : ""}`}
             style={style}
-            onPointerMove={canEdit ? moveDecorationPointer : undefined}
-            onPointerUp={canEdit ? endDecorationPointer : undefined}
-            onPointerCancel={canEdit ? endDecorationPointer : undefined}
-            onClick={canEdit ? e => { e.stopPropagation(); setSelectedBlockId(b.id); } : undefined}
+            onPointerDown={canEdit ? e => beginDecorationPointer(b.id, "move", layout, e) : undefined}
+            onClick={canEdit ? e => handleDecorationClick(b.id, e) : undefined}
+            onDoubleClick={canEdit ? e => { e.stopPropagation(); setSelectedBlockId(b.id); setQuickMenuBlockId(b.id); } : undefined}
           >
-            {canEdit && (
-              <button
-                type="button"
-                className="scrapbook-drag-handle"
-                title="Drag decoration"
-                onPointerDown={e => beginDecorationPointer(b.id, "move", layout, e)}
-              >⋮⋮</button>
+            {quickOpen && (
+              <div className="decoration-quick-menu" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                <button type="button" onClick={() => toggleFlip(b.id, "x")}>Flip H</button>
+                <button type="button" onClick={() => toggleFlip(b.id, "y")}>Flip V</button>
+                <button type="button" onClick={() => layerDecoration(b.id, 1)}>Front</button>
+                <button type="button" onClick={() => layerDecoration(b.id, -1)}>Back</button>
+                <button type="button" onClick={() => duplicateDecoration(b.id)}>Copy</button>
+                <button type="button" className="danger" onClick={() => removeDecoration(b.id)}>Delete</button>
+              </div>
             )}
             {type === "tape" && (canEdit ? (
               <textarea
                 className="scrapbook-canvas-textarea"
                 placeholder="Type on tape…"
                 value={b.text || ""}
-                style={textFitStyle}
+                style={{ ...textFitStyle, ...flipStyle }}
                 onChange={e => updateDecorationText(b.id, e.target.value)}
                 onFocus={() => setSelectedBlockId(b.id)}
                 onPointerDown={e => e.stopPropagation()}
               />
-            ) : <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>)}
+            ) : <div className="scrapbook-view-text" style={{ ...textFitStyle, ...flipStyle }}>{b.text}</div>)}
             {type === "sticker" && (
-              <div className={canEdit ? "scrapbook-canvas-sticker" : "scrapbook-view-sticker"} style={stickerFlipStyle}>
+              <div className={canEdit ? "scrapbook-canvas-sticker" : "scrapbook-view-sticker"} style={flipStyle}>
                 {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}
               </div>
             )}
-            {canEdit && <span className="scrapbook-resize-handle" title="Resize" onPointerDown={e => beginDecorationPointer(b.id, "resize", layout, e)} />}
+            {canEdit && selected && <span className="story-transform-handle" title="Drag to resize and rotate" onPointerDown={e => beginDecorationPointer(b.id, "transform", layout, e)} />}
           </div>
         );
       })}
@@ -240,7 +346,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
 function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, onSave, onCancel, saving = false }) {
   const stickerPacks = Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }];
   const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
-  const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || normalizedBlocks[0] || null;
+  const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
   const [activeStickerPackId, setActiveStickerPackId] = useState(stickerPacks.find(p => p.id === "sugar")?.id || stickerPacks[0]?.id || "cozy");
 
   useEffect(() => {
@@ -249,17 +355,13 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     if (pack && pack.id !== activeStickerPackId) setActiveStickerPackId(pack.id);
   }, [selectedBlock?.id, selectedBlock?.stickerAsset]);
 
-  function addDecoration(type) {
+  function addDecoration(type, sticker) {
     const nextItem = makeScrapbookItem(type === "tape" ? "tape" : "sticker", normalizedBlocks.length);
-    setBlocks(bs => [...normalizeScrapbookBlocksForSave(bs), nextItem]);
-    setSelectedBlockId(nextItem.id);
+    const item = sticker ? { ...nextItem, stickerAsset: sticker.src, sticker: sticker.label } : nextItem;
+    setBlocks(bs => [...normalizeScrapbookBlocksForSave(bs), item]);
+    setSelectedBlockId(item.id);
   }
   function updateDecoration(id, patch) { setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
-  function updateDecorationLayout(id, key, value) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return;
-    updateDecoration(id, { [key]: n });
-  }
   function removeDecoration(id) {
     setBlocks(bs => bs.filter(b => b.id !== id));
     setSelectedBlockId(current => current === id ? null : current);
@@ -272,8 +374,8 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     const copy = {
       ...source,
       id: `b${uid()}`,
-      x: scrapbookClamp(layout.x + 4, 0, 92),
-      y: scrapbookClamp(layout.y + 4, 0, 92),
+      x: scrapbookClamp(layout.x + 4, -12, 104),
+      y: scrapbookClamp(layout.y + 4, -8, 104),
       z: Math.max(1, ...normalizedBlocks.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1)) + 1,
     };
     setBlocks(bs => [...bs, copy]);
@@ -292,16 +394,16 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
       });
     });
   }
-  function toggleStickerFlip(id, axis) {
-    const key = axis === "y" ? "flipY" : "flipX";
-    updateDecoration(id, { [key]: !Boolean(selectedBlock?.[key]) });
+  function pickSticker(sticker) {
+    if (selectedBlock && scrapbookItemType(selectedBlock) === "sticker") updateDecoration(selectedBlock.id, { stickerAsset: sticker.src, sticker: sticker.label });
+    else addDecoration("sticker", sticker);
   }
-  function renderStickerPackPicker(selectedSrc, onPick) {
+  function renderStickerPackPicker() {
     const activePack = stickerPacks.find(pack => pack.id === activeStickerPackId) || stickerPacks[0];
     const activeStickers = activePack?.stickers || [];
     return (
-      <div className="sticker-pack-browser">
-        <div className="sticker-pack-tabs" role="tablist" aria-label="Sticker packs">
+      <div className="sticker-pack-browser story-sticker-browser">
+        <div className="sticker-pack-tabs story-pack-tabs" role="tablist" aria-label="Sticker packs">
           {stickerPacks.map(pack => {
             const icon = pack.stickers?.[0];
             return (
@@ -313,9 +415,9 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
           })}
         </div>
         <div className="sticker-pack-active-title">{activePack?.label || "Stickers"}</div>
-        <div className="sticker-asset-picker-row compact">
+        <div className="sticker-asset-picker-row compact story-sticker-row" aria-label="Choose a sticker">
           {activeStickers.map(st => (
-            <button key={st.id} type="button" className={selectedSrc === st.src ? "selected" : ""} title={st.label} onClick={() => onPick(st)}>
+            <button key={st.id} type="button" className={selectedBlock?.stickerAsset === st.src ? "selected" : ""} title={st.label} onClick={() => pickSticker(st)}>
               <img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} />
               <span className="sticker-choice-label">{st.number || st.label}</span>
             </button>
@@ -326,55 +428,38 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   }
 
   const selectedType = scrapbookItemType(selectedBlock);
-  const selectedLayout = selectedBlock ? scrapbookItemLayout(selectedBlock, normalizedBlocks.findIndex(b => b.id === selectedBlock.id)) : null;
 
   return (
-    <div className="journal-decoration-editor-panel">
-      <div className="journal-decoration-editor-head">
+    <aside className="journal-decoration-editor-panel journal-decoration-tool-card">
+      <div className="journal-decoration-editor-head story-tool-head">
         <div>
-          <strong>Decorate this memory 🎀</strong>
-          <span>Place tape and stickers directly on the saved journal entry view.</span>
+          <strong>Decorate 🎀</strong>
+          <span>Drag decorations on the memory. Use the corner handle to resize and rotate.</span>
         </div>
         <div className="journal-decoration-editor-actions">
           <button type="button" className="tf-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save decorations ✓"}</button>
+          <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save ✓"}</button>
         </div>
       </div>
-      <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar">
+      <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar story-add-row">
         <button type="button" onClick={() => addDecoration("tape")}>+ Tape</button>
         <button type="button" onClick={() => addDecoration("sticker")}>+ Sticker</button>
       </div>
-      {selectedBlock && selectedLayout ? (
-        <div className="scrapbook-selected-panel journal-decoration-selected-panel">
-          <div className="scrapbook-selected-head">
-            <strong>{scrapbookItemLabel(selectedType)}</strong>
-            <div>
-              <button type="button" onClick={() => nudgeLayer(selectedBlock.id, 1)}>Bring front</button>
-              <button type="button" onClick={() => nudgeLayer(selectedBlock.id, -1)}>Send back</button>
-              <button type="button" onClick={() => duplicateDecoration(selectedBlock.id)}>Duplicate</button>
-              <button type="button" onClick={() => removeDecoration(selectedBlock.id)}>Remove</button>
-            </div>
+      <div className="story-tool-tip">Tap to select. Double-tap a sticker or tape to flip, copy, delete, or adjust layers.</div>
+      {selectedBlock ? (
+        <div className="story-selected-strip">
+          <strong>{scrapbookItemLabel(selectedType)} selected</strong>
+          <div>
+            <button type="button" onClick={() => nudgeLayer(selectedBlock.id, 1)}>Front</button>
+            <button type="button" onClick={() => nudgeLayer(selectedBlock.id, -1)}>Back</button>
+            <button type="button" onClick={() => duplicateDecoration(selectedBlock.id)}>Copy</button>
+            <button type="button" className="danger" onClick={() => removeDecoration(selectedBlock.id)}>Delete</button>
           </div>
-          <div className="scrapbook-control-grid">
-            <label>X <input type="range" min="0" max="98" value={selectedLayout.x} onChange={e => updateDecorationLayout(selectedBlock.id, "x", e.target.value)} /></label>
-            <label>Y <input type="range" min="0" max="98" value={selectedLayout.y} onChange={e => updateDecorationLayout(selectedBlock.id, "y", e.target.value)} /></label>
-            <label>Width <input type="range" min={selectedType === "sticker" ? "8" : "18"} max="96" value={selectedLayout.w} onChange={e => updateDecorationLayout(selectedBlock.id, "w", e.target.value)} /></label>
-            <label>Height <input type="range" min="8" max="60" value={selectedLayout.h} onChange={e => updateDecorationLayout(selectedBlock.id, "h", e.target.value)} /></label>
-            <label>Rotate <input type="range" min="-28" max="28" value={selectedLayout.rotate} onChange={e => updateDecorationLayout(selectedBlock.id, "rotate", e.target.value)} /></label>
-          </div>
-          {selectedType === "sticker" && (
-            <div className="scrapbook-sticker-controls">
-              <div className="scrapbook-flip-row" aria-label="Sticker flip controls">
-                <button type="button" className={selectedBlock.flipX ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "x")}>Flip horizontal</button>
-                <button type="button" className={selectedBlock.flipY ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "y")}>Flip vertical</button>
-              </div>
-              {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateDecoration(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
-            </div>
-          )}
-          {selectedType === "tape" && <div className="journal-decoration-note">Type directly on the tape in the journal entry view.</div>}
         </div>
-      ) : <div className="scrapbook-empty-note">Add a tape note or sticker, then drag it anywhere around the saved memory.</div>}
-    </div>
+      ) : <div className="scrapbook-empty-note story-empty-note">Add tape or choose a sticker to start decorating.</div>}
+      {selectedType === "tape" && <div className="journal-decoration-note">Type directly on the tape on the memory card.</div>}
+      {renderStickerPackPicker()}
+    </aside>
   );
 }
 
@@ -7841,7 +7926,134 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
               {view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
                 const mon = new Date(viewDate); mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
                 const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-                return `${formatWithDisplayTimezone(mon,{month:"short",day:"numeric"})} – ${formatWithDisplayTimezone(sun,{month:"short",day:"numeric"})}`;
+                return `${formatWithDisplayTimezone(mon,{month:"short",day:"numeric"})} – ${formatWithDisplayTimezone(sun,{month:"short",day:"numeric"})}
+
+/* ── Journal story-style decorator layout ───────────────────────────── */
+.entry-view-modal.decorating{
+  width:min(1120px,calc(100vw - 36px))!important;
+  max-width:calc(100vw - 36px)!important;
+  height:min(88vh,820px)!important;
+  max-height:calc(100dvh - 36px)!important;
+  display:grid!important;
+  grid-template-columns:minmax(430px,560px) minmax(320px,380px)!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+  gap:18px!important;
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  animation:popIn .22s cubic-bezier(.34,1.56,.64,1);
+}
+.entry-view-modal.decorating .entry-modal-header{
+  grid-column:1!important;grid-row:1!important;
+  border:1.5px solid var(--border)!important;
+  border-bottom:0!important;
+  border-radius:28px 28px 0 0!important;
+  background:linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,246,250,.66)),var(--memory-bg-image,linear-gradient(180deg,var(--bg3),var(--bg2)))!important;
+  background-size:cover!important;background-position:center!important;
+  box-shadow:0 10px 28px rgba(80,44,64,.10)!important;
+  overflow:hidden!important;
+}
+.entry-view-modal.decorating .entry-view-body{
+  grid-column:1!important;grid-row:2!important;
+  min-height:0!important;height:auto!important;
+  border:1.5px solid var(--border)!important;
+  border-top:0!important;
+  border-radius:0 0 28px 28px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,.22)),var(--memory-bg-image,linear-gradient(180deg,var(--bg2),var(--bg3)))!important;
+  background-size:cover!important;background-position:center!important;
+  box-shadow:0 24px 64px rgba(80,44,64,.16)!important;
+  overflow-y:auto!important;overflow-x:visible!important;
+  padding-bottom:22px!important;
+}
+.entry-view-modal.decorating .journal-decoration-layer{
+  inset:0 calc(380px + 18px) 0 0!important;
+  z-index:35!important;
+}
+.entry-view-modal.decorating .journal-decoration-tool-card{
+  grid-column:2!important;grid-row:1 / span 2!important;
+  align-self:stretch!important;
+  margin:0!important;
+  max-height:100%!important;
+  overflow-y:auto!important;
+  border-radius:28px!important;
+  border:1.5px solid var(--border)!important;
+  background:rgba(255,248,251,.94)!important;
+  box-shadow:0 24px 64px rgba(80,44,64,.16)!important;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.entry-view-modal.decorating .entry-modal-header .modal-close{display:none!important;}
+.entry-view-modal.decorating .entry-modal-header .tf-save,
+.entry-view-modal.decorating .entry-modal-header .tf-cancel{display:none!important;}
+.journal-decoration-tool-card .story-tool-head{position:sticky;top:0;z-index:4;margin:-12px -12px 10px;padding:14px 14px 12px;border-radius:26px 26px 0 0;background:rgba(255,248,251,.96);border-bottom:1px solid var(--border);}
+.story-add-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;margin:0 0 10px!important;}
+.story-add-row button{min-height:42px!important;font-size:12px!important;}
+.story-tool-tip{font-size:12px;line-height:1.45;font-weight:800;color:var(--text2);border:1px dashed rgba(var(--accent-rgb),.24);border-radius:16px;background:rgba(var(--accent-rgb),.06);padding:10px 12px;margin-bottom:10px;}
+.story-selected-strip{display:grid;gap:8px;border:1.5px solid var(--border);border-radius:18px;background:rgba(255,255,255,.58);padding:10px;margin-bottom:10px;}
+.story-selected-strip strong{font-size:12px;color:var(--text);font-weight:900;}
+.story-selected-strip div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
+.story-selected-strip button,.decoration-quick-menu button{border:1px solid var(--border);background:rgba(255,255,255,.82);color:var(--text2);border-radius:999px;padding:7px 8px;font-size:10px;font-weight:900;font-family:var(--font);cursor:pointer;}
+.story-selected-strip button:hover,.decoration-quick-menu button:hover{border-color:var(--accent3);color:var(--accent);background:rgba(var(--accent-rgb),.08);}
+.story-selected-strip button.danger,.decoration-quick-menu button.danger{color:#c94f6d;border-color:rgba(201,79,109,.25);}
+.story-empty-note{margin-bottom:10px!important;}
+.story-sticker-browser{margin-top:12px!important;}
+.story-pack-tabs{padding:6px!important;border-radius:18px!important;}
+.story-pack-tabs button{min-width:58px!important;height:52px!important;border-radius:15px!important;}
+.story-pack-tabs img{width:28px!important;height:28px!important;}
+.story-sticker-row{
+  display:grid!important;
+  grid-auto-flow:column!important;
+  grid-auto-columns:72px!important;
+  grid-template-columns:none!important;
+  grid-template-rows:72px!important;
+  max-height:86px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  gap:9px!important;
+  padding:2px 3px 10px!important;
+  scroll-snap-type:x proximity;
+}
+.story-sticker-row button{width:72px!important;height:72px!important;min-width:72px!important;scroll-snap-align:start;}
+.journal-decoration-item.story-editable{cursor:grab;touch-action:none;user-select:none;}
+.journal-decoration-item.story-editable:active{cursor:grabbing;}
+.journal-decoration-item.story-editable.selected{outline:2px solid rgba(var(--accent-rgb),.45)!important;outline-offset:5px!important;border-radius:18px!important;}
+.story-transform-handle{position:absolute;right:-18px;bottom:-18px;z-index:20;width:34px;height:34px;border-radius:999px;background:linear-gradient(135deg,var(--accent3),var(--accent));border:3px solid rgba(255,255,255,.92);box-shadow:0 8px 18px rgba(var(--accent-rgb),.26);cursor:nwse-resize;touch-action:none;}
+.story-transform-handle:after{content:"↻";position:absolute;inset:0;display:grid;place-items:center;color:white;font-size:15px;font-weight:900;line-height:1;}
+.decoration-quick-menu{position:absolute;left:50%;top:-48px;transform:translateX(-50%) rotate(calc(-1 * var(--decoration-rotate,0deg)));z-index:80;display:flex;gap:5px;align-items:center;white-space:nowrap;padding:6px;border:1px solid rgba(var(--accent-rgb),.18);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 14px 32px rgba(80,44,64,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.journal-decoration-item .scrapbook-canvas-textarea{cursor:text;}
+.dark .entry-view-modal.decorating .journal-decoration-tool-card,.dark .journal-decoration-tool-card .story-tool-head{background:rgba(31,24,36,.94)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
+.dark .story-selected-strip,.dark .decoration-quick-menu{background:rgba(31,24,36,.92);border-color:rgba(var(--accent-rgb),.28);}
+.dark .story-tool-tip{background:rgba(var(--accent-rgb),.12);border-color:rgba(var(--accent-rgb),.30);}
+@media(max-width:768px){
+  .entry-view-modal.decorating{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    height:calc(100dvh - 22px)!important;
+    max-height:calc(100dvh - 22px)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:10px!important;
+    overflow:visible!important;
+  }
+  .entry-view-modal.decorating .entry-modal-header{order:1!important;border-radius:24px 24px 0 0!important;box-shadow:none!important;padding:16px 16px 12px!important;}
+  .entry-view-modal.decorating .entry-view-body{order:2!important;flex:1 1 auto!important;min-height:0!important;border-radius:0 0 24px 24px!important;box-shadow:0 18px 45px rgba(80,44,64,.16)!important;padding-bottom:16px!important;}
+  .entry-view-modal.decorating .journal-decoration-layer{inset:0!important;bottom:270px!important;z-index:35!important;}
+  .entry-view-modal.decorating .journal-decoration-tool-card{order:3!important;flex:0 0 auto!important;max-height:260px!important;width:100%!important;margin:0!important;border-radius:24px!important;padding:10px!important;overflow-y:auto!important;}
+  .journal-decoration-tool-card .story-tool-head{position:relative!important;margin:-10px -10px 8px!important;padding:11px!important;border-radius:22px 22px 0 0!important;}
+  .story-tool-head{gap:8px!important;}
+  .story-tool-head span{font-size:11px!important;}
+  .journal-decoration-editor-actions{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;}
+  .story-tool-tip{font-size:11px!important;padding:8px 10px!important;}
+  .story-selected-strip div{grid-template-columns:repeat(4,minmax(54px,1fr))!important;overflow-x:auto;}
+  .story-sticker-row{grid-auto-columns:64px!important;grid-template-rows:64px!important;max-height:78px!important;}
+  .story-sticker-row button{width:64px!important;height:64px!important;min-width:64px!important;}
+  .decoration-quick-menu{top:-44px;max-width:calc(100vw - 38px);overflow-x:auto;}
+  .decoration-quick-menu button{padding:6px 8px;font-size:9px;}
+  .story-transform-handle{width:32px;height:32px;right:-16px;bottom:-16px;}
+}
+`;
               })() : formatWithDisplayTimezone(viewDate,{month:"long",year:"numeric"})}
               {view === "day" && viewDate.toDateString() === TODAY.toDateString() && <span className="today-badge">{viewDayEvents.length} events</span>}
             </div>
