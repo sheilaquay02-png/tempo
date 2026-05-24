@@ -2765,4 +2765,169 @@ body.tempo-modal-locked{
   }
 }
 
+
+/* ── Mobile journal viewer polish: desktop-like scale + tighter viewport ── */
+@media(max-width:768px){
+  /* The journal viewer should start near the top, not float in the middle of the phone screen. */
+  .modal-overlay[aria-label="View journal entry"],
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    min-height:0!important;
+    display:flex!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    padding:6px 6px 0!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+    overscroll-behavior:none!important;
+  }
+
+  /* Keep the same visual density as desktop instead of inflating the card on mobile. */
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    width:min(560px,calc(100vw - 12px))!important;
+    max-width:min(560px,calc(100vw - 12px))!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 12px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 12px)!important;
+    min-height:0!important;
+    margin:0 auto!important;
+    border-radius:24px!important;
+    transform:none!important;
+    overflow:hidden!important;
+    font-size:12px!important;
+  }
+
+  /* Do not shrink the journal card when the decorate sheet opens/collapses.
+     The tools overlay the lower screen, while the saved card itself remains accurate. */
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 12px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 12px)!important;
+  }
+
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{
+    padding:13px 14px 10px!important;
+    border-radius:24px 24px 0 0!important;
+    min-height:0!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-modal-date,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-modal-date{
+    font-size:15px!important;
+    line-height:1.18!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-mood,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-mood{
+    font-size:12px!important;
+    margin-top:3px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-save,
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-cancel,
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .modal-close{
+    min-height:30px!important;
+    padding:7px 12px!important;
+    font-size:10.5px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .modal-close{
+    width:34px!important;
+    padding:0!important;
+  }
+
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-view-body,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    border-radius:0 0 24px 24px!important;
+    padding-bottom:0!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-view-section{
+    padding:10px 14px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-section-title{
+    font-size:9.5px!important;
+    letter-spacing:1.35px!important;
+    margin-bottom:7px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-note,
+  .modal-overlay[aria-label="View journal entry"] .gratitude-view-item,
+  .modal-overlay[aria-label="View journal entry"] .highlight-view-grid div,
+  .modal-overlay[aria-label="View journal entry"] .completed-task-title{
+    font-size:12px!important;
+    line-height:1.45!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .memory-tag-chip,
+  .modal-overlay[aria-label="View journal entry"] .activity-chip{
+    font-size:11px!important;
+    padding:5px 9px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .daily-score-card,
+  .modal-overlay[aria-label="View journal entry"] .completed-task-item{
+    padding:8px 10px!important;
+  }
+
+  /* Keep saved/decorate views using the same scroll content coordinate space. */
+  .modal-overlay[aria-label="View journal entry"] .entry-view-scroll-content{
+    position:relative!important;
+    min-height:100%!important;
+    overflow:visible!important;
+  }
+
+  /* Bottom sheet uses phone space without forcing the journal card downward. */
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card,
+  .journal-decoration-bottom-sheet.journal-decoration-tool-card{
+    left:0!important;
+    right:0!important;
+    bottom:var(--mobile-nav-h,78px)!important;
+    width:100%!important;
+    max-width:100%!important;
+    max-height:min(42dvh,250px)!important;
+    border-radius:24px 24px 0 0!important;
+    padding:7px 12px 12px!important;
+    transform:none!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed,
+  .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed{
+    transform:translateY(calc(100% - 56px))!important;
+    max-height:62px!important;
+  }
+  .journal-decoration-sheet-handle{
+    padding:3px 0 8px!important;
+  }
+  .journal-decoration-sheet-handle strong{
+    font-size:12px!important;
+  }
+}
+
+/* ── Mobile menu calendar section: no sticky header, slightly taller area ── */
+@media(max-width:768px){
+  .sidebar-cals{
+    max-height:clamp(128px,24dvh,210px)!important;
+    min-height:112px!important;
+    padding:12px 14px 14px!important;
+  }
+  .sidebar-cals .cal-label-row{
+    position:static!important;
+    top:auto!important;
+    z-index:auto!important;
+    background:transparent!important;
+    padding:6px 0 10px!important;
+    margin-bottom:8px!important;
+    min-height:34px!important;
+  }
+  .sidebar-cals .cal-label{
+    font-size:10px!important;
+    line-height:1.25!important;
+    margin-bottom:0!important;
+  }
+  .sidebar-cals .cal-add-btn{
+    width:28px!important;
+    height:28px!important;
+  }
+}
+
+
 `; }
