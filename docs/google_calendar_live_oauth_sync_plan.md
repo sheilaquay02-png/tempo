@@ -60,7 +60,7 @@ if (error || !user) return Response.json({ error: 'Unauthorized' }, { status: 40
    - `prompt=consent` on first connect
    - `include_granted_scopes=true`
    - scope ``
-5. Google redirects to `/api/google/oauth/callback`.
+5. Google redirects to `/api/google/auth/callback`.
 6. Callback validates `state`, exchanges code for tokens, encrypts tokens, stores connection.
 7. Run initial full sync.
 8. Return user to Settings → Integrations.

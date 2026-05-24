@@ -1,10 +1,10 @@
-import { getValidGoogleToken, listGoogleCalendars, loadUserData, googleCalendarSettingsFromList, saveUserData, handleRouteError, jsonResponse } from "../../../../lib/tempo/google/server";
+import { getValidGoogleToken, listGoogleCalendars, loadUserData, googleCalendarSettingsFromList, saveUserData, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
 
 export async function GET(request) {
   try {
-    const url = new URL(request.url);
-    const userId = url.searchParams.get("userId");
-    if (!userId) return jsonResponse({ ok: false, error: "Missing userId" }, 400);
+    rateLimit(request, { key: "google-status", limit: 60, windowMs: 60_000 });
+    const user = await requireAuthenticatedUser(request);
+    const userId = user.id;
     const token = await getValidGoogleToken(userId);
     if (!token) return jsonResponse({ ok: true, connected: false, calendars: [] });
 

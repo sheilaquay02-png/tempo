@@ -8,12 +8,18 @@ import {
   mergeGoogleImport,
   handleRouteError,
   jsonResponse,
+  rateLimit,
+  requireAuthenticatedUser,
+  validateGoogleSyncWindow,
 } from "../../../../lib/tempo/google/server";
 
 export async function POST(request) {
   try {
-    const { userId, timeMin, timeMax } = await request.json();
-    if (!userId) return jsonResponse({ ok: false, error: "Missing userId" }, 400);
+    rateLimit(request, { key: "google-sync", limit: 12, windowMs: 60_000 });
+    const user = await requireAuthenticatedUser(request);
+    const userId = user.id;
+    const { timeMin, timeMax } = await request.json().catch(() => ({}));
+    const syncWindow = validateGoogleSyncWindow({ timeMin, timeMax });
 
     const calendarItems = await listGoogleCalendars(userId);
     const userData = await loadUserData(userId);
@@ -24,8 +30,9 @@ export async function POST(request) {
     const cancelled = new Set();
 
     for (const calendar of googleCalendars) {
-      const googleEvents = await listGoogleEvents(userId, calendar.googleCalendarId, { timeMin, timeMax });
+      const googleEvents = await listGoogleEvents(userId, calendar.googleCalendarId, syncWindow);
       for (const item of googleEvents) {
+        if (!item?.id) continue;
         const mapped = mapGoogleEvent(item, calendar);
         if (item.status === "cancelled") cancelled.add(mapped.id);
         else imported.push(mapped);
@@ -47,6 +54,8 @@ export async function POST(request) {
         importedCount: imported.length,
         cancelledCount: cancelled.size,
         mode: "import-first",
+        timeMin: syncWindow.timeMin,
+        timeMax: syncWindow.timeMax,
       },
     };
 

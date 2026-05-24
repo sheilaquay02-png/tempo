@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -17,16 +18,46 @@ function fallbackDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function hashActionToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
 async function findReminderByToken(admin, actionToken) {
   if (!actionToken) return null;
+  const actionTokenHash = hashActionToken(actionToken);
   const { data, error } = await admin
     .from('push_reminder_log')
-    .select('user_id, meta, sent_at')
-    .contains('meta', { actionToken })
+    .select('id,user_id,meta,sent_at')
+    .contains('meta', { actionTokenHash })
     .order('sent_at', { ascending: false })
     .limit(1);
   if (error) throw error;
-  return data?.[0] || null;
+  const row = data?.[0] || null;
+  if (row) return row;
+
+  // Backward compatibility for existing reminders created before token hashing.
+  const { data: legacy, error: legacyError } = await admin
+    .from('push_reminder_log')
+    .select('id,user_id,meta,sent_at')
+    .contains('meta', { actionToken })
+    .order('sent_at', { ascending: false })
+    .limit(1);
+  if (legacyError) throw legacyError;
+  return legacy?.[0] || null;
+}
+
+function assertActionTokenUsable(row) {
+  const meta = row?.meta || {};
+  if (meta.actionTokenUsedAt) return false;
+  if (meta.actionTokenExpiresAt && new Date(meta.actionTokenExpiresAt).getTime() < Date.now()) return false;
+  return true;
+}
+
+async function markActionTokenUsed(admin, row) {
+  if (!row?.id) return;
+  const meta = { ...(row.meta || {}), actionTokenUsedAt: new Date().toISOString() };
+  delete meta.actionToken;
+  await admin.from('push_reminder_log').update({ meta }).eq('id', row.id);
 }
 
 function normalizeSnoozedReminders(settings) {
@@ -60,7 +91,7 @@ async function handleSnooze(admin, row, minutes) {
   const dueAt = new Date(Date.now() + safeMinutes * 60000).toISOString();
   const item = {
     id: `snooze_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    actionToken: meta.actionToken,
+    actionTokenHash: meta.actionTokenHash || null,
     type: meta.type || meta.sourceType || 'task',
     sourceType: meta.sourceType || meta.type || 'task',
     sourceId: meta.sourceId || meta.taskId || meta.habitId || meta.id || null,
@@ -137,11 +168,16 @@ export async function POST(request) {
     const actionToken = body.actionToken;
     const admin = getAdminClient();
     const row = await findReminderByToken(admin, actionToken);
-    if (!row) return json({ ok: false, error: 'Invalid or expired action token' }, 401);
+    if (!row || !assertActionTokenUsable(row)) return json({ ok: false, error: 'Invalid or expired action token' }, 401);
 
-    if (action === 'snooze') return json(await handleSnooze(admin, row, body.minutes));
-    if (action === 'complete_task') return json(await handleCompleteTask(admin, row));
-    if (action === 'complete_habit') return json(await handleCompleteHabit(admin, row));
+    let result;
+    if (action === 'snooze') result = await handleSnooze(admin, row, body.minutes);
+    else if (action === 'complete_task') result = await handleCompleteTask(admin, row);
+    else if (action === 'complete_habit') result = await handleCompleteHabit(admin, row);
+    else return json({ ok: false, error: 'Unsupported action' }, 400);
+
+    if (result?.ok) await markActionTokenUsed(admin, row);
+    return json(result);
     return json({ ok: false, error: 'Unsupported action' }, 400);
   } catch (err) {
     console.error('Push action failed', err);

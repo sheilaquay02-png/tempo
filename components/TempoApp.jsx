@@ -6144,10 +6144,15 @@ export default function App() {
   }
 
   async function googleCalendarRequest(path, options = {}) {
+    const sb = await getSupabase();
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) throw new Error("Sign in again before using Google Calendar.");
     const res = await fetch(`/api/google/${path}`, {
       ...options,
       headers: {
         "content-type": "application/json",
+        Authorization: `Bearer ${token}`,
         ...(options.headers || {}),
       },
     });
@@ -6160,7 +6165,7 @@ export default function App() {
     if (!auth.user?.id) return;
     if (!silent) setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
     try {
-      const data = await googleCalendarRequest(`status?userId=${encodeURIComponent(auth.user.id)}`);
+      const data = await googleCalendarRequest("status");
       applyGoogleCalendarPayload(data);
       setGoogleSync(prev => ({ ...prev, connected: Boolean(data.connected), loading: false, message: data.connected ? "Google Calendar is ready." : "Connect Google Calendar to import events.", error: "" }));
     } catch (err) {
@@ -6169,13 +6174,20 @@ export default function App() {
     }
   }
 
-  function connectGoogleCalendar() {
+  async function connectGoogleCalendar() {
     if (!auth.user?.id) {
       setToast("Sign in before connecting Google Calendar.");
       return;
     }
-    const returnTo = `${window.location.pathname || "/"}?page=calendar`;
-    window.location.href = `/api/google/auth/start?userId=${encodeURIComponent(auth.user.id)}&returnTo=${encodeURIComponent(returnTo)}`;
+    try {
+      const returnTo = `${window.location.pathname || "/"}?page=calendar`;
+      const data = await googleCalendarRequest(`auth/start?returnTo=${encodeURIComponent(returnTo)}`, { method: "POST" });
+      if (!data?.url) throw new Error("Could not start Google Calendar connection.");
+      window.location.href = data.url;
+    } catch (err) {
+      console.warn("Google Calendar connect failed", err);
+      setToast(err.message || "Could not start Google Calendar connection.");
+    }
   }
 
   async function importGoogleCalendarNow() {
@@ -6184,7 +6196,7 @@ export default function App() {
     try {
       const data = await googleCalendarRequest("sync", {
         method: "POST",
-        body: JSON.stringify({ userId: auth.user.id }),
+        body: JSON.stringify({}),
       });
       applyGoogleCalendarPayload(data);
       setToast({ text: `Imported ${data.imported || 0} Google event${Number(data.imported || 0) === 1 ? "" : "s"} ✓`, ts: Date.now() });
@@ -6202,7 +6214,7 @@ export default function App() {
     try {
       const data = await googleCalendarRequest("disconnect", {
         method: "POST",
-        body: JSON.stringify({ userId: auth.user.id }),
+        body: JSON.stringify({}),
       });
       applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
       setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null });
@@ -6219,7 +6231,7 @@ export default function App() {
     try {
       const data = await googleCalendarRequest("calendars", {
         method: "POST",
-        body: JSON.stringify({ userId: auth.user.id, calendarId, patch }),
+        body: JSON.stringify({ calendarId, patch }),
       });
       applyGoogleCalendarPayload(data);
       setGoogleSync(prev => ({ ...prev, loading: false, message: "Google calendar preference updated.", error: "" }));

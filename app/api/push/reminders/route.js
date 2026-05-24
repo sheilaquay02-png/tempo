@@ -28,6 +28,10 @@ function createActionToken() {
   return crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
 }
 
+function hashActionToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
 function json(data, status = 200) {
   return Response.json(data, { status });
 }
@@ -545,7 +549,7 @@ function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinu
       sourceId: item.sourceId || item.taskId || item.habitId || null,
       sourceType: item.sourceType || item.type || 'task',
       snoozeId: item.id || null,
-      originalActionToken: item.actionToken || null,
+      originalActionTokenHash: item.actionToken ? hashActionToken(item.actionToken) : null,
     }));
 }
 
@@ -557,8 +561,9 @@ function removeDueSnoozedReminders(settings, sentSnoozeIds = []) {
 }
 
 async function markReminderIfNew(admin, userId, reminder) {
-  const actionToken = reminder.actionToken || createActionToken();
-  const meta = { ...reminder, actionToken };
+  const actionToken = createActionToken();
+  const { actionToken: _discardedActionToken, ...safeReminder } = reminder || {};
+  const meta = { ...safeReminder, actionTokenHash: hashActionToken(actionToken), actionTokenExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), actionTokenUsedAt: null };
   const { error } = await admin.from('push_reminder_log').insert({
     user_id: userId,
     reminder_key: `${userId}:${reminder.key}`,

@@ -7,9 +7,9 @@
 3. Configure the OAuth consent screen.
 4. Create an OAuth Client ID with application type: Web application.
 5. Add the production redirect URI:
-   - `https://YOUR_DOMAIN/api/google/oauth/callback`
+   - `https://YOUR_DOMAIN/api/google/auth/callback`
 6. Add the local redirect URI for development:
-   - `http://localhost:3000/api/google/oauth/callback`
+   - `http://localhost:3000/api/google/auth/callback`
 
 ## Vercel environment variables
 
@@ -53,7 +53,7 @@ This is enough to read/write events on the selected calendar. Add calendar-list 
 ## Routes to build next
 
 - `GET /api/google/oauth/start`
-- `GET /api/google/oauth/callback`
+- `GET /api/google/auth/callback`
 - `GET /api/google/calendar/status`
 - `POST /api/google/calendar/sync`
 - `POST /api/google/calendar/disconnect`

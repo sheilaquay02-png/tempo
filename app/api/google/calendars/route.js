@@ -1,10 +1,10 @@
-import { listGoogleCalendars, loadUserData, saveUserData, googleCalendarSettingsFromList, handleRouteError, jsonResponse } from "../../../../lib/tempo/google/server";
+import { listGoogleCalendars, loadUserData, saveUserData, googleCalendarSettingsFromList, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
 
 export async function GET(request) {
   try {
-    const url = new URL(request.url);
-    const userId = url.searchParams.get("userId");
-    if (!userId) return jsonResponse({ ok: false, error: "Missing userId" }, 400);
+    rateLimit(request, { key: "google-calendars", limit: 60, windowMs: 60_000 });
+    const user = await requireAuthenticatedUser(request);
+    const userId = user.id;
     const items = await listGoogleCalendars(userId);
     const userData = await loadUserData(userId);
     const settings = googleCalendarSettingsFromList(userData.settings || {}, items);
@@ -17,12 +17,20 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { userId, calendarId, patch = {} } = await request.json();
-    if (!userId || !calendarId) return jsonResponse({ ok: false, error: "Missing userId/calendarId" }, 400);
+    rateLimit(request, { key: "google-calendar-prefs", limit: 40, windowMs: 60_000 });
+    const user = await requireAuthenticatedUser(request);
+    const userId = user.id;
+    const { calendarId, patch = {} } = await request.json();
+    if (!calendarId) return jsonResponse({ ok: false, error: "Missing calendarId" }, 400);
+
     const userData = await loadUserData(userId);
     const settings = userData.settings || {};
-    const calendars = (settings.calendars || []).map(cal => {
-      if (cal.id !== calendarId) return cal;
+    const calendars = Array.isArray(settings.calendars) ? settings.calendars : [];
+    const target = calendars.find(cal => cal.id === calendarId && cal.source === "google");
+    if (!target) return jsonResponse({ ok: false, error: "Google calendar not found" }, 404);
+
+    const nextCalendars = calendars.map(cal => {
+      if (cal.id !== calendarId || cal.source !== "google") return cal;
       return {
         ...cal,
         visible: patch.visible === undefined ? cal.visible !== false : Boolean(patch.visible),
@@ -31,13 +39,13 @@ export async function POST(request) {
       };
     });
     const hidden = new Set(Array.isArray(settings.hiddenCals) ? settings.hiddenCals : []);
-    calendars.filter(c => c.source === "google").forEach(cal => {
+    nextCalendars.filter(c => c.source === "google").forEach(cal => {
       if (cal.visible === false) hidden.add(cal.id);
       else hidden.delete(cal.id);
     });
-    const nextSettings = { ...settings, calendars, hiddenCals: [...hidden] };
+    const nextSettings = { ...settings, calendars: nextCalendars, hiddenCals: [...hidden] };
     await saveUserData(userId, { events: userData.events || [], tasks: userData.tasks || [], settings: nextSettings });
-    return jsonResponse({ ok: true, calendars: calendars.filter(c => c.source === "google"), hiddenCals: nextSettings.hiddenCals });
+    return jsonResponse({ ok: true, calendars: nextCalendars.filter(c => c.source === "google"), hiddenCals: nextSettings.hiddenCals });
   } catch (err) {
     return handleRouteError(err);
   }

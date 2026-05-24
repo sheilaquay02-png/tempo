@@ -8,10 +8,14 @@ create table if not exists public.push_reminder_log (
   sent_at timestamptz default now()
 );
 
+create index if not exists push_reminder_log_action_token_hash_idx
+on public.push_reminder_log ((meta->>'actionTokenHash'))
+where meta ? 'actionTokenHash';
+
 alter table public.push_reminder_log enable row level security;
 
+-- This table is server-only. It contains reminder action metadata and should not be
+-- readable or writable directly from the browser. Next.js API routes use the
+-- Supabase service role key, which bypasses RLS after validating request auth/tokens.
 drop policy if exists "Users can view their own push reminder log" on public.push_reminder_log;
-create policy "Users can view their own push reminder log"
-on public.push_reminder_log
-for select
-using (auth.uid() = user_id);
+drop policy if exists "Users can manage their own push reminder log" on public.push_reminder_log;

@@ -1,3 +1,5 @@
+import { rateLimit, requireAuthenticatedUser } from "../../../lib/tempo/google/server";
+
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5.5";
 
 function json(body, status = 200) {
@@ -86,6 +88,8 @@ function extractOutputText(data) {
 
 export async function POST(request) {
   try {
+    rateLimit(request, { key: "assistant", limit: 20, windowMs: 60_000 });
+    await requireAuthenticatedUser(request);
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return json({ ok: false, error: "Tempo AI is not configured. Add OPENAI_API_KEY on the server." }, 503);
@@ -127,7 +131,7 @@ export async function POST(request) {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const message = data?.error?.message || data?.error || "OpenAI request failed";
+      const message = process.env.NODE_ENV === "production" ? "Tempo AI request failed" : (data?.error?.message || data?.error || "OpenAI request failed");
       return json({ ok: false, error: message }, response.status);
     }
 
@@ -135,6 +139,8 @@ export async function POST(request) {
     return json({ ok: true, text: text || "I’m here, but I could not form a useful answer from that yet." });
   } catch (err) {
     console.error("Tempo assistant route failed", err);
-    return json({ ok: false, error: err?.message || "Tempo assistant failed" }, 500);
+    const status = err?.status || 500;
+    const message = process.env.NODE_ENV === "production" ? (status === 401 ? "Unauthorized" : "Tempo assistant failed") : (err?.message || "Tempo assistant failed");
+    return json({ ok: false, error: message }, status);
   }
 }

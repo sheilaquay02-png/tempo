@@ -1,8 +1,10 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimit } from '../../../lib/tempo/google/server';
 
 export async function POST(request) {
   try {
+    rateLimit(request, { key: 'push-send', limit: 30, windowMs: 60_000 });
     const secret = request.headers.get('x-tempo-push-secret');
     if (!process.env.TEMPO_PUSH_SECRET || secret !== process.env.TEMPO_PUSH_SECRET) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -33,6 +35,6 @@ export async function POST(request) {
     return Response.json({ ok: true, sent: results.filter(r => r.status === 'fulfilled').length, total: results.length, cleaned: invalidEndpoints.length });
   } catch (err) {
     console.error('Push send failed', err);
-    return Response.json({ error: err?.message || 'Push send failed' }, { status: 500 });
+    return Response.json({ error: process.env.NODE_ENV === 'production' ? 'Push send failed' : (err?.message || 'Push send failed') }, { status: err?.status || 500 });
   }
 }

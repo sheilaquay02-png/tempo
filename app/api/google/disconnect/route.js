@@ -1,17 +1,19 @@
-import { getSupabaseAdmin, loadUserData, saveUserData, handleRouteError, jsonResponse } from "../../../../lib/tempo/google/server";
+import { getSupabaseAdmin, loadUserData, saveUserData, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
 
 export async function POST(request) {
   try {
-    const { userId } = await request.json();
-    if (!userId) return jsonResponse({ ok: false, error: "Missing userId" }, 400);
+    rateLimit(request, { key: "google-disconnect", limit: 10, windowMs: 60_000 });
+    const user = await requireAuthenticatedUser(request);
+    const userId = user.id;
     const sb = getSupabaseAdmin();
     await sb.from("google_calendar_tokens").delete().eq("user_id", userId);
 
     const userData = await loadUserData(userId);
+    const googleCalendarIds = new Set((userData.settings?.calendars || []).filter(c => c.source === "google").map(c => c.id));
     const settings = {
       ...(userData.settings || {}),
       calendars: (userData.settings?.calendars || []).filter(c => c.source !== "google"),
-      hiddenCals: (userData.settings?.hiddenCals || []).filter(id => !String(id).startsWith("google-")),
+      hiddenCals: (userData.settings?.hiddenCals || []).filter(id => !googleCalendarIds.has(id)),
       googleCalendarSync: { connected: false, disconnectedAt: new Date().toISOString() },
     };
     const events = (userData.events || []).filter(ev => ev.source !== "google");
