@@ -2273,4 +2273,29 @@ export function appCSS(cvars, fontScale) { return `
 .dark .assistant-safe-action-note{background:rgba(var(--accent-rgb),.12)!important;color:var(--text2)!important;}
 @media(max-width:760px){.assistant-safe-action-card{margin-bottom:8px!important;}.assistant-safe-action-buttons button{flex:1 1 120px;}}
 
+
+/* ── Phase 24E assistant polish ───────────────────────────────────────── */
+.tempo-assistant-panel .assistant-prompt-bank{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  gap:8px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  padding:0 12px 10px!important;
+  scroll-snap-type:x proximity;
+  scrollbar-width:thin!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.tempo-assistant-panel .assistant-prompt-bank button{
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+  scroll-snap-align:start;
+}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar{height:6px!important;}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar-thumb{background:rgba(var(--accent-rgb),.28);border-radius:999px;}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar-track{background:transparent;}
+@media(min-width:769px){
+  .tempo-assistant-panel .assistant-prompt-bank{max-width:100%!important;}
+}
+
 `; }

@@ -3191,6 +3191,30 @@ function assistantTaskLine(task, index) {
   const due = task.deadline ? ` · due ${fmtDate(new Date(task.deadline))}` : "";
   return `${index + 1}. ${task.title}${dur ? ` (${assistantHours(dur)})` : ""}${due}`;
 }
+function assistantReflectionPrompt(ctx) {
+  const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
+  const moodLine = ctx.mood ? `You checked in as ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` with ${ctx.energy.label.toLowerCase()} energy` : ""}.` : "You have not checked in yet, so start with how your body feels right now.";
+  const taskLine = ctx.topTasks?.length ? `One thing worth noticing: your top task is “${ctx.topTasks[0].title}”.` : "One thing worth noticing: your task list is light today.";
+  return `${moodLine}\n${taskLine}\n\nReflection prompt:\n“${prompt}”\n\nA simple 3-line entry:\n1. What happened today?\n2. What felt heavy or smooth?\n3. What would make tomorrow easier?`;
+}
+function assistantWeeklyPattern(ctx) {
+  const signals = [];
+  if (ctx.sourceCounts.google > 0) signals.push("Google events are shaping part of your day, so leave transition space around them.");
+  if (ctx.loadRatio > 0.9) signals.push("Your task load is close to or above your remaining free time.");
+  if (ctx.habits?.length && ctx.completedHabits?.length < ctx.habits.length) signals.push("Your habits still need a lighter, more visible slot.");
+  if (!ctx.hasJournal) signals.push("You have not reflected today yet, so the pattern data is thin.");
+  if (!signals.length) signals.push("Today looks fairly balanced: a few tasks, some free space, and no obvious overload signal.");
+  return `Here is the local pattern I notice from today:\n${signals.map(x => `• ${x}`).join("\n")}\n\nGentle adjustment: protect one realistic focus block, then do a short reflection before tomorrow planning.`;
+}
+function assistantTomorrowResetSuggestion(ctx) {
+  const carry = ctx.tasks.slice(3);
+  const lines = [];
+  if (ctx.topTasks?.length) lines.push(`Keep the main thread clear: ${ctx.topTasks[0].title}.`);
+  if (carry.length) lines.push(`Consider moving out: ${carry.slice(0, 3).map(t => t.title).join(", ")}.`);
+  if (ctx.loadRatio > 0.75) lines.push("Make tomorrow smaller than your first instinct.");
+  if (!ctx.hasJournal) lines.push("Do a quick journal entry first so tomorrow is based on what actually happened.");
+  return `${lines.length ? lines.map(x => `• ${x}`).join("\n") : "Tomorrow can stay light. Choose one clear intention and one small recovery habit."}\n\nUse Tomorrow Reset when you want to turn this into a plan.`;
+}
 function assistantReplyFromContext(input, ctx) {
   const msg = String(input || "").toLowerCase();
   if (/\b(summary|summarize|overview|today|status|rhythm)\b/.test(msg)) {
@@ -3234,14 +3258,13 @@ function assistantReplyFromContext(input, ctx) {
     return `Habits today: ${ctx.habitLabel} complete.\n${todo.length ? `Still left:\n${todo.slice(0, 4).map(h => `• ${h.emoji || "🌱"} ${h.name}`).join("\n")}` : "All scheduled habits are done — nice gentle consistency."}`;
   }
   if (/\b(journal|reflect|reflection|mood|energy|reset)\b/.test(msg)) {
-    const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
-    const moodLine = ctx.mood ? `You checked in as ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` with ${ctx.energy.label.toLowerCase()} energy` : ""}.` : "You haven’t done a mood check-in yet.";
-    return `${moodLine}\n\nA useful reflection prompt:\n“${prompt}”\n\nTry writing 3 lines: what happened, what you noticed, and what you want to make easier tomorrow.`;
+    return assistantReflectionPrompt(ctx);
+  }
+  if (/\b(pattern|notice|weekly|week|recap|trend)\b/.test(msg)) {
+    return assistantWeeklyPattern(ctx);
   }
   if (/\b(tomorrow|prepare|carry over|move)\b/.test(msg)) {
-    const carry = ctx.tasks.slice(3);
-    if (!carry.length) return `Tomorrow prep looks simple: keep today’s top tasks clear, then use Tomorrow Reset to choose one intention.`;
-    return `For tomorrow, I’d consider carrying over:\n${carry.slice(0, 4).map((t, i) => assistantTaskLine(t, i)).join("\n")}\n\nKeep today to the top 3 so the day stays calm.`;
+    return assistantTomorrowResetSuggestion(ctx);
   }
   return null;
 }
@@ -3252,7 +3275,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
-  const [contextCollapsed, setContextCollapsed] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(true);
   const [assistantFlow, setAssistantFlow] = useState(null);
   const [assistantAction, setAssistantAction] = useState(null);
   const bottomRef = useRef(null);
@@ -3344,6 +3367,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     { label: "Add event", flow: "event" },
     { label: "Add task", flow: "task" },
     { label: "Reflect", prompt: "Help me reflect today" },
+    { label: "Patterns", prompt: "What pattern do you notice?" },
     { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
   ];
 
@@ -3374,7 +3398,17 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   }
   function buildAssistantAction(kind) {
     const currentCtx = ctxRef.current || ctx;
-    const slot = currentCtx.largestFreeSlot;
+    const nowDate = new Date();
+    const futureSlots = (currentCtx.freeSlots || [])
+      .filter(s => s?.end instanceof Date && s.end > nowDate)
+      .map(s => {
+        const roundedNow = new Date(Math.ceil(nowDate.getTime() / (5 * 60000)) * 5 * 60000);
+        const start = s.start instanceof Date && s.start < roundedNow && sameDay(s.start, nowDate) ? roundedNow : s.start;
+        const end = s.end instanceof Date ? s.end : new Date(s.end);
+        return { ...s, start, end, minutes: Math.max(0, Math.round((end - start) / 60000)) };
+      })
+      .filter(s => s.minutes >= 15);
+    const slot = [...futureSlots].sort((a, b) => Number(b.minutes || 0) - Number(a.minutes || 0))[0] || null;
     const unscheduledTop = (currentCtx.topTasks || currentCtx.tasks || []).find(t => !t.scheduledEventId && !t.done);
     const fallbackTask = (currentCtx.tasks || []).find(t => !t.done);
     const overflowTask = (currentCtx.tasks || []).slice(3).find(t => !t.done && !t.scheduledEventId) || (currentCtx.tasks || []).find(t => !t.done && !t.scheduledEventId);
@@ -3408,7 +3442,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   function proposeAssistantAction(kind) {
     const action = buildAssistantAction(kind);
     if (!action) {
-      setMessages(p => [...p, { role: "assistant", text: "I don’t see a safe calendar change to suggest right now. You can still use Plan Today or tell me what you want to adjust." }]);
+      setMessages(p => [...p, { role: "assistant", text: "I don’t see a safe future free slot to schedule into right now. You can still use Plan Today, move something to tomorrow, or tell me what you want to adjust." }]);
       return;
     }
     setAssistantAction(action);
@@ -3455,10 +3489,21 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     }
     if (action.type === "moveTaskTomorrow") {
       const tomorrow = addDaysSafe(TODAY, 1);
+      const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
       const nextTasks = (tasksRef.current || []).map(t => {
         if (t.id !== action.taskId) return t;
-        const moved = withTaskPeriod({ ...t, scope: "day", done: false, completedAt: null, completedDate: null, scheduledEventId: null, scheduledStart: null, scheduledEnd: null }, tomorrow);
-        return { ...moved, updatedAt: now };
+        return {
+          ...t,
+          scope: "day",
+          ...tomorrowPatch,
+          done: false,
+          completedAt: null,
+          completedDate: null,
+          scheduledEventId: null,
+          scheduledStart: null,
+          scheduledEnd: null,
+          updatedAt: now,
+        };
       });
       onUpdateTasks(nextTasks);
       setAssistantAction(null);
@@ -7061,6 +7106,7 @@ export default function App() {
   const activeTheme   = THEMES.find(t => t.id === theme) ?? THEMES[0];
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
   const todayFreeSlots = freeSlotsForDate(TODAY, [], null, { clampToNow: false });
+  const assistantFreeSlots = freeSlotsForDate(TODAY);
   const dayFreeMinutes = todayFreeSlots.reduce((sum, slot) => sum + slot.minutes, 0);
   const todayDashboardEvents = expandRecurring([...events.filter(eventSourceVisible), ...habitReminderEventsForRange(TODAY, TODAY)], dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
     .filter(e => !hiddenCals.includes(e.calendar) && eventOccursOnDay(e, TODAY));
@@ -7084,7 +7130,7 @@ export default function App() {
     habitCompletions,
     journal,
     dailyCheckIns,
-    freeSlots: todayFreeSlots,
+    freeSlots: assistantFreeSlots,
   });
   const syncSettingsSnapshot = currentSettings();
   const syncDebug = {
@@ -8284,6 +8330,31 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .assistant-action-chip{background:rgba(var(--accent-rgb),.14)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;}
 .dark .assistant-safe-action-note{background:rgba(var(--accent-rgb),.12)!important;color:var(--text2)!important;}
 @media(max-width:760px){.assistant-safe-action-card{margin-bottom:8px!important;}.assistant-safe-action-buttons button{flex:1 1 120px;}}
+
+
+/* ── Phase 24E assistant polish ───────────────────────────────────────── */
+.tempo-assistant-panel .assistant-prompt-bank{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  gap:8px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  padding:0 12px 10px!important;
+  scroll-snap-type:x proximity;
+  scrollbar-width:thin!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.tempo-assistant-panel .assistant-prompt-bank button{
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+  scroll-snap-align:start;
+}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar{height:6px!important;}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar-thumb{background:rgba(var(--accent-rgb),.28);border-radius:999px;}
+.tempo-assistant-panel .assistant-prompt-bank::-webkit-scrollbar-track{background:transparent;}
+@media(min-width:769px){
+  .tempo-assistant-panel .assistant-prompt-bank{max-width:100%!important;}
+}
 
 `}</style>
 
