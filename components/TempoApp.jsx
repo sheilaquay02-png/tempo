@@ -201,6 +201,13 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     const key = axis === "y" ? "flipY" : "flipX";
     patchDecoration(id, { [key]: !Boolean(source?.[key]) });
   }
+  function editTapeText(id) {
+    if (!canEdit || typeof window === "undefined") return;
+    const source = normalizedBlocks.find(b => b.id === id);
+    const next = window.prompt("Text on tape", source?.text || "");
+    if (next === null) return;
+    updateDecorationText(id, next);
+  }
   function beginDecorationPointer(blockId, mode, layout, e) {
     if (!canEdit) return;
     if (e.target?.closest?.("textarea,button")) return;
@@ -289,7 +296,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
       onPointerMove={canEdit ? moveDecorationPointer : undefined}
       onPointerUp={canEdit ? endDecorationPointer : undefined}
       onPointerCancel={canEdit ? endDecorationPointer : undefined}
-      onClick={canEdit ? () => setQuickMenuBlockId(null) : undefined}
+      onClick={canEdit ? e => { if (e.target === e.currentTarget) { setQuickMenuBlockId(null); setSelectedBlockId(null); } } : undefined}
     >
       {normalizedBlocks.map((b, idx) => {
         const type = scrapbookItemType(b);
@@ -306,6 +313,9 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
             className={`scrapbook-view-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""} ${canEdit ? "story-editable" : ""}`}
             style={style}
             onPointerDown={canEdit ? e => beginDecorationPointer(b.id, "move", layout, e) : undefined}
+            onPointerMove={canEdit ? moveDecorationPointer : undefined}
+            onPointerUp={canEdit ? endDecorationPointer : undefined}
+            onPointerCancel={canEdit ? endDecorationPointer : undefined}
             onClick={canEdit ? e => handleDecorationClick(b.id, e) : undefined}
             onDoubleClick={canEdit ? e => { e.stopPropagation(); setSelectedBlockId(b.id); setQuickMenuBlockId(b.id); } : undefined}
           >
@@ -313,23 +323,14 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
               <div className="decoration-quick-menu" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                 <button type="button" onClick={() => toggleFlip(b.id, "x")}>Flip H</button>
                 <button type="button" onClick={() => toggleFlip(b.id, "y")}>Flip V</button>
+                {type === "tape" && <button type="button" onClick={() => editTapeText(b.id)}>Text</button>}
                 <button type="button" onClick={() => layerDecoration(b.id, 1)}>Front</button>
                 <button type="button" onClick={() => layerDecoration(b.id, -1)}>Back</button>
                 <button type="button" onClick={() => duplicateDecoration(b.id)}>Copy</button>
                 <button type="button" className="danger" onClick={() => removeDecoration(b.id)}>Delete</button>
               </div>
             )}
-            {type === "tape" && (canEdit ? (
-              <textarea
-                className="scrapbook-canvas-textarea"
-                placeholder="Type on tape…"
-                value={b.text || ""}
-                style={{ ...textFitStyle, ...flipStyle }}
-                onChange={e => updateDecorationText(b.id, e.target.value)}
-                onFocus={() => setSelectedBlockId(b.id)}
-                onPointerDown={e => e.stopPropagation()}
-              />
-            ) : <div className="scrapbook-view-text" style={{ ...textFitStyle, ...flipStyle }}>{b.text}</div>)}
+            {type === "tape" && <div className="scrapbook-view-text" style={{ ...textFitStyle, ...flipStyle }}>{b.text || ""}</div>}
             {type === "sticker" && (
               <div className={canEdit ? "scrapbook-canvas-sticker" : "scrapbook-view-sticker"} style={flipStyle}>
                 {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}
@@ -348,6 +349,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
   const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
   const [activeStickerPackId, setActiveStickerPackId] = useState(stickerPacks.find(p => p.id === "sugar")?.id || stickerPacks[0]?.id || "cozy");
+  const [sheetOpen, setSheetOpen] = useState(true);
 
   useEffect(() => {
     if (!selectedBlock?.stickerAsset) return;
@@ -430,37 +432,34 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   const selectedType = scrapbookItemType(selectedBlock);
 
   return (
-    <aside className="journal-decoration-editor-panel journal-decoration-tool-card">
-      <div className="journal-decoration-editor-head story-tool-head">
-        <div>
-          <strong>Decorate 🎀</strong>
-          <span>Drag decorations on the memory. Use the corner handle to resize and rotate.</span>
-        </div>
-        <div className="journal-decoration-editor-actions">
-          <button type="button" className="tf-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save ✓"}</button>
-        </div>
-      </div>
-      <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar story-add-row">
-        <button type="button" onClick={() => addDecoration("tape")}>+ Tape</button>
-        <button type="button" onClick={() => addDecoration("sticker")}>+ Sticker</button>
-      </div>
-      <div className="story-tool-tip">Tap to select. Double-tap a sticker or tape to flip, copy, delete, or adjust layers.</div>
-      {selectedBlock ? (
-        <div className="story-selected-strip">
-          <strong>{scrapbookItemLabel(selectedType)} selected</strong>
+    <aside className={`journal-decoration-bottom-sheet journal-decoration-tool-card ${sheetOpen ? "open" : "collapsed"}`} aria-label="Decoration tools">
+      <button type="button" className="journal-decoration-sheet-handle" onClick={() => setSheetOpen(open => !open)} aria-expanded={sheetOpen}>
+        <span />
+        <strong>{sheetOpen ? "Decoration tools" : "Swipe up to decorate"}</strong>
+      </button>
+      <div className="journal-decoration-sheet-content">
+        <div className="journal-decoration-editor-head story-tool-head">
           <div>
-            <button type="button" onClick={() => nudgeLayer(selectedBlock.id, 1)}>Front</button>
-            <button type="button" onClick={() => nudgeLayer(selectedBlock.id, -1)}>Back</button>
-            <button type="button" onClick={() => duplicateDecoration(selectedBlock.id)}>Copy</button>
-            <button type="button" className="danger" onClick={() => removeDecoration(selectedBlock.id)}>Delete</button>
+            <strong>Decorate 🎀</strong>
+            <span>Drag on the memory. Use the corner dot to resize + rotate. Double-tap for flip, layer, copy, or delete.</span>
+          </div>
+          <div className="journal-decoration-editor-actions">
+            <button type="button" className="tf-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
+            <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save ✓"}</button>
           </div>
         </div>
-      ) : <div className="scrapbook-empty-note story-empty-note">Add tape or choose a sticker to start decorating.</div>}
-      {selectedType === "tape" && <div className="journal-decoration-note">Type directly on the tape on the memory card.</div>}
-      {renderStickerPackPicker()}
+        <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar story-add-row">
+          <button type="button" onClick={() => addDecoration("tape")}>+ Tape</button>
+          <button type="button" onClick={() => addDecoration("sticker")}>+ Sticker</button>
+          {selectedBlock && <button type="button" onClick={() => setSelectedBlockId(null)}>Deselect</button>}
+        </div>
+        <div className="story-tool-tip">{selectedBlock ? `${scrapbookItemLabel(selectedType)} selected. Double-tap it for quick actions.` : "Choose a sticker or add tape, then drag it directly on the memory."}</div>
+        {selectedType === "tape" && <div className="journal-decoration-note">Double-tap tape and choose Text if you want words on it.</div>}
+        {renderStickerPackPicker()}
+      </div>
     </aside>
   );
+
 }
 
 
