@@ -2535,4 +2535,234 @@ export function appCSS(cvars, fontScale) { return `
   .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed{transform:translateY(calc(100% - 62px))!important;}
 }
 
+/* ── Final journal decorator coordinate + scroll fix ────────────────── */
+html.tempo-modal-locked, body.tempo-modal-locked{
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+body.tempo-modal-locked{
+  touch-action:none!important;
+}
+.modal-overlay[aria-label="View journal entry"],
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  padding:18px!important;
+  box-sizing:border-box!important;
+  overscroll-behavior:none!important;
+  touch-action:none!important;
+}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+  position:relative!important;
+  width:min(560px,calc(100vw - 24px))!important;
+  max-width:min(560px,calc(100vw - 24px))!important;
+  height:calc(100dvh - 36px)!important;
+  max-height:calc(100dvh - 36px)!important;
+  min-height:300px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  grid-template-columns:none!important;
+  grid-template-rows:none!important;
+  gap:0!important;
+  margin:0 auto!important;
+  overflow:hidden!important;
+  border:1.5px solid var(--border)!important;
+  border-radius:30px!important;
+  background-color:var(--bg2)!important;
+  background-image:var(--memory-bg-image)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  box-shadow:0 24px 70px rgba(76,38,58,.22)!important;
+  isolation:isolate!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+  height:calc(100dvh - 284px - env(safe-area-inset-bottom,0px))!important;
+  max-height:calc(100dvh - 284px - env(safe-area-inset-bottom,0px))!important;
+}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{
+  position:relative!important;
+  z-index:120!important;
+  flex:0 0 auto!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  border:0!important;
+  border-bottom:1px solid var(--border)!important;
+  border-radius:30px 30px 0 0!important;
+  background:rgba(255,248,251,.88)!important;
+  box-shadow:0 8px 20px rgba(80,44,64,.08)!important;
+  pointer-events:auto!important;
+}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header button,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header button{
+  pointer-events:auto!important;
+  position:relative!important;
+  z-index:130!important;
+}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .modal-close,
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-save,
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-cancel,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .modal-close,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .tf-save,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .tf-cancel{
+  display:inline-flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-view-body,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{
+  position:relative!important;
+  z-index:5!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  border:0!important;
+  border-radius:0 0 30px 30px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  padding-bottom:0!important;
+  box-shadow:none!important;
+}
+.entry-view-scroll-content{
+  position:relative!important;
+  min-height:100%!important;
+  overflow:visible!important;
+  isolation:isolate!important;
+}
+.entry-view-scroll-content > :not(.journal-decoration-layer){
+  position:relative!important;
+  z-index:2!important;
+}
+.entry-view-scroll-content .journal-decoration-layer,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-scroll-content .journal-decoration-layer{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  z-index:60!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+  border-radius:0 0 30px 30px!important;
+  touch-action:none!important;
+}
+.entry-view-scroll-content .journal-decoration-layer:not(.journal-decoration-editing),
+.entry-view-scroll-content .journal-decoration-layer:not(.journal-decoration-editing) .journal-decoration-item{
+  pointer-events:none!important;
+}
+.entry-view-scroll-content .journal-decoration-layer.journal-decoration-editing{
+  pointer-events:none!important;
+}
+.entry-view-scroll-content .journal-decoration-layer.journal-decoration-editing .journal-decoration-item{
+  pointer-events:auto!important;
+  touch-action:none!important;
+}
+.entry-view-scroll-content .journal-decoration-layer .journal-decoration-item{
+  position:absolute!important;
+  box-sizing:border-box!important;
+  transform-origin:center center!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card,
+.journal-decoration-bottom-sheet.journal-decoration-tool-card{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:max(10px,env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%)!important;
+  width:min(720px,calc(100vw - 20px))!important;
+  max-width:calc(100vw - 20px)!important;
+  max-height:252px!important;
+  display:block!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  align-self:auto!important;
+  margin:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  z-index:1600!important;
+  border-radius:28px!important;
+  border:1.5px solid rgba(var(--accent-rgb),.22)!important;
+  background:rgba(255,248,251,.97)!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  box-shadow:0 -18px 60px rgba(76,38,58,.24)!important;
+  padding:8px 14px 14px!important;
+  pointer-events:auto!important;
+  transition:transform .24s ease,max-height .24s ease!important;
+  touch-action:pan-y!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed,
+.journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed{
+  transform:translateX(-50%) translateY(calc(100% - 62px))!important;
+  max-height:72px!important;
+  overflow:hidden!important;
+}
+.journal-decoration-sheet-handle{
+  touch-action:none!important;
+  cursor:grab!important;
+}
+.journal-decoration-sheet-handle:active{cursor:grabbing!important;}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-tool-card button,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-sheet-handle,
+.journal-decoration-tool-card button,
+.journal-decoration-sheet-handle{
+  pointer-events:auto!important;
+}
+@media(max-width:768px){
+  .modal-overlay[aria-label="View journal entry"],
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    padding:8px!important;
+    align-items:center!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 16px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 16px)!important;
+    min-height:280px!important;
+    border-radius:24px!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 250px - env(safe-area-inset-bottom,0px))!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 250px - env(safe-area-inset-bottom,0px))!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{border-radius:24px 24px 0 0!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-view-body,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{border-radius:0 0 24px 24px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card,
+  .journal-decoration-bottom-sheet.journal-decoration-tool-card{
+    left:0!important;
+    right:0!important;
+    bottom:var(--mobile-nav-h,78px)!important;
+    transform:none!important;
+    width:100%!important;
+    max-width:100%!important;
+    max-height:242px!important;
+    border-radius:26px 26px 0 0!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed,
+  .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed{
+    transform:translateY(calc(100% - 62px))!important;
+  }
+}
+
 `; }
