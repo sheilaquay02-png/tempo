@@ -141,13 +141,20 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   const decorationDragRef = useRef(null);
   const lastTapRef = useRef({ id: null, at: 0 });
   const [quickMenuBlockId, setQuickMenuBlockId] = useState(null);
+  const [boardMetrics, setBoardMetrics] = useState({ width: 1, height: 1 });
   const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
   const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
   const canEdit = Boolean(editing && setBlocks && setSelectedBlockId);
 
   function decorationBoardRect() {
     const board = decorationCanvasRef.current;
-    return board?.getBoundingClientRect?.() || { left: 0, top: 0, width: 1, height: 1 };
+    const rect = board?.getBoundingClientRect?.() || { left: 0, top: 0, width: 1, height: 1 };
+    return {
+      left: rect.left || 0,
+      top: rect.top || 0,
+      width: Math.max(1, boardMetrics.width || rect.width || 1),
+      height: Math.max(1, boardMetrics.height || rect.height || 1),
+    };
   }
   function decorationLayoutToPx(item = {}, layout = {}, rect = decorationBoardRect()) {
     const hasPxLayout = [item?.xPx, item?.yPx, item?.wPx, item?.hPx].every(v => Number.isFinite(Number(v)));
@@ -192,6 +199,34 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
       height:`${layout.h}%`,
     };
   }
+
+  useEffect(() => {
+    const board = decorationCanvasRef.current;
+    if (!board) return;
+    const content = board.parentElement || board;
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = content.getBoundingClientRect?.() || board.getBoundingClientRect?.() || { width: 1, height: 1 };
+        const width = Math.max(1, Math.round((content.scrollWidth || content.offsetWidth || rect.width || 1) * 10) / 10);
+        const height = Math.max(1, Math.round((content.scrollHeight || content.offsetHeight || rect.height || 1) * 10) / 10);
+        setBoardMetrics(prev => (Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) ? { width, height } : prev);
+      });
+    };
+    measure();
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    resizeObserver?.observe(content);
+    resizeObserver?.observe(board);
+    window.addEventListener("resize", measure);
+    const interval = window.setInterval(measure, 800);
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver?.disconnect?.();
+      window.removeEventListener("resize", measure);
+      window.clearInterval(interval);
+    };
+  }, [normalizedBlocks.length, canEdit]);
 
   useEffect(() => {
     if (!selectedBlockId) setQuickMenuBlockId(null);
@@ -388,6 +423,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     <div
       ref={decorationCanvasRef}
       className={`journal-decoration-layer journal-view-decoration-layer ${canEdit ? "journal-decoration-editing" : ""}`}
+      style={{ width: `${boardMetrics.width}px`, height: `${boardMetrics.height}px`, minHeight: `${boardMetrics.height}px` }}
       aria-hidden={!canEdit}
       onPointerLeave={endDecorationPointer}
       onPointerMove={canEdit ? moveDecorationPointer : undefined}
@@ -448,24 +484,31 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   const [activeStickerPackId, setActiveStickerPackId] = useState(stickerPacks.find(p => p.id === "sugar")?.id || stickerPacks[0]?.id || "cozy");
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetSwipeRef = useRef(null);
+  const sheetClickBlockRef = useRef(0);
 
   function finishSheetSwipe(start, endY) {
     if (!start) return;
     const dy = endY - start.y;
-    if (dy < -18) setSheetOpen(true);
-    else if (dy > 18) setSheetOpen(false);
-    else if (!start.moved) setSheetOpen(open => !open);
+    if (dy < -14) {
+      setSheetOpen(true);
+      sheetClickBlockRef.current = Date.now();
+    } else if (dy > 14) {
+      setSheetOpen(false);
+      sheetClickBlockRef.current = Date.now();
+    }
   }
   function startSheetSwipe(e) {
+    if (e.target?.closest?.(".journal-decoration-sheet-content button,.journal-decoration-sheet-content input,.journal-decoration-sheet-content textarea,.journal-decoration-sheet-content select")) return;
     e.preventDefault();
     e.stopPropagation();
     const start = { y: e.clientY, moved: false, lastY: e.clientY };
     sheetSwipeRef.current = start;
+    e.currentTarget?.setPointerCapture?.(e.pointerId);
     const onMove = evt => {
       if (!sheetSwipeRef.current) return;
       const dy = evt.clientY - sheetSwipeRef.current.y;
       sheetSwipeRef.current.lastY = evt.clientY;
-      if (Math.abs(dy) > 8) sheetSwipeRef.current.moved = true;
+      if (Math.abs(dy) > 6) sheetSwipeRef.current.moved = true;
       evt.preventDefault?.();
     };
     const onUp = evt => {
@@ -489,13 +532,19 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     if (!start) return;
     const dy = e.clientY - start.y;
     start.lastY = e.clientY;
-    if (Math.abs(dy) > 8) start.moved = true;
+    if (Math.abs(dy) > 6) start.moved = true;
   }
   function endSheetSwipe(e) {
     const start = sheetSwipeRef.current;
     if (start?.cleanup) return;
     sheetSwipeRef.current = null;
     finishSheetSwipe(start, e.clientY ?? start?.lastY ?? start?.y ?? 0);
+  }
+  function toggleSheetFromHandle(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (Date.now() - sheetClickBlockRef.current < 250) return;
+    setSheetOpen(open => !open);
   }
   useEffect(() => () => {
     sheetSwipeRef.current?.cleanup?.();
@@ -509,6 +558,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   }, [selectedBlock?.id, selectedBlock?.stickerAsset]);
 
   function addDecoration(type, sticker) {
+    setSheetOpen(true);
     onHistoryCheckpoint?.();
     const nextItem = makeScrapbookItem(type === "tape" ? "tape" : "sticker", normalizedBlocks.length);
     const item = sticker ? { ...nextItem, stickerAsset: sticker.src, sticker: sticker.label } : nextItem;
@@ -552,6 +602,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     });
   }
   function pickSticker(sticker) {
+    setSheetOpen(true);
     if (selectedBlock && scrapbookItemType(selectedBlock) === "sticker") updateDecoration(selectedBlock.id, { stickerAsset: sticker.src, sticker: sticker.label });
     else addDecoration("sticker", sticker);
   }
@@ -587,7 +638,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   const selectedType = scrapbookItemType(selectedBlock);
 
   return (
-    <aside className={`journal-decoration-bottom-sheet journal-decoration-tool-card ${sheetOpen ? "open" : "collapsed"}`} aria-label="Decoration tools">
+    <aside className={`journal-decoration-bottom-sheet journal-decoration-tool-card ${sheetOpen ? "open" : "collapsed"}`} aria-label="Decoration tools" data-open={sheetOpen ? "true" : "false"} onPointerDown={startSheetSwipe}>
       <button
         type="button"
         className="journal-decoration-sheet-handle"
@@ -595,12 +646,13 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
         onPointerMove={moveSheetSwipe}
         onPointerUp={endSheetSwipe}
         onPointerCancel={() => { sheetSwipeRef.current = null; }}
+        onClick={toggleSheetFromHandle}
         aria-expanded={sheetOpen}
       >
         <span />
         <strong>{sheetOpen ? "Decoration tools" : "Swipe up to decorate"}</strong>
       </button>
-      <div className="journal-decoration-sheet-content">
+      {sheetOpen && <div className="journal-decoration-sheet-content">
         <div className="journal-decoration-editor-head story-tool-head">
           <div>
             <strong>Decorate 🎀</strong>
@@ -621,7 +673,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
         <div className="story-tool-tip">{selectedBlock ? `${scrapbookItemLabel(selectedType)} selected. Double-tap it for quick actions.` : "Choose a sticker or add tape, then drag it directly on the memory."}</div>
         {selectedType === "tape" && <div className="journal-decoration-note">Double-tap tape and choose Text if you want words on it.</div>}
         {renderStickerPackPicker()}
-      </div>
+      </div>}
     </aside>
   );
 
@@ -9396,6 +9448,134 @@ body.tempo-modal-locked{touch-action:auto!important;}
     max-height:64px!important;
   }
   .journal-decoration-sheet-content{max-height:202px!important;}
+}
+
+
+/* ── REAL decorator viewport + sheet override ───────────────────────── */
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:block!important;
+  overflow:hidden!important;
+  padding:0!important;
+  margin:0!important;
+  overscroll-behavior:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+  position:fixed!important;
+  top:4px!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  margin:0!important;
+  width:min(560px,calc(100vw - 18px))!important;
+  max-width:min(560px,calc(100vw - 18px))!important;
+  height:calc(100dvh - 8px)!important;
+  max-height:calc(100dvh - 8px)!important;
+  min-height:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  border-radius:28px!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:72px!important;
+  overscroll-behavior:contain!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content{
+  position:relative!important;
+  min-height:100%!important;
+  overflow:visible!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content .journal-decoration-layer{
+  position:absolute!important;
+  left:0!important;
+  top:0!important;
+  right:auto!important;
+  bottom:auto!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  overflow:visible!important;
+  z-index:70!important;
+  pointer-events:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content .journal-decoration-layer.journal-decoration-editing .journal-decoration-item{
+  pointer-events:auto!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:max(8px,env(safe-area-inset-bottom,0px))!important;
+  width:min(720px,calc(100vw - 20px))!important;
+  max-width:calc(100vw - 20px)!important;
+  margin:0!important;
+  transform:translateX(-50%) translateY(0)!important;
+  max-height:min(300px,48dvh)!important;
+  overflow:hidden!important;
+  z-index:5000!important;
+  pointer-events:auto!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card[data-open="false"]{
+  transform:translateX(-50%) translateY(calc(100% - 46px))!important;
+  max-height:54px!important;
+  overflow:hidden!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed .journal-decoration-sheet-content,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card[data-open="false"] .journal-decoration-sheet-content{
+  display:none!important;
+  height:0!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-sheet-handle{
+  min-height:42px!important;
+  padding:4px 0 8px!important;
+  cursor:grab!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-sheet-content{
+  max-height:238px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  touch-action:pan-y!important;
+}
+@media(max-width:768px){
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    top:0!important;
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 2px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 2px)!important;
+    border-radius:22px!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card{
+    left:6px!important;
+    right:6px!important;
+    bottom:calc(var(--mobile-nav-h,78px) + env(safe-area-inset-bottom,0px))!important;
+    width:auto!important;
+    max-width:none!important;
+    transform:translateY(0)!important;
+    border-radius:24px 24px 0 0!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card[data-open="false"]{
+    transform:translateY(calc(100% - 46px))!important;
+  }
 }
 
 
