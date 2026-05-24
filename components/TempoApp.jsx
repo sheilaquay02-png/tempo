@@ -39,6 +39,7 @@ const JOURNAL_DECORATION_DEFAULTS = {
   tape: { x: 10, y: 18, w: 42, h: 14, rotate: -2 },
   sticker: { x: 68, y: 10, w: 18, h: 14, rotate: 0 },
 };
+const JOURNAL_DECORATION_HISTORY_LIMIT = 40;
 const JOURNAL_DECORATION_SAFE_TYPES = new Set(["tape", "sticker", "text", "quote"]);
 const scrapbookClamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const scrapbookNumber = (value, fallback) => {
@@ -127,7 +128,7 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
     .filter(Boolean);
 }
 
-function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false }) {
+function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false, onHistoryCheckpoint }) {
   const decorationCanvasRef = useRef(null);
   const decorationDragRef = useRef(null);
   const lastTapRef = useRef({ id: null, at: 0 });
@@ -146,6 +147,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   }
   function updateDecorationText(id, text) {
     if (!canEdit) return;
+    onHistoryCheckpoint?.();
     setBlocks(bs => bs.map((b, idx) => {
       if (b.id !== id) return b;
       const type = scrapbookItemType(b);
@@ -160,6 +162,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   }
   function layerDecoration(id, dir) {
     if (!canEdit) return;
+    onHistoryCheckpoint?.();
     setBlocks(bs => {
       const current = normalizeScrapbookBlocksForSave(bs);
       const zValues = current.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1);
@@ -174,6 +177,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   }
   function duplicateDecoration(id) {
     if (!canEdit) return;
+    onHistoryCheckpoint?.();
     const sourceIndex = normalizedBlocks.findIndex(b => b.id === id);
     if (sourceIndex < 0) return;
     const source = normalizedBlocks[sourceIndex];
@@ -191,12 +195,14 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   }
   function removeDecoration(id) {
     if (!canEdit) return;
+    onHistoryCheckpoint?.();
     setBlocks(bs => bs.filter(b => b.id !== id));
     setSelectedBlockId(current => current === id ? null : current);
     setQuickMenuBlockId(null);
   }
   function toggleFlip(id, axis) {
     if (!canEdit) return;
+    onHistoryCheckpoint?.();
     const source = normalizedBlocks.find(b => b.id === id);
     const key = axis === "y" ? "flipY" : "flipX";
     patchDecoration(id, { [key]: !Boolean(source?.[key]) });
@@ -211,6 +217,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   function beginDecorationPointer(blockId, mode, layout, e) {
     if (!canEdit) return;
     if (e.target?.closest?.("textarea,button")) return;
+    onHistoryCheckpoint?.();
     e.preventDefault();
     e.stopPropagation();
     setSelectedBlockId(blockId);
@@ -344,7 +351,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   );
 }
 
-function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, onSave, onCancel, saving = false }) {
+function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, onSave, onCancel, saving = false, onHistoryCheckpoint, canUndo = false, canRedo = false, onUndo, onRedo }) {
   const stickerPacks = Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }];
   const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
   const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
@@ -358,17 +365,20 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   }, [selectedBlock?.id, selectedBlock?.stickerAsset]);
 
   function addDecoration(type, sticker) {
+    onHistoryCheckpoint?.();
     const nextItem = makeScrapbookItem(type === "tape" ? "tape" : "sticker", normalizedBlocks.length);
     const item = sticker ? { ...nextItem, stickerAsset: sticker.src, sticker: sticker.label } : nextItem;
     setBlocks(bs => [...normalizeScrapbookBlocksForSave(bs), item]);
     setSelectedBlockId(item.id);
   }
-  function updateDecoration(id, patch) { setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
+  function updateDecoration(id, patch) { onHistoryCheckpoint?.(); setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
   function removeDecoration(id) {
+    onHistoryCheckpoint?.();
     setBlocks(bs => bs.filter(b => b.id !== id));
     setSelectedBlockId(current => current === id ? null : current);
   }
   function duplicateDecoration(id) {
+    onHistoryCheckpoint?.();
     const sourceIndex = normalizedBlocks.findIndex(b => b.id === id);
     if (sourceIndex < 0) return;
     const source = normalizedBlocks[sourceIndex];
@@ -384,6 +394,7 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     setSelectedBlockId(copy.id);
   }
   function nudgeLayer(id, dir) {
+    onHistoryCheckpoint?.();
     setBlocks(bs => {
       const current = normalizeScrapbookBlocksForSave(bs);
       const zValues = current.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1);
@@ -444,6 +455,8 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
             <span>Drag on the memory. Use the corner dot to resize + rotate. Double-tap for flip, layer, copy, or delete.</span>
           </div>
           <div className="journal-decoration-editor-actions">
+            <button type="button" className="tf-cancel decor-history-btn" onClick={onUndo} disabled={saving || !canUndo} title="Undo last decoration change">↶ Undo</button>
+            <button type="button" className="tf-cancel decor-history-btn" onClick={onRedo} disabled={saving || !canRedo} title="Redo decoration change">↷ Redo</button>
             <button type="button" className="tf-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
             <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save ✓"}</button>
           </div>
@@ -2471,6 +2484,8 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
   const [decoratePromptKey, setDecoratePromptKey] = useState(null);
   const [decorDraftBlocks, setDecorDraftBlocks] = useState([]);
   const [selectedDecorationId, setSelectedDecorationId] = useState(null);
+  const [decorUndoStack, setDecorUndoStack] = useState([]);
+  const [decorRedoStack, setDecorRedoStack] = useState([]);
   const [savingDecorations, setSavingDecorations] = useState(false);
   const decorationOriginalRef = useRef("[]");
   useEffect(() => {
@@ -2486,6 +2501,42 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     return true;
   }
 
+  function resetDecorationHistory() {
+    setDecorUndoStack([]);
+    setDecorRedoStack([]);
+  }
+
+  function recordDecorationHistoryCheckpoint() {
+    const snapshot = normalizeScrapbookBlocksForSave(decorDraftBlocks);
+    const snapshotText = JSON.stringify(snapshot);
+    setDecorUndoStack(stack => {
+      const last = stack[stack.length - 1];
+      if (last && JSON.stringify(last) === snapshotText) return stack;
+      return [...stack.slice(-(JOURNAL_DECORATION_HISTORY_LIMIT - 1)), snapshot];
+    });
+    setDecorRedoStack([]);
+  }
+
+  function undoDecorationChange() {
+    if (!decorUndoStack.length) return;
+    const previous = decorUndoStack[decorUndoStack.length - 1];
+    const current = normalizeScrapbookBlocksForSave(decorDraftBlocks);
+    setDecorUndoStack(stack => stack.slice(0, -1));
+    setDecorRedoStack(stack => [...stack.slice(-(JOURNAL_DECORATION_HISTORY_LIMIT - 1)), current]);
+    setDecorDraftBlocks(previous);
+    setSelectedDecorationId(id => previous.some(b => b.id === id) ? id : (previous[previous.length - 1]?.id || null));
+  }
+
+  function redoDecorationChange() {
+    if (!decorRedoStack.length) return;
+    const next = decorRedoStack[decorRedoStack.length - 1];
+    const current = normalizeScrapbookBlocksForSave(decorDraftBlocks);
+    setDecorRedoStack(stack => stack.slice(0, -1));
+    setDecorUndoStack(stack => [...stack.slice(-(JOURNAL_DECORATION_HISTORY_LIMIT - 1)), current]);
+    setDecorDraftBlocks(next);
+    setSelectedDecorationId(id => next.some(b => b.id === id) ? id : (next[next.length - 1]?.id || null));
+  }
+
   function startDecoratingMemory(key) {
     const entry = normalizeMemoryEntry(journal[key]);
     const blocks = normalizeScrapbookBlocksForSave(entry.blocks);
@@ -2494,6 +2545,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     setDecoratePromptKey(null);
     setDecorDraftBlocks(blocks);
     setSelectedDecorationId(blocks[0]?.id || null);
+    resetDecorationHistory();
     decorationOriginalRef.current = JSON.stringify(blocks);
   }
 
@@ -2504,6 +2556,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     setDecoratingKey(null);
     setDecorDraftBlocks([]);
     setSelectedDecorationId(null);
+    resetDecorationHistory();
     return true;
   }
 
@@ -2527,6 +2580,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
       setDecoratingKey(null);
       setDecorDraftBlocks([]);
       setSelectedDecorationId(null);
+      resetDecorationHistory();
     } catch (err) {
       console.warn("Could not save journal decorations", err);
       window.alert(err?.message || "Could not save decorations. Please try again.");
@@ -2922,6 +2976,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 selectedBlockId={isDecorating ? selectedDecorationId : null}
                 setSelectedBlockId={isDecorating ? setSelectedDecorationId : undefined}
                 editing={isDecorating}
+                onHistoryCheckpoint={isDecorating ? recordDecorationHistoryCheckpoint : undefined}
               />
               {isDecorating && (
                 <JournalDecorationControls
@@ -2932,6 +2987,11 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                   onSave={saveDecorations}
                   onCancel={() => stopDecoratingMemory()}
                   saving={savingDecorations}
+                  onHistoryCheckpoint={recordDecorationHistoryCheckpoint}
+                  canUndo={decorUndoStack.length > 0}
+                  canRedo={decorRedoStack.length > 0}
+                  onUndo={undoDecorationChange}
+                  onRedo={redoDecorationChange}
                 />
               )}
               <div className="entry-view-body">
@@ -8587,8 +8647,23 @@ const loginCSS = `
 .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92));border:1px solid rgba(202,122,154,.24);border-radius:16px;box-shadow:0 12px 28px rgba(118,76,92,.12);}
 .dark .journal-decoration-note{background:rgba(255,255,255,.06);border-color:rgba(var(--accent-rgb),.24);}
 .dark .journal-decoration-item.scrapbook-tape,.dark .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(108,48,82,.92),rgba(72,42,58,.88))!important;border-color:rgba(var(--accent-rgb),.30)!important;color:#ffd6e3!important;}
+
+/* Decorator stability: only the journal card scrolls, actions stay clickable */
+.modal-overlay[aria-label="View journal entry"]{position:fixed!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;padding:18px!important;overscroll-behavior:contain!important;}
+.entry-view-modal{max-height:calc(100dvh - 36px)!important;overflow:hidden!important;border-radius:30px!important;isolation:isolate!important;}
+.entry-view-modal .entry-modal-header{flex:0 0 auto!important;position:relative!important;z-index:70!important;pointer-events:auto!important;}
+.entry-view-modal .entry-view-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;}
+.entry-view-modal.decorating{max-height:calc(100dvh - 36px)!important;overflow:hidden!important;}
+.entry-view-modal.decorating .entry-modal-header .modal-close,.entry-view-modal.decorating .entry-modal-header .tf-save,.entry-view-modal.decorating .entry-modal-header .tf-cancel{display:inline-flex!important;position:relative!important;z-index:75!important;pointer-events:auto!important;}
+.entry-view-modal.decorating .journal-decoration-layer{pointer-events:none!important;}
+.entry-view-modal.decorating .journal-decoration-layer .journal-decoration-item{pointer-events:auto!important;}
+.entry-view-modal.decorating .journal-decoration-tool-card{position:relative!important;z-index:80!important;pointer-events:auto!important;overflow:auto!important;overscroll-behavior:contain!important;}
+.entry-view-modal.decorating .journal-decoration-editor-actions button,.journal-decoration-tool-card button{pointer-events:auto!important;}
+.decor-history-btn:disabled{opacity:.45!important;cursor:not-allowed!important;}
+
 @media(max-width:768px){
-  .entry-modal.memory-entry-modal,.entry-view-modal{overflow:visible!important;}
+  .entry-modal.memory-entry-modal{overflow:visible!important;}
+  .entry-view-modal{overflow:hidden!important;}
   .journal-decoration-layer .journal-decoration-item{min-width:42px;min-height:42px;}
   .journal-decoration-toolbar button{flex:1 1 120px;}
   .journal-decoration-editor-panel{margin:0 10px 10px;padding:10px;}
