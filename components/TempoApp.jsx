@@ -124,6 +124,261 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
     .filter(Boolean);
 }
 
+function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false }) {
+  const decorationCanvasRef = useRef(null);
+  const decorationDragRef = useRef(null);
+  const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
+  const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
+  const canEdit = Boolean(editing && setBlocks && setSelectedBlockId);
+
+  function updateDecoration(id, patch) {
+    if (!canEdit) return;
+    setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b));
+  }
+  function updateDecorationText(id, text) {
+    if (!canEdit) return;
+    setBlocks(bs => bs.map((b, idx) => {
+      if (b.id !== id) return b;
+      const type = scrapbookItemType(b);
+      const layout = scrapbookItemLayout(b, idx);
+      const cleanText = String(text || "");
+      const charsPerLine = Math.max(10, Math.floor(layout.w * 1.35));
+      const estimatedLines = cleanText.split(/\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil((line.length || 1) / charsPerLine)), 0);
+      const neededH = 10 + estimatedLines * 4.2;
+      const nextH = scrapbookClamp(Math.max(layout.h, neededH), 8, 60);
+      return { ...b, type, text: cleanText, h: nextH, y: scrapbookClamp(layout.y, 0, 100 - nextH) };
+    }));
+  }
+  function beginDecorationPointer(blockId, mode, layout, e) {
+    if (!canEdit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedBlockId(blockId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    decorationDragRef.current = { blockId, mode, layout, startX: e.clientX, startY: e.clientY };
+  }
+  function moveDecorationPointer(e) {
+    const drag = decorationDragRef.current;
+    const board = decorationCanvasRef.current;
+    if (!canEdit || !drag || !board) return;
+    e.preventDefault();
+    const rect = board.getBoundingClientRect();
+    const dx = ((e.clientX - drag.startX) / Math.max(1, rect.width)) * 100;
+    const dy = ((e.clientY - drag.startY) / Math.max(1, rect.height)) * 100;
+    if (drag.mode === "resize") {
+      updateDecoration(drag.blockId, {
+        w: scrapbookClamp(Math.round((drag.layout.w + dx) * 10) / 10, 8, 96),
+        h: scrapbookClamp(Math.round((drag.layout.h + dy) * 10) / 10, 8, 60),
+      });
+    } else {
+      updateDecoration(drag.blockId, {
+        x: scrapbookClamp(Math.round((drag.layout.x + dx) * 10) / 10, 0, 100 - drag.layout.w),
+        y: scrapbookClamp(Math.round((drag.layout.y + dy) * 10) / 10, 0, 100 - drag.layout.h),
+      });
+    }
+  }
+  function endDecorationPointer() { decorationDragRef.current = null; }
+
+  if (!normalizedBlocks.length && !canEdit) return null;
+  return (
+    <div
+      ref={decorationCanvasRef}
+      className={`journal-decoration-layer journal-view-decoration-layer ${canEdit ? "journal-decoration-editing" : ""}`}
+      aria-hidden={!canEdit}
+      onPointerLeave={endDecorationPointer}
+    >
+      {normalizedBlocks.map((b, idx) => {
+        const type = scrapbookItemType(b);
+        if (!type) return null;
+        const layout = scrapbookItemLayout(b, idx);
+        const selected = selectedBlock?.id === b.id;
+        const textFitStyle = scrapbookTextFitStyle(b, layout, type);
+        const stickerFlipStyle = scrapbookStickerFlipStyle(b);
+        const style = { left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z };
+        return (
+          <div
+            key={b.id}
+            className={`scrapbook-view-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""}`}
+            style={style}
+            onPointerMove={canEdit ? moveDecorationPointer : undefined}
+            onPointerUp={canEdit ? endDecorationPointer : undefined}
+            onPointerCancel={canEdit ? endDecorationPointer : undefined}
+            onClick={canEdit ? e => { e.stopPropagation(); setSelectedBlockId(b.id); } : undefined}
+          >
+            {canEdit && (
+              <button
+                type="button"
+                className="scrapbook-drag-handle"
+                title="Drag decoration"
+                onPointerDown={e => beginDecorationPointer(b.id, "move", layout, e)}
+              >⋮⋮</button>
+            )}
+            {type === "tape" && (canEdit ? (
+              <textarea
+                className="scrapbook-canvas-textarea"
+                placeholder="Type on tape…"
+                value={b.text || ""}
+                style={textFitStyle}
+                onChange={e => updateDecorationText(b.id, e.target.value)}
+                onFocus={() => setSelectedBlockId(b.id)}
+                onPointerDown={e => e.stopPropagation()}
+              />
+            ) : <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>)}
+            {type === "sticker" && (
+              <div className={canEdit ? "scrapbook-canvas-sticker" : "scrapbook-view-sticker"} style={stickerFlipStyle}>
+                {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}
+              </div>
+            )}
+            {canEdit && <span className="scrapbook-resize-handle" title="Resize" onPointerDown={e => beginDecorationPointer(b.id, "resize", layout, e)} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, onSave, onCancel, saving = false }) {
+  const stickerPacks = Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }];
+  const normalizedBlocks = normalizeScrapbookBlocksForSave(blocks);
+  const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || normalizedBlocks[0] || null;
+  const [activeStickerPackId, setActiveStickerPackId] = useState(stickerPacks.find(p => p.id === "sugar")?.id || stickerPacks[0]?.id || "cozy");
+
+  useEffect(() => {
+    if (!selectedBlock?.stickerAsset) return;
+    const pack = stickerPacks.find(p => (p.stickers || []).some(st => st.src === selectedBlock.stickerAsset));
+    if (pack && pack.id !== activeStickerPackId) setActiveStickerPackId(pack.id);
+  }, [selectedBlock?.id, selectedBlock?.stickerAsset]);
+
+  function addDecoration(type) {
+    const nextItem = makeScrapbookItem(type === "tape" ? "tape" : "sticker", normalizedBlocks.length);
+    setBlocks(bs => [...normalizeScrapbookBlocksForSave(bs), nextItem]);
+    setSelectedBlockId(nextItem.id);
+  }
+  function updateDecoration(id, patch) { setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b)); }
+  function updateDecorationLayout(id, key, value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return;
+    updateDecoration(id, { [key]: n });
+  }
+  function removeDecoration(id) {
+    setBlocks(bs => bs.filter(b => b.id !== id));
+    setSelectedBlockId(current => current === id ? null : current);
+  }
+  function duplicateDecoration(id) {
+    const sourceIndex = normalizedBlocks.findIndex(b => b.id === id);
+    if (sourceIndex < 0) return;
+    const source = normalizedBlocks[sourceIndex];
+    const layout = scrapbookItemLayout(source, sourceIndex);
+    const copy = {
+      ...source,
+      id: `b${uid()}`,
+      x: scrapbookClamp(layout.x + 4, 0, 92),
+      y: scrapbookClamp(layout.y + 4, 0, 92),
+      z: Math.max(1, ...normalizedBlocks.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1)) + 1,
+    };
+    setBlocks(bs => [...bs, copy]);
+    setSelectedBlockId(copy.id);
+  }
+  function nudgeLayer(id, dir) {
+    setBlocks(bs => {
+      const current = normalizeScrapbookBlocksForSave(bs);
+      const zValues = current.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1);
+      const currentMax = Math.max(1, ...zValues);
+      const currentMin = Math.min(1, ...zValues);
+      return bs.map((b, idx) => {
+        if (b.id !== id) return b;
+        const layout = scrapbookItemLayout(b, idx);
+        return { ...b, z: dir > 0 ? currentMax + 1 : currentMin - 1 };
+      });
+    });
+  }
+  function toggleStickerFlip(id, axis) {
+    const key = axis === "y" ? "flipY" : "flipX";
+    updateDecoration(id, { [key]: !Boolean(selectedBlock?.[key]) });
+  }
+  function renderStickerPackPicker(selectedSrc, onPick) {
+    const activePack = stickerPacks.find(pack => pack.id === activeStickerPackId) || stickerPacks[0];
+    const activeStickers = activePack?.stickers || [];
+    return (
+      <div className="sticker-pack-browser">
+        <div className="sticker-pack-tabs" role="tablist" aria-label="Sticker packs">
+          {stickerPacks.map(pack => {
+            const icon = pack.stickers?.[0];
+            return (
+              <button key={pack.id} type="button" className={pack.id === activePack?.id ? "active" : ""} title={pack.label} aria-label={`${pack.label} sticker pack`} onClick={() => setActiveStickerPackId(pack.id)}>
+                {icon?.src ? <img src={icon.src} alt="" onError={e => { e.currentTarget.style.display = "none"; }} /> : <span>🌸</span>}
+                <small>{pack.label}</small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="sticker-pack-active-title">{activePack?.label || "Stickers"}</div>
+        <div className="sticker-asset-picker-row compact">
+          {activeStickers.map(st => (
+            <button key={st.id} type="button" className={selectedSrc === st.src ? "selected" : ""} title={st.label} onClick={() => onPick(st)}>
+              <img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} />
+              <span className="sticker-choice-label">{st.number || st.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const selectedType = scrapbookItemType(selectedBlock);
+  const selectedLayout = selectedBlock ? scrapbookItemLayout(selectedBlock, normalizedBlocks.findIndex(b => b.id === selectedBlock.id)) : null;
+
+  return (
+    <div className="journal-decoration-editor-panel">
+      <div className="journal-decoration-editor-head">
+        <div>
+          <strong>Decorate this memory 🎀</strong>
+          <span>Place tape and stickers directly on the saved journal entry view.</span>
+        </div>
+        <div className="journal-decoration-editor-actions">
+          <button type="button" className="tf-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button type="button" className="tf-save" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save decorations ✓"}</button>
+        </div>
+      </div>
+      <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar">
+        <button type="button" onClick={() => addDecoration("tape")}>+ Tape</button>
+        <button type="button" onClick={() => addDecoration("sticker")}>+ Sticker</button>
+      </div>
+      {selectedBlock && selectedLayout ? (
+        <div className="scrapbook-selected-panel journal-decoration-selected-panel">
+          <div className="scrapbook-selected-head">
+            <strong>{scrapbookItemLabel(selectedType)}</strong>
+            <div>
+              <button type="button" onClick={() => nudgeLayer(selectedBlock.id, 1)}>Bring front</button>
+              <button type="button" onClick={() => nudgeLayer(selectedBlock.id, -1)}>Send back</button>
+              <button type="button" onClick={() => duplicateDecoration(selectedBlock.id)}>Duplicate</button>
+              <button type="button" onClick={() => removeDecoration(selectedBlock.id)}>Remove</button>
+            </div>
+          </div>
+          <div className="scrapbook-control-grid">
+            <label>X <input type="range" min="0" max="98" value={selectedLayout.x} onChange={e => updateDecorationLayout(selectedBlock.id, "x", e.target.value)} /></label>
+            <label>Y <input type="range" min="0" max="98" value={selectedLayout.y} onChange={e => updateDecorationLayout(selectedBlock.id, "y", e.target.value)} /></label>
+            <label>Width <input type="range" min={selectedType === "sticker" ? "8" : "18"} max="96" value={selectedLayout.w} onChange={e => updateDecorationLayout(selectedBlock.id, "w", e.target.value)} /></label>
+            <label>Height <input type="range" min="8" max="60" value={selectedLayout.h} onChange={e => updateDecorationLayout(selectedBlock.id, "h", e.target.value)} /></label>
+            <label>Rotate <input type="range" min="-28" max="28" value={selectedLayout.rotate} onChange={e => updateDecorationLayout(selectedBlock.id, "rotate", e.target.value)} /></label>
+          </div>
+          {selectedType === "sticker" && (
+            <div className="scrapbook-sticker-controls">
+              <div className="scrapbook-flip-row" aria-label="Sticker flip controls">
+                <button type="button" className={selectedBlock.flipX ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "x")}>Flip horizontal</button>
+                <button type="button" className={selectedBlock.flipY ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "y")}>Flip vertical</button>
+              </div>
+              {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateDecoration(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
+            </div>
+          )}
+          {selectedType === "tape" && <div className="journal-decoration-note">Type directly on the tape in the journal entry view.</div>}
+        </div>
+      ) : <div className="scrapbook-empty-note">Add a tape note or sticker, then drag it anywhere around the saved memory.</div>}
+    </div>
+  );
+}
+
+
 function RecurrenceEditor({ value, onChange, startDate }) {
   const rec = normalizeRecurrence(value);
   const freq = rec?.frequency || "";
@@ -1965,67 +2220,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
           <button className="modal-close" onClick={requestClose}>✕</button>
         </div>
 
-        <div
-          ref={scrapbookCanvasRef}
-          className="journal-decoration-layer"
-          onPointerLeave={endScrapbookPointer}
-        >
-          {editableScrapbookBlocks.map((b, idx) => {
-            const type = scrapbookItemType(b);
-            if (!type) return null;
-            const layout = scrapbookItemLayout(b, idx);
-            const selected = (selectedBlock?.id || selectedBlockId) === b.id;
-            const style = {
-              left: `${layout.x}%`,
-              top: `${layout.y}%`,
-              width: `${layout.w}%`,
-              height: `${layout.h}%`,
-              transform: `rotate(${layout.rotate}deg)`,
-              zIndex: layout.z,
-            };
-            const textFitStyle = scrapbookTextFitStyle(b, layout, type);
-            const stickerFlipStyle = scrapbookStickerFlipStyle(b);
-            return (
-              <div
-                key={b.id}
-                className={`scrapbook-canvas-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""}`}
-                style={style}
-                onPointerMove={moveScrapbookPointer}
-                onPointerUp={endScrapbookPointer}
-                onPointerCancel={endScrapbookPointer}
-                onClick={e => { e.stopPropagation(); setSelectedBlockId(b.id); }}
-              >
-                <button
-                  type="button"
-                  className="scrapbook-drag-handle"
-                  title="Drag"
-                  onPointerDown={e => beginScrapbookPointer(b.id, "move", layout, e)}
-                >⋮⋮</button>
-                {type === "tape" && (
-                  <textarea
-                    className="scrapbook-canvas-textarea"
-                    placeholder="Type on tape…"
-                    value={b.text || ""}
-                    style={textFitStyle}
-                    onChange={e => updateScrapbookText(b.id, e.target.value)}
-                    onFocus={() => setSelectedBlockId(b.id)}
-                  />
-                )}
-                {type === "sticker" && (
-                  <div className="scrapbook-canvas-sticker" style={stickerFlipStyle}>
-                    {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"} /> : <span>{b.sticker || "🌸"}</span>}
-                  </div>
-                )}
-                <span
-                  className="scrapbook-resize-handle"
-                  title="Resize"
-                  onPointerDown={e => beginScrapbookPointer(b.id, "resize", layout, e)}
-                />
-              </div>
-            );
-          })}
-        </div>
-
         <div className="entry-modal-body">
         <div className="entry-section">
           <div className="entry-section-title">Mood</div>
@@ -2169,57 +2363,10 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
             value={note} onChange={e => setNote(e.target.value)} />
         </div>
 
-        <div className="entry-section journal-decoration-section">
-          <div className="entry-section-title scrapbook-title-row">
-            <span>Decorations 🎀</span>
-            <small>Add tape and stickers anywhere around this journal entry. Drag, resize, rotate, and layer them freely.</small>
-          </div>
-          <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar">
-            <button type="button" onClick={() => addBlock("tape")}>+ Tape</button>
-            <button type="button" onClick={() => addBlock("sticker")}>+ Sticker</button>
-          </div>
-
-          {selectedBlock ? (() => {
-            const selectedType = scrapbookItemType(selectedBlock);
-            const selectedLayout = scrapbookItemLayout(selectedBlock, editableScrapbookBlocks.findIndex(b => b.id === selectedBlock.id));
-            return (
-              <div className="scrapbook-selected-panel journal-decoration-selected-panel">
-                <div className="scrapbook-selected-head">
-                  <strong>{scrapbookItemLabel(selectedType)}</strong>
-                  <div>
-                    <button type="button" onClick={() => nudgeLayer(selectedBlock.id, 1)}>Bring front</button>
-                    <button type="button" onClick={() => nudgeLayer(selectedBlock.id, -1)}>Send back</button>
-                    <button type="button" onClick={() => duplicateBlock(selectedBlock.id)}>Duplicate</button>
-                    <button type="button" onClick={() => removeBlock(selectedBlock.id)}>Remove</button>
-                  </div>
-                </div>
-                <div className="scrapbook-control-grid">
-                  <label>X <input type="range" min="0" max="98" value={selectedLayout.x} onChange={e => updateBlockLayout(selectedBlock.id, "x", e.target.value)} /></label>
-                  <label>Y <input type="range" min="0" max="98" value={selectedLayout.y} onChange={e => updateBlockLayout(selectedBlock.id, "y", e.target.value)} /></label>
-                  <label>Width <input type="range" min={selectedType === "sticker" ? "8" : "18"} max="96" value={selectedLayout.w} onChange={e => updateBlockLayout(selectedBlock.id, "w", e.target.value)} /></label>
-                  <label>Height <input type="range" min="8" max="60" value={selectedLayout.h} onChange={e => updateBlockLayout(selectedBlock.id, "h", e.target.value)} /></label>
-                  <label>Rotate <input type="range" min="-28" max="28" value={selectedLayout.rotate} onChange={e => updateBlockLayout(selectedBlock.id, "rotate", e.target.value)} /></label>
-                </div>
-                {selectedType === "sticker" && (
-                  <div className="scrapbook-sticker-controls">
-                    <div className="scrapbook-flip-row" aria-label="Sticker flip controls">
-                      <button type="button" className={selectedBlock.flipX ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "x")}>Flip horizontal</button>
-                      <button type="button" className={selectedBlock.flipY ? "active" : ""} onClick={() => toggleStickerFlip(selectedBlock.id, "y")}>Flip vertical</button>
-                    </div>
-                    {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateBlock(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
-                  </div>
-                )}
-                {selectedType === "tape" && (
-                  <div className="journal-decoration-note">Type directly on the tape that appears over the entry.</div>
-                )}
-              </div>
-            );
-          })() : <div className="scrapbook-empty-note">Add a tape note or sticker, then select it to customize.</div>}
-        </div>        </div>
-
         <div className="entry-modal-footer">
           <button className="tf-cancel" onClick={requestClose}>Cancel</button>
           <button className="tf-save" onClick={handleSave} disabled={uploading}>{uploading ? "Saving…" : "Save memory ✓"}</button>
+        </div>
         </div>
       </div>
     </div>
@@ -2236,6 +2383,12 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
   const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [memoryImageUrls, setMemoryImageUrls] = useState({});
   const [dragActivityId, setDragActivityId] = useState(null);
+  const [decoratingKey, setDecoratingKey] = useState(null);
+  const [decoratePromptKey, setDecoratePromptKey] = useState(null);
+  const [decorDraftBlocks, setDecorDraftBlocks] = useState([]);
+  const [selectedDecorationId, setSelectedDecorationId] = useState(null);
+  const [savingDecorations, setSavingDecorations] = useState(false);
+  const decorationOriginalRef = useRef("[]");
   useEffect(() => {
     if (quickEditDate) {
       setEditing(quickEditDate);
@@ -2247,6 +2400,55 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     if (onSaveMemoryEntry) return onSaveMemoryEntry(key, data);
     setJournal(j => ({ ...j, [key]: data }));
     return true;
+  }
+
+  function startDecoratingMemory(key) {
+    const entry = normalizeMemoryEntry(journal[key]);
+    const blocks = normalizeScrapbookBlocksForSave(entry.blocks);
+    setViewingKey(key);
+    setDecoratingKey(key);
+    setDecoratePromptKey(null);
+    setDecorDraftBlocks(blocks);
+    setSelectedDecorationId(blocks[0]?.id || null);
+    decorationOriginalRef.current = JSON.stringify(blocks);
+  }
+
+  function stopDecoratingMemory({ force = false } = {}) {
+    if (!decoratingKey) return true;
+    const changed = JSON.stringify(normalizeScrapbookBlocksForSave(decorDraftBlocks)) !== decorationOriginalRef.current;
+    if (!force && changed && !window.confirm("Discard unsaved decorations?")) return false;
+    setDecoratingKey(null);
+    setDecorDraftBlocks([]);
+    setSelectedDecorationId(null);
+    return true;
+  }
+
+  function closeViewingMemory() {
+    if (!stopDecoratingMemory()) return;
+    setDecoratePromptKey(null);
+    setViewingKey(null);
+  }
+
+  async function saveDecorations() {
+    if (!decoratingKey || !journal[decoratingKey]) return;
+    setSavingDecorations(true);
+    try {
+      const cleanBlocks = normalizeScrapbookBlocksForSave(decorDraftBlocks);
+      await saveEntry(decoratingKey, {
+        ...journal[decoratingKey],
+        blocks: cleanBlocks,
+        updatedAt: new Date().toISOString(),
+      });
+      decorationOriginalRef.current = JSON.stringify(cleanBlocks);
+      setDecoratingKey(null);
+      setDecorDraftBlocks([]);
+      setSelectedDecorationId(null);
+    } catch (err) {
+      console.warn("Could not save journal decorations", err);
+      window.alert(err?.message || "Could not save decorations. Please try again.");
+    } finally {
+      setSavingDecorations(false);
+    }
   }
 
   // Build mood calendar for current month
@@ -2596,7 +2798,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 ))}
               </div>
               <div className="entry-section"><div className="entry-section-title">Backgrounds</div><div className="memory-background-picker">{MEMORY_BACKGROUNDS.map(bg => <span key={bg.id} className="memory-bg-choice"><span className="memory-bg-swatch" style={bg.src ? {backgroundImage:`url(${bg.src})`} : {}} /> <span>{bg.label}</span></span>)}</div></div>
-              <div className="entry-section"><div className="entry-section-title">Stickers</div>{renderStickerPackPicker(null, null, { previewOnly: true })}</div>
+              <div className="entry-section"><div className="entry-section-title">Stickers</div><div className="sticker-asset-picker-row compact sticker-pack-preview-row">{(Core.MEMORY_STICKER_PACKS || [{ id: "cozy", label: "Cozy", stickers: COZY_STICKER_PACK }]).flatMap(pack => (pack.stickers || []).slice(0, 12).map(st => <span key={`${pack.id}-${st.id}`} className="sticker-preview-chip"><img src={st.src} alt={st.label} onError={e => { e.currentTarget.style.display = "none"; }} /><span className="sticker-choice-label">{st.number || st.label}</span></span>))}</div></div>
             </div>
           </div>
         </div>
@@ -2612,39 +2814,41 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         const completedTasks = completedTasksForDateKey(tasks, viewingKey);
         const dayScore = dailyGameSummary(tasks, journal, events, viewingKey);
         const journalDecorations = normalizeScrapbookBlocksForSave(entry.blocks);
+        const isDecorating = decoratingKey === viewingKey;
+        const visibleDecorations = isDecorating ? decorDraftBlocks : journalDecorations;
         return (
-          <div className="modal-overlay" onClick={() => setViewingKey(null)} role="dialog" aria-modal="true" aria-label="View journal entry">
-            <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
+          <div className="modal-overlay" onClick={closeViewingMemory} role="dialog" aria-modal="true" aria-label="View journal entry">
+            <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"} ${isDecorating ? "decorating" : ""}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
               <div className="entry-modal-header">
                 <div>
                   <div className="entry-modal-date">{formatWithDisplayTimezone(d, {weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
                   {moodObj && <div className="entry-view-mood" style={{color:moodObj.color}}>{moodObj.emoji} {moodObj.label}</div>}
                 </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button className="tf-cancel" style={{fontSize:11}} onClick={() => { setEditing(d); setViewingKey(null); }}>Edit Memory</button>
-                  <button className="modal-close" onClick={() => setViewingKey(null)}>✕</button>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                  {!isDecorating && <button className="tf-save decorate-entry-btn" style={{fontSize:11}} onClick={() => startDecoratingMemory(viewingKey)}>Decorate 🎀</button>}
+                  {!isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={() => { if (!stopDecoratingMemory()) return; setEditing(d); setViewingKey(null); }}>Edit Memory</button>}
+                  {isDecorating && <button className="tf-save" style={{fontSize:11}} onClick={saveDecorations} disabled={savingDecorations}>{savingDecorations ? "Saving…" : "Done ✓"}</button>}
+                  {isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={() => stopDecoratingMemory()}>Cancel</button>}
+                  <button className="modal-close" onClick={closeViewingMemory}>✕</button>
                 </div>
               </div>
-              {journalDecorations.length > 0 && (
-                <div className="journal-decoration-layer journal-view-decoration-layer" aria-hidden="true">
-                  {journalDecorations.map((b, idx) => {
-                    const type = scrapbookItemType(b);
-                    if (!type) return null;
-                    const layout = scrapbookItemLayout(b, idx);
-                    const textFitStyle = scrapbookTextFitStyle(b, layout, type);
-                    const stickerFlipStyle = scrapbookStickerFlipStyle(b);
-                    return (
-                      <div
-                        key={b.id}
-                        className={`scrapbook-view-item journal-decoration-item scrapbook-${type}`}
-                        style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}
-                      >
-                        {type === "tape" && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}
-                        {type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}
-                      </div>
-                    );
-                  })}
-                </div>
+              <JournalDecorationCanvas
+                blocks={visibleDecorations}
+                setBlocks={isDecorating ? setDecorDraftBlocks : undefined}
+                selectedBlockId={isDecorating ? selectedDecorationId : null}
+                setSelectedBlockId={isDecorating ? setSelectedDecorationId : undefined}
+                editing={isDecorating}
+              />
+              {isDecorating && (
+                <JournalDecorationControls
+                  blocks={decorDraftBlocks}
+                  setBlocks={setDecorDraftBlocks}
+                  selectedBlockId={selectedDecorationId}
+                  setSelectedBlockId={setSelectedDecorationId}
+                  onSave={saveDecorations}
+                  onCancel={() => stopDecoratingMemory()}
+                  saving={savingDecorations}
+                />
               )}
               <div className="entry-view-body">
                 {cover && <div className="memory-cover-hero"><img src={memoryPhotoSrc(cover, memoryImageUrls)} onError={() => refreshMemoryImage(cover)} alt={cover.caption || "Memory cover"}/>{cover.caption && <div>{cover.caption}</div>}</div>}
@@ -2687,7 +2891,21 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         );
       })()}
 
-      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} onSaved={(key) => { setEditing(null); setViewingKey(key); }} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
+      {decoratePromptKey && journal[decoratePromptKey] && (
+        <div className="modal-overlay decorate-after-save-overlay" onClick={() => setDecoratePromptKey(null)} role="dialog" aria-modal="true" aria-label="Decorate saved memory">
+          <div className="decorate-after-save-card" onClick={e => e.stopPropagation()}>
+            <div className="decorate-after-save-icon">🎀</div>
+            <strong>Memory saved</strong>
+            <p>Want to decorate the saved journal entry now? You’ll place tape and stickers directly on the final memory view.</p>
+            <div className="decorate-after-save-actions">
+              <button type="button" className="tf-cancel" onClick={() => setDecoratePromptKey(null)}>Not now</button>
+              <button type="button" className="tf-save" onClick={() => startDecoratingMemory(decoratePromptKey)}>Decorate now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} onSaved={(key) => { setEditing(null); setViewingKey(key); setDecoratePromptKey(key); }} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
     </div>
   );
 }
@@ -8133,21 +8351,39 @@ const loginCSS = `
 .journal-decoration-layer{position:absolute!important;inset:0!important;z-index:6!important;pointer-events:none!important;overflow:visible!important;border-radius:inherit;touch-action:none;}
 .journal-decoration-layer .journal-decoration-item{position:absolute!important;box-sizing:border-box!important;pointer-events:auto!important;transform-origin:center center!important;}
 .journal-view-decoration-layer .journal-decoration-item{pointer-events:none!important;}
+.journal-view-decoration-layer.journal-decoration-editing{z-index:18!important;pointer-events:none!important;}
+.journal-view-decoration-layer.journal-decoration-editing .journal-decoration-item{pointer-events:auto!important;}
+.entry-view-modal.decorating .entry-modal-header,.entry-view-modal.decorating .entry-view-body{z-index:8;}
+.journal-decoration-editor-panel{position:relative;z-index:30;margin:0 20px 12px;padding:12px;border:1px dashed rgba(var(--accent-rgb),.30);border-radius:18px;background:rgba(255,255,255,.86);box-shadow:0 16px 34px rgba(80,44,64,.14);backdrop-filter:blur(10px);}
+.journal-decoration-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.journal-decoration-editor-head strong{display:block;color:var(--text);font-size:14px;}
+.journal-decoration-editor-head span{display:block;color:var(--text2);font-size:12px;font-weight:800;margin-top:2px;}
+.journal-decoration-editor-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.decorate-entry-btn{box-shadow:0 8px 20px rgba(var(--accent-rgb),.18)!important;}
+.decorate-after-save-overlay{z-index:999!important;background:rgba(44,28,38,.18)!important;backdrop-filter:blur(8px);}
+.decorate-after-save-card{width:min(92vw,380px);background:var(--bg2);border:1px solid var(--border);border-radius:26px;padding:22px;box-shadow:0 24px 80px rgba(80,44,64,.24);text-align:center;color:var(--text);}
+.decorate-after-save-icon{font-size:34px;margin-bottom:8px;}
+.decorate-after-save-card strong{display:block;font-size:20px;margin-bottom:6px;}
+.decorate-after-save-card p{margin:0 0 16px;color:var(--text2);font-size:13px;font-weight:800;line-height:1.5;}
+.decorate-after-save-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.dark .journal-decoration-editor-panel,.dark .decorate-after-save-card{background:rgba(31,24,30,.94);border-color:rgba(var(--accent-rgb),.28);}
 .journal-decoration-item.scrapbook-tape{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92))!important;border:1px solid rgba(202,122,154,.24)!important;box-shadow:0 12px 28px rgba(118,76,92,.16)!important;overflow:visible!important;}
 .journal-decoration-item.scrapbook-tape:before{content:"";position:absolute;left:50%;top:-9px;width:48px;height:18px;transform:translateX(-50%) rotate(-2deg);border-radius:6px;background:rgba(255,255,255,.58);border:1px solid rgba(202,122,154,.16);box-shadow:0 4px 10px rgba(118,76,92,.08);pointer-events:none;}
 .journal-decoration-item.scrapbook-sticker{background:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:visible!important;}
-.journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.06),rgba(255,255,255,.34));border:1.5px dashed rgba(var(--accent-rgb),.24);}
 .journal-decoration-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px!important;}
 .journal-decoration-note{margin-top:10px;padding:9px 11px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.50);color:var(--text2);font-size:12px;font-weight:800;}
 .journal-decoration-selected-panel{position:relative;z-index:12;}
 .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92));border:1px solid rgba(202,122,154,.24);border-radius:16px;box-shadow:0 12px 28px rgba(118,76,92,.12);}
-.dark .journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.14),rgba(255,255,255,.04));border-color:rgba(var(--accent-rgb),.26);}
 .dark .journal-decoration-note{background:rgba(255,255,255,.06);border-color:rgba(var(--accent-rgb),.24);}
 .dark .journal-decoration-item.scrapbook-tape,.dark .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(108,48,82,.92),rgba(72,42,58,.88))!important;border-color:rgba(var(--accent-rgb),.30)!important;color:#ffd6e3!important;}
 @media(max-width:768px){
   .entry-modal.memory-entry-modal,.entry-view-modal{overflow:visible!important;}
   .journal-decoration-layer .journal-decoration-item{min-width:42px;min-height:42px;}
   .journal-decoration-toolbar button{flex:1 1 120px;}
+  .journal-decoration-editor-panel{margin:0 10px 10px;padding:10px;}
+  .journal-decoration-editor-head{flex-direction:column;}
+  .journal-decoration-editor-actions{width:100%;justify-content:space-between;}
+  .journal-decoration-editor-actions button{flex:1;}
 }
 
 
