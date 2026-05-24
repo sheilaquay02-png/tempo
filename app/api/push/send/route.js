@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimit } from '../../../lib/tempo/google/server';
+import { rateLimit } from '../../../../lib/tempo/google/server';
 
 export async function POST(request) {
   try {
