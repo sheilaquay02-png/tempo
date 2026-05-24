@@ -3180,6 +3180,61 @@ function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], h
     insights,
   };
 }
+
+function buildAssistantApiContext(ctx, calendars = [], categories = []) {
+  const calendarName = id => calendars.find(c => c.id === id)?.name || id || "Calendar";
+  const categoryLabel = id => categories.find(c => c.id === id)?.label || id || "Task";
+  return {
+    dateKey: ctx.dateKey,
+    greeting: ctx.greeting,
+    sourceCounts: ctx.sourceCounts,
+    freeHoursLabel: ctx.freeHoursLabel,
+    largestFreeSlot: ctx.largestFreeSlot ? {
+      start: fmt(ctx.largestFreeSlot.start),
+      end: fmt(ctx.largestFreeSlot.end),
+      minutes: ctx.largestFreeSlot.minutes,
+      label: `${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)})`,
+    } : null,
+    freeSlots: (ctx.freeSlots || []).slice(0, 6).map(slot => ({
+      start: fmt(slot.start),
+      end: fmt(slot.end),
+      minutes: slot.minutes,
+      label: `${assistantTimeRange(slot)} (${assistantHours(slot.minutes)})`,
+    })),
+    events: (ctx.events || []).slice(0, 12).map(event => ({
+      title: event.title,
+      time: isAllDayEvent(event) ? "All day" : assistantTimeRange(event),
+      source: assistantEventSource(event, calendars),
+      calendar: calendarName(event.calendar),
+      allDay: isAllDayEvent(event),
+      readOnly: Boolean(event.readOnly || event.source === "google"),
+    })),
+    tasks: (ctx.tasks || []).slice(0, 12).map(task => ({
+      title: task.title,
+      duration: assistantHours(taskDurationToMinutes(task.duration, 30)),
+      priority: task.priority || "medium",
+      category: categoryLabel(task.category),
+      due: task.deadline ? fmtDate(new Date(task.deadline)) : "",
+    })),
+    topTasks: (ctx.topTasks || []).slice(0, 4).map(task => ({
+      title: task.title,
+      duration: assistantHours(taskDurationToMinutes(task.duration, 30)),
+      priority: task.priority || "medium",
+      category: categoryLabel(task.category),
+    })),
+    taskMinutes: ctx.taskMinutes,
+    habits: {
+      total: ctx.habits?.length || 0,
+      completed: ctx.completedHabits?.length || 0,
+      remaining: (ctx.habits || []).filter(h => !(ctx.completedHabits || []).some(done => done.id === h.id)).slice(0, 8).map(h => h.name),
+    },
+    mood: ctx.mood?.label || "",
+    energy: ctx.energy?.label || "",
+    hasJournal: Boolean(ctx.hasJournal),
+    insights: ctx.insights || [],
+  };
+}
+
 function buildAssistantGreeting(ctx) {
   const freeLine = ctx.freeMinutes ? ` You have ${ctx.freeHoursLabel} of open space today.` : " Your calendar has no clear open space inside the planning window.";
   const nextLine = ctx.nextEvent ? ` Next: ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : " No more timed events are coming up today.";
@@ -3251,6 +3306,8 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [aiError, setAiError] = useState("");
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [assistantFlow, setAssistantFlow] = useState(null);
   const bottomRef = useRef(null);
@@ -3273,26 +3330,61 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
   const durationOptions = [15, 30, 60, 90, 120];
 
-  function send(ov) {
+  async function send(ov) {
     const text = (ov ?? input).trim(); if (!text) return;
     setInput("");
     if (flowRef.current) {
       answerAssistantFlow(text);
       return;
     }
-    setMessages(p => [...p, { role: "user", text }]);
-    setTimeout(() => {
+
+    const lower = text.toLowerCase();
+    if (/\b(add|create|schedule|block)\b.*\b(event|meeting|appointment|calendar)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      startAssistantFlow("event");
+      return;
+    }
+    if (/\b(add|create|make)\b.*\b(task|todo|to-do)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      startAssistantFlow("task");
+      return;
+    }
+
+    const userMessage = { role: "user", text };
+    const nextHistory = [...messages, userMessage].slice(-8);
+    setMessages(p => [...p, userMessage]);
+    setAiThinking(true);
+    setAiError("");
+
+    try {
+      const response = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history: nextHistory.map(m => ({ role: m.role, text: m.text })),
+          context: buildAssistantApiContext(ctxRef.current, calendars, categories),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) throw new Error(data.error || "Tempo AI is not available yet");
+      setMessages(p => [...p, { role: "assistant", text: data.text || "I’m here, but I could not form a useful answer yet." }]);
+    } catch (err) {
+      console.warn("Tempo AI fallback used", err);
+      setAiError(err?.message || "Tempo AI fallback used");
       const contextReply = assistantReplyFromContext(text, ctxRef.current);
       if (contextReply) {
         setMessages(p => [...p, { role: "assistant", text: contextReply }]);
-        return;
+      } else {
+        const { text: rt, newEv, newTk, newP } = processMessage(text, eventsRef.current, tasksRef.current, pendingRef.current);
+        setMessages(p => [...p, { role: "assistant", text: rt }]);
+        if (newEv && Array.isArray(newEv)) onUpdateEvents(newEv);
+        if (newTk) onUpdateTasks(newTk);
+        setPending(newP || null);
       }
-      const { text: rt, newEv, newTk, newP } = processMessage(text, eventsRef.current, tasksRef.current, pendingRef.current);
-      setMessages(p => [...p, { role: "assistant", text: rt }]);
-      if (newEv && Array.isArray(newEv)) onUpdateEvents(newEv);
-      if (newTk) onUpdateTasks(newTk);
-      setPending(newP || null);
-    }, CHAT_REPLY_DELAY_MS);
+    } finally {
+      setAiThinking(false);
+    }
   }
   function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
 
@@ -3519,7 +3611,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   return (
     <div className="chat-panel tempo-assistant-panel">
       <div className="chat-header assistant-header">
-        <div className="chat-title-row"><div className="chat-avatar">🌸</div><div><div className="chat-name">Tempo Assistant</div><div className="chat-status">● reading today’s rhythm</div></div></div>
+        <div className="chat-title-row"><div className="chat-avatar">🌸</div><div><div className="chat-name">Tempo Assistant</div><div className="chat-status">● {aiThinking ? "thinking with AI" : aiError ? "local rhythm fallback" : "reading today’s rhythm"}</div></div></div>
         <button className="chat-close" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 
@@ -3561,9 +3653,10 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
 
       <div className="chat-messages assistant-messages">
         {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
+        {aiThinking && <div className="chat-msg assistant assistant-thinking"><div className="msg-avatar">🌸</div><div className="msg-bubble"><span className="assistant-typing-dots"><i/><i/><i/></span></div></div>}
         <div ref={bottomRef} />
       </div>
-      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
+      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim() || aiThinking} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
     </div>
   );
 }
@@ -8084,6 +8177,16 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 .dark .assistant-flow-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
 .dark .assistant-flow-options button,.dark .assistant-flow-head button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
 @media(max-width:760px){.assistant-flow-card{max-height:30dvh;margin-bottom:8px!important;}.assistant-flow-options{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}.assistant-flow-options::-webkit-scrollbar{display:none;}.assistant-flow-options button{flex:0 0 auto;}}
+
+
+/* ── Phase 24C AI assistant endpoint UI ───────────────────────────────── */
+.assistant-thinking .msg-bubble{min-width:54px;display:flex;align-items:center;justify-content:center;}
+.assistant-typing-dots{display:inline-flex;align-items:center;gap:4px;height:18px;}
+.assistant-typing-dots i{width:6px;height:6px;border-radius:999px;background:var(--accent);opacity:.38;animation:tempoTypingDots 1.1s infinite ease-in-out;}
+.assistant-typing-dots i:nth-child(2){animation-delay:.16s;}
+.assistant-typing-dots i:nth-child(3){animation-delay:.32s;}
+@keyframes tempoTypingDots{0%,80%,100%{transform:translateY(0);opacity:.32;}40%{transform:translateY(-4px);opacity:1;}}
+.chat-send:disabled{opacity:.48;cursor:not-allowed;filter:saturate(.7);}
 
 `}</style>
 
