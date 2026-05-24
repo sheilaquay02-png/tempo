@@ -114,6 +114,7 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
       const type = scrapbookItemType(block);
       if (!type) return null;
       const layout = scrapbookItemLayout({ ...block, type }, index);
+      const hasPxLayout = [block?.xPx, block?.yPx, block?.wPx, block?.hPx].every(v => Number.isFinite(Number(v)));
       return {
         id: block?.id || `b${uid()}`,
         type,
@@ -123,6 +124,13 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
         flipX: Boolean(block?.flipX),
         flipY: Boolean(block?.flipY),
         ...layout,
+        ...(hasPxLayout ? {
+          coord: "px",
+          xPx: Math.round(Number(block.xPx) * 10) / 10,
+          yPx: Math.round(Number(block.yPx) * 10) / 10,
+          wPx: Math.max(24, Math.round(Number(block.wPx) * 10) / 10),
+          hPx: Math.max(24, Math.round(Number(block.hPx) * 10) / 10),
+        } : {}),
       };
     })
     .filter(Boolean);
@@ -137,9 +145,84 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   const selectedBlock = normalizedBlocks.find(b => b.id === selectedBlockId) || null;
   const canEdit = Boolean(editing && setBlocks && setSelectedBlockId);
 
+  function decorationBoardRect() {
+    const board = decorationCanvasRef.current;
+    return board?.getBoundingClientRect?.() || { left: 0, top: 0, width: 1, height: 1 };
+  }
+  function decorationLayoutToPx(item = {}, layout = {}, rect = decorationBoardRect()) {
+    const hasPxLayout = [item?.xPx, item?.yPx, item?.wPx, item?.hPx].every(v => Number.isFinite(Number(v)));
+    if (hasPxLayout) {
+      return {
+        x: Number(item.xPx),
+        y: Number(item.yPx),
+        w: Math.max(24, Number(item.wPx)),
+        h: Math.max(24, Number(item.hPx)),
+        rotate: scrapbookNumber(item.rotate, layout.rotate || 0),
+      };
+    }
+    return {
+      x: (scrapbookNumber(layout.x, 0) / 100) * Math.max(1, rect.width),
+      y: (scrapbookNumber(layout.y, 0) / 100) * Math.max(1, rect.height),
+      w: (scrapbookNumber(layout.w, 18) / 100) * Math.max(1, rect.width),
+      h: (scrapbookNumber(layout.h, 14) / 100) * Math.max(1, rect.height),
+      rotate: scrapbookNumber(layout.rotate, 0),
+    };
+  }
+  function decorationStyleForItem(item = {}, layout = {}, idx = 0) {
+    const hasPxLayout = [item?.xPx, item?.yPx, item?.wPx, item?.hPx].every(v => Number.isFinite(Number(v)));
+    const base = {
+      transform: `rotate(${layout.rotate}deg)`,
+      zIndex:(layout.z || idx + 1) + (selectedBlock?.id === item.id && canEdit ? 300 : 0),
+      "--decoration-rotate": `${layout.rotate}deg`,
+    };
+    if (hasPxLayout) {
+      return {
+        ...base,
+        left:`${Number(item.xPx)}px`,
+        top:`${Number(item.yPx)}px`,
+        width:`${Math.max(24, Number(item.wPx))}px`,
+        height:`${Math.max(24, Number(item.hPx))}px`,
+      };
+    }
+    return {
+      ...base,
+      left:`${layout.x}%`,
+      top:`${layout.y}%`,
+      width:`${layout.w}%`,
+      height:`${layout.h}%`,
+    };
+  }
+
   useEffect(() => {
     if (!selectedBlockId) setQuickMenuBlockId(null);
   }, [selectedBlockId]);
+
+  useEffect(() => {
+    if (!canEdit || !setBlocks) return;
+    const board = decorationCanvasRef.current;
+    const rect = board?.getBoundingClientRect?.();
+    if (!rect || rect.width < 20 || rect.height < 20) return;
+    setBlocks(bs => {
+      let changed = false;
+      const next = (Array.isArray(bs) ? bs : []).map((b, idx) => {
+        const hasPxLayout = [b?.xPx, b?.yPx, b?.wPx, b?.hPx].every(v => Number.isFinite(Number(v)));
+        if (hasPxLayout) return b;
+        const type = scrapbookItemType(b);
+        if (!type) return b;
+        const layout = scrapbookItemLayout({ ...b, type }, idx);
+        changed = true;
+        return {
+          ...b,
+          coord: "px",
+          xPx: Math.round(((layout.x / 100) * rect.width) * 10) / 10,
+          yPx: Math.round(((layout.y / 100) * rect.height) * 10) / 10,
+          wPx: Math.max(28, Math.round(((layout.w / 100) * rect.width) * 10) / 10),
+          hPx: Math.max(28, Math.round(((layout.h / 100) * rect.height) * 10) / 10),
+        };
+      });
+      return changed ? next : bs;
+    });
+  }, [canEdit, setBlocks, normalizedBlocks.length]);
 
   function patchDecoration(id, patch) {
     if (!canEdit) return;
@@ -237,11 +320,13 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const board = decorationCanvasRef.current;
     const rect = board?.getBoundingClientRect?.();
-    const cx = rect ? rect.left + ((layout.x + layout.w / 2) / 100) * rect.width : e.clientX;
-    const cy = rect ? rect.top + ((layout.y + layout.h / 2) / 100) * rect.height : e.clientY;
+    const sourceBlock = normalizedBlocks.find(b => b.id === blockId) || {};
+    const pxLayout = decorationLayoutToPx(sourceBlock, layout, rect);
+    const cx = rect ? rect.left + pxLayout.x + pxLayout.w / 2 : e.clientX;
+    const cy = rect ? rect.top + pxLayout.y + pxLayout.h / 2 : e.clientY;
     const startDistance = Math.max(12, Math.hypot(e.clientX - cx, e.clientY - cy));
     const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
-    decorationDragRef.current = { blockId, mode, layout, startX: e.clientX, startY: e.clientY, centerX: cx, centerY: cy, startDistance, startAngle, moved: false };
+    decorationDragRef.current = { blockId, mode, layout, pxLayout, startX: e.clientX, startY: e.clientY, centerX: cx, centerY: cy, startDistance, startAngle, moved: false };
   }
   function moveDecorationPointer(e) {
     const drag = decorationDragRef.current;
@@ -252,28 +337,33 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     const dxPx = e.clientX - drag.startX;
     const dyPx = e.clientY - drag.startY;
     if (Math.hypot(dxPx, dyPx) > 3) drag.moved = true;
+    const maxW = Math.max(1, rect.width);
+    const maxH = Math.max(1, rect.height);
+    const edgePad = Math.max(48, maxW * 0.12);
     if (drag.mode === "transform") {
       const distance = Math.max(12, Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY));
       const ratio = scrapbookClamp(distance / Math.max(12, drag.startDistance), .35, 3.2);
       const angle = Math.atan2(e.clientY - drag.centerY, e.clientX - drag.centerX);
-      const rotate = scrapbookClamp(drag.layout.rotate + ((angle - drag.startAngle) * 180 / Math.PI), -180, 180);
-      const nextW = scrapbookClamp(Math.round((drag.layout.w * ratio) * 10) / 10, 8, 110);
-      const nextH = scrapbookClamp(Math.round((drag.layout.h * ratio) * 10) / 10, 8, 82);
-      const centerXPct = drag.layout.x + drag.layout.w / 2;
-      const centerYPct = drag.layout.y + drag.layout.h / 2;
+      const rotate = scrapbookClamp(drag.pxLayout.rotate + ((angle - drag.startAngle) * 180 / Math.PI), -180, 180);
+      const nextW = scrapbookClamp(Math.round((drag.pxLayout.w * ratio) * 10) / 10, 28, maxW * 1.6);
+      const nextH = scrapbookClamp(Math.round((drag.pxLayout.h * ratio) * 10) / 10, 28, maxH * 0.9);
+      const centerXPx = drag.pxLayout.x + drag.pxLayout.w / 2;
+      const centerYPx = drag.pxLayout.y + drag.pxLayout.h / 2;
       patchDecoration(drag.blockId, {
-        w: nextW,
-        h: nextH,
-        x: scrapbookClamp(Math.round((centerXPct - nextW / 2) * 10) / 10, -12, 112 - nextW),
-        y: scrapbookClamp(Math.round((centerYPct - nextH / 2) * 10) / 10, -8, 112 - nextH),
+        coord: "px",
+        wPx: nextW,
+        hPx: nextH,
+        xPx: scrapbookClamp(Math.round((centerXPx - nextW / 2) * 10) / 10, -edgePad, maxW - nextW + edgePad),
+        yPx: scrapbookClamp(Math.round((centerYPx - nextH / 2) * 10) / 10, -edgePad, maxH - nextH + edgePad),
         rotate: Math.round(rotate * 10) / 10,
       });
     } else {
-      const dx = (dxPx / Math.max(1, rect.width)) * 100;
-      const dy = (dyPx / Math.max(1, rect.height)) * 100;
       patchDecoration(drag.blockId, {
-        x: scrapbookClamp(Math.round((drag.layout.x + dx) * 10) / 10, -12, 112 - drag.layout.w),
-        y: scrapbookClamp(Math.round((drag.layout.y + dy) * 10) / 10, -8, 112 - drag.layout.h),
+        coord: "px",
+        xPx: scrapbookClamp(Math.round((drag.pxLayout.x + dxPx) * 10) / 10, -edgePad, maxW - drag.pxLayout.w + edgePad),
+        yPx: scrapbookClamp(Math.round((drag.pxLayout.y + dyPx) * 10) / 10, -edgePad, maxH - drag.pxLayout.h + edgePad),
+        wPx: Math.max(24, Math.round(drag.pxLayout.w * 10) / 10),
+        hPx: Math.max(24, Math.round(drag.pxLayout.h * 10) / 10),
       });
     }
   }
@@ -313,7 +403,7 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
         const quickOpen = canEdit && quickMenuBlockId === b.id;
         const textFitStyle = scrapbookTextFitStyle(b, layout, type);
         const flipStyle = scrapbookStickerFlipStyle(b);
-        const style = { left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:(layout.z || idx + 1) + (selected && canEdit ? 300 : 0), "--decoration-rotate": `${layout.rotate}deg` };
+        const style = decorationStyleForItem(b, layout, idx);
         return (
           <div
             key={b.id}
@@ -359,25 +449,58 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetSwipeRef = useRef(null);
 
+  function finishSheetSwipe(start, endY) {
+    if (!start) return;
+    const dy = endY - start.y;
+    if (dy < -18) setSheetOpen(true);
+    else if (dy > 18) setSheetOpen(false);
+    else if (!start.moved) setSheetOpen(open => !open);
+  }
   function startSheetSwipe(e) {
-    sheetSwipeRef.current = { y: e.clientY, moved: false };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+    const start = { y: e.clientY, moved: false, lastY: e.clientY };
+    sheetSwipeRef.current = start;
+    const onMove = evt => {
+      if (!sheetSwipeRef.current) return;
+      const dy = evt.clientY - sheetSwipeRef.current.y;
+      sheetSwipeRef.current.lastY = evt.clientY;
+      if (Math.abs(dy) > 8) sheetSwipeRef.current.moved = true;
+      evt.preventDefault?.();
+    };
+    const onUp = evt => {
+      const current = sheetSwipeRef.current;
+      cleanup();
+      finishSheetSwipe(current, evt.clientY ?? current?.lastY ?? start.y);
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+      sheetSwipeRef.current = null;
+    };
+    sheetSwipeRef.current.cleanup = cleanup;
+    window.addEventListener("pointermove", onMove, { capture: true, passive: false });
+    window.addEventListener("pointerup", onUp, { capture: true, passive: false });
+    window.addEventListener("pointercancel", onUp, { capture: true, passive: false });
   }
   function moveSheetSwipe(e) {
     const start = sheetSwipeRef.current;
     if (!start) return;
     const dy = e.clientY - start.y;
-    if (Math.abs(dy) > 10) start.moved = true;
+    start.lastY = e.clientY;
+    if (Math.abs(dy) > 8) start.moved = true;
   }
   function endSheetSwipe(e) {
     const start = sheetSwipeRef.current;
+    if (start?.cleanup) return;
     sheetSwipeRef.current = null;
-    if (!start) return;
-    const dy = e.clientY - start.y;
-    if (dy < -22) setSheetOpen(true);
-    else if (dy > 22) setSheetOpen(false);
-    else if (!start.moved) setSheetOpen(open => !open);
+    finishSheetSwipe(start, e.clientY ?? start?.lastY ?? start?.y ?? 0);
   }
+  useEffect(() => () => {
+    sheetSwipeRef.current?.cleanup?.();
+    sheetSwipeRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!selectedBlock?.stickerAsset) return;
@@ -9122,6 +9245,157 @@ const loginCSS = `
   .journal-decoration-editor-head{flex-direction:column;}
   .journal-decoration-editor-actions{width:100%;justify-content:space-between;}
   .journal-decoration-editor-actions button{flex:1;}
+}
+
+
+/* ── Final decorator interaction correction: true card anchoring + real bottom sheet ── */
+body.tempo-modal-locked{touch-action:auto!important;}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  padding:6px 10px 0!important;
+  box-sizing:border-box!important;
+  overscroll-behavior:none!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+  width:min(560px,calc(100vw - 20px))!important;
+  max-width:min(560px,calc(100vw - 20px))!important;
+  height:calc(100dvh - 12px)!important;
+  max-height:calc(100dvh - 12px)!important;
+  margin:0 auto!important;
+  align-self:flex-start!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  border-radius:30px!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{
+  position:relative!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  touch-action:pan-y!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  padding-bottom:285px!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content{
+  position:relative!important;
+  min-height:100%!important;
+  overflow:visible!important;
+  isolation:isolate!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content .journal-decoration-layer{
+  position:absolute!important;
+  left:0!important;
+  top:0!important;
+  right:0!important;
+  bottom:auto!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  z-index:60!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+  touch-action:none!important;
+  border-radius:0 0 30px 30px!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-scroll-content .journal-decoration-layer.journal-decoration-editing .journal-decoration-item{
+  pointer-events:auto!important;
+  touch-action:none!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:max(10px,env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%) translateY(0)!important;
+  width:min(720px,calc(100vw - 20px))!important;
+  max-width:calc(100vw - 20px)!important;
+  max-height:min(286px,48dvh)!important;
+  overflow:hidden!important;
+  z-index:2000!important;
+  border-radius:28px!important;
+  background:rgba(255,248,251,.98)!important;
+  border:1.5px solid rgba(var(--accent-rgb),.22)!important;
+  box-shadow:0 -18px 60px rgba(76,38,58,.24)!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  padding:8px 14px 14px!important;
+  pointer-events:auto!important;
+  touch-action:pan-y!important;
+  transition:transform .22s ease,max-height .22s ease!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card.collapsed{
+  transform:translateX(-50%) translateY(calc(100% - 54px))!important;
+  max-height:64px!important;
+}
+.journal-decoration-sheet-handle{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex-direction:column!important;
+  width:100%!important;
+  padding:0 0 8px!important;
+  margin:0!important;
+  cursor:grab!important;
+  touch-action:none!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+}
+.journal-decoration-sheet-content{
+  max-height:214px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  padding-bottom:8px!important;
+}
+.journal-decoration-bottom-sheet.collapsed .journal-decoration-sheet-content{display:none!important;}
+@media(max-width:768px){
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    padding:4px 8px 0!important;
+    align-items:flex-start!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 8px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 8px)!important;
+    border-radius:24px!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{padding-bottom:270px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card{
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(var(--mobile-nav-h,78px) + env(safe-area-inset-bottom,0px))!important;
+    width:auto!important;
+    max-width:none!important;
+    transform:translateY(0)!important;
+    max-height:min(268px,46dvh)!important;
+    border-radius:26px 26px 0 0!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card.collapsed{
+    transform:translateY(calc(100% - 54px))!important;
+    max-height:64px!important;
+  }
+  .journal-decoration-sheet-content{max-height:202px!important;}
 }
 
 
