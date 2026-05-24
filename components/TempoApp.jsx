@@ -3254,18 +3254,21 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const [pending, setPending]   = useState(null);
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [assistantFlow, setAssistantFlow] = useState(null);
+  const [assistantAction, setAssistantAction] = useState(null);
   const bottomRef = useRef(null);
   const eventsRef = useRef(events);
   const tasksRef  = useRef(tasks);
   const pendingRef = useRef(pending);
   const ctxRef = useRef(ctx);
   const flowRef = useRef(assistantFlow);
+  const actionRef = useRef(assistantAction);
   useEffect(() => { eventsRef.current  = events;  }, [events]);
   useEffect(() => { tasksRef.current   = tasks;   }, [tasks]);
   useEffect(() => { pendingRef.current = pending; }, [pending]);
   useEffect(() => { ctxRef.current = ctx; }, [ctx]);
   useEffect(() => { flowRef.current = assistantFlow; }, [assistantFlow]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, assistantFlow]);
+  useEffect(() => { actionRef.current = assistantAction; }, [assistantAction]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, assistantFlow, assistantAction]);
 
   const calendarChoices = normalizeCalendars(calendars).filter(c => c.source !== "google" && c.readOnly !== true);
   const defaultCalendarId = calendarChoices.find(c => c.id === "personal")?.id || calendarChoices[0]?.id || "personal";
@@ -3281,19 +3284,33 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
       answerAssistantFlow(text);
       return;
     }
-
     const lower = text.toLowerCase();
-    if (/(add|create|schedule|block).*(event|meeting|appointment|calendar)/.test(lower)) {
+    if (actionRef.current && ["yes", "y", "apply", "confirm", "do it", "go ahead"].includes(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      applyAssistantAction(actionRef.current);
+      return;
+    }
+    if (actionRef.current && ["no", "cancel", "stop", "never mind", "nevermind"].includes(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      cancelAssistantAction();
+      return;
+    }
+    if (/\b(add|create|schedule|block)\b.*\b(event|meeting|appointment|calendar)\b/.test(lower)) {
       setMessages(p => [...p, { role: "user", text }]);
       startAssistantFlow("event");
       return;
     }
-    if (/(add|create|make).*(task|todo|to-do)/.test(lower)) {
+    if (/\b(add|create|make)\b.*\b(task|todo|to-do)\b/.test(lower)) {
       setMessages(p => [...p, { role: "user", text }]);
       startAssistantFlow("task");
       return;
     }
-
+    const actionKind = assistantActionKindFromText(lower);
+    if (actionKind) {
+      setMessages(p => [...p, { role: "user", text }]);
+      proposeAssistantAction(actionKind);
+      return;
+    }
     setMessages(p => [...p, { role: "user", text }]);
     setTimeout(() => {
       const contextReply = assistantReplyFromContext(text, ctxRef.current);
@@ -3321,11 +3338,161 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     { label: "Find free time", prompt: "When am I free today?" },
     { label: "Check load", prompt: "Is my day too packed?" },
     { label: "Next move", prompt: "What should I do next?" },
+    { label: "Suggest action", action: "best" },
+    { label: "Schedule top task", action: "scheduleTopTask" },
+    { label: "Focus block", action: "focusBlock" },
     { label: "Add event", flow: "event" },
     { label: "Add task", flow: "task" },
     { label: "Reflect", prompt: "Help me reflect today" },
     { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
   ];
+
+  function assistantActionKindFromText(lower) {
+    if (/\b(schedule|time[- ]?block|block in|put).*\b(top task|task|focus)\b/.test(lower)) return "scheduleTopTask";
+    if (/\b(focus block|deep work|protect.*time|block.*focus)\b/.test(lower)) return "focusBlock";
+    if (/\b(move|carry over|push|postpone|make.*lighter|too packed|overwhelmed|lighten)\b/.test(lower)) return "moveTaskTomorrow";
+    if (/\b(suggest action|action|do for me|help me adjust|fix my day)\b/.test(lower)) return "best";
+    return null;
+  }
+  function assistantActionTitle(action) {
+    if (!action) return "Suggested action";
+    if (action.type === "scheduleTopTask") return "Schedule your top task";
+    if (action.type === "focusBlock") return "Create a focus block";
+    if (action.type === "moveTaskTomorrow") return "Move a task to tomorrow";
+    if (action.type === "openTomorrowReset") return "Open Tomorrow Reset";
+    if (action.type === "openCheckIn") return "Open Check-in";
+    return "Suggested action";
+  }
+  function assistantActionDescription(action) {
+    if (!action) return "";
+    if (action.type === "scheduleTopTask") return `Create a calendar block for “${action.taskTitle}” from ${fmt(action.start)} to ${fmt(action.end)}.`;
+    if (action.type === "focusBlock") return `Create a ${assistantHours(action.minutes)} focus block from ${fmt(action.start)} to ${fmt(action.end)}.`;
+    if (action.type === "moveTaskTomorrow") return `Move “${action.taskTitle}” out of today and into tomorrow’s task list.`;
+    if (action.type === "openTomorrowReset") return "Open Tomorrow Reset so you can intentionally choose what carries into tomorrow.";
+    if (action.type === "openCheckIn") return "Open the daily check-in before making the plan heavier.";
+    return "Review this change before applying it.";
+  }
+  function buildAssistantAction(kind) {
+    const currentCtx = ctxRef.current || ctx;
+    const slot = currentCtx.largestFreeSlot;
+    const unscheduledTop = (currentCtx.topTasks || currentCtx.tasks || []).find(t => !t.scheduledEventId && !t.done);
+    const fallbackTask = (currentCtx.tasks || []).find(t => !t.done);
+    const overflowTask = (currentCtx.tasks || []).slice(3).find(t => !t.done && !t.scheduledEventId) || (currentCtx.tasks || []).find(t => !t.done && !t.scheduledEventId);
+    const actualKind = kind === "best"
+      ? (currentCtx.loadRatio > 0.9 && overflowTask ? "moveTaskTomorrow" : unscheduledTop && slot ? "scheduleTopTask" : slot ? "focusBlock" : "openTomorrowReset")
+      : kind;
+    if (actualKind === "scheduleTopTask") {
+      if (!slot || !unscheduledTop) return null;
+      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), taskDurationToMinutes(unscheduledTop.duration, 30)));
+      if (minutes < 15) return null;
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + minutes * 60000);
+      return { id: "aa" + uid(), type: "scheduleTopTask", taskId: unscheduledTop.id, taskTitle: unscheduledTop.title, category: unscheduledTop.category || "important", minutes, start, end, calendar: defaultCalendarId };
+    }
+    if (actualKind === "focusBlock") {
+      if (!slot) return null;
+      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), 60));
+      if (minutes < 15) return null;
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + minutes * 60000);
+      return { id: "aa" + uid(), type: "focusBlock", title: unscheduledTop ? `Focus: ${unscheduledTop.title}` : "Focus block", taskId: unscheduledTop?.id || null, taskTitle: unscheduledTop?.title || "", category: unscheduledTop?.category || "important", minutes, start, end, calendar: defaultCalendarId };
+    }
+    if (actualKind === "moveTaskTomorrow") {
+      const task = overflowTask || fallbackTask;
+      if (!task) return null;
+      return { id: "aa" + uid(), type: "moveTaskTomorrow", taskId: task.id, taskTitle: task.title };
+    }
+    if (actualKind === "openCheckIn") return { id: "aa" + uid(), type: "openCheckIn" };
+    return { id: "aa" + uid(), type: "openTomorrowReset" };
+  }
+  function proposeAssistantAction(kind) {
+    const action = buildAssistantAction(kind);
+    if (!action) {
+      setMessages(p => [...p, { role: "assistant", text: "I don’t see a safe calendar change to suggest right now. You can still use Plan Today or tell me what you want to adjust." }]);
+      return;
+    }
+    setAssistantAction(action);
+    setMessages(p => [...p, { role: "assistant", text: `I can suggest this, but I won’t change anything until you confirm:\n\n${assistantActionTitle(action)}\n${assistantActionDescription(action)}` }]);
+  }
+  function cancelAssistantAction() {
+    setAssistantAction(null);
+    setMessages(p => [...p, { role: "assistant", text: "Cancelled — I didn’t change anything." }]);
+  }
+  function applyAssistantAction(action) {
+    if (!action) return;
+    const now = new Date().toISOString();
+    if (action.type === "scheduleTopTask" || action.type === "focusBlock") {
+      const eventId = "e" + uid();
+      const title = action.type === "scheduleTopTask" ? `Focus: ${action.taskTitle}` : action.title || "Focus block";
+      const ev = {
+        id: eventId,
+        title,
+        start: new Date(action.start),
+        end: new Date(action.end),
+        allDay: false,
+        calendar: action.calendar || defaultCalendarId,
+        category: action.category || "important",
+        fixed: false,
+        color: null,
+        notes: action.type === "scheduleTopTask" ? `Scheduled from Tempo Assistant for task: ${action.taskTitle}` : "Created with Tempo Assistant",
+        recurrence: null,
+        reminder: { type: "minutes", minutesBefore: 10 },
+        source: "tempo",
+        linkedTaskId: action.taskId || null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const nextEvents = [...(eventsRef.current || []), ev];
+      let nextTasks = tasksRef.current || [];
+      if (action.taskId) {
+        nextTasks = nextTasks.map(t => t.id === action.taskId ? { ...t, scheduledEventId: eventId, scheduledStart: ev.start.toISOString(), scheduledEnd: ev.end.toISOString(), updatedAt: now } : t);
+        onUpdateTasks(nextTasks);
+      }
+      onUpdateEvents(nextEvents);
+      setAssistantAction(null);
+      setMessages(p => [...p, { role: "assistant", text: `Done — I applied it.\n\n${title}\n${fmt(ev.start)}–${fmt(ev.end)}` }]);
+      return;
+    }
+    if (action.type === "moveTaskTomorrow") {
+      const tomorrow = addDaysSafe(TODAY, 1);
+      const nextTasks = (tasksRef.current || []).map(t => {
+        if (t.id !== action.taskId) return t;
+        const moved = withTaskPeriod({ ...t, scope: "day", done: false, completedAt: null, completedDate: null, scheduledEventId: null, scheduledStart: null, scheduledEnd: null }, tomorrow);
+        return { ...moved, updatedAt: now };
+      });
+      onUpdateTasks(nextTasks);
+      setAssistantAction(null);
+      setMessages(p => [...p, { role: "assistant", text: `Done — I moved “${action.taskTitle}” to tomorrow.` }]);
+      return;
+    }
+    if (action.type === "openCheckIn") {
+      setAssistantAction(null);
+      onOpenCheckIn?.();
+      setMessages(p => [...p, { role: "assistant", text: "Opening check-in now." }]);
+      return;
+    }
+    setAssistantAction(null);
+    onTomorrowReset?.();
+    setMessages(p => [...p, { role: "assistant", text: "Opening Tomorrow Reset now." }]);
+  }
+  const renderAssistantAction = () => {
+    const action = assistantAction;
+    if (!action) return null;
+    return (
+      <div className="assistant-safe-action-card">
+        <div className="assistant-safe-action-head">
+          <span>Review before applying</span>
+          <strong>{assistantActionTitle(action)}</strong>
+        </div>
+        <p>{assistantActionDescription(action)}</p>
+        <div className="assistant-safe-action-note">Tempo will only apply this after you tap Apply.</div>
+        <div className="assistant-safe-action-buttons">
+          <button type="button" className="tf-cancel" onClick={cancelAssistantAction}>Cancel</button>
+          <button type="button" className="tf-save" onClick={() => applyAssistantAction(action)}>Apply</button>
+        </div>
+      </div>
+    );
+  };
 
   function assistantFlowDefaults(type) {
     if (type === "event") return { type, step: "title", title: "", datePreset: "today", customDate: dateKey(TODAY), startTime: "09:00", duration: 60, calendar: defaultCalendarId, category: meetingCategoryId };
@@ -3568,16 +3735,17 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
       </div>
 
       <div className="assistant-prompt-bank">
-        {promptGroups.map(item => <button key={item.label} type="button" className={item.flow ? "assistant-create-chip" : ""} onClick={() => item.flow ? startAssistantFlow(item.flow) : send(item.prompt)}>{item.label}</button>)}
+        {promptGroups.map(item => <button key={item.label} type="button" className={item.flow ? "assistant-create-chip" : item.action ? "assistant-action-chip" : ""} onClick={() => item.flow ? startAssistantFlow(item.flow) : item.action ? proposeAssistantAction(item.action) : send(item.prompt)}>{item.label}</button>)}
       </div>
 
+      {renderAssistantAction()}
       {renderAssistantFlow()}
 
       <div className="chat-messages assistant-messages">
         {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
         <div ref={bottomRef} />
       </div>
-      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
+      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : assistantAction ? "Type apply or cancel, or use the buttons above…" : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
     </div>
   );
 }
@@ -8100,6 +8268,22 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 @media(max-width:760px){.assistant-flow-card{max-height:30dvh;margin-bottom:8px!important;}.assistant-flow-options{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}.assistant-flow-options::-webkit-scrollbar{display:none;}.assistant-flow-options button{flex:0 0 auto;}}
 
 
+
+
+/* ── Phase 24D safe assistant actions ─────────────────────────────────── */
+.assistant-action-chip{background:linear-gradient(135deg,rgba(var(--accent-rgb),.12),rgba(var(--accent-rgb),.04))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--accent)!important;box-shadow:0 8px 18px rgba(var(--accent-rgb),.08)!important;}
+.assistant-safe-action-card{margin:0 12px 10px;padding:13px;border:1.5px solid rgba(var(--accent-rgb),.18);border-radius:22px;background:linear-gradient(135deg,var(--surface),var(--surface-soft));box-shadow:0 16px 34px rgba(var(--accent-rgb),.11);display:grid;gap:9px;flex:0 0 auto;}
+.assistant-safe-action-head{display:grid;gap:3px;}
+.assistant-safe-action-head span{font-family:var(--mono);font-size:10px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+.assistant-safe-action-head strong{font-size:14px;font-weight:950;color:var(--text);line-height:1.2;}
+.assistant-safe-action-card p{margin:0;color:var(--text2);font-size:12.5px;font-weight:800;line-height:1.45;}
+.assistant-safe-action-note{padding:8px 10px;border-radius:14px;background:rgba(var(--accent-rgb),.08);color:var(--text3);font-size:11px;font-weight:850;}
+.assistant-safe-action-buttons{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.assistant-safe-action-buttons button{min-height:34px;}
+.dark .assistant-safe-action-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-action-chip{background:rgba(var(--accent-rgb),.14)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;}
+.dark .assistant-safe-action-note{background:rgba(var(--accent-rgb),.12)!important;color:var(--text2)!important;}
+@media(max-width:760px){.assistant-safe-action-card{margin-bottom:8px!important;}.assistant-safe-action-buttons button{flex:1 1 120px;}}
 
 `}</style>
 

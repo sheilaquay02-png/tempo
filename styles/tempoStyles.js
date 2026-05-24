@@ -2257,4 +2257,20 @@ export function appCSS(cvars, fontScale) { return `
 
 
 
+
+/* ── Phase 24D safe assistant actions ─────────────────────────────────── */
+.assistant-action-chip{background:linear-gradient(135deg,rgba(var(--accent-rgb),.12),rgba(var(--accent-rgb),.04))!important;border-color:rgba(var(--accent-rgb),.22)!important;color:var(--accent)!important;box-shadow:0 8px 18px rgba(var(--accent-rgb),.08)!important;}
+.assistant-safe-action-card{margin:0 12px 10px;padding:13px;border:1.5px solid rgba(var(--accent-rgb),.18);border-radius:22px;background:linear-gradient(135deg,var(--surface),var(--surface-soft));box-shadow:0 16px 34px rgba(var(--accent-rgb),.11);display:grid;gap:9px;flex:0 0 auto;}
+.assistant-safe-action-head{display:grid;gap:3px;}
+.assistant-safe-action-head span{font-family:var(--mono);font-size:10px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+.assistant-safe-action-head strong{font-size:14px;font-weight:950;color:var(--text);line-height:1.2;}
+.assistant-safe-action-card p{margin:0;color:var(--text2);font-size:12.5px;font-weight:800;line-height:1.45;}
+.assistant-safe-action-note{padding:8px 10px;border-radius:14px;background:rgba(var(--accent-rgb),.08);color:var(--text3);font-size:11px;font-weight:850;}
+.assistant-safe-action-buttons{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.assistant-safe-action-buttons button{min-height:34px;}
+.dark .assistant-safe-action-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-action-chip{background:rgba(var(--accent-rgb),.14)!important;border-color:rgba(var(--accent-rgb),.28)!important;color:var(--text)!important;}
+.dark .assistant-safe-action-note{background:rgba(var(--accent-rgb),.12)!important;color:var(--text2)!important;}
+@media(max-width:760px){.assistant-safe-action-card{margin-bottom:8px!important;}.assistant-safe-action-buttons button{flex:1 1 120px;}}
+
 `; }
