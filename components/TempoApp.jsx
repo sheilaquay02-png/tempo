@@ -2495,6 +2495,18 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
     }
   }, [quickEditDate]);
 
+  useEffect(() => {
+    if (!viewingKey || typeof document === "undefined") return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [viewingKey]);
+
   async function saveEntry(key, data) {
     if (onSaveMemoryEntry) return onSaveMemoryEntry(key, data);
     setJournal(j => ({ ...j, [key]: data }));
@@ -2955,7 +2967,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         const isDecorating = decoratingKey === viewingKey;
         const visibleDecorations = isDecorating ? decorDraftBlocks : journalDecorations;
         return (
-          <div className="modal-overlay" onClick={closeViewingMemory} role="dialog" aria-modal="true" aria-label="View journal entry">
+          <div className={`modal-overlay ${isDecorating ? "journal-decorating-overlay" : ""}`} onClick={closeViewingMemory} role="dialog" aria-modal="true" aria-label="View journal entry">
             <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"} ${isDecorating ? "decorating" : ""}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
               <div className="entry-modal-header">
                 <div>
@@ -2965,9 +2977,9 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
                   {!isDecorating && <button className="tf-save decorate-entry-btn" style={{fontSize:11}} onClick={() => startDecoratingMemory(viewingKey)}>Decorate 🎀</button>}
                   {!isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={() => { if (!stopDecoratingMemory()) return; setEditing(d); setViewingKey(null); }}>Edit Memory</button>}
-                  {isDecorating && <button className="tf-save" style={{fontSize:11}} onClick={saveDecorations} disabled={savingDecorations}>{savingDecorations ? "Saving…" : "Done ✓"}</button>}
-                  {isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={() => stopDecoratingMemory()}>Cancel</button>}
-                  <button className="modal-close" onClick={closeViewingMemory}>✕</button>
+                  {isDecorating && <button className="tf-save" style={{fontSize:11}} onClick={(e) => { e.stopPropagation(); saveDecorations(); }} disabled={savingDecorations}>{savingDecorations ? "Saving…" : "Done ✓"}</button>}
+                  {isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={(e) => { e.stopPropagation(); stopDecoratingMemory(); }}>Cancel</button>}
+                  <button className="modal-close" onClick={(e) => { e.stopPropagation(); closeViewingMemory(); }}>✕</button>
                 </div>
               </div>
               <JournalDecorationCanvas
@@ -8112,6 +8124,170 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .decoration-quick-menu button{padding:6px 8px;font-size:9px;}
   .story-transform-handle{width:32px;height:32px;right:-16px;bottom:-16px;}
 }
+
+
+/* Decorator fixed overlay hard override: prevent page scroll, keep controls clickable */
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  padding:14px 12px calc(245px + env(safe-area-inset-bottom,0px))!important;
+  box-sizing:border-box!important;
+  overscroll-behavior:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+  position:relative!important;
+  width:min(560px,calc(100vw - 24px))!important;
+  max-width:min(560px,calc(100vw - 24px))!important;
+  height:calc(100dvh - 285px - env(safe-area-inset-bottom,0px))!important;
+  max-height:calc(100dvh - 285px - env(safe-area-inset-bottom,0px))!important;
+  min-height:260px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  grid-template-columns:none!important;
+  grid-template-rows:none!important;
+  gap:0!important;
+  margin:0 auto!important;
+  overflow:hidden!important;
+  border:1.5px solid var(--border)!important;
+  border-radius:30px!important;
+  background-color:var(--bg2)!important;
+  background-image:var(--memory-bg-image)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  box-shadow:0 24px 70px rgba(76,38,58,.22)!important;
+  isolation:isolate!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{
+  position:relative!important;
+  z-index:120!important;
+  flex:0 0 auto!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  border:0!important;
+  border-bottom:1px solid var(--border)!important;
+  border-radius:30px 30px 0 0!important;
+  background:rgba(255,248,251,.86)!important;
+  box-shadow:0 8px 20px rgba(80,44,64,.08)!important;
+  pointer-events:auto!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header button{
+  pointer-events:auto!important;
+  position:relative!important;
+  z-index:125!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .modal-close,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .tf-save,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header .tf-cancel{
+  display:inline-flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{
+  position:relative!important;
+  z-index:5!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  border:0!important;
+  border-radius:0 0 30px 30px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+  padding-bottom:18px!important;
+  box-shadow:none!important;
+  touch-action:pan-y!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-layer{
+  position:absolute!important;
+  inset:0!important;
+  bottom:0!important;
+  z-index:80!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+  border-radius:30px!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-layer .journal-decoration-item{
+  pointer-events:auto!important;
+  touch-action:none!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:max(10px,env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%)!important;
+  width:min(720px,calc(100vw - 20px))!important;
+  max-width:calc(100vw - 20px)!important;
+  max-height:230px!important;
+  display:block!important;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  align-self:auto!important;
+  margin:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  z-index:1600!important;
+  border-radius:28px!important;
+  border:1.5px solid rgba(var(--accent-rgb),.22)!important;
+  background:rgba(255,248,251,.97)!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  box-shadow:0 -18px 60px rgba(76,38,58,.24)!important;
+  padding:8px 14px 14px!important;
+  pointer-events:auto!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed{
+  transform:translateX(-50%) translateY(calc(100% - 62px))!important;
+  max-height:72px!important;
+  overflow:hidden!important;
+}
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-tool-card button,
+.modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-sheet-handle{
+  pointer-events:auto!important;
+}
+@media(max-width:768px){
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    padding:8px 8px calc(235px + env(safe-area-inset-bottom,0px))!important;
+    align-items:flex-start!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - 255px - env(safe-area-inset-bottom,0px))!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 255px - env(safe-area-inset-bottom,0px))!important;
+    min-height:240px!important;
+    border-radius:24px!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{border-radius:24px 24px 0 0!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{border-radius:0 0 24px 24px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .journal-decoration-tool-card{
+    left:0!important;
+    right:0!important;
+    bottom:var(--mobile-nav-h,78px)!important;
+    transform:none!important;
+    width:100%!important;
+    max-width:100%!important;
+    max-height:230px!important;
+    border-radius:26px 26px 0 0!important;
+  }
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.collapsed{transform:translateY(calc(100% - 62px))!important;}
+}
+
 `;
               })() : formatWithDisplayTimezone(viewDate,{month:"long",year:"numeric"})}
               {view === "day" && viewDate.toDateString() === TODAY.toDateString() && <span className="today-badge">{viewDayEvents.length} events</span>}
