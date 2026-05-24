@@ -2241,4 +2241,18 @@ export function appCSS(cvars, fontScale) { return `
   .assistant-builder-row{grid-template-columns:1fr;}
 }
 
+/* ── Conversational assistant creation flow ───────────────────────────── */
+.assistant-flow-card{margin:0 12px 10px;padding:12px;border:1.5px solid rgba(var(--accent-rgb),.16);border-radius:22px;background:linear-gradient(135deg,var(--surface),var(--surface-soft));box-shadow:0 14px 34px rgba(var(--accent-rgb),.10);display:grid;gap:9px;flex:0 0 auto;max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.assistant-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.assistant-flow-head span{display:block;font-family:var(--mono);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.assistant-flow-head strong{display:block;font-size:13px;font-weight:950;color:var(--text);line-height:1.28;white-space:pre-line;}
+.assistant-flow-head button{width:26px;height:26px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-weight:950;cursor:pointer;flex:0 0 auto;}
+.assistant-flow-options{display:flex;gap:6px;flex-wrap:wrap;}
+.assistant-flow-options button{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;}
+.assistant-flow-options button:hover{border-color:var(--accent3);color:var(--accent);background:var(--bg4);}
+.assistant-flow-hint{font-size:10.5px;font-weight:800;color:var(--text3);}
+.dark .assistant-flow-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-flow-options button,.dark .assistant-flow-head button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+@media(max-width:760px){.assistant-flow-card{max-height:30dvh;margin-bottom:8px!important;}.assistant-flow-options{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}.assistant-flow-options::-webkit-scrollbar{display:none;}.assistant-flow-options button{flex:0 0 auto;}}
+
 `; }

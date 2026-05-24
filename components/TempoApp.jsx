@@ -3252,23 +3252,35 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
   const [contextCollapsed, setContextCollapsed] = useState(false);
-  const [assistantBuilder, setAssistantBuilder] = useState(null);
+  const [assistantFlow, setAssistantFlow] = useState(null);
   const bottomRef = useRef(null);
-  // Use refs so send() always reads current data without needing it in its closure.
   const eventsRef = useRef(events);
   const tasksRef  = useRef(tasks);
   const pendingRef = useRef(pending);
   const ctxRef = useRef(ctx);
+  const flowRef = useRef(assistantFlow);
   useEffect(() => { eventsRef.current  = events;  }, [events]);
   useEffect(() => { tasksRef.current   = tasks;   }, [tasks]);
   useEffect(() => { pendingRef.current = pending; }, [pending]);
   useEffect(() => { ctxRef.current = ctx; }, [ctx]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { flowRef.current = assistantFlow; }, [assistantFlow]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, assistantFlow]);
+
+  const calendarChoices = normalizeCalendars(calendars).filter(c => c.source !== "google" && c.readOnly !== true);
+  const defaultCalendarId = calendarChoices.find(c => c.id === "personal")?.id || calendarChoices[0]?.id || "personal";
+  const meetingCategoryId = categories.find(c => c.id === "meeting")?.id || categories[0]?.id || "meeting";
+  const defaultCategoryId = categories.find(c => c.id === "personal")?.id || categories[0]?.id || "personal";
+  const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
+  const durationOptions = [15, 30, 60, 90, 120];
 
   function send(ov) {
     const text = (ov ?? input).trim(); if (!text) return;
-    setInput(""); setMessages(p => [...p, { role: "user", text }]);
-    // CHAT_REPLY_DELAY_MS adds a brief pause to feel natural — purely cosmetic.
+    setInput("");
+    if (flowRef.current) {
+      answerAssistantFlow(text);
+      return;
+    }
+    setMessages(p => [...p, { role: "user", text }]);
     setTimeout(() => {
       const contextReply = assistantReplyFromContext(text, ctxRef.current);
       if (contextReply) {
@@ -3295,86 +3307,211 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     { label: "Find free time", prompt: "When am I free today?" },
     { label: "Check load", prompt: "Is my day too packed?" },
     { label: "Next move", prompt: "What should I do next?" },
-    { label: "Add event", builder: "event" },
-    { label: "Add task", builder: "task" },
+    { label: "Add event", flow: "event" },
+    { label: "Add task", flow: "task" },
     { label: "Reflect", prompt: "Help me reflect today" },
     { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
   ];
 
-  const calendarChoices = normalizeCalendars(calendars).filter(c => c.source !== "google" && c.readOnly !== true);
-  const defaultCalendarId = calendarChoices.find(c => c.id === "personal")?.id || calendarChoices[0]?.id || "personal";
-  const defaultCategoryId = categories.find(c => c.id === "personal")?.id || categories[0]?.id || "personal";
-  const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
-  const durationOptions = [15, 30, 60, 90, 120];
-  const startAssistantBuilder = type => {
-    if (type === "event") setAssistantBuilder({ type, title: "", datePreset: "today", customDate: dateKey(TODAY), startTime: "09:00", duration: 60, calendar: defaultCalendarId, category: categories.find(c => c.id === "meeting")?.id || defaultCategoryId });
-    if (type === "task") setAssistantBuilder({ type, title: "", scope: "day", duration: 30, priority: "medium", category: defaultCategoryId });
-  };
-  const updateAssistantBuilder = patch => setAssistantBuilder(prev => prev ? { ...prev, ...patch } : prev);
-  const assistantBuilderDate = builder => {
-    if (builder?.datePreset === "tomorrow") return addDaysSafe(TODAY, 1);
-    if (builder?.datePreset === "custom" && builder.customDate) return localDateFromKey(builder.customDate);
+  function assistantFlowDefaults(type) {
+    if (type === "event") return { type, step: "title", title: "", datePreset: "today", customDate: dateKey(TODAY), startTime: "09:00", duration: 60, calendar: defaultCalendarId, category: meetingCategoryId };
+    return { type: "task", step: "title", title: "", scope: "day", duration: 30, priority: "medium", category: defaultCategoryId };
+  }
+  function assistantFlowLabel(flow) {
+    return flow?.type === "event" ? "event" : "task";
+  }
+  function assistantFlowQuestion(flow) {
+    if (!flow) return "";
+    if (flow.step === "title") return flow.type === "event" ? "Sure — what should I call this event?" : "Sure — what task should I add?";
+    if (flow.type === "event") {
+      if (flow.step === "date") return `When is “${flow.title}”? You can pick below or type a day like “Friday”.`;
+      if (flow.step === "time") return "What time should it start? You can type something like 2pm or choose one.";
+      if (flow.step === "duration") return "How long should I block for it?";
+      if (flow.step === "calendar") return "Which Tempo calendar should I place it under?";
+      if (flow.step === "category") return "What type of event is it?";
+      if (flow.step === "confirm") return `Ready to add this event?\n\n${assistantFlowSummary(flow)}`;
+    }
+    if (flow.step === "scope") return `Where should “${flow.title}” live?`;
+    if (flow.step === "duration") return "How long do you think it will take?";
+    if (flow.step === "priority") return "How important is this task?";
+    if (flow.step === "category") return "Which category best fits it?";
+    if (flow.step === "confirm") return `Ready to add this task?\n\n${assistantFlowSummary(flow)}`;
+    return "Tell me a little more.";
+  }
+  function assistantFlowSummary(flow) {
+    if (!flow) return "";
+    if (flow.type === "event") {
+      const date = assistantFlowDate(flow);
+      const calendar = calendarChoices.find(c => c.id === flow.calendar)?.name || "Calendar";
+      const category = categories.find(c => c.id === flow.category)?.label || "Event";
+      return `• ${flow.title}\n• ${fmtDate(date)} at ${flow.startTime}\n• ${assistantHours(flow.duration)}\n• ${calendar} · ${category}`;
+    }
+    const category = categories.find(c => c.id === flow.category)?.label || "Task";
+    const scopeLabel = flow.scope === "day" ? "Today" : flow.scope === "week" ? "This week" : "This month";
+    return `• ${flow.title}\n• ${scopeLabel}\n• ${assistantHours(flow.duration)} estimate\n• ${flow.priority || "medium"} priority · ${category}`;
+  }
+  function assistantFlowDate(flow) {
+    if (flow?.datePreset === "tomorrow") return addDaysSafe(TODAY, 1);
+    if (flow?.datePreset === "custom" && flow.customDate) return localDateFromKey(flow.customDate);
     return new Date(TODAY);
-  };
-  const createAssistantEvent = () => {
-    const builder = assistantBuilder;
-    const title = String(builder?.title || "").trim();
-    if (!title) { setMessages(p => [...p, { role: "assistant", text: "What should I call this event? Add a short title first." }]); return; }
-    const baseDate = assistantBuilderDate(builder);
-    const [hh, mm] = String(builder.startTime || "09:00").split(":").map(Number);
+  }
+  function parseAssistantDateAnswer(answer) {
+    const raw = String(answer || "").trim();
+    const lower = raw.toLowerCase();
+    if (lower === "today") return { datePreset: "today", customDate: dateKey(TODAY) };
+    if (lower === "tomorrow") return { datePreset: "tomorrow", customDate: dateKey(addDaysSafe(TODAY, 1)) };
+    const iso = raw.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (iso) return { datePreset: "custom", customDate: iso[1] };
+    const parsed = parseDateMention(raw, TODAY) || parseDateRef(raw, TODAY);
+    if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) return { datePreset: sameDay(parsed, TODAY) ? "today" : sameDay(parsed, addDaysSafe(TODAY, 1)) ? "tomorrow" : "custom", customDate: dateKey(parsed) };
+    return null;
+  }
+  function parseAssistantTimeAnswer(answer) {
+    const parsed = parseTimeStr(String(answer || "").trim(), null);
+    if (!parsed) return null;
+    const h = Math.max(0, Math.min(23, Number(parsed.h || 0)));
+    const m = Math.max(0, Math.min(59, Number(parsed.m || 0)));
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  function parseAssistantDurationAnswer(answer) {
+    if (typeof answer === "number") return Math.max(5, Math.min(480, answer));
+    const raw = String(answer || "").trim().toLowerCase();
+    const parsed = parseDur(raw) || (raw.match(/^\d+$/) ? Number(raw) : null);
+    return parsed ? Math.max(5, Math.min(480, parsed)) : null;
+  }
+  function assistantFlowOptions(flow) {
+    if (!flow) return [];
+    if (flow.step === "title") return [];
+    if (flow.type === "event") {
+      if (flow.step === "date") return [{ label: "Today", value: "today" }, { label: "Tomorrow", value: "tomorrow" }, { label: "Friday", value: "friday" }];
+      if (flow.step === "time") return timeOptions.map(t => ({ label: t, value: t }));
+      if (flow.step === "duration") return durationOptions.slice(1).map(d => ({ label: assistantHours(d), value: `${d}m` }));
+      if (flow.step === "calendar") return calendarChoices.map(c => ({ label: c.name, value: c.id }));
+      if (flow.step === "category") return categories.slice(0, 8).map(c => ({ label: `${c.icon || "•"} ${c.label}`, value: c.id }));
+      if (flow.step === "confirm") return [{ label: "Yes, add it", value: "yes" }, { label: "Change title", value: "change title" }, { label: "Cancel", value: "cancel" }];
+    }
+    if (flow.step === "scope") return [{ label: "Today", value: "today" }, { label: "This week", value: "week" }, { label: "This month", value: "month" }];
+    if (flow.step === "duration") return durationOptions.map(d => ({ label: assistantHours(d), value: `${d}m` }));
+    if (flow.step === "priority") return [{ label: "High", value: "high" }, { label: "Medium", value: "medium" }, { label: "Low", value: "low" }];
+    if (flow.step === "category") return categories.slice(0, 8).map(c => ({ label: `${c.icon || "•"} ${c.label}`, value: c.id }));
+    if (flow.step === "confirm") return [{ label: "Yes, add it", value: "yes" }, { label: "Change title", value: "change title" }, { label: "Cancel", value: "cancel" }];
+    return [];
+  }
+  function startAssistantFlow(type) {
+    const flow = assistantFlowDefaults(type);
+    setAssistantFlow(flow);
+    setMessages(p => [...p, { role: "assistant", text: assistantFlowQuestion(flow) }]);
+  }
+  function cancelAssistantFlow() {
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: "No problem — I cancelled that. We can shape it again later." }]);
+  }
+  function createAssistantEventFromFlow(flow) {
+    const baseDate = assistantFlowDate(flow);
+    const [hh, mm] = String(flow.startTime || "09:00").split(":").map(Number);
     const start = new Date(baseDate);
     start.setHours(Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0, 0, 0);
-    const duration = Math.max(15, Math.min(480, Number(builder.duration || 60)));
+    const duration = Math.max(15, Math.min(480, Number(flow.duration || 60)));
     const end = new Date(start.getTime() + duration * 60000);
     const now = new Date().toISOString();
-    const ev = { id: "e" + uid(), title, start, end, allDay: false, calendar: builder.calendar || defaultCalendarId, category: builder.category || "meeting", fixed: false, color: null, notes: "Created with Tempo Assistant", recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }, source: "tempo", createdAt: now, updatedAt: now };
+    const ev = { id: "e" + uid(), title: flow.title, start, end, allDay: false, calendar: flow.calendar || defaultCalendarId, category: flow.category || "meeting", fixed: false, color: null, notes: "Created with Tempo Assistant", recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }, source: "tempo", createdAt: now, updatedAt: now };
     onUpdateEvents([...(eventsRef.current || []), ev]);
-    setAssistantBuilder(null);
-    setMessages(p => [...p, { role: "assistant", text: `Added event: ${title}
-${fmt(start)}–${fmt(end)} on ${fmtDate(start)}.` }]);
-  };
-  const createAssistantTask = () => {
-    const builder = assistantBuilder;
-    const title = String(builder?.title || "").trim();
-    if (!title) { setMessages(p => [...p, { role: "assistant", text: "What task should I add? Add a short task name first." }]); return; }
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: `Done — I added it to your calendar.\n\n${flow.title}\n${fmtDate(start)} · ${fmt(start)}–${fmt(end)}` }]);
+  }
+  function createAssistantTaskFromFlow(flow) {
     const now = new Date().toISOString();
-    const scope = ["day", "week", "month"].includes(builder.scope) ? builder.scope : "day";
-    const task = withTaskPeriod({ id: "t" + uid(), title, duration: Math.max(5, Math.min(480, Number(builder.duration || 30))), category: builder.category || defaultCategoryId, scope, done: false, deadline: null, priority: builder.priority || "medium", notes: "Created with Tempo Assistant", scheduled: null, createdAt: now, updatedAt: now }, TODAY);
+    const scope = ["day", "week", "month"].includes(flow.scope) ? flow.scope : "day";
+    const task = withTaskPeriod({ id: "t" + uid(), title: flow.title, duration: Math.max(5, Math.min(480, Number(flow.duration || 30))), category: flow.category || defaultCategoryId, scope, done: false, deadline: null, priority: flow.priority || "medium", notes: "Created with Tempo Assistant", scheduled: null, createdAt: now, updatedAt: now }, TODAY);
     onUpdateTasks([...(tasksRef.current || []), task]);
-    setAssistantBuilder(null);
-    setMessages(p => [...p, { role: "assistant", text: `Added task: ${title}
-Placed in ${scope === "day" ? "Today" : scope === "week" ? "This week" : "This month"} with ${builder.priority || "medium"} priority.` }]);
-  };
-  const renderAssistantBuilder = () => {
-    const builder = assistantBuilder;
-    if (!builder) return null;
-    const isEvent = builder.type === "event";
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: `Done — I added the task.\n\n${flow.title}\n${scope === "day" ? "Today" : scope === "week" ? "This week" : "This month"} · ${flow.priority || "medium"} priority` }]);
+  }
+  function advanceAssistantFlow(flow, answer) {
+    const raw = String(answer || "").trim();
+    const lower = raw.toLowerCase();
+    if (["cancel", "stop", "never mind", "nevermind"].includes(lower)) { cancelAssistantFlow(); return; }
+    if (flow.step === "confirm") {
+      if (["yes", "y", "confirm", "add", "create", "yes, add it"].includes(lower)) {
+        if (flow.type === "event") createAssistantEventFromFlow(flow);
+        else createAssistantTaskFromFlow(flow);
+        return;
+      }
+      if (lower.includes("title") || lower.includes("name")) {
+        const next = { ...flow, step: "title" };
+        setAssistantFlow(next);
+        setMessages(p => [...p, { role: "assistant", text: "Sure — what should I rename it to?" }]);
+        return;
+      }
+      setMessages(p => [...p, { role: "assistant", text: "Tap “Yes, add it” when you’re ready, or type what you want to change." }]);
+      return;
+    }
+    let next = { ...flow };
+    if (flow.step === "title") {
+      if (raw.length < 2) { setMessages(p => [...p, { role: "assistant", text: `Give me a short ${assistantFlowLabel(flow)} name first.` }]); return; }
+      next.title = raw;
+      next.step = flow.type === "event" ? "date" : "scope";
+    } else if (flow.type === "event") {
+      if (flow.step === "date") {
+        const parsed = parseAssistantDateAnswer(raw);
+        if (!parsed) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t read that date. Try “today”, “tomorrow”, “Friday”, or YYYY-MM-DD." }]); return; }
+        next = { ...next, ...parsed, step: "time" };
+      } else if (flow.step === "time") {
+        const time = parseAssistantTimeAnswer(raw);
+        if (!time) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t read that time. Try 9am, 14:30, or pick one of the options." }]); return; }
+        next.startTime = time; next.step = "duration";
+      } else if (flow.step === "duration") {
+        const duration = parseAssistantDurationAnswer(raw);
+        if (!duration) { setMessages(p => [...p, { role: "assistant", text: "How long should it be? Try 30m, 1h, or pick one of the options." }]); return; }
+        next.duration = duration; next.step = "calendar";
+      } else if (flow.step === "calendar") {
+        const cal = calendarChoices.find(c => c.id === raw || c.name.toLowerCase() === lower) || calendarChoices[0];
+        if (!cal) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t find a Tempo calendar to place this in." }]); return; }
+        next.calendar = cal.id; next.step = "category";
+      } else if (flow.step === "category") {
+        const cat = categories.find(c => c.id === raw || c.label.toLowerCase() === lower) || categories.find(c => c.id === meetingCategoryId) || categories[0];
+        next.category = cat?.id || meetingCategoryId; next.step = "confirm";
+      }
+    } else {
+      if (flow.step === "scope") {
+        const scope = lower.includes("week") ? "week" : lower.includes("month") ? "month" : "day";
+        next.scope = scope; next.step = "duration";
+      } else if (flow.step === "duration") {
+        const duration = parseAssistantDurationAnswer(raw);
+        if (!duration) { setMessages(p => [...p, { role: "assistant", text: "How long will it take? Try 15m, 30m, 1h, or choose one." }]); return; }
+        next.duration = duration; next.step = "priority";
+      } else if (flow.step === "priority") {
+        const priority = lower.includes("high") ? "high" : lower.includes("low") ? "low" : "medium";
+        next.priority = priority; next.step = "category";
+      } else if (flow.step === "category") {
+        const cat = categories.find(c => c.id === raw || c.label.toLowerCase() === lower) || categories.find(c => c.id === defaultCategoryId) || categories[0];
+        next.category = cat?.id || defaultCategoryId; next.step = "confirm";
+      }
+    }
+    setAssistantFlow(next);
+    setMessages(p => [...p, { role: "assistant", text: assistantFlowQuestion(next) }]);
+  }
+  function answerAssistantFlow(answer, label = null) {
+    const flow = flowRef.current;
+    if (!flow) return;
+    const raw = String(answer || "").trim();
+    if (!raw) return;
+    setInput("");
+    setMessages(p => [...p, { role: "user", text: label || raw }]);
+    setTimeout(() => advanceAssistantFlow(flow, raw), Math.min(220, CHAT_REPLY_DELAY_MS));
+  }
+  const renderAssistantFlow = () => {
+    const flow = assistantFlow;
+    if (!flow) return null;
+    const options = assistantFlowOptions(flow);
     return (
-      <div className="assistant-builder-card">
-        <div className="assistant-builder-head">
-          <div><span>{isEvent ? "Create event" : "Create task"}</span><strong>{isEvent ? "Let’s shape the calendar block" : "Let’s shape the task"}</strong></div>
-          <button type="button" onClick={() => setAssistantBuilder(null)}>×</button>
+      <div className="assistant-flow-card">
+        <div className="assistant-flow-head">
+          <div><span>{flow.type === "event" ? "Creating event" : "Creating task"}</span><strong>{assistantFlowQuestion(flow)}</strong></div>
+          <button type="button" onClick={cancelAssistantFlow}>×</button>
         </div>
-        <label className="assistant-builder-field"><span>{isEvent ? "What is the event?" : "What is the task?"}</span><input value={builder.title || ""} onChange={e => updateAssistantBuilder({ title: e.target.value })} placeholder={isEvent ? "e.g. Dentist appointment" : "e.g. Prepare slides"} autoFocus /></label>
-        {isEvent ? (
-          <>
-            <div className="assistant-builder-question"><span>When is it?</span><div>{[["today","Today"],["tomorrow","Tomorrow"],["custom","Choose date"]].map(([id,label]) => <button key={id} type="button" className={builder.datePreset === id ? "active" : ""} onClick={() => updateAssistantBuilder({ datePreset: id })}>{label}</button>)}</div></div>
-            {builder.datePreset === "custom" && <label className="assistant-builder-field"><span>Date</span><input type="date" value={builder.customDate || dateKey(TODAY)} onChange={e => updateAssistantBuilder({ customDate: e.target.value })} /></label>}
-            <div className="assistant-builder-question"><span>Start time</span><div>{timeOptions.map(t => <button key={t} type="button" className={builder.startTime === t ? "active" : ""} onClick={() => updateAssistantBuilder({ startTime: t })}>{t}</button>)}</div></div>
-            <label className="assistant-builder-field compact"><span>Custom time</span><input type="time" value={builder.startTime || "09:00"} onChange={e => updateAssistantBuilder({ startTime: e.target.value })} /></label>
-            <div className="assistant-builder-question"><span>How long?</span><div>{durationOptions.slice(1).map(d => <button key={d} type="button" className={Number(builder.duration) === d ? "active" : ""} onClick={() => updateAssistantBuilder({ duration: d })}>{assistantHours(d)}</button>)}</div></div>
-            <div className="assistant-builder-row"><label><span>Calendar</span><select value={builder.calendar || defaultCalendarId} onChange={e => updateAssistantBuilder({ calendar: e.target.value })}>{calendarChoices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label><span>Type</span><select value={builder.category || "meeting"} onChange={e => updateAssistantBuilder({ category: e.target.value })}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon || "•"} {c.label}</option>)}</select></label></div>
-            <button type="button" className="assistant-builder-submit" onClick={createAssistantEvent}>Add event</button>
-          </>
-        ) : (
-          <>
-            <div className="assistant-builder-question"><span>Where should it live?</span><div>{[["day","Today"],["week","This week"],["month","This month"]].map(([id,label]) => <button key={id} type="button" className={builder.scope === id ? "active" : ""} onClick={() => updateAssistantBuilder({ scope: id })}>{label}</button>)}</div></div>
-            <div className="assistant-builder-question"><span>How long will it take?</span><div>{durationOptions.map(d => <button key={d} type="button" className={Number(builder.duration) === d ? "active" : ""} onClick={() => updateAssistantBuilder({ duration: d })}>{assistantHours(d)}</button>)}</div></div>
-            <div className="assistant-builder-question"><span>Priority</span><div>{[["high","High"],["medium","Medium"],["low","Low"]].map(([id,label]) => <button key={id} type="button" className={builder.priority === id ? "active" : ""} onClick={() => updateAssistantBuilder({ priority: id })}>{label}</button>)}</div></div>
-            <label className="assistant-builder-field"><span>Category</span><select value={builder.category || defaultCategoryId} onChange={e => updateAssistantBuilder({ category: e.target.value })}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon || "•"} {c.label}</option>)}</select></label>
-            <button type="button" className="assistant-builder-submit" onClick={createAssistantTask}>Add task</button>
-          </>
-        )}
+        {options.length > 0 && <div className="assistant-flow-options">{options.map(option => <button key={`${flow.step}-${option.value}`} type="button" onClick={() => answerAssistantFlow(option.value, option.label)}>{option.label}</button>)}</div>}
+        <div className="assistant-flow-hint">You can also type your answer below.</div>
       </div>
     );
   };
@@ -3417,16 +3554,16 @@ Placed in ${scope === "day" ? "Today" : scope === "week" ? "This week" : "This m
       </div>
 
       <div className="assistant-prompt-bank">
-        {promptGroups.map(item => <button key={item.label} type="button" className={item.builder ? "assistant-create-chip" : ""} onClick={() => item.builder ? startAssistantBuilder(item.builder) : send(item.prompt)}>{item.label}</button>)}
+        {promptGroups.map(item => <button key={item.label} type="button" className={item.flow ? "assistant-create-chip" : ""} onClick={() => item.flow ? startAssistantFlow(item.flow) : send(item.prompt)}>{item.label}</button>)}
       </div>
 
-      {renderAssistantBuilder()}
+      {renderAssistantFlow()}
 
       <div className="chat-messages assistant-messages">
         {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
         <div ref={bottomRef} />
       </div>
-      <div className="chat-input-row"><textarea className="chat-input" placeholder="Ask what to focus on, where you’re free, or how to reset…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
+      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
     </div>
   );
 }
@@ -7933,6 +8070,20 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .assistant-builder-card{max-height:34dvh;margin-bottom:8px!important;}
   .assistant-builder-row{grid-template-columns:1fr;}
 }
+
+/* ── Conversational assistant creation flow ───────────────────────────── */
+.assistant-flow-card{margin:0 12px 10px;padding:12px;border:1.5px solid rgba(var(--accent-rgb),.16);border-radius:22px;background:linear-gradient(135deg,var(--surface),var(--surface-soft));box-shadow:0 14px 34px rgba(var(--accent-rgb),.10);display:grid;gap:9px;flex:0 0 auto;max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.assistant-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.assistant-flow-head span{display:block;font-family:var(--mono);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.assistant-flow-head strong{display:block;font-size:13px;font-weight:950;color:var(--text);line-height:1.28;white-space:pre-line;}
+.assistant-flow-head button{width:26px;height:26px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-weight:950;cursor:pointer;flex:0 0 auto;}
+.assistant-flow-options{display:flex;gap:6px;flex-wrap:wrap;}
+.assistant-flow-options button{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;}
+.assistant-flow-options button:hover{border-color:var(--accent3);color:var(--accent);background:var(--bg4);}
+.assistant-flow-hint{font-size:10.5px;font-weight:800;color:var(--text3);}
+.dark .assistant-flow-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.26)!important;}
+.dark .assistant-flow-options button,.dark .assistant-flow-head button{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;color:var(--text)!important;}
+@media(max-width:760px){.assistant-flow-card{max-height:30dvh;margin-bottom:8px!important;}.assistant-flow-options{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}.assistant-flow-options::-webkit-scrollbar{display:none;}.assistant-flow-options button{flex:0 0 auto;}}
 
 `}</style>
 
