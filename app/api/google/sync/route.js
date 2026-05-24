@@ -5,6 +5,7 @@ import {
   googleCalendarSettingsFromList,
   listGoogleEvents,
   mapGoogleEvent,
+  googleEventTempoId,
   mergeGoogleImport,
   handleRouteError,
   jsonResponse,
@@ -28,14 +29,21 @@ export async function POST(request) {
 
     const imported = [];
     const cancelled = new Set();
+    const seenIds = new Set();
+    const syncedCalendarIds = new Set(googleCalendars.map(calendar => calendar.googleCalendarId));
+    const timeZone = settings.timezone || "Asia/Singapore";
 
     for (const calendar of googleCalendars) {
       const googleEvents = await listGoogleEvents(userId, calendar.googleCalendarId, syncWindow);
       for (const item of googleEvents) {
         if (!item?.id) continue;
-        const mapped = mapGoogleEvent(item, calendar);
-        if (item.status === "cancelled") cancelled.add(mapped.id);
-        else imported.push(mapped);
+        const tempoId = googleEventTempoId(item, calendar);
+        seenIds.add(tempoId);
+        if (item.status === "cancelled") {
+          cancelled.add(tempoId);
+          continue;
+        }
+        imported.push(mapGoogleEvent(item, calendar, { timeZone }));
       }
     }
 
@@ -43,6 +51,9 @@ export async function POST(request) {
       existingEvents: userData.events || [],
       googleEvents: imported,
       cancelledIds: cancelled,
+      seenIds,
+      syncedCalendarIds,
+      syncWindow,
     });
 
     const nextSettings = {
@@ -53,6 +64,7 @@ export async function POST(request) {
         lastImportAt: new Date().toISOString(),
         importedCount: imported.length,
         cancelledCount: cancelled.size,
+        staleRemovedCount: events.filter(ev => ev.source === "google" && ev.googleStatus === "missing_from_sync").length,
         mode: "import-first",
         timeMin: syncWindow.timeMin,
         timeMax: syncWindow.timeMax,

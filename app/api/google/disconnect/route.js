@@ -9,14 +9,19 @@ export async function POST(request) {
     await sb.from("google_calendar_tokens").delete().eq("user_id", userId);
 
     const userData = await loadUserData(userId);
-    const googleCalendarIds = new Set((userData.settings?.calendars || []).filter(c => c.source === "google").map(c => c.id));
+    const googleCalendars = (userData.settings?.calendars || []).filter(c => c.source === "google");
+    const googleTempoCalendarIds = new Set(googleCalendars.map(c => c.id));
+    const googleExternalCalendarIds = new Set(googleCalendars.map(c => c.googleCalendarId).filter(Boolean));
     const settings = {
       ...(userData.settings || {}),
       calendars: (userData.settings?.calendars || []).filter(c => c.source !== "google"),
-      hiddenCals: (userData.settings?.hiddenCals || []).filter(id => !googleCalendarIds.has(id)),
+      hiddenCals: (userData.settings?.hiddenCals || []).filter(id => !googleTempoCalendarIds.has(id)),
       googleCalendarSync: { connected: false, disconnectedAt: new Date().toISOString() },
     };
-    const events = (userData.events || []).filter(ev => ev.source !== "google");
+    const events = (userData.events || []).filter(ev => {
+      if (ev?.source !== "google") return true;
+      return !(googleExternalCalendarIds.has(ev.googleCalendarId) || ev.externalSource === "google_calendar" || String(ev.id || "").startsWith("gcal-"));
+    });
     await saveUserData(userId, { events, tasks: userData.tasks || [], settings });
     return jsonResponse({ ok: true, connected: false, events, settings });
   } catch (err) {

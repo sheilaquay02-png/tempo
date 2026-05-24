@@ -14,7 +14,7 @@ Implemented in this handoff:
 10. Added sync window validation for Google imports.
 11. Added calendar preference ownership checks before updating visibility/sync.
 12. Improved Google disconnect cleanup so only actual Google calendar IDs are removed from hidden calendars.
-13. Added lightweight server-side rate limits for Google API routes, push send, and assistant route.
+13. Added lightweight server-side rate limits for Google API routes and push send routes.
 14. Sanitized production API error responses so raw details are not exposed.
 15. Added push action token hashing in `push_reminder_log` metadata.
 16. Added push action token expiry metadata.

@@ -63,7 +63,12 @@ function isAuthorized(request) {
 }
 
 function validTime(value, fallback = '09:00') {
-  return /^\d{2}:\d{2}$/.test(String(value || '')) ? String(value) : fallback;
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 function normalizeNotificationPreferences(settings = {}) {
@@ -114,7 +119,7 @@ function localTimeParts(date, timeZone = 'Asia/Singapore') {
     day: Number(lookup.day),
     hour: Number(lookup.hour === '24' ? '0' : lookup.hour),
     minute: Number(lookup.minute),
-    dateKey: `${lookup.year}-${lookup.month}-${lookup.day}`,
+    dateKey: `${String(lookup.year).padStart(4, '0')}-${String(lookup.month).padStart(2, '0')}-${String(lookup.day).padStart(2, '0')}`,
   };
 }
 
@@ -127,9 +132,12 @@ function localDateTimeMs(parts) {
 }
 
 function parseClock(time) {
-  const [h, m] = String(time || '').split(':').map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return { hour: Math.max(0, Math.min(23, h)), minute: Math.max(0, Math.min(59, m)) };
+  const match = String(time || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return { hour: h, minute: m };
 }
 
 function isDueLocalClock(parts, time, lookbackMinutes, lookaheadMinutes) {
@@ -522,6 +530,11 @@ function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookahead
       taskId: task.id || null,
       sourceId: task.id || null,
       sourceType: 'task',
+      date: todayKey,
+      taskScope: scope,
+      taskDayKey: task.dayKey || task.taskDate || task.dateKey || null,
+      taskWeekKey: task.weekKey || null,
+      taskMonthKey: task.monthKey || null,
     });
   }
 
@@ -549,14 +562,25 @@ function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinu
       sourceId: item.sourceId || item.taskId || item.habitId || null,
       sourceType: item.sourceType || item.type || 'task',
       snoozeId: item.id || null,
-      originalActionTokenHash: item.actionToken ? hashActionToken(item.actionToken) : null,
+      originalActionTokenHash: item.actionTokenHash || null,
     }));
+}
+
+function pruneSnoozedReminders(settings, now = new Date()) {
+  const cutoff = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+  const existing = Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
+  return existing
+    .filter(item => {
+      const due = toDate(item.dueAt);
+      return due && due.getTime() >= cutoff;
+    })
+    .slice(-50);
 }
 
 function removeDueSnoozedReminders(settings, sentSnoozeIds = []) {
   if (!sentSnoozeIds.length) return settings;
   const ids = new Set(sentSnoozeIds.filter(Boolean));
-  const existing = Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
+  const existing = pruneSnoozedReminders(settings);
   return { ...settings, snoozedReminders: existing.filter(item => !ids.has(item.id)) };
 }
 
@@ -643,7 +667,12 @@ async function runReminderCheck(request) {
     for (const row of userRows || []) {
       const subscriptions = byUser.get(row.user_id) || [];
       if (!subscriptions.length) continue;
-      const settings = row.settings || {};
+      let settings = row.settings || {};
+      const prunedSnoozes = pruneSnoozedReminders(settings, now);
+      if (prunedSnoozes.length !== (Array.isArray(settings.snoozedReminders) ? settings.snoozedReminders.length : 0)) {
+        settings = { ...settings, snoozedReminders: prunedSnoozes };
+        if (!dryRun) await admin.from('user_data').update({ settings, updated_at: new Date().toISOString() }).eq('user_id', row.user_id);
+      }
       if (settings.pushEnabled === false) continue;
       usersChecked += 1;
 

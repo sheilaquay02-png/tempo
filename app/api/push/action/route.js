@@ -18,6 +18,24 @@ function fallbackDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function pruneSnoozedReminders(list = []) {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return (Array.isArray(list) ? list : [])
+    .filter(item => {
+      const due = new Date(item?.dueAt || item?.createdAt || 0).getTime();
+      return Number.isFinite(due) && due >= cutoff;
+    })
+    .slice(-50);
+}
+
+function sameReminderTarget(a = {}, b = {}) {
+  const aType = a.sourceType || a.type || 'task';
+  const bType = b.sourceType || b.type || 'task';
+  const aId = a.sourceId || a.taskId || a.habitId || null;
+  const bId = b.sourceId || b.taskId || b.habitId || null;
+  return aType === bType && aId && bId && aId === bId;
+}
+
 function hashActionToken(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
@@ -61,7 +79,7 @@ async function markActionTokenUsed(admin, row) {
 }
 
 function normalizeSnoozedReminders(settings) {
-  return Array.isArray(settings?.snoozedReminders) ? settings.snoozedReminders : [];
+  return pruneSnoozedReminders(settings?.snoozedReminders || []);
 }
 
 async function loadUserData(admin, userId, select = 'events,tasks,settings') {
@@ -105,8 +123,20 @@ async function handleSnooze(admin, row, minutes) {
     createdAt: new Date().toISOString(),
   };
 
-  await saveUserData(admin, row.user_id, { settings: { ...settings, snoozedReminders: [...snoozed, item] } });
+  const deduped = snoozed.filter(existing => !sameReminderTarget(existing, item));
+  await saveUserData(admin, row.user_id, { settings: { ...settings, snoozedReminders: pruneSnoozedReminders([...deduped, item]) } });
   return { ok: true, action: 'snooze', minutes: safeMinutes, dueAt };
+}
+
+function taskMatchesReminderPeriod(task = {}, meta = {}) {
+  const scope = meta.taskScope || task.scope || 'day';
+  if (scope === 'day') {
+    const taskKey = task.taskDate || task.dayKey || task.dateKey || task.scheduled || task.deadline || null;
+    return !meta.taskDayKey || !taskKey || taskKey === meta.taskDayKey || taskKey === meta.date;
+  }
+  if (scope === 'week') return !meta.taskWeekKey || !task.weekKey || task.weekKey === meta.taskWeekKey;
+  if (scope === 'month') return !meta.taskMonthKey || !task.monthKey || task.monthKey === meta.taskMonthKey;
+  return true;
 }
 
 async function handleCompleteTask(admin, row) {
@@ -121,8 +151,9 @@ async function handleCompleteTask(admin, row) {
   let changed = false;
   const tasks = (Array.isArray(userData.tasks) ? userData.tasks : []).map(task => {
     if (task?.id !== taskId) return task;
+    if (!taskMatchesReminderPeriod(task, meta)) return task;
     changed = true;
-    return { ...task, done: true, completedAt: now, completedDate: task.completedDate || meta.date || fallbackDateKey(), updatedAt: now };
+    return { ...task, done: true, completedAt: now, completedDate: meta.date || task.completedDate || fallbackDateKey(), updatedAt: now };
   });
 
   if (!changed) return { ok: false, error: 'Task not found' };
@@ -148,10 +179,11 @@ async function handleCompleteHabit(admin, row) {
   const now = new Date().toISOString();
   const current = Array.isArray(settings.habitCompletions) ? settings.habitCompletions : [];
   const existing = current.find(c => c.habitId === habitId && c.date === date);
+  const nextCount = Math.min(target, Number(existing?.count || 0) + 1);
   const nextCompletion = {
     ...(existing || { id: `${habitId}:${date}`, habitId, date, createdAt: now }),
-    completedAt: existing?.completedAt || now,
-    count: Math.max(target, Number(existing?.count || 0)),
+    completedAt: nextCount >= target ? (existing?.completedAt || now) : existing?.completedAt || null,
+    count: nextCount,
     note: existing?.note || '',
     updatedAt: now,
   };
@@ -178,7 +210,6 @@ export async function POST(request) {
 
     if (result?.ok) await markActionTokenUsed(admin, row);
     return json(result);
-    return json({ ok: false, error: 'Unsupported action' }, 400);
   } catch (err) {
     console.error('Push action failed', err);
     return json({ ok: false, error: err?.message || 'Push action failed' }, 500);

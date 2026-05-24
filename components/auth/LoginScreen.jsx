@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import * as Core from "../../lib/tempo/core";
 const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
@@ -60,7 +61,7 @@ function LoginLogoSticker() {
       using (bucket_id = 'memory-images' and auth.uid()::text = (storage.foldername(name))[1]);
 
   7. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel environment variables
-  8. Supabase JS loads via CDN automatically — no npm install needed
+  8. Supabase JS is bundled from @supabase/supabase-js
   ════════════════════════════
 */
 
@@ -72,23 +73,14 @@ function LoginLogoSticker() {
 const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Dynamically load Supabase via CDN so no npm install is needed
 let supabase = null;
 export async function getSupabase() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Supabase env vars are not set. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   if (supabase) return supabase;
   try {
-    if (!window.supabase) {
-      await new Promise((res) => {
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
-        s.onload = res; s.onerror = res; // always resolve — never hang
-        document.head.appendChild(s);
-        setTimeout(res, 5000); // hard 5s timeout in case CDN is slow
-      });
-    }
-    if (!window.supabase) throw new Error("CDN unavailable");
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
     return supabase;
   } catch (e) {
     console.warn("Supabase unavailable, running offline:", e);
