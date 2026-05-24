@@ -3100,6 +3100,92 @@ function highlightMatch(text, query) {
 }
 
 // ─── Tempo Assistant Context Engine ─────────────────────────────────────────
+const DEFAULT_ASSISTANT_MEMORY = {
+  planningStyle: "gentle",
+  preferredFocusWindow: "",
+  taskLimit: 3,
+  focusMinutes: 60,
+  avoidAfter: "",
+  notes: [],
+  updatedAt: null,
+};
+const cleanAssistantMemoryText = value => String(value || "").replace(/\s+/g, " ").trim().slice(0, 180);
+const normalizeAssistantMemory = value => {
+  const source = value && typeof value === "object" ? value : {};
+  const notes = Array.isArray(source.notes) ? source.notes : [];
+  const cleanNotes = notes
+    .map((note, index) => ({
+      id: note?.id || `mem-${index}-${uid()}`,
+      text: cleanAssistantMemoryText(note?.text || note),
+      createdAt: note?.createdAt || note?.updatedAt || new Date().toISOString(),
+    }))
+    .filter(note => note.text)
+    .slice(0, 8);
+  const taskLimit = Math.max(1, Math.min(6, Number(source.taskLimit || DEFAULT_ASSISTANT_MEMORY.taskLimit)));
+  const focusMinutes = Math.max(15, Math.min(180, Number(source.focusMinutes || DEFAULT_ASSISTANT_MEMORY.focusMinutes)));
+  return {
+    planningStyle: ["gentle", "flexible", "structured"].includes(source.planningStyle) ? source.planningStyle : DEFAULT_ASSISTANT_MEMORY.planningStyle,
+    preferredFocusWindow: cleanAssistantMemoryText(source.preferredFocusWindow).toLowerCase(),
+    taskLimit,
+    focusMinutes,
+    avoidAfter: /^\d{2}:\d{2}$/.test(String(source.avoidAfter || "")) ? source.avoidAfter : "",
+    notes: cleanNotes,
+    updatedAt: source.updatedAt || (cleanNotes.length ? cleanNotes[0]?.createdAt : null),
+  };
+};
+const assistantMemorySummary = memoryValue => {
+  const memory = normalizeAssistantMemory(memoryValue);
+  const parts = [];
+  if (memory.planningStyle && memory.planningStyle !== "gentle") parts.push(`${memory.planningStyle} planning`);
+  if (memory.preferredFocusWindow) parts.push(`${memory.preferredFocusWindow} focus`);
+  if (memory.taskLimit !== 3) parts.push(`${memory.taskLimit} main tasks`);
+  if (memory.focusMinutes !== 60) parts.push(`${memory.focusMinutes}m focus blocks`);
+  if (memory.avoidAfter) parts.push(`avoid after ${memory.avoidAfter}`);
+  if (memory.notes[0]?.text) parts.push(memory.notes[0].text);
+  return parts.slice(0, 3).join(" · ");
+};
+const assistantTimeFromPhrase = text => {
+  const raw = String(text || "").toLowerCase();
+  const match = raw.match(/after\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (!match) return "";
+  let h = Number(match[1]);
+  const m = Number(match[2] || 0);
+  const ap = match[3];
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  if (!Number.isFinite(h) || h < 0 || h > 23 || !Number.isFinite(m) || m < 0 || m > 59) return "";
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+const learnAssistantMemoryFromText = (input, current = DEFAULT_ASSISTANT_MEMORY) => {
+  const now = new Date().toISOString();
+  const memory = normalizeAssistantMemory(current);
+  let text = cleanAssistantMemoryText(input)
+    .replace(/^(please\s+)?(remember|note)\s+(that\s+)?/i, "")
+    .replace(/^(from now on|going forward),?\s*/i, "")
+    .trim();
+  if (!text) text = cleanAssistantMemoryText(input);
+  const lower = text.toLowerCase();
+  let planningStyle = memory.planningStyle;
+  if (/\b(gentle|calm|lighter|soft|slow)\b/.test(lower)) planningStyle = "gentle";
+  if (/\b(flexible|adapt|loose)\b/.test(lower)) planningStyle = "flexible";
+  if (/\b(structured|strict|firm|disciplined)\b/.test(lower)) planningStyle = "structured";
+  let preferredFocusWindow = memory.preferredFocusWindow;
+  if (/\bmorning\b/.test(lower)) preferredFocusWindow = "morning";
+  else if (/\bafternoon\b/.test(lower)) preferredFocusWindow = "afternoon";
+  else if (/\bevening|night\b/.test(lower)) preferredFocusWindow = "evening";
+  let taskLimit = memory.taskLimit;
+  const taskMatch = lower.match(/(?:max(?:imum)?|limit|only|keep)\s*(?:me\s*)?(?:to\s*)?(\d+)\s*(?:main\s*)?(?:tasks|things|priorities)/);
+  if (taskMatch) taskLimit = Math.max(1, Math.min(6, Number(taskMatch[1])));
+  let focusMinutes = memory.focusMinutes;
+  if (/\b(focus|deep work|block)\b/.test(lower)) {
+    const parsed = parseDur(lower);
+    if (parsed) focusMinutes = Math.max(15, Math.min(180, Number(parsed)));
+  }
+  const avoidAfter = assistantTimeFromPhrase(lower) || memory.avoidAfter;
+  const exists = memory.notes.some(note => note.text.toLowerCase() === text.toLowerCase());
+  const notes = exists ? memory.notes : [{ id: "mem-" + uid(), text, createdAt: now }, ...memory.notes].slice(0, 8);
+  return normalizeAssistantMemory({ ...memory, planningStyle, preferredFocusWindow, taskLimit, focusMinutes, avoidAfter, notes, updatedAt: now });
+};
 const assistantHours = minutes => {
   const safe = Math.max(0, Math.round(Number(minutes || 0)));
   if (safe < 60) return `${safe}m`;
@@ -3116,8 +3202,9 @@ const assistantTaskRank = t => {
   const dueToday = t.deadline && dateKey(new Date(t.deadline)) === dateKey(TODAY) ? -1 : 0;
   return priority + mainBoost + dueToday;
 };
-function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], hiddenCals = [], hiddenCalendarSources = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], freeSlots = [] }) {
+function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], hiddenCals = [], hiddenCalendarSources = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], freeSlots = [], assistantMemory = DEFAULT_ASSISTANT_MEMORY }) {
   const now = new Date();
+  const memory = normalizeAssistantMemory(assistantMemory);
   const visibleEvents = getEventsOnDay(events, TODAY)
     .filter(e => !e.deletedAt && !hiddenCals.includes(e.calendar))
     .filter(e => !hiddenCalendarSources.includes(assistantEventSource(e, calendars)))
@@ -3152,6 +3239,7 @@ function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], h
   if (cleanHabits.length && completedHabits.length < cleanHabits.length) insights.push(`${cleanHabits.length - completedHabits.length} habit${cleanHabits.length - completedHabits.length !== 1 ? "s" : ""} left for today.`);
   if (mood && energy && ["low", "tired", "drained"].includes(String(energy.id))) insights.push("Low energy check-in detected — keep the plan lighter.");
   if (!hasJournal) insights.push("No journal reflection yet today.");
+  if (memory.notes.length) insights.push("Personal rhythm memory is active.");
   return {
     dateKey: dateKey(TODAY),
     greeting: new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening",
@@ -3178,13 +3266,15 @@ function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], h
     freeSlotLabels,
     loadRatio,
     insights,
+    assistantMemory: memory,
   };
 }
 
 function buildAssistantGreeting(ctx) {
   const freeLine = ctx.freeMinutes ? ` You have ${ctx.freeHoursLabel} of open space today.` : " Your calendar has no clear open space inside the planning window.";
   const nextLine = ctx.nextEvent ? ` Next: ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : " No more timed events are coming up today.";
-  return `${ctx.greeting} ✨ I’m looking at your rhythm now: ${ctx.events.length} event${ctx.events.length !== 1 ? "s" : ""}, ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""}, and ${ctx.habitLabel} habits done.${freeLine}${nextLine}\n\nAsk me what to focus on, where your free time is, or how to make today lighter.`;
+  const memoryLine = assistantMemorySummary(ctx.assistantMemory);
+  return `${ctx.greeting} ✨ I’m looking at your rhythm now: ${ctx.events.length} event${ctx.events.length !== 1 ? "s" : ""}, ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""}, and ${ctx.habitLabel} habits done.${freeLine}${nextLine}${memoryLine ? `\n\nRhythm memory: ${memoryLine}.` : ""}\n\nAsk me what to focus on, where your free time is, or how to make today lighter.`;
 }
 function assistantTaskLine(task, index) {
   const dur = taskDurationToMinutes(task.duration, 30);
@@ -3231,10 +3321,13 @@ function assistantReplyFromContext(input, ctx) {
   }
   if (/\b(focus|priorit|important|next task|what should i do|what to do|do next)\b/.test(msg)) {
     if (!ctx.topTasks.length) return ctx.nextEvent ? `Your task list is clear for today. I’d protect the next transition before ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : `Your task list is clear for today. Use the open space for a gentle reset, journal, or plan tomorrow.`;
-    const lines = [`I’d keep today focused on these ${Math.min(3, ctx.topTasks.length)} things:`];
-    lines.push(...ctx.topTasks.map(assistantTaskLine));
+    const limit = Math.max(1, Math.min(6, Number(ctx.assistantMemory?.taskLimit || 3)));
+    const selectedTasks = ctx.topTasks.slice(0, limit);
+    const lines = [`I’d keep today focused on these ${Math.min(limit, selectedTasks.length)} thing${Math.min(limit, selectedTasks.length) === 1 ? "" : "s"}:`];
+    lines.push(...selectedTasks.map(assistantTaskLine));
     if (ctx.largestFreeSlot) lines.push(`\nBest slot to protect: ${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)}).`);
-    if (ctx.loadRatio > 0.9) lines.push(`Your estimated task load is close to your free time, so I’d move anything outside the top 3 to tomorrow.`);
+    if (ctx.assistantMemory?.preferredFocusWindow) lines.push(`I’ll also keep your preferred ${ctx.assistantMemory.preferredFocusWindow} focus window in mind.`);
+    if (ctx.loadRatio > 0.9) lines.push(`Your estimated task load is close to your free time, so I’d move anything outside your main priorities to tomorrow.`);
     return lines.join("\n");
   }
   if (/\b(free|space|available|slot|when can|time block|calendar gap)\b/.test(msg)) {
@@ -3260,6 +3353,12 @@ function assistantReplyFromContext(input, ctx) {
   if (/\b(journal|reflect|reflection|mood|energy|reset)\b/.test(msg)) {
     return assistantReflectionPrompt(ctx);
   }
+  if (/\b(memory|remember|preferences|preference)\b/.test(msg)) {
+    const summary = assistantMemorySummary(ctx.assistantMemory);
+    const notes = normalizeAssistantMemory(ctx.assistantMemory).notes;
+    if (!summary && !notes.length) return "I do not have any rhythm memory saved yet. You can say something like: remember that I prefer morning focus blocks.";
+    return `Here is what I remember about your rhythm:\n${notes.length ? notes.slice(0, 5).map(note => `• ${note.text}`).join("\n") : `• ${summary}`}`;
+  }
   if (/\b(pattern|notice|weekly|week|recap|trend)\b/.test(msg)) {
     return assistantWeeklyPattern(ctx);
   }
@@ -3270,8 +3369,9 @@ function assistantReplyFromContext(input, ctx) {
 }
 
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
-function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORIES, assistantContext, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
-  const ctx = assistantContext || buildTempoAssistantContext({ events, tasks });
+function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORIES, assistantContext, assistantMemory = DEFAULT_ASSISTANT_MEMORY, onUpdateAssistantMemory, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
+  const memory = normalizeAssistantMemory(assistantMemory);
+  const ctx = assistantContext || buildTempoAssistantContext({ events, tasks, calendars, assistantMemory: memory });
   const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
   const [input, setInput]       = useState("");
   const [pending, setPending]   = useState(null);
@@ -3300,6 +3400,27 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
   const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
   const durationOptions = [15, 30, 60, 90, 120];
 
+  function showAssistantMemory() {
+    const clean = normalizeAssistantMemory(assistantMemory);
+    if (!clean.notes.length && !assistantMemorySummary(clean)) {
+      setMessages(p => [...p, { role: "assistant", text: "I do not have any rhythm memory saved yet. You can type: remember that I prefer morning focus blocks." }]);
+      return;
+    }
+    const lines = clean.notes.length ? clean.notes.slice(0, 6).map(note => `• ${note.text}`) : [`• ${assistantMemorySummary(clean)}`];
+    setMessages(p => [...p, { role: "assistant", text: `Here is what I remember about your rhythm:\n${lines.join("\n")}` }]);
+  }
+  function rememberAssistantPreference(rawText) {
+    const next = learnAssistantMemoryFromText(rawText, assistantMemory);
+    onUpdateAssistantMemory?.(next);
+    setMessages(p => [...p, { role: "assistant", text: `Saved to Rhythm Memory. I’ll keep this in mind:
+• ${next.notes[0]?.text || assistantMemorySummary(next)}` }]);
+  }
+  function clearAssistantMemory() {
+    const next = normalizeAssistantMemory({ ...DEFAULT_ASSISTANT_MEMORY, updatedAt: new Date().toISOString() });
+    onUpdateAssistantMemory?.(next);
+    setMessages(p => [...p, { role: "assistant", text: "Cleared your Rhythm Memory. I’ll stop using those saved preferences." }]);
+  }
+
   function send(ov) {
     const text = (ov ?? input).trim(); if (!text) return;
     setInput("");
@@ -3308,6 +3429,21 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
       return;
     }
     const lower = text.toLowerCase();
+    if (/^(remember|note)\b|^from now on\b|^going forward\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      rememberAssistantPreference(text);
+      return;
+    }
+    if (/\b(clear|forget|reset)\b.*\b(memory|preference|preferences|rhythm memory)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      clearAssistantMemory();
+      return;
+    }
+    if (/\b(what do you remember|show memory|rhythm memory|my preferences|preferences)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      showAssistantMemory();
+      return;
+    }
     if (actionRef.current && ["yes", "y", "apply", "confirm", "do it", "go ahead"].includes(lower)) {
       setMessages(p => [...p, { role: "user", text }]);
       applyAssistantAction(actionRef.current);
@@ -3368,6 +3504,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     { label: "Add task", flow: "task" },
     { label: "Reflect", prompt: "Help me reflect today" },
     { label: "Patterns", prompt: "What pattern do you notice?" },
+    { label: "Memory", prompt: "What do you remember about my rhythm?" },
     { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
   ];
 
@@ -3425,7 +3562,8 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
     }
     if (actualKind === "focusBlock") {
       if (!slot) return null;
-      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), 60));
+      const preferredMinutes = Math.max(15, Math.min(180, Number(currentCtx.assistantMemory?.focusMinutes || 60)));
+      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), preferredMinutes));
       if (minutes < 15) return null;
       const start = new Date(slot.start);
       const end = new Date(start.getTime() + minutes * 60000);
@@ -3770,6 +3908,7 @@ function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORI
               {contextStats.map(item => <button key={item.label} type="button" onClick={item.action}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></button>)}
             </div>
             {ctx.insights.length > 0 && <div className="assistant-insights">{ctx.insights.slice(0, 3).map((x, i) => <span key={i}>• {x}</span>)}</div>}
+            {assistantMemorySummary(ctx.assistantMemory) && <div className="assistant-memory-strip"><strong>Rhythm memory</strong><span>{assistantMemorySummary(ctx.assistantMemory)}</span></div>}
             <div className="assistant-action-row">
               <button type="button" onClick={onOpenCheckIn}>Check in</button>
               <button type="button" onClick={onOpenJournal}>Journal</button>
@@ -4461,6 +4600,7 @@ export default function App() {
   const [templates, setTplRaw] = useState(() => load(`${uk}_templates`, DAY_TEMPLATES));
   const [journalActivities, setJournalActivitiesRaw] = useState(() => load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
   const [memoryTags, setMemoryTagsRaw] = useState(() => load(`${uk}_memory_tags`, MEMORY_TAGS));
+  const [assistantMemory, setAssistantMemoryRaw] = useState(() => normalizeAssistantMemory(load(`${uk}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)));
   const [rituals, setRitualsRaw] = useState(() => normalizeRituals(load(`${uk}_rituals`, DEFAULT_RITUALS)));
   const [ritualCompletions, setRitualCompletionsRaw] = useState(() => normalizeRitualCompletions(load(`${uk}_ritual_completions`, [])));
   const [habits, setHabitsRaw] = useState(() => normalizeHabits(load(`${uk}_habits`, DEFAULT_HABITS)));
@@ -4614,6 +4754,7 @@ export default function App() {
     setJournalRaw({});
     setJournalActivitiesRaw(load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES));
     setMemoryTagsRaw(load(`${userKey}_memory_tags`, MEMORY_TAGS));
+    setAssistantMemoryRaw(normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)));
     setRitualsRaw(normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)));
     setRitualCompletionsRaw(normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])));
     setHabitsRaw(normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)));
@@ -4660,6 +4801,7 @@ export default function App() {
         templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
         journalActivities: safeSettings.journalActivities ?? load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
         memoryTags: safeSettings.memoryTags ?? load(`${userKey}_memory_tags`, MEMORY_TAGS),
+        assistantMemory: normalizeAssistantMemory(safeSettings.assistantMemory ?? load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
         rituals: normalizeRituals(safeSettings.rituals ?? load(`${userKey}_rituals`, DEFAULT_RITUALS)),
         ritualCompletions: normalizeRitualCompletions(safeSettings.ritualCompletions ?? load(`${userKey}_ritual_completions`, [])),
         habits: normalizeHabits(safeSettings.habits ?? load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4695,6 +4837,7 @@ export default function App() {
       setTplRaw(nextSettings.templates);
       setJournalActivitiesRaw(nextSettings.journalActivities);
       setMemoryTagsRaw(nextSettings.memoryTags || MEMORY_TAGS);
+      setAssistantMemoryRaw(normalizeAssistantMemory(nextSettings.assistantMemory));
       setRitualsRaw(normalizeRituals(nextSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(nextSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(nextSettings.habits));
@@ -4722,6 +4865,7 @@ export default function App() {
       save(`${userKey}_templates`, nextSettings.templates);
       save(`${userKey}_journal_activities`, nextSettings.journalActivities);
       save(`${userKey}_memory_tags`, nextSettings.memoryTags || MEMORY_TAGS);
+      save(`${userKey}_assistant_memory`, normalizeAssistantMemory(nextSettings.assistantMemory));
       save(`${userKey}_rituals`, normalizeRituals(nextSettings.rituals));
       save(`${userKey}_ritual_completions`, normalizeRitualCompletions(nextSettings.ritualCompletions));
       save(`${userKey}_habits`, normalizeHabits(nextSettings.habits));
@@ -4775,6 +4919,7 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4831,6 +4976,7 @@ export default function App() {
             templates: load(`${userKey}_templates`, DAY_TEMPLATES),
             journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
             memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+            assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
             rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
             ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4884,6 +5030,7 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4923,6 +5070,7 @@ export default function App() {
           templates: DAY_TEMPLATES,
           journalActivities: JOURNAL_ACTIVITIES,
           memoryTags: MEMORY_TAGS,
+          assistantMemory: normalizeAssistantMemory(DEFAULT_ASSISTANT_MEMORY),
           rituals: normalizeRituals(DEFAULT_RITUALS),
           ritualCompletions: [],
           habits: normalizeHabits(DEFAULT_HABITS),
@@ -4969,6 +5117,7 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -5030,6 +5179,7 @@ export default function App() {
     templates,
     journalActivities,
     memoryTags,
+    assistantMemory: normalizeAssistantMemory(assistantMemory),
     rituals: normalizeRituals(rituals),
     ritualCompletions: normalizeRitualCompletions(ritualCompletions),
     habits: normalizeHabits(habits),
@@ -5098,6 +5248,7 @@ export default function App() {
         templates: nextSettings?.templates || templates,
         journalActivities: nextSettings?.journalActivities || journalActivities,
         memoryTags: nextSettings?.memoryTags || memoryTags,
+        assistantMemory: normalizeAssistantMemory(nextSettings?.assistantMemory || assistantMemory),
         rituals: normalizeRituals(nextSettings?.rituals || rituals),
         ritualCompletions: normalizeRitualCompletions(nextSettings?.ritualCompletions || ritualCompletions),
         habits: normalizeHabits(nextSettings?.habits || habits),
@@ -5141,6 +5292,7 @@ export default function App() {
       setTplRaw(normalizedSettings.templates);
       setJournalActivitiesRaw(normalizedSettings.journalActivities);
       setMemoryTagsRaw(normalizedSettings.memoryTags || MEMORY_TAGS);
+      setAssistantMemoryRaw(normalizeAssistantMemory(normalizedSettings.assistantMemory));
       setRitualsRaw(normalizeRituals(normalizedSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(normalizedSettings.habits));
@@ -5178,6 +5330,7 @@ export default function App() {
       save(`${uk}_templates`, normalizedSettings.templates);
       save(`${uk}_journal_activities`, normalizedSettings.journalActivities);
       save(`${uk}_memory_tags`, normalizedSettings.memoryTags || MEMORY_TAGS);
+      save(`${uk}_assistant_memory`, normalizeAssistantMemory(normalizedSettings.assistantMemory));
       save(`${uk}_rituals`, normalizeRituals(normalizedSettings.rituals));
       save(`${uk}_ritual_completions`, normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       save(`${uk}_habits`, normalizeHabits(normalizedSettings.habits));
@@ -5321,6 +5474,7 @@ export default function App() {
     save(`${uk}_templates`, next.templates);
     save(`${uk}_journal_activities`, next.journalActivities);
     save(`${uk}_memory_tags`, next.memoryTags || MEMORY_TAGS);
+    save(`${uk}_assistant_memory`, normalizeAssistantMemory(next.assistantMemory));
     save(`${uk}_rituals`, normalizeRituals(next.rituals));
     save(`${uk}_ritual_completions`, normalizeRitualCompletions(next.ritualCompletions));
     save(`${uk}_habits`, normalizeHabits(next.habits));
@@ -5704,6 +5858,12 @@ export default function App() {
     setMemoryTagsRaw(n);
     save(`${uk}_memory_tags`, n);
     persistSettings({ memoryTags: n });
+  };
+  const setAssistantMemory = v => {
+    const n = normalizeAssistantMemory(typeof v === "function" ? v(assistantMemory) : v);
+    setAssistantMemoryRaw(n);
+    save(`${uk}_assistant_memory`, n);
+    persistSettings({ assistantMemory: n });
   };
   // Ritual mutation handlers removed: rituals are legacy sync data only.
 
@@ -7131,6 +7291,7 @@ export default function App() {
     journal,
     dailyCheckIns,
     freeSlots: assistantFreeSlots,
+    assistantMemory,
   });
   const syncSettingsSnapshot = currentSettings();
   const syncDebug = {
@@ -8356,6 +8517,55 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
   .tempo-assistant-panel .assistant-prompt-bank{max-width:100%!important;}
 }
 
+
+/* ── Phase 24F Rhythm Memory + assistant spacing ─────────────────────── */
+.tempo-assistant-panel .assistant-context-card{
+  margin:14px 14px 16px!important;
+  padding:15px!important;
+}
+.tempo-assistant-panel .assistant-context-top{margin-bottom:8px!important;}
+.tempo-assistant-panel .assistant-prompt-bank{
+  padding:5px 14px 16px!important;
+  margin:0 0 8px!important;
+  gap:9px!important;
+}
+.assistant-memory-strip{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-top:10px;
+  padding:9px 11px;
+  border:1px solid rgba(var(--accent-rgb),.16);
+  border-radius:16px;
+  background:rgba(var(--accent-rgb),.07);
+  color:var(--text2);
+}
+.assistant-memory-strip strong{
+  flex:0 0 auto;
+  font-size:10px;
+  font-family:var(--mono);
+  font-weight:950;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+.assistant-memory-strip span{
+  min-width:0;
+  font-size:11px;
+  font-weight:850;
+  line-height:1.35;
+  color:var(--text2);
+}
+.dark .assistant-memory-strip{
+  background:rgba(var(--accent-rgb),.12)!important;
+  border-color:rgba(var(--accent-rgb),.28)!important;
+}
+@media(max-width:760px){
+  .tempo-assistant-panel .assistant-context-card{margin:12px 12px 14px!important;padding:13px!important;}
+  .tempo-assistant-panel .assistant-prompt-bank{padding:4px 12px 14px!important;margin-bottom:6px!important;}
+  .assistant-memory-strip{flex-direction:column;gap:4px;}
+}
+
 `}</style>
 
       <div className="app">
@@ -8571,7 +8781,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
         </div>
       )}
 
-      {chatOpen && <ChatPanel events={events} tasks={tasks} calendars={calendars} categories={categories} assistantContext={assistantContext} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
+      {chatOpen && <ChatPanel events={events} tasks={tasks} calendars={calendars} categories={categories} assistantContext={assistantContext} assistantMemory={assistantMemory} onUpdateAssistantMemory={setAssistantMemory} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
       <RecurrenceScopeModal />
 
       {/* Mobile bottom nav — visible only on small screens */}

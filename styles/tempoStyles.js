@@ -2298,4 +2298,53 @@ export function appCSS(cvars, fontScale) { return `
   .tempo-assistant-panel .assistant-prompt-bank{max-width:100%!important;}
 }
 
+
+/* ── Phase 24F Rhythm Memory + assistant spacing ─────────────────────── */
+.tempo-assistant-panel .assistant-context-card{
+  margin:14px 14px 16px!important;
+  padding:15px!important;
+}
+.tempo-assistant-panel .assistant-context-top{margin-bottom:8px!important;}
+.tempo-assistant-panel .assistant-prompt-bank{
+  padding:5px 14px 16px!important;
+  margin:0 0 8px!important;
+  gap:9px!important;
+}
+.assistant-memory-strip{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-top:10px;
+  padding:9px 11px;
+  border:1px solid rgba(var(--accent-rgb),.16);
+  border-radius:16px;
+  background:rgba(var(--accent-rgb),.07);
+  color:var(--text2);
+}
+.assistant-memory-strip strong{
+  flex:0 0 auto;
+  font-size:10px;
+  font-family:var(--mono);
+  font-weight:950;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+.assistant-memory-strip span{
+  min-width:0;
+  font-size:11px;
+  font-weight:850;
+  line-height:1.35;
+  color:var(--text2);
+}
+.dark .assistant-memory-strip{
+  background:rgba(var(--accent-rgb),.12)!important;
+  border-color:rgba(var(--accent-rgb),.28)!important;
+}
+@media(max-width:760px){
+  .tempo-assistant-panel .assistant-context-card{margin:12px 12px 14px!important;padding:13px!important;}
+  .tempo-assistant-panel .assistant-prompt-bank{padding:4px 12px 14px!important;margin-bottom:6px!important;}
+  .assistant-memory-strip{flex-direction:column;gap:4px;}
+}
+
 `; }
