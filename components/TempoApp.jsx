@@ -35,83 +35,56 @@ const calendarSourceIcon = source => source === "google" ? "G" : source === "hab
 const calendarEventReadOnly = event => Boolean(event?.readOnly || event?.source === "google" || event?.source === "habit");
 
 
-const SCRAPBOOK_ITEM_DEFAULTS = {
-  text: { x: 10, y: 10, w: 44, h: 18, rotate: 0 },
-  tape: { x: 12, y: 28, w: 50, h: 18, rotate: -2 },
-  sticker: { x: 64, y: 12, w: 22, h: 16, rotate: 0 },
-  photo: { x: 8, y: 10, w: 34, h: 30, rotate: 0 },
-  divider: { x: 15, y: 54, w: 70, h: 7, rotate: 0 },
-  quote: { x: 14, y: 20, w: 58, h: 18, rotate: -1 },
+const JOURNAL_DECORATION_DEFAULTS = {
+  tape: { x: 10, y: 18, w: 42, h: 14, rotate: -2 },
+  sticker: { x: 68, y: 10, w: 18, h: 14, rotate: 0 },
 };
-const SCRAPBOOK_CANVAS_PRESETS = [
-  { id: "landscape", label: "Landscape", width: 840, height: 520 },
-  { id: "square", label: "Square", width: 680, height: 680 },
-  { id: "portrait", label: "Portrait", width: 560, height: 760 },
-  { id: "wide", label: "Wide", width: 960, height: 440 },
-];
-const SCRAPBOOK_DEFAULT_SIZE = SCRAPBOOK_CANVAS_PRESETS[0];
-const SCRAPBOOK_SAFE_TYPES = new Set(["text", "tape", "sticker", "photo", "divider", "quote"]);
+const JOURNAL_DECORATION_SAFE_TYPES = new Set(["tape", "sticker", "text", "quote"]);
 const scrapbookClamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const scrapbookNumber = (value, fallback) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 };
-function normalizeScrapbookCanvasSize(size = {}) {
-  const fallback = SCRAPBOOK_DEFAULT_SIZE;
-  return {
-    width: scrapbookClamp(Math.round(scrapbookNumber(size.width, fallback.width)), 320, 1100),
-    height: scrapbookClamp(Math.round(scrapbookNumber(size.height, fallback.height)), 260, 900),
-  };
-}
-function scrapbookCanvasStyle(size) {
-  const clean = normalizeScrapbookCanvasSize(size);
-  return {
-    "--scrapbook-canvas-width": `${clean.width}px`,
-    "--scrapbook-canvas-height": `${clean.height}px`,
-    aspectRatio: `${clean.width} / ${clean.height}`,
-  };
-}
 function scrapbookItemType(item) {
-  const raw = item?.type === "quote" ? "tape" : item?.type;
-  return SCRAPBOOK_SAFE_TYPES.has(raw) ? raw : "text";
+  const raw = item?.type;
+  if (raw === "sticker") return "sticker";
+  if (raw === "tape" || raw === "text" || raw === "quote") return "tape";
+  return null;
 }
 function scrapbookItemLabel(type) {
-  return type === "tape" ? "Tape note" : type === "sticker" ? "Sticker" : type === "photo" ? "Photo" : type === "divider" ? "Divider" : "Text";
+  return type === "sticker" ? "Sticker" : "Tape note";
 }
 function scrapbookItemLayout(item = {}, index = 0) {
-  const type = scrapbookItemType(item);
-  const fallback = SCRAPBOOK_ITEM_DEFAULTS[type] || SCRAPBOOK_ITEM_DEFAULTS.text;
-  const stagger = (index % 5) * 4;
-  const x = scrapbookClamp(scrapbookNumber(item.x, fallback.x + stagger), 0, 96);
-  const y = scrapbookClamp(scrapbookNumber(item.y, fallback.y + stagger), 0, 96);
-  const w = scrapbookClamp(scrapbookNumber(item.w, fallback.w), type === "divider" ? 18 : 12, 96);
-  const h = scrapbookClamp(scrapbookNumber(item.h, fallback.h), type === "divider" ? 4 : 8, 70);
+  const type = scrapbookItemType(item) || "tape";
+  const fallback = JOURNAL_DECORATION_DEFAULTS[type] || JOURNAL_DECORATION_DEFAULTS.tape;
+  const stagger = (index % 6) * 5;
+  const x = scrapbookClamp(scrapbookNumber(item.x, fallback.x + stagger), 0, 98);
+  const y = scrapbookClamp(scrapbookNumber(item.y, fallback.y + stagger), 0, 98);
+  const w = scrapbookClamp(scrapbookNumber(item.w, fallback.w), type === "sticker" ? 8 : 18, 96);
+  const h = scrapbookClamp(scrapbookNumber(item.h, fallback.h), type === "sticker" ? 8 : 8, 60);
   return {
-    x: scrapbookClamp(x, 0, 100 - Math.min(w, 96)),
-    y: scrapbookClamp(y, 0, 100 - Math.min(h, 70)),
+    x: scrapbookClamp(x, 0, Math.max(0, 100 - Math.min(w, 96))),
+    y: scrapbookClamp(y, 0, Math.max(0, 100 - Math.min(h, 60))),
     w,
     h,
-    rotate: scrapbookClamp(scrapbookNumber(item.rotate, fallback.rotate || 0), -18, 18),
+    rotate: scrapbookClamp(scrapbookNumber(item.rotate, fallback.rotate || 0), -28, 28),
     z: scrapbookNumber(item.z, index + 1),
   };
 }
-function makeScrapbookItem(type = "text", index = 0) {
-  const cleanType = scrapbookItemType({ type });
+function makeScrapbookItem(type = "sticker", index = 0) {
+  const cleanType = type === "sticker" ? "sticker" : "tape";
   const layout = scrapbookItemLayout({ type: cleanType }, index);
   const base = { id: `b${uid()}`, type: cleanType, ...layout };
   if (cleanType === "sticker") return { ...base, sticker: "🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null, flipX: false, flipY: false };
-  if (cleanType === "photo") return { ...base, photoId: null, caption: "" };
-  if (cleanType === "divider") return { ...base, text: "✦ ✦ ✦", h: 6 };
-  if (cleanType === "tape") return { ...base, text: "" };
   return { ...base, text: "" };
 }
-function scrapbookTextFitStyle(item = {}, layout = {}, type = "text") {
+function scrapbookTextFitStyle(item = {}, layout = {}, type = "tape") {
   const text = String(item?.text || "");
   const chars = text.replace(/\s+/g, " ").trim().length || 1;
   const lines = Math.max(1, text.split(/\n/).length);
   const area = Math.max(1, scrapbookNumber(layout.w, 40) * scrapbookNumber(layout.h, 16));
   const density = chars / area;
-  let size = type === "tape" ? 13 : 13;
+  let size = 13;
   if (density > 0.085 || lines > 2) size = 12;
   if (density > 0.125 || lines > 3) size = 11;
   if (density > 0.18 || lines > 4) size = 10;
@@ -132,25 +105,25 @@ function scrapbookStickerFlipStyle(item = {}) {
 }
 function normalizeScrapbookBlocksForSave(blocks = []) {
   return (Array.isArray(blocks) ? blocks : [])
-    .filter(block => block?.type !== "photoGrid")
+    .filter(block => JOURNAL_DECORATION_SAFE_TYPES.has(block?.type))
     .map((block, index) => {
       const type = scrapbookItemType(block);
+      if (!type) return null;
       const layout = scrapbookItemLayout({ ...block, type }, index);
       return {
-        ...block,
         id: block?.id || `b${uid()}`,
         type,
-        text: block?.text || "",
+        text: type === "tape" ? (block?.text || "") : "",
         sticker: block?.sticker || "🌸",
         stickerAsset: block?.stickerAsset || null,
-        photoId: block?.photoId || null,
-        caption: block?.caption || "",
         flipX: Boolean(block?.flipX),
         flipY: Boolean(block?.flipY),
         ...layout,
       };
-    });
+    })
+    .filter(Boolean);
 }
+
 function RecurrenceEditor({ value, onChange, startDate }) {
   const rec = normalizeRecurrence(value);
   const freq = rec?.frequency || "";
@@ -1676,7 +1649,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
   const [newTag,     setNewTag]     = useState("");
   const [blocks,     setBlocks]     = useState(() => normalizeScrapbookBlocksForSave(normalized.blocks));
   const [backgroundId, setBackgroundId] = useState(normalized.backgroundId || "plain");
-  const [scrapbookSize, setScrapbookSize] = useState(() => normalizeScrapbookCanvasSize(normalized.scrapbookSize));
   const [highlights, setHighlights] = useState(normalized.highlights);
   const [newActivity, setNewActivity] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -1685,7 +1657,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const scrapbookCanvasRef = useRef(null);
   const scrapbookDragRef = useRef(null);
-  const scrapbookPageResizeRef = useRef(null);
   const initialSnapshot = useMemo(() => JSON.stringify({
     mood: normalized.mood,
     activities: normalized.activities,
@@ -1696,7 +1667,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
     tags: normalized.tags,
     blocks: normalizeScrapbookBlocksForSave(normalized.blocks),
     backgroundId: normalized.backgroundId || "plain",
-    scrapbookSize: normalizeScrapbookCanvasSize(normalized.scrapbookSize),
     highlights: normalized.highlights,
   }), [entry]);
   const prompt = JOURNAL_PROMPTS[date.getDate() % JOURNAL_PROMPTS.length];
@@ -1758,7 +1728,7 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
   const currentSnapshot = JSON.stringify({
     mood, activities, note, gratitude,
     photos: photos.map(p => ({ id:p.id, caption:p.caption || "", storagePath:p.storagePath || "", thumbStoragePath:p.thumbStoragePath || "", pending: Boolean(p.pendingFile) })),
-    coverPhotoId, tags, blocks, backgroundId, scrapbookSize, highlights,
+    coverPhotoId, tags, blocks, backgroundId, highlights,
   });
   const hasUnsavedChanges = currentSnapshot !== initialSnapshot;
   function requestClose() {
@@ -1836,24 +1806,7 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
     setBlocks(bs => bs.filter(b => b.photoId !== id && !(Array.isArray(b.photoIds) && b.photoIds.includes(id))));
   }
   function addBlock(type) {
-    if (type === "photo") {
-      addPhotoBlock();
-      return;
-    }
-    const nextItem = makeScrapbookItem(type, blocks.length);
-    setBlocks(bs => [...bs, nextItem]);
-    setSelectedBlockId(nextItem.id);
-  }
-  function photoById(id) {
-    return photos.find(photo => photo.id === id) || null;
-  }
-  function addPhotoBlock(photoId = photos[0]?.id) {
-    if (!photoId) {
-      setUploadError("Add a journal photo first, then place it inside the scrapbook.");
-      return;
-    }
-    const chosen = photoById(photoId);
-    const nextItem = { ...makeScrapbookItem("photo", blocks.length), photoId, caption: chosen?.caption || "" };
+    const nextItem = makeScrapbookItem(type === "tape" ? "tape" : "sticker", blocks.length);
     setBlocks(bs => [...bs, nextItem]);
     setSelectedBlockId(nextItem.id);
   }
@@ -1866,8 +1819,8 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
       const cleanText = String(text || "");
       const charsPerLine = Math.max(10, Math.floor(layout.w * 1.35));
       const estimatedLines = cleanText.split(/\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil((line.length || 1) / charsPerLine)), 0);
-      const neededH = type === "tape" ? 10 + estimatedLines * 4.2 : 8 + estimatedLines * 3.8;
-      const nextH = scrapbookClamp(Math.max(layout.h, neededH), type === "divider" ? 4 : 8, 72);
+      const neededH = 10 + estimatedLines * 4.2;
+      const nextH = scrapbookClamp(Math.max(layout.h, neededH), 8, 60);
       return { ...b, text: cleanText, h: nextH, y: scrapbookClamp(layout.y, 0, 100 - nextH) };
     }));
   }
@@ -1912,30 +1865,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
     if (!Number.isFinite(n)) return;
     updateBlock(id, { [key]: n });
   }
-  function updateScrapbookCanvasSize(key, value) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return;
-    setScrapbookSize(size => normalizeScrapbookCanvasSize({ ...size, [key]: n }));
-  }
-  function applyScrapbookCanvasPreset(preset) {
-    setScrapbookSize(normalizeScrapbookCanvasSize(preset));
-  }
-  function beginScrapbookPageResize(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    scrapbookPageResizeRef.current = { startX: e.clientX, startY: e.clientY, size: normalizeScrapbookCanvasSize(scrapbookSize) };
-  }
-  function moveScrapbookPageResize(e) {
-    const drag = scrapbookPageResizeRef.current;
-    if (!drag) return;
-    e.preventDefault();
-    setScrapbookSize(normalizeScrapbookCanvasSize({
-      width: drag.size.width + (e.clientX - drag.startX),
-      height: drag.size.height + (e.clientY - drag.startY),
-    }));
-  }
-  function endScrapbookPageResize() { scrapbookPageResizeRef.current = null; }
   function beginScrapbookPointer(blockId, mode, layout, e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1953,8 +1882,8 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
     const dy = ((e.clientY - drag.startY) / Math.max(1, rect.height)) * 100;
     if (drag.mode === "resize") {
       updateBlock(drag.blockId, {
-        w: scrapbookClamp(Math.round((drag.layout.w + dx) * 10) / 10, 12, 96),
-        h: scrapbookClamp(Math.round((drag.layout.h + dy) * 10) / 10, 4, 72),
+        w: scrapbookClamp(Math.round((drag.layout.w + dx) * 10) / 10, 8, 96),
+        h: scrapbookClamp(Math.round((drag.layout.h + dy) * 10) / 10, 8, 60),
       });
     } else {
       updateBlock(drag.blockId, {
@@ -2003,7 +1932,6 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
           coverPhotoId: coverPhotoId || uploadedPhotos[0]?.id || null,
           tags: cleanTags,
           backgroundId,
-          scrapbookSize: normalizeScrapbookCanvasSize(scrapbookSize),
           highlights,
           blocks: cleanBlocks,
           updatedAt: new Date().toISOString()
@@ -2035,6 +1963,67 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
             <div className="entry-modal-sub">Add today’s memory page</div>
           </div>
           <button className="modal-close" onClick={requestClose}>✕</button>
+        </div>
+
+        <div
+          ref={scrapbookCanvasRef}
+          className="journal-decoration-layer"
+          onPointerLeave={endScrapbookPointer}
+        >
+          {editableScrapbookBlocks.map((b, idx) => {
+            const type = scrapbookItemType(b);
+            if (!type) return null;
+            const layout = scrapbookItemLayout(b, idx);
+            const selected = (selectedBlock?.id || selectedBlockId) === b.id;
+            const style = {
+              left: `${layout.x}%`,
+              top: `${layout.y}%`,
+              width: `${layout.w}%`,
+              height: `${layout.h}%`,
+              transform: `rotate(${layout.rotate}deg)`,
+              zIndex: layout.z,
+            };
+            const textFitStyle = scrapbookTextFitStyle(b, layout, type);
+            const stickerFlipStyle = scrapbookStickerFlipStyle(b);
+            return (
+              <div
+                key={b.id}
+                className={`scrapbook-canvas-item journal-decoration-item scrapbook-${type} ${selected ? "selected" : ""}`}
+                style={style}
+                onPointerMove={moveScrapbookPointer}
+                onPointerUp={endScrapbookPointer}
+                onPointerCancel={endScrapbookPointer}
+                onClick={e => { e.stopPropagation(); setSelectedBlockId(b.id); }}
+              >
+                <button
+                  type="button"
+                  className="scrapbook-drag-handle"
+                  title="Drag"
+                  onPointerDown={e => beginScrapbookPointer(b.id, "move", layout, e)}
+                >⋮⋮</button>
+                {type === "tape" && (
+                  <textarea
+                    className="scrapbook-canvas-textarea"
+                    placeholder="Type on tape…"
+                    value={b.text || ""}
+                    style={textFitStyle}
+                    onChange={e => updateScrapbookText(b.id, e.target.value)}
+                    onFocus={() => setSelectedBlockId(b.id)}
+                  />
+                )}
+                {type === "sticker" && (
+                  <div className="scrapbook-canvas-sticker" style={stickerFlipStyle}>
+                    {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"} /> : <span>{b.sticker || "🌸"}</span>}
+                  </div>
+                )}
+                <span
+                  className="scrapbook-resize-handle"
+                  title="Resize"
+                  onPointerDown={e => beginScrapbookPointer(b.id, "resize", layout, e)}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div className="entry-modal-body">
@@ -2180,124 +2169,21 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
             value={note} onChange={e => setNote(e.target.value)} />
         </div>
 
-        <div className="entry-section scrapbook-editor-section">
+        <div className="entry-section journal-decoration-section">
           <div className="entry-section-title scrapbook-title-row">
-            <span>Scrapbook Area 🎀</span>
-            <small>One shared editable page. Drag items, resize corners, and type directly.</small>
+            <span>Decorations 🎀</span>
+            <small>Add tape and stickers anywhere around this journal entry. Drag, resize, rotate, and layer them freely.</small>
           </div>
-          <div className="scrapbook-add-row scrapbook-toolbar">
-            <button type="button" onClick={() => addBlock("text")}>+ Text</button>
-            <button type="button" onClick={() => addBlock("tape")}>+ Tape Block</button>
+          <div className="scrapbook-add-row scrapbook-toolbar journal-decoration-toolbar">
+            <button type="button" onClick={() => addBlock("tape")}>+ Tape</button>
             <button type="button" onClick={() => addBlock("sticker")}>+ Sticker</button>
-            <button type="button" onClick={() => addBlock("photo")} disabled={!photos.length} title={photos.length ? "Add a journal photo to the scrapbook" : "Add photos above first"}>+ Photo</button>
-            <button type="button" onClick={() => addBlock("divider")}>+ Divider</button>
-          </div>
-          <div className="scrapbook-page-size-panel">
-            <div className="scrapbook-size-presets">
-              {SCRAPBOOK_CANVAS_PRESETS.map(preset => (
-                <button key={preset.id} type="button" onClick={() => applyScrapbookCanvasPreset(preset)}>{preset.label}</button>
-              ))}
-            </div>
-            <div className="scrapbook-size-sliders">
-              <label>Width <input type="range" min="320" max="1100" value={scrapbookSize.width} onChange={e => updateScrapbookCanvasSize("width", e.target.value)} /> <span>{scrapbookSize.width}px</span></label>
-              <label>Height <input type="range" min="260" max="900" value={scrapbookSize.height} onChange={e => updateScrapbookCanvasSize("height", e.target.value)} /> <span>{scrapbookSize.height}px</span></label>
-            </div>
-          </div>
-          <div className="scrapbook-canvas-shell" style={scrapbookCanvasStyle(scrapbookSize)}>
-            <div
-              ref={scrapbookCanvasRef}
-              className="scrapbook-canvas"
-              style={{ ...memoryBackgroundStyle(backgroundId), ...scrapbookCanvasStyle(scrapbookSize) }}
-              onPointerLeave={endScrapbookPointer}
-            >
-              {editableScrapbookBlocks.length === 0 && (
-                <div className="scrapbook-canvas-empty">Add stickers, tape blocks, dividers, or text to start your scrapbook page.</div>
-              )}
-              {editableScrapbookBlocks.map((b, idx) => {
-                const type = scrapbookItemType(b);
-                const layout = scrapbookItemLayout(b, idx);
-                const selected = (selectedBlock?.id || selectedBlockId) === b.id;
-                const style = {
-                  left: `${layout.x}%`,
-                  top: `${layout.y}%`,
-                  width: `${layout.w}%`,
-                  height: `${layout.h}%`,
-                  transform: `rotate(${layout.rotate}deg)`,
-                  zIndex: layout.z,
-                };
-                const textFitStyle = scrapbookTextFitStyle(b, layout, type);
-                const stickerFlipStyle = scrapbookStickerFlipStyle(b);
-                const photo = type === "photo" ? photoById(b.photoId) : null;
-                const photoSrc = photo ? memoryPhotoSrc(photo, imageUrls) : "";
-                return (
-                  <div
-                    key={b.id}
-                    className={`scrapbook-canvas-item scrapbook-${type} ${selected ? "selected" : ""}`}
-                    style={style}
-                    onPointerMove={moveScrapbookPointer}
-                    onPointerUp={endScrapbookPointer}
-                    onPointerCancel={endScrapbookPointer}
-                    onClick={e => { e.stopPropagation(); setSelectedBlockId(b.id); }}
-                  >
-                    <button
-                      type="button"
-                      className="scrapbook-drag-handle"
-                      title="Drag"
-                      onPointerDown={e => beginScrapbookPointer(b.id, "move", layout, e)}
-                    >⋮⋮</button>
-                    {(type === "text" || type === "tape") && (
-                      <textarea
-                        className="scrapbook-canvas-textarea"
-                        placeholder={type === "tape" ? "Type on tape…" : "Type here…"}
-                        value={b.text || ""}
-                        style={textFitStyle}
-                        onChange={e => updateScrapbookText(b.id, e.target.value)}
-                        onFocus={() => setSelectedBlockId(b.id)}
-                      />
-                    )}
-                    {type === "divider" && (
-                      <input
-                        className="scrapbook-divider-input"
-                        value={b.text || "✦ ✦ ✦"}
-                        onChange={e => updateBlock(b.id, { text: e.target.value })}
-                        onFocus={() => setSelectedBlockId(b.id)}
-                        aria-label="Divider text"
-                      />
-                    )}
-                    {type === "sticker" && (
-                      <div className="scrapbook-canvas-sticker" style={stickerFlipStyle}>
-                        {b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"} /> : <span>{b.sticker || "🌸"}</span>}
-                      </div>
-                    )}
-                    {type === "photo" && (
-                      <div className="scrapbook-canvas-photo">
-                        {photoSrc ? <img src={photoSrc} alt={photo?.caption || "Journal photo"} /> : <span className="scrapbook-photo-placeholder">📷 Choose photo</span>}
-                      </div>
-                    )}
-                    <span
-                      className="scrapbook-resize-handle"
-                      title="Resize"
-                      onPointerDown={e => beginScrapbookPointer(b.id, "resize", layout, e)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <span
-              className="scrapbook-page-resize-handle"
-              title="Resize scrapbook page"
-              onPointerDown={beginScrapbookPageResize}
-              onPointerMove={moveScrapbookPageResize}
-              onPointerUp={endScrapbookPageResize}
-              onPointerCancel={endScrapbookPageResize}
-            />
           </div>
 
           {selectedBlock ? (() => {
             const selectedType = scrapbookItemType(selectedBlock);
             const selectedLayout = scrapbookItemLayout(selectedBlock, editableScrapbookBlocks.findIndex(b => b.id === selectedBlock.id));
             return (
-              <div className="scrapbook-selected-panel">
+              <div className="scrapbook-selected-panel journal-decoration-selected-panel">
                 <div className="scrapbook-selected-head">
                   <strong>{scrapbookItemLabel(selectedType)}</strong>
                   <div>
@@ -2308,11 +2194,11 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
                   </div>
                 </div>
                 <div className="scrapbook-control-grid">
-                  <label>X <input type="range" min="0" max="96" value={selectedLayout.x} onChange={e => updateBlockLayout(selectedBlock.id, "x", e.target.value)} /></label>
-                  <label>Y <input type="range" min="0" max="96" value={selectedLayout.y} onChange={e => updateBlockLayout(selectedBlock.id, "y", e.target.value)} /></label>
-                  <label>Width <input type="range" min="12" max="96" value={selectedLayout.w} onChange={e => updateBlockLayout(selectedBlock.id, "w", e.target.value)} /></label>
-                  <label>Height <input type="range" min="4" max="72" value={selectedLayout.h} onChange={e => updateBlockLayout(selectedBlock.id, "h", e.target.value)} /></label>
-                  <label>Rotate <input type="range" min="-18" max="18" value={selectedLayout.rotate} onChange={e => updateBlockLayout(selectedBlock.id, "rotate", e.target.value)} /></label>
+                  <label>X <input type="range" min="0" max="98" value={selectedLayout.x} onChange={e => updateBlockLayout(selectedBlock.id, "x", e.target.value)} /></label>
+                  <label>Y <input type="range" min="0" max="98" value={selectedLayout.y} onChange={e => updateBlockLayout(selectedBlock.id, "y", e.target.value)} /></label>
+                  <label>Width <input type="range" min={selectedType === "sticker" ? "8" : "18"} max="96" value={selectedLayout.w} onChange={e => updateBlockLayout(selectedBlock.id, "w", e.target.value)} /></label>
+                  <label>Height <input type="range" min="8" max="60" value={selectedLayout.h} onChange={e => updateBlockLayout(selectedBlock.id, "h", e.target.value)} /></label>
+                  <label>Rotate <input type="range" min="-28" max="28" value={selectedLayout.rotate} onChange={e => updateBlockLayout(selectedBlock.id, "rotate", e.target.value)} /></label>
                 </div>
                 {selectedType === "sticker" && (
                   <div className="scrapbook-sticker-controls">
@@ -2323,28 +2209,13 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
                     {renderStickerPackPicker(selectedBlock.stickerAsset, st => updateBlock(selectedBlock.id,{ stickerAsset: st.src, sticker: st.label }))}
                   </div>
                 )}
-                {selectedType === "photo" && (
-                  <div className="scrapbook-photo-controls">
-                    <div className="scrapbook-photo-picker-title">Choose from journal photos</div>
-                    {photos.length ? (
-                      <div className="scrapbook-photo-picker">
-                        {photos.map(photo => {
-                          const src = memoryPhotoSrc(photo, imageUrls);
-                          return (
-                            <button key={photo.id} type="button" className={selectedBlock.photoId === photo.id ? "selected" : ""} onClick={() => updateBlock(selectedBlock.id, { photoId: photo.id, caption: photo.caption || "" })}>
-                              {src ? <img src={src} alt={photo.caption || "Journal photo"} /> : <span>📷</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : <div className="scrapbook-empty-note">Add photos above first, then place them here.</div>}
-                  </div>
+                {selectedType === "tape" && (
+                  <div className="journal-decoration-note">Type directly on the tape that appears over the entry.</div>
                 )}
               </div>
             );
-          })() : null}
-        </div>
-        </div>
+          })() : <div className="scrapbook-empty-note">Add a tape note or sticker, then select it to customize.</div>}
+        </div>        </div>
 
         <div className="entry-modal-footer">
           <button className="tf-cancel" onClick={requestClose}>Cancel</button>
@@ -2740,7 +2611,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         const acts = (entry.activities||[]).map(id=>activitiesCatalog.find(a=>a.id===id)).filter(Boolean);
         const completedTasks = completedTasksForDateKey(tasks, viewingKey);
         const dayScore = dailyGameSummary(tasks, journal, events, viewingKey);
-        const scrapbookBlocks = normalizeScrapbookBlocksForSave(entry.blocks);
+        const journalDecorations = normalizeScrapbookBlocksForSave(entry.blocks);
         return (
           <div className="modal-overlay" onClick={() => setViewingKey(null)} role="dialog" aria-modal="true" aria-label="View journal entry">
             <div className={`entry-view-modal memory-bg-${entry.backgroundId || "plain"}`} style={memoryBackgroundStyle(entry.backgroundId)} onClick={e=>e.stopPropagation()}>
@@ -2754,6 +2625,27 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                   <button className="modal-close" onClick={() => setViewingKey(null)}>✕</button>
                 </div>
               </div>
+              {journalDecorations.length > 0 && (
+                <div className="journal-decoration-layer journal-view-decoration-layer" aria-hidden="true">
+                  {journalDecorations.map((b, idx) => {
+                    const type = scrapbookItemType(b);
+                    if (!type) return null;
+                    const layout = scrapbookItemLayout(b, idx);
+                    const textFitStyle = scrapbookTextFitStyle(b, layout, type);
+                    const stickerFlipStyle = scrapbookStickerFlipStyle(b);
+                    return (
+                      <div
+                        key={b.id}
+                        className={`scrapbook-view-item journal-decoration-item scrapbook-${type}`}
+                        style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}
+                      >
+                        {type === "tape" && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}
+                        {type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="entry-view-body">
                 {cover && <div className="memory-cover-hero"><img src={memoryPhotoSrc(cover, memoryImageUrls)} onError={() => refreshMemoryImage(cover)} alt={cover.caption || "Memory cover"}/>{cover.caption && <div>{cover.caption}</div>}</div>}
                 {entry.tags.length > 0 && <div className="entry-view-section"><div className="entry-section-title">Memory Tags</div><div className="memory-tag-row">{entry.tags.map(t => <span key={t} className="memory-tag-chip selected">#{t}</span>)}</div></div>}
@@ -2762,33 +2654,6 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                 {Object.values(entry.highlights || {}).some(Boolean) && <div className="entry-view-section"><div className="entry-section-title">Today’s Highlights ✨</div><div className="highlight-view-grid">{entry.highlights.best && <div><span>Best moment</span><strong>{entry.highlights.best}</strong></div>}{entry.highlights.win && <div><span>Biggest win</span><strong>{entry.highlights.win}</strong></div>}{entry.highlights.learned && <div><span>Learned</span><strong>{entry.highlights.learned}</strong></div>}{entry.highlights.remember && <div><span>Remember</span><strong>{entry.highlights.remember}</strong></div>}</div></div>}
                 {entry.gratitude?.some(g=>g) && <div className="entry-view-section"><div className="entry-section-title">Gratitude 🌸</div>{entry.gratitude.filter(g=>g).map((g,i)=><div key={i} className="gratitude-view-item">✦ {g}</div>)}</div>}
                 {entry.note && <div className="entry-view-section"><div className="entry-section-title">Journal</div><div className="entry-view-note">{entry.note}</div></div>}
-                {scrapbookBlocks.length > 0 && (
-                  <div className="entry-view-section">
-                    <div className="entry-section-title">Scrapbook Page 🎀</div>
-                    <div className="scrapbook-view-canvas" style={{ ...memoryBackgroundStyle(entry.backgroundId), ...scrapbookCanvasStyle(entry.scrapbookSize) }}>
-                      {scrapbookBlocks.map((b, idx) => {
-                        const type = scrapbookItemType(b);
-                        const layout = scrapbookItemLayout(b, idx);
-                        const textFitStyle = scrapbookTextFitStyle(b, layout, type);
-                        const stickerFlipStyle = scrapbookStickerFlipStyle(b);
-                        const photo = type === "photo" ? entry.photos.find(p => p.id === b.photoId) : null;
-                        const photoSrc = photo ? memoryPhotoSrc(photo, memoryImageUrls) : "";
-                        return (
-                          <div
-                            key={b.id}
-                            className={`scrapbook-view-item scrapbook-${type}`}
-                            style={{ left:`${layout.x}%`, top:`${layout.y}%`, width:`${layout.w}%`, height:`${layout.h}%`, transform:`rotate(${layout.rotate}deg)`, zIndex:layout.z }}
-                          >
-                            {(type === "text" || type === "tape") && <div className="scrapbook-view-text" style={textFitStyle}>{b.text}</div>}
-                            {type === "divider" && <div className="scrapbook-view-divider">{b.text || "✦ ✦ ✦"}</div>}
-                            {type === "sticker" && <div className="scrapbook-view-sticker" style={stickerFlipStyle}>{b.stickerAsset ? <img src={b.stickerAsset} alt={b.sticker || "Sticker"}/> : <span>{b.sticker || "🌸"}</span>}</div>}
-                            {type === "photo" && <div className="scrapbook-view-photo">{photoSrc ? <img src={photoSrc} alt={photo?.caption || "Journal photo"} /> : <span className="scrapbook-photo-placeholder">📷 Photo removed</span>}</div>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
                 <div className="entry-view-section daily-score-section">
                   <div className="entry-section-title">Daily Score 🌸</div>
                   <div className="daily-score-card">
@@ -8259,6 +8124,32 @@ const loginCSS = `
     padding-bottom:18px!important;
   }
 }
+
+/* ── Journal freeform decorations ───────────────────────────────────── */
+.memory-entry-overlay,.modal-overlay[aria-label="View journal entry"]{overflow:visible!important;}
+.entry-modal.memory-entry-modal,.entry-view-modal{position:relative!important;overflow:visible!important;isolation:isolate;}
+.entry-modal.memory-entry-modal .entry-modal-header,.entry-modal.memory-entry-modal .entry-modal-body,.entry-modal.memory-entry-modal .entry-modal-footer,.entry-view-modal .entry-modal-header,.entry-view-modal .entry-view-body{position:relative;z-index:8;}
+.entry-modal.memory-entry-modal .entry-modal-body,.entry-view-modal .entry-view-body{z-index:2;}
+.journal-decoration-layer{position:absolute!important;inset:0!important;z-index:6!important;pointer-events:none!important;overflow:visible!important;border-radius:inherit;touch-action:none;}
+.journal-decoration-layer .journal-decoration-item{position:absolute!important;box-sizing:border-box!important;pointer-events:auto!important;transform-origin:center center!important;}
+.journal-view-decoration-layer .journal-decoration-item{pointer-events:none!important;}
+.journal-decoration-item.scrapbook-tape{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92))!important;border:1px solid rgba(202,122,154,.24)!important;box-shadow:0 12px 28px rgba(118,76,92,.16)!important;overflow:visible!important;}
+.journal-decoration-item.scrapbook-tape:before{content:"";position:absolute;left:50%;top:-9px;width:48px;height:18px;transform:translateX(-50%) rotate(-2deg);border-radius:6px;background:rgba(255,255,255,.58);border:1px solid rgba(202,122,154,.16);box-shadow:0 4px 10px rgba(118,76,92,.08);pointer-events:none;}
+.journal-decoration-item.scrapbook-sticker{background:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:visible!important;}
+.journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.06),rgba(255,255,255,.34));border:1.5px dashed rgba(var(--accent-rgb),.24);}
+.journal-decoration-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px!important;}
+.journal-decoration-note{margin-top:10px;padding:9px 11px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.50);color:var(--text2);font-size:12px;font-weight:800;}
+.journal-decoration-selected-panel{position:relative;z-index:12;}
+.journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92));border:1px solid rgba(202,122,154,.24);border-radius:16px;box-shadow:0 12px 28px rgba(118,76,92,.12);}
+.dark .journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.14),rgba(255,255,255,.04));border-color:rgba(var(--accent-rgb),.26);}
+.dark .journal-decoration-note{background:rgba(255,255,255,.06);border-color:rgba(var(--accent-rgb),.24);}
+.dark .journal-decoration-item.scrapbook-tape,.dark .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(108,48,82,.92),rgba(72,42,58,.88))!important;border-color:rgba(var(--accent-rgb),.30)!important;color:#ffd6e3!important;}
+@media(max-width:768px){
+  .entry-modal.memory-entry-modal,.entry-view-modal{overflow:visible!important;}
+  .journal-decoration-layer .journal-decoration-item{min-width:42px;min-height:42px;}
+  .journal-decoration-toolbar button{flex:1 1 120px;}
+}
+
 
 `;
 

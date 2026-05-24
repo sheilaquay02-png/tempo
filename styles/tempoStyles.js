@@ -2291,4 +2291,30 @@ export function appCSS(cvars, fontScale) { return `
 }
 .settings-section-label.small{font-size:11px;margin-top:12px;}
 
+
+
+/* ── Journal freeform decorations ───────────────────────────────────── */
+.memory-entry-overlay,.modal-overlay[aria-label="View journal entry"]{overflow:visible!important;}
+.entry-modal.memory-entry-modal,.entry-view-modal{position:relative!important;overflow:visible!important;isolation:isolate;}
+.entry-modal.memory-entry-modal .entry-modal-header,.entry-modal.memory-entry-modal .entry-modal-body,.entry-modal.memory-entry-modal .entry-modal-footer,.entry-view-modal .entry-modal-header,.entry-view-modal .entry-view-body{position:relative;z-index:8;}
+.entry-modal.memory-entry-modal .entry-modal-body,.entry-view-modal .entry-view-body{z-index:2;}
+.journal-decoration-layer{position:absolute!important;inset:0!important;z-index:6!important;pointer-events:none!important;overflow:visible!important;border-radius:inherit;touch-action:none;}
+.journal-decoration-layer .journal-decoration-item{position:absolute!important;box-sizing:border-box!important;pointer-events:auto!important;transform-origin:center center!important;}
+.journal-view-decoration-layer .journal-decoration-item{pointer-events:none!important;}
+.journal-decoration-item.scrapbook-tape{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92))!important;border:1px solid rgba(202,122,154,.24)!important;box-shadow:0 12px 28px rgba(118,76,92,.16)!important;overflow:visible!important;}
+.journal-decoration-item.scrapbook-tape:before{content:"";position:absolute;left:50%;top:-9px;width:48px;height:18px;transform:translateX(-50%) rotate(-2deg);border-radius:6px;background:rgba(255,255,255,.58);border:1px solid rgba(202,122,154,.16);box-shadow:0 4px 10px rgba(118,76,92,.08);pointer-events:none;}
+.journal-decoration-item.scrapbook-sticker{background:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:visible!important;}
+.journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.06),rgba(255,255,255,.34));border:1.5px dashed rgba(var(--accent-rgb),.24);}
+.journal-decoration-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px!important;}
+.journal-decoration-note{margin-top:10px;padding:9px 11px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.50);color:var(--text2);font-size:12px;font-weight:800;}
+.journal-decoration-selected-panel{position:relative;z-index:12;}
+.journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(255,228,236,.96),rgba(255,244,220,.92));border:1px solid rgba(202,122,154,.24);border-radius:16px;box-shadow:0 12px 28px rgba(118,76,92,.12);}
+.dark .journal-decoration-section{background:linear-gradient(135deg,rgba(var(--accent-rgb),.14),rgba(255,255,255,.04));border-color:rgba(var(--accent-rgb),.26);}
+.dark .journal-decoration-note{background:rgba(255,255,255,.06);border-color:rgba(var(--accent-rgb),.24);}
+.dark .journal-decoration-item.scrapbook-tape,.dark .journal-view-decoration-layer .scrapbook-view-text{background:linear-gradient(135deg,rgba(108,48,82,.92),rgba(72,42,58,.88))!important;border-color:rgba(var(--accent-rgb),.30)!important;color:#ffd6e3!important;}
+@media(max-width:768px){
+  .entry-modal.memory-entry-modal,.entry-view-modal{overflow:visible!important;}
+  .journal-decoration-layer .journal-decoration-item{min-width:42px;min-height:42px;}
+  .journal-decoration-toolbar button{flex:1 1 120px;}
+}
 `; }
