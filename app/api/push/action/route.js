@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { readJsonBody, sanitizePushActionPayload } from '../../../../lib/tempo/validation.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -238,7 +239,7 @@ async function handleCompleteHabit(admin, row) {
 
 export async function POST(request) {
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = sanitizePushActionPayload(await readJsonBody(request));
     const action = body.action;
     const actionToken = body.actionToken;
     const limiterKey = request.headers.get('x-forwarded-for') || actionToken || 'push-action';
@@ -257,6 +258,6 @@ export async function POST(request) {
     return json(result);
   } catch (err) {
     console.error('Push action failed', err);
-    return json({ ok: false, error: safeServerError(err?.message || 'Push action failed') }, 500);
+    return json({ ok: false, error: safeServerError(err?.message || 'Push action failed') }, err?.status || 500);
   }
 }

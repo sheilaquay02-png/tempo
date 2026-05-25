@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit } from '../../../../lib/tempo/google/server';
+import { readJsonBody, sanitizePushSendPayload } from '../../../../lib/tempo/validation.js';
 
 export async function POST(request) {
   try {
@@ -9,8 +10,7 @@ export async function POST(request) {
     if (!process.env.TEMPO_PUSH_SECRET || secret !== process.env.TEMPO_PUSH_SECRET) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { userId, title = 'Tempo reminder 🌸', body = 'Open Tempo to check your day.', url = '/' } = await request.json();
-    if (!userId) return Response.json({ error: 'Missing userId' }, { status: 400 });
+    const { userId, title, body, url } = sanitizePushSendPayload(await readJsonBody(request));
     const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const privateKey = process.env.VAPID_PRIVATE_KEY;
     const subject = process.env.VAPID_SUBJECT || 'mailto:hello@example.com';

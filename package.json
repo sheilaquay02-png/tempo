@@ -9,7 +9,9 @@
     "native:add:ios": "npx cap add ios",
     "native:add:android": "npx cap add android",
     "native:sync": "npx cap sync",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run lint"
   },
   "dependencies": {
     "@capacitor/android": "8.3.4",
@@ -29,5 +31,6 @@
   "engines": {
     "node": "24.x",
     "npm": ">=11 <12"
-  }
+  },
+  "type": "module"
 }

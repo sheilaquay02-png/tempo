@@ -1,4 +1,5 @@
 import { listGoogleCalendars, loadUserData, saveUserData, googleCalendarSettingsFromList, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
+import { readJsonBody, sanitizeCalendarPreferencePayload } from "../../../../lib/tempo/validation.js";
 
 export async function GET(request) {
   try {
@@ -20,8 +21,7 @@ export async function POST(request) {
     rateLimit(request, { key: "google-calendar-prefs", limit: 40, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
-    const { calendarId, patch = {} } = await request.json();
-    if (!calendarId) return jsonResponse({ ok: false, error: "Missing calendarId" }, 400);
+    const { calendarId, patch } = sanitizeCalendarPreferencePayload(await readJsonBody(request));
 
     const userData = await loadUserData(userId);
     const settings = userData.settings || {};

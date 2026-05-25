@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { readJsonBody, sanitizePushSubscriptionPayload } from '../../../../lib/tempo/validation.js';
 
 export async function POST(request) {
   try {
-    const { subscription, userId } = await request.json();
+    const { subscription, userId } = sanitizePushSubscriptionPayload(await readJsonBody(request));
     const auth = request.headers.get('authorization') || '';
     const token = auth.replace(/^Bearer\s+/i, '');
     if (!subscription?.endpoint || !userId || !token) {
@@ -24,6 +25,6 @@ export async function POST(request) {
     return Response.json({ ok: true });
   } catch (err) {
     console.error('Push subscribe failed', err);
-    return Response.json({ error: err?.message || 'Push subscribe failed' }, { status: 500 });
+    return Response.json({ error: process.env.NODE_ENV === 'production' ? 'Push subscribe failed' : (err?.message || 'Push subscribe failed') }, { status: err?.status || 500 });
   }
 }
