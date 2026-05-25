@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { readJsonBody, sanitizePushActionPayload } from '../../../../lib/tempo/validation.js';
 import { rateLimit } from '../../../../lib/tempo/google/server';
+import { dateKeyInTimeZone, normalizeDateKey, normalizeTimeZone } from '../../../../lib/tempo/dateTime.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,26 +17,8 @@ function getAdminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function normalizeTimeZone(value) {
-  const fallback = 'Asia/Singapore';
-  const tz = String(value || fallback);
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-    return tz;
-  } catch {
-    return fallback;
-  }
-}
-
 function fallbackDateKey(timeZone = 'Asia/Singapore') {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: normalizeTimeZone(timeZone),
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const lookup = Object.fromEntries(parts.map(p => [p.type, p.value]));
-  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+  return dateKeyInTimeZone(new Date(), normalizeTimeZone(timeZone));
 }
 
 function safeServerError(message = 'Push action failed') {
@@ -178,7 +161,7 @@ async function handleCompleteTask(admin, row) {
     if (task?.id !== taskId) return task;
     if (!taskMatchesReminderPeriod(task, meta)) return task;
     changed = true;
-    return { ...task, done: true, completedAt: now, completedDate: meta.date || task.completedDate || fallbackDateKey(meta.timeZone || meta.timezone), updatedAt: now };
+    return { ...task, done: true, completedAt: now, completedDate: normalizeDateKey(meta.date, null) || task.completedDate || fallbackDateKey(meta.timeZone || meta.timezone), updatedAt: now };
   });
 
   if (!changed) return { ok: false, error: 'Task not found' };
@@ -193,7 +176,7 @@ async function handleCompleteHabit(admin, row) {
   const meta = row.meta || {};
   const habitId = meta.habitId || (meta.sourceType === 'habit' ? meta.sourceId : null);
   if (!habitId) return { ok: false, error: 'No habit id on reminder' };
-  const date = meta.date || fallbackDateKey(meta.timeZone || meta.timezone);
+  const date = normalizeDateKey(meta.date, null) || fallbackDateKey(meta.timeZone || meta.timezone);
   const userData = await loadUserData(admin, row.user_id, 'settings');
   if (!userData) return { ok: false, error: 'User data not found' };
   const settings = userData.settings || {};

@@ -1,6 +1,22 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import {
+  addDaysUTC,
+  addMonthsUTC,
+  dateAtLocalClockUtc,
+  dateKeyFromUtcDate,
+  dateKeyToUtcDate,
+  getLocalDateTimeParts,
+  localClockDue,
+  monthKeyFromDateKey as sharedMonthKeyFromDateKey,
+  normalizeClockTime,
+  normalizeDateKey,
+  normalizeTimeZone as sharedNormalizeTimeZone,
+  parseClockTime,
+  safeDate,
+  weekStartKeyFromDateKey,
+} from '../../../../lib/tempo/dateTime.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,14 +83,7 @@ function safeServerError(message = 'Request failed') {
 }
 
 function normalizeTimeZone(value) {
-  const fallback = 'Asia/Singapore';
-  const tz = String(value || fallback);
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-    return tz;
-  } catch {
-    return fallback;
-  }
+  return sharedNormalizeTimeZone(value);
 }
 
 function normalizeReminderWindow(value, fallback, max) {
@@ -90,12 +99,7 @@ function safeNowFromRequest(value) {
 }
 
 function validTime(value, fallback = '09:00') {
-  const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return fallback;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  return normalizeClockTime(value, fallback);
 }
 
 function normalizeNotificationPreferences(settings = {}) {
@@ -120,39 +124,15 @@ function normalizeNotificationPreferences(settings = {}) {
 }
 
 function toDate(value) {
-  if (!value) return null;
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  const raw = value?.__d ?? value;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
+  return safeDate(value, null);
 }
 
 function localTimeParts(date, timeZone = 'Asia/Singapore') {
-  const safeTimeZone = normalizeTimeZone(timeZone);
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: safeTimeZone,
-    weekday: 'short',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(date);
-  const lookup = Object.fromEntries(parts.map(p => [p.type, p.value]));
-  return {
-    weekday: lookup.weekday,
-    year: Number(lookup.year),
-    month: Number(lookup.month),
-    day: Number(lookup.day),
-    hour: Number(lookup.hour === '24' ? '0' : lookup.hour),
-    minute: Number(lookup.minute),
-    dateKey: `${String(lookup.year).padStart(4, '0')}-${String(lookup.month).padStart(2, '0')}-${String(lookup.day).padStart(2, '0')}`,
-  };
+  return getLocalDateTimeParts(date, timeZone);
 }
 
 function localDateForParts(parts) {
-  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 0, 0, 0, 0));
+  return dateKeyToUtcDate(parts?.dateKey || `${parts?.year}-${parts?.month}-${parts?.day}`);
 }
 
 function localDateTimeMs(parts) {
@@ -160,38 +140,23 @@ function localDateTimeMs(parts) {
 }
 
 function parseClock(time) {
-  const match = String(time || '').match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
-  return { hour: h, minute: m };
+  return parseClockTime(time);
 }
 
 function isDueLocalClock(parts, time, lookbackMinutes, lookaheadMinutes) {
-  const clock = parseClock(time);
-  if (!clock) return false;
-  const nowMs = localDateTimeMs(parts);
-  const dueMs = Date.UTC(parts.year, parts.month - 1, parts.day, clock.hour, clock.minute, 0, 0);
-  return dueMs >= nowMs - lookbackMinutes * 60000 && dueMs <= nowMs + lookaheadMinutes * 60000;
+  return localClockDue(parts, time, lookbackMinutes, lookaheadMinutes);
 }
 
 function dueDateForLocalClock(parts, time) {
-  const clock = parseClock(time);
-  if (!clock) return new Date();
-  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, clock.hour, clock.minute, 0, 0));
+  return dateAtLocalClockUtc(parts, time);
 }
 
 function addDays(date, days) {
-  const d = new Date(date.getTime());
-  d.setUTCDate(d.getUTCDate() + days);
-  return d;
+  return addDaysUTC(date, days);
 }
 
 function addMonths(date, months) {
-  const d = new Date(date.getTime());
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
+  return addMonthsUTC(date, months);
 }
 
 function normalizeRecurrence(rec) {
@@ -403,7 +368,7 @@ function stepRecurringDate(date, rec) {
 }
 
 function dateOnlyKeyUTC(date) {
-  return date.toISOString().slice(0, 10);
+  return dateKeyFromUtcDate(date);
 }
 
 function weeksBetweenUTC(a, b) {
@@ -510,15 +475,11 @@ function eventReminderCandidates(events, settings, now, lookbackMinutes, lookahe
 }
 
 function monthKeyFromDateKey(key) {
-  return String(key || '').slice(0, 7);
+  return sharedMonthKeyFromDateKey(key) || String(key || '').slice(0, 7);
 }
 
 function mondayDateKeyFromLocalDateKey(key) {
-  const d = new Date(`${key}T00:00:00Z`);
-  const dow = d.getUTCDay();
-  const diff = dow === 0 ? -6 : 1 - dow;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return weekStartKeyFromDateKey(key, 1);
 }
 
 function taskScopeOf(task) {
@@ -526,7 +487,7 @@ function taskScopeOf(task) {
 }
 
 function taskDayKey(task) {
-  return task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline || null;
+  return normalizeDateKey(task?.taskDate || task?.dayKey || task?.dateKey || task?.scheduled || task?.deadline, null);
 }
 
 function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookaheadMinutes) {
@@ -592,7 +553,7 @@ function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinu
       count: 1,
       taskId: item.taskId || null,
       habitId: item.habitId || null,
-      date: item.date || null,
+      date: normalizeDateKey(item.date, null),
       sourceId: item.sourceId || item.taskId || item.habitId || null,
       sourceType: item.sourceType || item.type || 'task',
       snoozeId: item.id || null,
