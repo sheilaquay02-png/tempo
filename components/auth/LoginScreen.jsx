@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as Core from "../../lib/tempo/core";
-const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
+const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_UPLOAD_IMAGE_QUALITY, MEMORY_THUMB_IMAGE_QUALITY, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
 function LoginLogoSticker() {
   return <>🌸</>;
@@ -158,45 +158,54 @@ export async function uploadMemoryBlobToStorage(userId, blob, originalName = "me
 }
 export async function uploadMemoryImageToStorage(userId, file, memoryDateKey = dateKey(TODAY)) {
   const fileId = `${Date.now()}-${uid()}`;
-  const fullBlob = await resizeImageFileToBlob(file, MEMORY_MAX_IMAGE_EDGE, 0.84);
-  const thumbBlob = await resizeImageFileToBlob(file, MEMORY_THUMB_IMAGE_EDGE, 0.76);
-  let full = null;
+  const fullBlob = await resizeImageFileToBlob(file, MEMORY_MAX_IMAGE_EDGE, MEMORY_UPLOAD_IMAGE_QUALITY);
+  const thumbBlob = await resizeImageFileToBlob(file, MEMORY_THUMB_IMAGE_EDGE, MEMORY_THUMB_IMAGE_QUALITY);
+  const uploadedPaths = [];
   try {
-    full = await uploadMemoryBlobToStorage(userId, fullBlob, file?.name || "memory-photo", memoryDateKey, "full", fileId);
+    const full = await uploadMemoryBlobToStorage(userId, fullBlob, file?.name || "memory-photo", memoryDateKey, "full", fileId);
+    uploadedPaths.push(full.storagePath);
     const thumb = await uploadMemoryBlobToStorage(userId, thumbBlob, file?.name || "memory-photo", memoryDateKey, "thumb", fileId);
+    uploadedPaths.push(thumb.storagePath);
     return { storagePath: full.storagePath, thumbStoragePath: thumb.storagePath, bucket: MEMORY_STORAGE_BUCKET };
   } catch (err) {
-    if (full?.storagePath) await deleteMemoryStoragePaths([full.storagePath]);
+    // Roll back every object that made it to storage if any later upload step fails.
+    if (uploadedPaths.length) await deleteMemoryStoragePaths(uploadedPaths);
     throw err;
   }
 }
 export async function uploadMemoryDataUrlToStorage(userId, dataUrl, name = "legacy-memory-photo", memoryDateKey = dateKey(TODAY)) {
   const fileId = `${Date.now()}-${uid()}`;
   const blob = dataUrlToBlob(dataUrl);
-  const fullBlob = await resizeImageFileToBlob(blob, MEMORY_MAX_IMAGE_EDGE, 0.84);
-  const thumbBlob = await resizeImageFileToBlob(blob, MEMORY_THUMB_IMAGE_EDGE, 0.76);
-  let full = null;
+  const fullBlob = await resizeImageFileToBlob(blob, MEMORY_MAX_IMAGE_EDGE, MEMORY_UPLOAD_IMAGE_QUALITY);
+  const thumbBlob = await resizeImageFileToBlob(blob, MEMORY_THUMB_IMAGE_EDGE, MEMORY_THUMB_IMAGE_QUALITY);
+  const uploadedPaths = [];
   try {
-    full = await uploadMemoryBlobToStorage(userId, fullBlob, name, memoryDateKey, "full", fileId);
+    const full = await uploadMemoryBlobToStorage(userId, fullBlob, name, memoryDateKey, "full", fileId);
+    uploadedPaths.push(full.storagePath);
     const thumb = await uploadMemoryBlobToStorage(userId, thumbBlob, name, memoryDateKey, "thumb", fileId);
+    uploadedPaths.push(thumb.storagePath);
     return { storagePath: full.storagePath, thumbStoragePath: thumb.storagePath, bucket: MEMORY_STORAGE_BUCKET };
   } catch (err) {
-    if (full?.storagePath) await deleteMemoryStoragePaths([full.storagePath]);
+    if (uploadedPaths.length) await deleteMemoryStoragePaths(uploadedPaths);
     throw err;
   }
 }
-export async function deleteMemoryStoragePaths(paths = []) {
-  const clean = [...new Set(paths.filter(Boolean))];
-  if (!clean.length) return true;
+export async function deleteMemoryStoragePathsDetailed(paths = []) {
+  const clean = [...new Set((Array.isArray(paths) ? paths : []).filter(Boolean))];
+  if (!clean.length) return { ok: true, requestedPaths: [], deletedPaths: [], failedPaths: [], error: null };
   try {
     const sb = await getSupabase();
     const { error } = await sb.storage.from(MEMORY_STORAGE_BUCKET).remove(clean);
     if (error) throw error;
-    return true;
+    return { ok: true, requestedPaths: clean, deletedPaths: clean, failedPaths: [], error: null };
   } catch (err) {
     console.warn("Could not delete removed Journal photos", err);
-    return false;
+    return { ok: false, requestedPaths: clean, deletedPaths: [], failedPaths: clean, error: err?.message || String(err) };
   }
+}
+export async function deleteMemoryStoragePaths(paths = []) {
+  const result = await deleteMemoryStoragePathsDetailed(paths);
+  return Boolean(result.ok);
 }
 export const allMemoryPhotoStoragePaths = photo => [photo?.storagePath, photo?.thumbStoragePath].filter(Boolean);
 export const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);

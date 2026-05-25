@@ -55,6 +55,14 @@ export interface TempoMemoryPhoto {
   createdAt?: string;
 }
 
+export interface TempoMemoryPhotoCleanupItem {
+  path: string;
+  reason?: "removed-photo" | "upload-rollback" | "orphaned" | string;
+  createdAt?: string;
+  attempts?: number;
+  lastTriedAt?: string | null;
+}
+
 export interface TempoMemoryEntry {
   mood?: string | null;
   activities?: string[];
