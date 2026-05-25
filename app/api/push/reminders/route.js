@@ -62,6 +62,33 @@ function isAuthorized(request) {
   return false;
 }
 
+function safeServerError(message = 'Request failed') {
+  return process.env.NODE_ENV === 'production' ? 'Request failed' : message;
+}
+
+function normalizeTimeZone(value) {
+  const fallback = 'Asia/Singapore';
+  const tz = String(value || fallback);
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return tz;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeReminderWindow(value, fallback, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(max, Math.floor(n)));
+}
+
+function safeNowFromRequest(value) {
+  if (!value) return new Date();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
 function validTime(value, fallback = '09:00') {
   const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return fallback;
@@ -101,8 +128,9 @@ function toDate(value) {
 }
 
 function localTimeParts(date, timeZone = 'Asia/Singapore') {
+  const safeTimeZone = normalizeTimeZone(timeZone);
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
+    timeZone: safeTimeZone,
     weekday: 'short',
     year: 'numeric',
     month: '2-digit',
@@ -199,7 +227,7 @@ function normalizeTaskReminder(reminder) {
   if (reminder === null) return { type: 'none', time: '' };
   if (typeof reminder === 'string') {
     if (reminder in TASK_REMINDER_TIMES) return { type: reminder, time: TASK_REMINDER_TIMES[reminder] };
-    return /^\d{2}:\d{2}$/.test(reminder) ? { type: 'custom', time: reminder } : { type: 'none', time: '' };
+    return parseClock(reminder) ? { type: 'custom', time: validTime(reminder) } : { type: 'none', time: '' };
   }
   if (!reminder) return { type: 'none', time: '' };
   const type = reminder.type || reminder.mode || reminder.id || 'none';
@@ -211,7 +239,7 @@ function normalizeHabitReminder(reminder) {
   if (reminder === null) return { type: 'none', time: '' };
   if (typeof reminder === 'string') {
     if (reminder in TASK_REMINDER_TIMES) return { type: reminder, time: TASK_REMINDER_TIMES[reminder] };
-    return /^\d{2}:\d{2}$/.test(reminder) ? { type: 'custom', time: reminder } : { type: 'none', time: '' };
+    return parseClock(reminder) ? { type: 'custom', time: validTime(reminder) } : { type: 'none', time: '' };
   }
   if (!reminder) return { type: 'none', time: '' };
   const type = reminder.type || reminder.mode || reminder.id || 'none';
@@ -234,7 +262,7 @@ function habitCompletionFor(settings, habitId, dateKey) {
 function habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
   const prefs = normalizeNotificationPreferences(settings);
   if (!prefs.habits) return [];
-  const timeZone = settings?.timezone || 'Asia/Singapore';
+  const timeZone = normalizeTimeZone(settings?.timezone);
   const parts = localTimeParts(now, timeZone);
   const habits = Array.isArray(settings?.habits) ? settings.habits : [];
   const candidates = [];
@@ -258,6 +286,7 @@ function habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinute
       sourceType: 'habit',
       habitId: habit.id || null,
       date: parts.dateKey,
+      timeZone,
     });
   }
   return candidates;
@@ -272,7 +301,7 @@ function journalEntryExists(settings, dateKey) {
 
 function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes) {
   const prefs = normalizeNotificationPreferences(settings);
-  const timeZone = settings?.timezone || 'Asia/Singapore';
+  const timeZone = normalizeTimeZone(settings?.timezone);
   const parts = localTimeParts(now, timeZone);
   const candidates = [];
 
@@ -287,6 +316,7 @@ function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lo
       sourceType: 'journal',
       sourceId: parts.dateKey,
       date: parts.dateKey,
+      timeZone,
     });
   }
 
@@ -301,6 +331,7 @@ function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lo
       sourceType: 'tomorrow_reset',
       sourceId: parts.dateKey,
       date: parts.dateKey,
+      timeZone,
     });
   }
 
@@ -316,6 +347,7 @@ function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lo
       sourceType: 'weekly_reset',
       sourceId: parts.dateKey,
       date: parts.dateKey,
+      timeZone,
     });
   }
 
@@ -330,6 +362,7 @@ function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lo
       sourceType: 'affirmation',
       sourceId: parts.dateKey,
       date: parts.dateKey,
+      timeZone,
     });
   }
 
@@ -499,7 +532,7 @@ function taskDayKey(task) {
 function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookaheadMinutes) {
   const prefs = normalizeNotificationPreferences(settings);
   if (!prefs.tasks) return [];
-  const timeZone = settings?.timezone || 'Asia/Singapore';
+  const timeZone = normalizeTimeZone(settings?.timezone);
   const parts = localTimeParts(now, timeZone);
   const todayKey = parts.dateKey;
   const thisWeekKey = mondayDateKeyFromLocalDateKey(todayKey);
@@ -535,6 +568,7 @@ function taskReminderCandidates(tasks, settings, now, lookbackMinutes, lookahead
       taskDayKey: task.dayKey || task.taskDate || task.dateKey || null,
       taskWeekKey: task.weekKey || null,
       taskMonthKey: task.monthKey || null,
+      timeZone,
     });
   }
 
@@ -611,6 +645,19 @@ function notificationActionsFor(reminder) {
   return actions;
 }
 
+
+function dedupeReminderCandidates(candidates = []) {
+  const seen = new Set();
+  const out = [];
+  for (const reminder of candidates) {
+    const key = String(reminder?.key || `${reminder?.type || 'reminder'}:${reminder?.sourceId || reminder?.taskId || reminder?.habitId || ''}:${reminder?.start?.toISOString?.() || ''}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(reminder);
+  }
+  return out;
+}
+
 async function sendToUserSubscriptions(admin, subscriptions, payload) {
   const results = await Promise.allSettled(subscriptions.map(row => webpush.sendNotification(row.subscription, JSON.stringify(payload))));
   const invalidEndpoints = [];
@@ -633,9 +680,9 @@ async function runReminderCheck(request) {
     configureWebPush();
     const admin = getAdminClient();
     const url = new URL(request.url);
-    const now = new Date(url.searchParams.get('now') || Date.now());
-    const lookbackMinutes = Number(url.searchParams.get('lookbackMinutes') || DEFAULT_LOOKBACK_MINUTES);
-    const lookaheadMinutes = Number(url.searchParams.get('lookaheadMinutes') || DEFAULT_LOOKAHEAD_MINUTES);
+    const now = safeNowFromRequest(url.searchParams.get('now'));
+    const lookbackMinutes = normalizeReminderWindow(url.searchParams.get('lookbackMinutes'), DEFAULT_LOOKBACK_MINUTES, 60);
+    const lookaheadMinutes = normalizeReminderWindow(url.searchParams.get('lookaheadMinutes'), DEFAULT_LOOKAHEAD_MINUTES, 30);
     const dryRun = url.searchParams.get('dryRun') === '1';
 
     const { data: subRows, error: subError } = await admin.from('push_subscriptions').select('user_id,endpoint,subscription');
@@ -676,13 +723,13 @@ async function runReminderCheck(request) {
       if (settings.pushEnabled === false) continue;
       usersChecked += 1;
 
-      const allCandidates = [
+      const allCandidates = dedupeReminderCandidates([
         ...snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...eventReminderCandidates(row.events || [], settings, now, lookbackMinutes, lookaheadMinutes),
         ...taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes),
         ...habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
-      ];
+      ]);
       candidates += allCandidates.length;
 
       const sentSnoozeIds = [];
@@ -725,7 +772,7 @@ async function runReminderCheck(request) {
     return json({ ok: true, users: usersChecked, candidates, sent, failed, skippedDuplicates, cleaned, totalSubscriptions: subRows?.length || 0, dryRun });
   } catch (err) {
     console.error('Reminder check failed', err);
-    return json({ error: err?.message || 'Reminder check failed' }, 500);
+    return json({ error: safeServerError(err?.message || 'Reminder check failed') }, 500);
   }
 }
 

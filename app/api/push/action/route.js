@@ -14,8 +14,50 @@ function getAdminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function fallbackDateKey() {
-  return new Date().toISOString().slice(0, 10);
+function normalizeTimeZone(value) {
+  const fallback = 'Asia/Singapore';
+  const tz = String(value || fallback);
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return tz;
+  } catch {
+    return fallback;
+  }
+}
+
+function fallbackDateKey(timeZone = 'Asia/Singapore') {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: normalizeTimeZone(timeZone),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const lookup = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
+function safeServerError(message = 'Push action failed') {
+  return process.env.NODE_ENV === 'production' ? 'Push action failed' : message;
+}
+
+const ACTION_RATE_LIMIT = new Map();
+function rateLimitAction(key, limit = 30, windowMs = 60_000) {
+  const now = Date.now();
+  const cleanKey = String(key || 'anonymous').slice(0, 128);
+  const bucket = ACTION_RATE_LIMIT.get(cleanKey) || [];
+  const recent = bucket.filter(ts => now - ts < windowMs);
+  if (recent.length >= limit) {
+    ACTION_RATE_LIMIT.set(cleanKey, recent);
+    return false;
+  }
+  recent.push(now);
+  ACTION_RATE_LIMIT.set(cleanKey, recent);
+  if (ACTION_RATE_LIMIT.size > 500) {
+    for (const [k, list] of ACTION_RATE_LIMIT.entries()) {
+      if (!list.some(ts => now - ts < windowMs)) ACTION_RATE_LIMIT.delete(k);
+    }
+  }
+  return true;
 }
 
 function pruneSnoozedReminders(list = []) {
@@ -120,6 +162,7 @@ async function handleSnooze(admin, row, minutes) {
     body: meta.body || 'Open Tempo to check this item.',
     url: meta.url || '/',
     dueAt,
+    timeZone: meta.timeZone || meta.timezone || null,
     createdAt: new Date().toISOString(),
   };
 
@@ -153,7 +196,7 @@ async function handleCompleteTask(admin, row) {
     if (task?.id !== taskId) return task;
     if (!taskMatchesReminderPeriod(task, meta)) return task;
     changed = true;
-    return { ...task, done: true, completedAt: now, completedDate: meta.date || task.completedDate || fallbackDateKey(), updatedAt: now };
+    return { ...task, done: true, completedAt: now, completedDate: meta.date || task.completedDate || fallbackDateKey(meta.timeZone || meta.timezone), updatedAt: now };
   });
 
   if (!changed) return { ok: false, error: 'Task not found' };
@@ -168,7 +211,7 @@ async function handleCompleteHabit(admin, row) {
   const meta = row.meta || {};
   const habitId = meta.habitId || (meta.sourceType === 'habit' ? meta.sourceId : null);
   if (!habitId) return { ok: false, error: 'No habit id on reminder' };
-  const date = meta.date || fallbackDateKey();
+  const date = meta.date || fallbackDateKey(meta.timeZone || meta.timezone);
   const userData = await loadUserData(admin, row.user_id, 'settings');
   if (!userData) return { ok: false, error: 'User data not found' };
   const settings = userData.settings || {};
@@ -198,6 +241,8 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const action = body.action;
     const actionToken = body.actionToken;
+    const limiterKey = request.headers.get('x-forwarded-for') || actionToken || 'push-action';
+    if (!rateLimitAction(limiterKey)) return json({ ok: false, error: 'Too many requests' }, 429);
     const admin = getAdminClient();
     const row = await findReminderByToken(admin, actionToken);
     if (!row || !assertActionTokenUsable(row)) return json({ ok: false, error: 'Invalid or expired action token' }, 401);
@@ -212,6 +257,6 @@ export async function POST(request) {
     return json(result);
   } catch (err) {
     console.error('Push action failed', err);
-    return json({ ok: false, error: err?.message || 'Push action failed' }, 500);
+    return json({ ok: false, error: safeServerError(err?.message || 'Push action failed') }, 500);
   }
 }

@@ -5470,6 +5470,11 @@ export default function App() {
   const [copiedEvent, setCopiedEvent] = useState(null);
   const [calendarEditor, setCalendarEditor] = useState(null);
   const [toast, setToast] = useState(null);
+  const showToast = useCallback((message) => {
+    const text = typeof message === "string" ? message : message?.text;
+    if (!text) return;
+    setToast({ text, ts: Date.now() });
+  }, []);
   const [selectedTask, setSelectedTask] = useState(null);
   const [scheduleTaskTarget, setScheduleTaskTarget] = useState(null);
   const [dayPlan, setDayPlan] = useState(null);
@@ -6606,11 +6611,11 @@ export default function App() {
     try {
       const result = await registerTempoPushNotifications(auth.user?.id);
       if (!result?.ok) throw new Error(result?.reason || "Push setup failed");
-      setToast("Closed-app push notifications enabled ✓");
+      showToast("Closed-app push notifications enabled ✓");
       return true;
     } catch (err) {
       console.warn("Push notification setup failed", err);
-      setToast(err?.message || "Push setup failed. Check VAPID/server setup.");
+      showToast(err?.message || "Push setup failed. Check VAPID/server setup.");
       return false;
     }
   }
@@ -6685,7 +6690,7 @@ export default function App() {
 
   async function connectGoogleCalendar() {
     if (!auth.user?.id) {
-      setToast("Sign in before connecting Google Calendar.");
+      showToast("Sign in before connecting Google Calendar.");
       return;
     }
     try {
@@ -6695,7 +6700,7 @@ export default function App() {
       window.location.href = data.url;
     } catch (err) {
       console.warn("Google Calendar connect failed", err);
-      setToast(err.message || "Could not start Google Calendar connection.");
+      showToast(err.message || "Could not start Google Calendar connection.");
     }
   }
 
@@ -6712,7 +6717,7 @@ export default function App() {
     } catch (err) {
       console.warn("Google Calendar import failed", err);
       setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
-      setToast(err.message || "Google import failed");
+      showToast(err.message || "Google import failed");
     }
   }
 
@@ -6727,7 +6732,7 @@ export default function App() {
       });
       applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
       setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null });
-      setToast("Google Calendar disconnected ✓");
+      showToast("Google Calendar disconnected ✓");
     } catch (err) {
       console.warn("Google Calendar disconnect failed", err);
       setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Disconnect failed", message: "" }));
