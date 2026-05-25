@@ -3,7 +3,7 @@ import { readJsonBody, sanitizeCalendarPreferencePayload } from "../../../../lib
 
 export async function GET(request) {
   try {
-    rateLimit(request, { key: "google-calendars", limit: 60, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-calendars", limit: 60, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
     const items = await listGoogleCalendars(userId);
@@ -18,7 +18,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    rateLimit(request, { key: "google-calendar-prefs", limit: 40, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-calendar-prefs", limit: 40, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
     const { calendarId, patch } = sanitizeCalendarPreferencePayload(await readJsonBody(request));

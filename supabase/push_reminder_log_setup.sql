@@ -8,9 +8,22 @@ create table if not exists public.push_reminder_log (
   sent_at timestamptz default now()
 );
 
+create unique index if not exists push_reminder_log_user_reminder_key_uidx
+on public.push_reminder_log (user_id, reminder_key);
+
+create index if not exists push_reminder_log_user_scheduled_idx
+on public.push_reminder_log (user_id, scheduled_for desc);
+
+create index if not exists push_reminder_log_type_scheduled_idx
+on public.push_reminder_log (reminder_type, scheduled_for desc);
+
 create index if not exists push_reminder_log_action_token_hash_idx
 on public.push_reminder_log ((meta->>'actionTokenHash'))
 where meta ? 'actionTokenHash';
+
+create unique index if not exists push_reminder_log_action_token_hash_uidx
+on public.push_reminder_log ((meta->>'actionTokenHash'))
+where meta ? 'actionTokenHash' and nullif(meta->>'actionTokenHash', '') is not null;
 
 alter table public.push_reminder_log enable row level security;
 
@@ -19,3 +32,6 @@ alter table public.push_reminder_log enable row level security;
 -- Supabase service role key, which bypasses RLS after validating request auth/tokens.
 drop policy if exists "Users can view their own push reminder log" on public.push_reminder_log;
 drop policy if exists "Users can manage their own push reminder log" on public.push_reminder_log;
+
+comment on table public.push_reminder_log is
+  'Server-only reminder/action log. RLS enabled; dedupe indexes prevent repeated sends/actions.';

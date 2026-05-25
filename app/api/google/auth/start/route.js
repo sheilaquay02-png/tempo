@@ -1,7 +1,7 @@
 import { googleAuthUrl, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser, safeReturnPath } from "../../../../../lib/tempo/google/server";
 
 async function buildAuthResponse(request) {
-  rateLimit(request, { key: "google-auth-start", limit: 10, windowMs: 60_000 });
+  await rateLimit(request, { key: "google-auth-start", limit: 10, windowMs: 60_000 });
   const user = await requireAuthenticatedUser(request);
   const url = new URL(request.url);
   const returnTo = safeReturnPath(url.searchParams.get("returnTo") || "/?page=calendar&google=connected");

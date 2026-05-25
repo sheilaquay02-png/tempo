@@ -14,7 +14,7 @@ import {
 
 export async function GET(request) {
   try {
-    rateLimit(request, { key: "google-auth-callback", limit: 20, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-auth-callback", limit: 20, windowMs: 60_000 });
     const url = new URL(request.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");

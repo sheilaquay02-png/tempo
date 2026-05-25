@@ -2,7 +2,7 @@ import { getSupabaseAdmin, loadUserData, saveUserData, handleRouteError, jsonRes
 
 export async function POST(request) {
   try {
-    rateLimit(request, { key: "google-disconnect", limit: 10, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-disconnect", limit: 10, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
     const sb = getSupabaseAdmin();

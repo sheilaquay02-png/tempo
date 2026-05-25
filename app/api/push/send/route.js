@@ -5,7 +5,7 @@ import { readJsonBody, sanitizePushSendPayload } from '../../../../lib/tempo/val
 
 export async function POST(request) {
   try {
-    rateLimit(request, { key: 'push-send', limit: 30, windowMs: 60_000 });
+    await rateLimit(request, { key: 'push-send', limit: 30, windowMs: 60_000 });
     const secret = request.headers.get('x-tempo-push-secret');
     if (!process.env.TEMPO_PUSH_SECRET || secret !== process.env.TEMPO_PUSH_SECRET) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });

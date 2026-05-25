@@ -2,7 +2,7 @@ import { getValidGoogleToken, listGoogleCalendars, loadUserData, googleCalendarS
 
 export async function GET(request) {
   try {
-    rateLimit(request, { key: "google-status", limit: 60, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-status", limit: 60, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
     const token = await getValidGoogleToken(userId);

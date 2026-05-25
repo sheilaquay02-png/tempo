@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { readJsonBody, sanitizePushActionPayload } from '../../../../lib/tempo/validation.js';
+import { rateLimit } from '../../../../lib/tempo/google/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,26 +42,6 @@ function safeServerError(message = 'Push action failed') {
   return process.env.NODE_ENV === 'production' ? 'Push action failed' : message;
 }
 
-const ACTION_RATE_LIMIT = new Map();
-function rateLimitAction(key, limit = 30, windowMs = 60_000) {
-  const now = Date.now();
-  const cleanKey = String(key || 'anonymous').slice(0, 128);
-  const bucket = ACTION_RATE_LIMIT.get(cleanKey) || [];
-  const recent = bucket.filter(ts => now - ts < windowMs);
-  if (recent.length >= limit) {
-    ACTION_RATE_LIMIT.set(cleanKey, recent);
-    return false;
-  }
-  recent.push(now);
-  ACTION_RATE_LIMIT.set(cleanKey, recent);
-  if (ACTION_RATE_LIMIT.size > 500) {
-    for (const [k, list] of ACTION_RATE_LIMIT.entries()) {
-      if (!list.some(ts => now - ts < windowMs)) ACTION_RATE_LIMIT.delete(k);
-    }
-  }
-  return true;
-}
-
 function pruneSnoozedReminders(list = []) {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   return (Array.isArray(list) ? list : [])
@@ -89,7 +70,7 @@ async function findReminderByToken(admin, actionToken) {
   const { data, error } = await admin
     .from('push_reminder_log')
     .select('id,user_id,meta,sent_at')
-    .contains('meta', { actionTokenHash })
+    .filter('meta->>actionTokenHash', 'eq', actionTokenHash)
     .order('sent_at', { ascending: false })
     .limit(1);
   if (error) throw error;
@@ -242,8 +223,7 @@ export async function POST(request) {
     const body = sanitizePushActionPayload(await readJsonBody(request));
     const action = body.action;
     const actionToken = body.actionToken;
-    const limiterKey = request.headers.get('x-forwarded-for') || actionToken || 'push-action';
-    if (!rateLimitAction(limiterKey)) return json({ ok: false, error: 'Too many requests' }, 429);
+    await rateLimit(request, { key: 'push-action', limit: 30, windowMs: 60_000, identity: actionToken || null });
     const admin = getAdminClient();
     const row = await findReminderByToken(admin, actionToken);
     if (!row || !assertActionTokenUsable(row)) return json({ ok: false, error: 'Invalid or expired action token' }, 401);

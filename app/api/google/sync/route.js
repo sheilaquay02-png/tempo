@@ -17,7 +17,7 @@ import { readJsonBody } from "../../../../lib/tempo/validation.js";
 
 export async function POST(request) {
   try {
-    rateLimit(request, { key: "google-sync", limit: 12, windowMs: 60_000 });
+    await rateLimit(request, { key: "google-sync", limit: 12, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
     const userId = user.id;
     const { timeMin, timeMax } = await readJsonBody(request, { fallback: {} });

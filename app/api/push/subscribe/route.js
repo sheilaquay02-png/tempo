@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { readJsonBody, sanitizePushSubscriptionPayload } from '../../../../lib/tempo/validation.js';
+import { rateLimit } from '../../../../lib/tempo/google/server';
 
 export async function POST(request) {
   try {
+    await rateLimit(request, { key: 'push-subscribe', limit: 20, windowMs: 60_000 });
     const { subscription, userId } = sanitizePushSubscriptionPayload(await readJsonBody(request));
     const auth = request.headers.get('authorization') || '';
     const token = auth.replace(/^Bearer\s+/i, '');
