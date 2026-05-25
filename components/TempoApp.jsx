@@ -2066,7 +2066,7 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
 
           <div className="settings-section google-calendar-settings">
             <div className="settings-section-label">Google Calendar Sync</div>
-            <div className="settings-section-desc">Read-only import: Tempo can show Google events for planning context, but Tempo does not edit, delete, or write events back to Google Calendar.</div>
+            <div className="settings-section-desc">Read-only import: Tempo shows Google events for planning context only. Tempo will not edit, delete, or write events back to Google Calendar.</div>
             <div className={`google-sync-status-row ${googleStatusTone}`}>
               <span className={`google-sync-dot ${googleStatusTone}`} />
               <strong>{googleStatusLabel}</strong>
@@ -2135,19 +2135,19 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           {/* Notifications */}
           <div className="settings-section">
             <div className="settings-section-label">In-app notifications</div>
-            <div className="settings-section-desc">Used for reminder alerts while Tempo is open in this browser.</div>
+            <div className="settings-section-desc">Gentle reminder banners while Tempo is open in this browser.</div>
             <div className={`notification-support-note ${notificationSupported ? "supported" : "unsupported"}`}>{notificationSupported ? `Browser permission: ${notificationPermission}` : "This browser does not support notification permissions."}</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs} disabled={!notificationSupported}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Closed-app push notifications</div>
-            <div className="settings-section-desc">Registers this device for server-sent reminders while Tempo is closed. This requires browser push support, service workers, and your VAPID setup.</div>
+            <div className="settings-section-desc">Lets this device receive gentle reminders even when Tempo is closed. Requires browser push support and your VAPID setup.</div>
             <div className={`notification-support-note ${pushSupported ? "supported" : "unsupported"}`}>{pushSupported ? "Supported on this device/browser." : "Not supported on this device/browser. Keep Tempo open for in-app reminders."}</div>
             <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush} disabled={!pushEnabled && !pushSupported}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Reminder categories</div>
-            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, and habit reminders still use the individual times you set on each item.</div>
+            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, and habit reminders still follow the individual reminder times you set on each item.</div>
             <div className="notification-pref-grid">
               {[
                 ["events", "🗓️", "Events", "Calendar reminders"],

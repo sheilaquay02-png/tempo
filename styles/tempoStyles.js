@@ -3218,5 +3218,138 @@ body.tempo-modal-locked{
   .tempo-assistant-panel .assistant-action-row{margin-top:5px!important;}
 }
 
+
+/* ── Phase 126+ UX polish: non-destructive visual refinements ───────────── */
+:where(button,.tf-save,.tf-cancel,.modal-close,.nav-item,.notification-pref-card,.google-calendar-row,input,select,textarea):focus-visible{
+  outline:3px solid rgba(var(--accent-rgb),.28)!important;
+  outline-offset:3px!important;
+}
+.settings-panel{
+  box-shadow:0 28px 90px rgba(82,42,63,.24)!important;
+}
+.settings-body{
+  scroll-padding:18px!important;
+}
+.settings-section{
+  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease!important;
+}
+.settings-section:hover{
+  border-color:rgba(var(--accent-rgb),.20)!important;
+  background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(var(--accent-rgb),.035))!important;
+}
+.dark .settings-section:hover{
+  background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(var(--accent-rgb),.10))!important;
+}
+.google-sync-status-row{
+  gap:8px!important;
+  align-items:center!important;
+  padding:10px 12px!important;
+  border-radius:18px!important;
+}
+.google-sync-status-row small{
+  line-height:1.35!important;
+}
+.google-calendar-list{
+  gap:8px!important;
+}
+.google-calendar-row{
+  border-radius:18px!important;
+  padding:10px 12px!important;
+  align-items:center!important;
+}
+.google-calendar-meta small{
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  max-width:100%!important;
+}
+.notification-support-note{
+  border-radius:16px!important;
+  padding:8px 10px!important;
+  line-height:1.35!important;
+}
+.notification-pref-card,
+.notification-schedule-row{
+  border-radius:18px!important;
+}
+.notification-pref-card:hover,
+.notification-schedule-row:hover{
+  border-color:rgba(var(--accent-rgb),.28)!important;
+  box-shadow:0 10px 24px rgba(var(--accent-rgb),.08)!important;
+}
+.entry-view-modal{
+  will-change:auto!important;
+}
+.entry-view-body{
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:stable!important;
+}
+.journal-decoration-bottom-sheet.journal-decoration-tool-card{
+  scrollbar-gutter:stable!important;
+}
+.journal-decoration-tool-card .story-sticker-row,
+.sticker-asset-picker-row.compact.story-sticker-row{
+  scroll-snap-type:x proximity!important;
+}
+.journal-decoration-tool-card .story-sticker-row button,
+.sticker-asset-picker-row.compact.story-sticker-row button{
+  scroll-snap-align:start!important;
+}
+.decorate-entry-btn{
+  box-shadow:0 8px 18px rgba(var(--accent-rgb),.16)!important;
+}
+@media(max-width:768px){
+  .settings-panel{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - 18px)!important;
+    border-radius:24px!important;
+  }
+  .settings-body{
+    padding:10px!important;
+    gap:10px!important;
+  }
+  .settings-section{
+    border-radius:20px!important;
+    padding:12px!important;
+  }
+  .google-calendar-row{
+    grid-template-columns:18px minmax(0,1fr)!important;
+    gap:8px 10px!important;
+  }
+  .google-calendar-row label{
+    margin-left:28px!important;
+  }
+  .notification-pref-grid{
+    grid-template-columns:1fr!important;
+  }
+  .notification-schedule-row{
+    grid-template-columns:1fr auto auto!important;
+    align-items:center!important;
+  }
+  .notification-schedule-row span small{
+    line-height:1.25!important;
+  }
+  .modal-overlay[aria-label="View journal entry"]{
+    padding-top:4px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal{
+    border-radius:22px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header{
+    gap:8px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header > div:last-child{
+    gap:6px!important;
+  }
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-save,
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header .tf-cancel{
+    padding-inline:10px!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
+}
+
 `; }
 
