@@ -33,3 +33,34 @@ test('Google import never overwrites local Tempo events with the same id', () =>
   const out = mergeGoogleImport({ existingEvents: [local], googleEvents: [google] });
   assert.equal(out.find(ev => ev.id === 'same').title, 'Local event');
 });
+
+test('recurring Google instances use original start as stable Tempo id', () => {
+  const a = mapGoogleEvent({
+    id: 'instance-a',
+    recurringEventId: 'series-1',
+    originalStartTime: { dateTime: '2026-03-10T09:00:00+08:00' },
+    summary: 'Recurring standup',
+    start: { dateTime: '2026-03-10T09:00:00+08:00' },
+    end: { dateTime: '2026-03-10T09:30:00+08:00' },
+    status: 'confirmed',
+  }, calendar);
+  const b = mapGoogleEvent({
+    id: 'instance-b',
+    recurringEventId: 'series-1',
+    originalStartTime: { dateTime: '2026-03-10T09:00:00+08:00' },
+    summary: 'Recurring standup moved',
+    start: { dateTime: '2026-03-10T10:00:00+08:00' },
+    end: { dateTime: '2026-03-10T10:30:00+08:00' },
+    status: 'confirmed',
+  }, calendar);
+  assert.equal(a.id, b.id);
+  assert.equal(a.googleStableKey, 'series-1:2026-03-10T09:00:00+08:00');
+});
+
+test('incremental imports do not mark unseen Google events missing', () => {
+  const existing = { id: 'old-google', title: 'Existing Google event', source: 'google', googleCalendarId: calendar.googleCalendarId, start: new Date('2026-03-10T01:00:00Z'), end: new Date('2026-03-10T02:00:00Z') };
+  const changed = { id: 'changed-google', title: 'Changed Google event', source: 'google', googleCalendarId: calendar.googleCalendarId, start: new Date('2026-03-10T03:00:00Z'), end: new Date('2026-03-10T04:00:00Z') };
+  const out = mergeGoogleImport({ existingEvents: [existing], googleEvents: [changed], syncedCalendarIds: new Set(), seenIds: new Set(), syncWindow: null });
+  assert.equal(out.find(ev => ev.id === 'old-google').googleStatus, undefined);
+  assert.equal(out.find(ev => ev.id === 'changed-google').title, 'Changed Google event');
+});

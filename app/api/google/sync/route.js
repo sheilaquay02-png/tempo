@@ -1,17 +1,9 @@
 import {
-  listGoogleCalendars,
-  loadUserData,
-  saveUserData,
-  googleCalendarSettingsFromList,
-  listGoogleEvents,
-  mapGoogleEvent,
-  googleEventTempoId,
-  mergeGoogleImport,
   handleRouteError,
   jsonResponse,
   rateLimit,
   requireAuthenticatedUser,
-  validateGoogleSyncWindow,
+  syncGoogleCalendarsForUser,
 } from "../../../../lib/tempo/google/server";
 import { readJsonBody } from "../../../../lib/tempo/validation.js";
 
@@ -19,77 +11,14 @@ export async function POST(request) {
   try {
     await rateLimit(request, { key: "google-sync", limit: 12, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
-    const userId = user.id;
-    const { timeMin, timeMax } = await readJsonBody(request, { fallback: {} });
-    const syncWindow = validateGoogleSyncWindow({ timeMin, timeMax });
-
-    const calendarItems = await listGoogleCalendars(userId);
-    const userData = await loadUserData(userId);
-    const settings = googleCalendarSettingsFromList(userData.settings || {}, calendarItems);
-    const googleCalendars = settings.calendars.filter(c => c.source === "google" && c.syncEnabled !== false);
-
-    const imported = [];
-    const skipped = [];
-    const cancelled = new Set();
-    const seenIds = new Set();
-    const syncedCalendarIds = new Set(googleCalendars.map(calendar => calendar.googleCalendarId));
-    const timeZone = settings.timezone || "Asia/Singapore";
-
-    for (const calendar of googleCalendars) {
-      const googleEvents = await listGoogleEvents(userId, calendar.googleCalendarId, syncWindow);
-      for (const item of googleEvents) {
-        if (!item?.id) continue;
-        const tempoId = googleEventTempoId(item, calendar);
-        seenIds.add(tempoId);
-        if (item.status === "cancelled") {
-          cancelled.add(tempoId);
-          continue;
-        }
-        try {
-          imported.push(mapGoogleEvent(item, calendar, { timeZone }));
-        } catch (eventError) {
-          skipped.push({ id: item.id, calendarId: calendar.googleCalendarId, reason: eventError?.message || "Could not import Google event" });
-        }
-      }
-    }
-
-    const events = mergeGoogleImport({
-      existingEvents: userData.events || [],
-      googleEvents: imported,
-      cancelledIds: cancelled,
-      seenIds,
-      syncedCalendarIds,
-      syncWindow,
+    const { timeMin, timeMax, full } = await readJsonBody(request, { fallback: {} });
+    const payload = await syncGoogleCalendarsForUser(user.id, {
+      timeMin,
+      timeMax,
+      mode: full ? "manual_full" : "manual",
+      allowIncremental: !full,
     });
-
-    const nextSettings = {
-      ...settings,
-      googleCalendarSync: {
-        ...(settings.googleCalendarSync || {}),
-        connected: true,
-        lastImportAt: new Date().toISOString(),
-        importedCount: imported.length,
-        cancelledCount: cancelled.size,
-        skippedCount: skipped.length,
-        staleRemovedCount: events.filter(ev => ev.source === "google" && ev.googleStatus === "missing_from_sync").length,
-        mode: "import-first",
-        timeMin: syncWindow.timeMin,
-        timeMax: syncWindow.timeMax,
-      },
-    };
-
-    await saveUserData(userId, { events, tasks: userData.tasks || [], settings: nextSettings });
-    return jsonResponse({
-      ok: true,
-      mode: "import-first",
-      imported: imported.length,
-      cancelled: cancelled.size,
-      skipped: skipped.length,
-      events,
-      calendars: nextSettings.calendars,
-      hiddenCals: nextSettings.hiddenCals || [],
-      googleCalendarSync: nextSettings.googleCalendarSync,
-    });
+    return jsonResponse(payload);
   } catch (err) {
     return handleRouteError(err);
   }

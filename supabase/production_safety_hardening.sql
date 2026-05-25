@@ -56,3 +56,37 @@ comment on table public.google_calendar_tokens is
 
 comment on table public.push_reminder_log is
   'Server-only reminder/action log. RLS enabled; dedupe indexes prevent repeated sends/actions.';
+
+-- 3) Google Calendar incremental sync state (Phase 96-100).
+create table if not exists public.google_calendar_sync_state (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  google_calendar_id text not null,
+  sync_token text,
+  sync_window jsonb default '{}'::jsonb,
+  last_mode text,
+  last_item_count integer default 0,
+  last_full_sync_at timestamptz,
+  last_incremental_sync_at timestamptz,
+  last_webhook_at timestamptz,
+  last_webhook_state text,
+  last_error text,
+  channel_id text,
+  channel_resource_id text,
+  channel_resource_uri text,
+  channel_expiration timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, google_calendar_id)
+);
+
+create index if not exists google_calendar_sync_state_user_idx
+on public.google_calendar_sync_state (user_id);
+
+create index if not exists google_calendar_sync_state_channel_idx
+on public.google_calendar_sync_state (channel_id)
+where channel_id is not null;
+
+alter table if exists public.google_calendar_sync_state enable row level security;
+drop policy if exists "Users can view their own google calendar sync state" on public.google_calendar_sync_state;
+drop policy if exists "Users can manage their own google calendar sync state" on public.google_calendar_sync_state;

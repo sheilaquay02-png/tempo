@@ -7,6 +7,11 @@ export async function POST(request) {
     const userId = user.id;
     const sb = getSupabaseAdmin();
     await sb.from("google_calendar_tokens").delete().eq("user_id", userId);
+    try {
+      await sb.from("google_calendar_sync_state").delete().eq("user_id", userId);
+    } catch {
+      // Older deployments may not have the optional Phase 96-100 sync-state table yet.
+    }
 
     const userData = await loadUserData(userId);
     const googleCalendars = (userData.settings?.calendars || []).filter(c => c.source === "google");
