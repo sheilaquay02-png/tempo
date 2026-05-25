@@ -3201,8 +3201,6 @@ body.tempo-modal-locked{
 }
 
 
-`; }
-
 /* ── Assistant compact spacing tweak ─────────────────────────────────── */
 .tempo-assistant-panel .assistant-context-card{
   margin-bottom:8px!important;
@@ -3219,3 +3217,6 @@ body.tempo-modal-locked{
   .tempo-assistant-panel .assistant-prompt-bank{padding-top:5px!important;}
   .tempo-assistant-panel .assistant-action-row{margin-top:5px!important;}
 }
+
+`; }
+
