@@ -54,5 +54,10 @@ Run this before publishing a production zip.
 
 ## Release hygiene
 - Confirm zip excludes `.env.local`, `.git`, `.npm-cache`, `node_modules`, and `.next`.
-- Confirm `npm test` passes.
-- Confirm `npm run build` passes on Node 24 / npm 11.
+- Run `npm run validate:release`.
+- Run `npm test`.
+- Run `npm run lint` when dependencies are installed.
+- Run `npm run build` on Node 24 / npm 11.
+- Confirm the GitHub Actions workflow passes before using a production zip.
+- Confirm no `/api/assistant` route exists and no OpenAI env variables are required.
+- Confirm the local Tempo Assistant still opens, answers locally, and supports Add Task/Add Event flows.
