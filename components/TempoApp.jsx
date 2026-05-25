@@ -1302,7 +1302,7 @@ function WeeklyResetPage({ tasks = [], events = [], habits = [], dailyCheckIns =
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["C","Create event"],["T","Create task"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["C","Create event"],["T","Create task"],["A","Open assistant"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -1958,13 +1958,18 @@ function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
+function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, assistantMemory = DEFAULT_ASSISTANT_MEMORY, onUpdateAssistantMemory, assistantActionHistory = [], onClearAssistantActionHistory, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
   const reminderDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const settingsAssistantMemory = normalizeAssistantMemory(assistantMemory);
+  const settingsAssistantHistory = normalizeAssistantActionHistory(assistantActionHistory);
+  const updateSettingsAssistantMemory = patch => onUpdateAssistantMemory?.(normalizeAssistantMemory({ ...settingsAssistantMemory, ...patch, updatedAt: new Date().toISOString() }));
+  const removeAssistantMemoryNote = id => updateSettingsAssistantMemory({ notes: settingsAssistantMemory.notes.filter(note => note.id !== id) });
+  const clearAssistantMemory = () => onUpdateAssistantMemory?.(normalizeAssistantMemory(DEFAULT_ASSISTANT_MEMORY));
   const debug = syncDebug || {};
   const datasetCounts = debug.datasetCounts || {};
   const recentConflicts = normalizeSyncConflictLog(debug.syncConflictLog || []).slice(0, 5);
@@ -2121,6 +2126,30 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
             <select className="tf-select" value={timezone || detected} onChange={e => setTimezone(e.target.value)}>
               {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
             </select>
+          </div>
+
+          <div className="settings-section assistant-memory-settings">
+            <div className="settings-section-label">Assistant Rhythm Memory</div>
+            <div className="settings-section-desc">Manage what Tempo Assistant remembers locally about your planning preferences. This stays inside your Tempo data and does not use AI.</div>
+            <div className="assistant-memory-settings-grid">
+              <label><span>Planning style</span><select className="tf-select" value={settingsAssistantMemory.planningStyle} onChange={e => updateSettingsAssistantMemory({ planningStyle: e.target.value })}><option value="gentle">Gentle</option><option value="flexible">Flexible</option><option value="structured">Structured</option></select></label>
+              <label><span>Focus window</span><select className="tf-select" value={settingsAssistantMemory.preferredFocusWindow} onChange={e => updateSettingsAssistantMemory({ preferredFocusWindow: e.target.value })}><option value="">No preference</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
+              <label><span>Main task limit</span><input className="tf-input" type="number" min="1" max="6" value={settingsAssistantMemory.taskLimit} onChange={e => updateSettingsAssistantMemory({ taskLimit: Number(e.target.value) })} /></label>
+              <label><span>Focus block minutes</span><input className="tf-input" type="number" min="15" max="180" step="15" value={settingsAssistantMemory.focusMinutes} onChange={e => updateSettingsAssistantMemory({ focusMinutes: Number(e.target.value) })} /></label>
+              <label><span>Avoid after</span><input className="tf-input" type="time" value={settingsAssistantMemory.avoidAfter} onChange={e => updateSettingsAssistantMemory({ avoidAfter: e.target.value })} /></label>
+            </div>
+            <div className="assistant-memory-note-list">
+              {settingsAssistantMemory.notes.length ? settingsAssistantMemory.notes.map(note => (
+                <div key={note.id} className="assistant-memory-note-row"><span>{note.text}</span><button type="button" className="tf-cancel" onClick={() => removeAssistantMemoryNote(note.id)}>Remove</button></div>
+              )) : <div className="settings-section-desc">No custom memory notes yet. In the assistant, type “remember that…” to add one.</div>}
+            </div>
+            <div className="settings-action-row"><button type="button" className="tf-cancel" onClick={clearAssistantMemory}>Clear rhythm memory</button></div>
+            <div className="assistant-history-settings">
+              <div className="settings-section-label small">Assistant action undo history</div>
+              <div className="settings-section-desc">{settingsAssistantHistory.length ? `${settingsAssistantHistory.length} assistant-applied action${settingsAssistantHistory.length === 1 ? "" : "s"} saved for undo.` : "No assistant-applied actions yet."}</div>
+              {settingsAssistantHistory.slice(0, 8).map(item => <div key={item.id} className="assistant-history-row"><span>{item.label}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>)}
+              {settingsAssistantHistory.length > 0 && <button type="button" className="tf-cancel" onClick={onClearAssistantActionHistory}>Clear assistant undo history</button>}
+            </div>
           </div>
 
           <div className="settings-section google-calendar-settings">
@@ -2703,7 +2732,7 @@ function DayEntryModal({ date, entry, onSave, onClose, onSaved, activitiesCatalo
 }
 
 // ─── Journal Page ─────────────────────────────────────────────────────────────
-function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], onOpenCheckIn, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled }) {
+function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], onOpenCheckIn, activitiesCatalog = JOURNAL_ACTIVITIES, memoryTagsCatalog = MEMORY_TAGS, onAddActivity, onUpdateActivity, onDeleteActivity, onAddMemoryTag, onUpdateMemoryTag, onDeleteMemoryTag, onReorderActivities, userId, onMemoryStorageMigrated, quickEditDate, onQuickEditHandled, allowDecorationEditing = true }) {
   const [calDate,    setCalDate]    = useState(new Date(TODAY));
   const [editing,    setEditing]    = useState(null); // Date being edited
   const [viewingKey, setViewingKey] = useState(null); // dateKey being read
@@ -3222,7 +3251,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
                   {moodObj && <div className="entry-view-mood" style={{color:moodObj.color}}>{moodObj.emoji} {moodObj.label}</div>}
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-                  {!isDecorating && <button className="tf-save decorate-entry-btn" style={{fontSize:11}} onClick={() => startDecoratingMemory(viewingKey)}>Decorate 🎀</button>}
+                  {!isDecorating && allowDecorationEditing && <button className="tf-save decorate-entry-btn" style={{fontSize:11}} onClick={() => startDecoratingMemory(viewingKey)}>Decorate 🎀</button>}
                   {!isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={() => { if (!stopDecoratingMemory()) return; setEditing(d); setViewingKey(null); }}>Edit Memory</button>}
                   {isDecorating && <button className="tf-save" style={{fontSize:11}} onClick={(e) => { e.stopPropagation(); saveDecorations(); }} disabled={savingDecorations}>{savingDecorations ? "Saving…" : "Done ✓"}</button>}
                   {isDecorating && <button className="tf-cancel" style={{fontSize:11}} onClick={(e) => { e.stopPropagation(); stopDecoratingMemory(); }}>Cancel</button>}
@@ -3296,7 +3325,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         );
       })()}
 
-      {decoratePromptKey && journal[decoratePromptKey] && (
+      {allowDecorationEditing && decoratePromptKey && journal[decoratePromptKey] && (
         <div className="modal-overlay decorate-after-save-overlay" onClick={() => setDecoratePromptKey(null)} role="dialog" aria-modal="true" aria-label="Decorate saved memory">
           <div className="decorate-after-save-card" onClick={e => e.stopPropagation()}>
             <div className="decorate-after-save-icon">🎀</div>
@@ -3310,7 +3339,7 @@ function JournalPage({ journal, setJournal, onSaveMemoryEntry, events, tasks, da
         </div>
       )}
 
-      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} onSaved={(key) => { setEditing(null); setViewingKey(key); setDecoratePromptKey(key); }} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
+      {editing && <DayEntryModal date={editing} entry={journal[dateKey(editing)]} onSave={saveEntry} onClose={() => setEditing(null)} onSaved={(key) => { setEditing(null); setViewingKey(key); if (allowDecorationEditing) setDecoratePromptKey(key); }} activitiesCatalog={activitiesCatalog} memoryTagsCatalog={memoryTagsCatalog} onAddActivity={onAddActivity} onUpdateActivity={onUpdateActivity} onDeleteActivity={onDeleteActivity} onAddMemoryTag={onAddMemoryTag} onUpdateMemoryTag={onUpdateMemoryTag} onDeleteMemoryTag={onDeleteMemoryTag} onReorderActivities={onReorderActivities} userId={userId} imageUrls={memoryImageUrls} />}
     </div>
   );
 }
@@ -4201,19 +4230,1193 @@ function CalendarEditModal({ mode = "edit", calendar, calendars = [], onClose, o
 }
 
 
-function TempoAssistantPanel({ onClose, onGoToday, onGoJournal, onGoTasks, onPlanDay }) {
+// ─── Tempo Assistant Context Engine ─────────────────────────────────────────
+const DEFAULT_ASSISTANT_MEMORY = {
+  planningStyle: "gentle",
+  preferredFocusWindow: "",
+  taskLimit: 3,
+  focusMinutes: 60,
+  avoidAfter: "",
+  notes: [],
+  updatedAt: null,
+};
+const cleanAssistantMemoryText = value => String(value || "").replace(/\s+/g, " ").trim().slice(0, 180);
+const normalizeAssistantMemory = value => {
+  const source = value && typeof value === "object" ? value : {};
+  const notes = Array.isArray(source.notes) ? source.notes : [];
+  const cleanNotes = notes
+    .map((note, index) => ({
+      id: note?.id || `mem-${index}-${uid()}`,
+      text: cleanAssistantMemoryText(note?.text || note),
+      createdAt: note?.createdAt || note?.updatedAt || new Date().toISOString(),
+    }))
+    .filter(note => note.text)
+    .slice(0, 8);
+  const taskLimit = Math.max(1, Math.min(6, Number(source.taskLimit || DEFAULT_ASSISTANT_MEMORY.taskLimit)));
+  const focusMinutes = Math.max(15, Math.min(180, Number(source.focusMinutes || DEFAULT_ASSISTANT_MEMORY.focusMinutes)));
+  return {
+    planningStyle: ["gentle", "flexible", "structured"].includes(source.planningStyle) ? source.planningStyle : DEFAULT_ASSISTANT_MEMORY.planningStyle,
+    preferredFocusWindow: cleanAssistantMemoryText(source.preferredFocusWindow).toLowerCase(),
+    taskLimit,
+    focusMinutes,
+    avoidAfter: /^\d{2}:\d{2}$/.test(String(source.avoidAfter || "")) ? source.avoidAfter : "",
+    notes: cleanNotes,
+    updatedAt: source.updatedAt || (cleanNotes.length ? cleanNotes[0]?.createdAt : null),
+  };
+};
+const assistantMemorySummary = memoryValue => {
+  const memory = normalizeAssistantMemory(memoryValue);
+  const parts = [];
+  if (memory.planningStyle && memory.planningStyle !== "gentle") parts.push(`${memory.planningStyle} planning`);
+  if (memory.preferredFocusWindow) parts.push(`${memory.preferredFocusWindow} focus`);
+  if (memory.taskLimit !== 3) parts.push(`${memory.taskLimit} main tasks`);
+  if (memory.focusMinutes !== 60) parts.push(`${memory.focusMinutes}m focus blocks`);
+  if (memory.avoidAfter) parts.push(`avoid after ${memory.avoidAfter}`);
+  if (memory.notes[0]?.text) parts.push(memory.notes[0].text);
+  return parts.slice(0, 3).join(" · ");
+};
+const assistantTimeFromPhrase = text => {
+  const raw = String(text || "").toLowerCase();
+  const match = raw.match(/after\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (!match) return "";
+  let h = Number(match[1]);
+  const m = Number(match[2] || 0);
+  const ap = match[3];
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  if (!Number.isFinite(h) || h < 0 || h > 23 || !Number.isFinite(m) || m < 0 || m > 59) return "";
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+const learnAssistantMemoryFromText = (input, current = DEFAULT_ASSISTANT_MEMORY) => {
+  const now = new Date().toISOString();
+  const memory = normalizeAssistantMemory(current);
+  let text = cleanAssistantMemoryText(input)
+    .replace(/^(please\s+)?(remember|note)\s+(that\s+)?/i, "")
+    .replace(/^(from now on|going forward),?\s*/i, "")
+    .trim();
+  if (!text) text = cleanAssistantMemoryText(input);
+  const lower = text.toLowerCase();
+  let planningStyle = memory.planningStyle;
+  if (/\b(gentle|calm|lighter|soft|slow)\b/.test(lower)) planningStyle = "gentle";
+  if (/\b(flexible|adapt|loose)\b/.test(lower)) planningStyle = "flexible";
+  if (/\b(structured|strict|firm|disciplined)\b/.test(lower)) planningStyle = "structured";
+  let preferredFocusWindow = memory.preferredFocusWindow;
+  if (/\bmorning\b/.test(lower)) preferredFocusWindow = "morning";
+  else if (/\bafternoon\b/.test(lower)) preferredFocusWindow = "afternoon";
+  else if (/\bevening|night\b/.test(lower)) preferredFocusWindow = "evening";
+  let taskLimit = memory.taskLimit;
+  const taskMatch = lower.match(/(?:max(?:imum)?|limit|only|keep)\s*(?:me\s*)?(?:to\s*)?(\d+)\s*(?:main\s*)?(?:tasks|things|priorities)/);
+  if (taskMatch) taskLimit = Math.max(1, Math.min(6, Number(taskMatch[1])));
+  let focusMinutes = memory.focusMinutes;
+  if (/\b(focus|deep work|block)\b/.test(lower)) {
+    const parsed = parseDur(lower);
+    if (parsed) focusMinutes = Math.max(15, Math.min(180, Number(parsed)));
+  }
+  const avoidAfter = assistantTimeFromPhrase(lower) || memory.avoidAfter;
+  const exists = memory.notes.some(note => note.text.toLowerCase() === text.toLowerCase());
+  const notes = exists ? memory.notes : [{ id: "mem-" + uid(), text, createdAt: now }, ...memory.notes].slice(0, 8);
+  return normalizeAssistantMemory({ ...memory, planningStyle, preferredFocusWindow, taskLimit, focusMinutes, avoidAfter, notes, updatedAt: now });
+};
+
+const normalizeAssistantActionHistory = value => {
+  const source = Array.isArray(value) ? value : [];
+  return source.map((item, index) => ({
+    id: item?.id || `assistant-action-${index}-${uid()}`,
+    label: cleanAssistantMemoryText(item?.label || item?.title || "Assistant action"),
+    createdAt: item?.createdAt || item?.updatedAt || new Date().toISOString(),
+    eventsBefore: Array.isArray(item?.eventsBefore) ? reviveEvents(item.eventsBefore) : [],
+    tasksBefore: Array.isArray(item?.tasksBefore) ? normalizeTasks(item.tasksBefore) : [],
+    tomorrowResetsBefore: Array.isArray(item?.tomorrowResetsBefore) ? normalizeTomorrowResets(item.tomorrowResetsBefore) : [],
+  })).filter(item => item.label).slice(0, 20);
+};
+const assistantJournalTextForEntry = entry => {
+  const mem = normalizeMemoryEntry(entry);
+  const highlights = mem.highlights || {};
+  const pieces = [
+    mem.note,
+    ...(Array.isArray(mem.gratitude) ? mem.gratitude : []),
+    highlights.best,
+    highlights.win,
+    highlights.learned,
+    highlights.remember,
+    ...(Array.isArray(mem.tags) ? mem.tags.map(t => `#${t}`) : []),
+  ];
+  return pieces.map(x => String(x || "").trim()).filter(Boolean).join(" · ");
+};
+const assistantJournalEntries = (journal = {}, days = 7) => {
+  const cutoff = dayStart(addDaysSafe(TODAY, -(Math.max(1, Number(days || 7)) - 1)));
+  return Object.entries(journal || {})
+    .map(([key, entry]) => {
+      const date = localDateFromKey(key);
+      const text = assistantJournalTextForEntry(entry);
+      const mem = normalizeMemoryEntry(entry);
+      return date && text ? { key, date, text, mood: mem.mood, tags: mem.tags || [], entry: mem } : null;
+    })
+    .filter(Boolean)
+    .filter(item => dayStart(item.date) >= cutoff && dayStart(item.date) <= dayStart(TODAY))
+    .sort((a, b) => b.date - a.date);
+};
+const assistantJournalWordThemes = entries => {
+  const stop = new Set("the and for you your with that this today tomorrow from have had was were are but not just into about because very really been more less then than when what how can could should would will all one two three work task tasks time day week month feel felt".split(" "));
+  const counts = new Map();
+  entries.forEach(item => String(item.text || "").toLowerCase().match(/[a-z][a-z']{2,}/g)?.forEach(word => {
+    if (stop.has(word)) return;
+    counts.set(word, (counts.get(word) || 0) + 1);
+  }));
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([word]) => word);
+};
+const assistantJournalInsights = (journal = {}, days = 7) => {
+  const entries = assistantJournalEntries(journal, days);
+  const themes = assistantJournalWordThemes(entries);
+  const tagCounts = new Map();
+  const moodCounts = new Map();
+  entries.forEach(item => {
+    (item.tags || []).forEach(tag => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
+    if (item.mood) moodCounts.set(item.mood, (moodCounts.get(item.mood) || 0) + 1);
+  });
+  const topTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag]) => tag);
+  const topMoods = [...moodCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([mood]) => mood);
+  return {
+    days,
+    count: entries.length,
+    entries,
+    themes,
+    topTags,
+    topMoods,
+    latestText: entries[0]?.text || "",
+    latestDate: entries[0]?.key || "",
+  };
+};
+const assistantJournalSummary = (summary, label = "week") => {
+  if (!summary?.count) return `I do not see enough journal text from this ${label} yet. Add a few reflections and I can start noticing patterns.`;
+  const samples = summary.entries.slice(0, 3).map(item => `• ${fmtDate(item.date)}: ${item.text.slice(0, 150)}${item.text.length > 150 ? "…" : ""}`);
+  const themes = summary.themes.length ? summary.themes.join(", ") : "no repeated theme yet";
+  const tags = summary.topTags.length ? `\nTags that repeat: ${summary.topTags.join(", ")}.` : "";
+  return `Here is what I notice from your journal this ${label}:\n\n${samples.join("\n")}\n\nRepeated themes: ${themes}.${tags}\n\nGentle takeaway: turn one repeated theme into a small adjustment for tomorrow, not a big overhaul.`;
+};
+const assistantParseTargetDate = text => {
+  const raw = String(text || "").toLowerCase();
+  const weekdayNames = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const weekday = weekdayNames.findIndex(day => raw.includes(`next ${day}`));
+  if (weekday >= 0) {
+    const base = dayStart(TODAY);
+    const delta = ((weekday - base.getDay() + 7) % 7) || 7;
+    return addDaysSafe(base, delta);
+  }
+  const directWeekday = weekdayNames.findIndex(day => new RegExp(`\\b${day}\\b`).test(raw));
+  if (directWeekday >= 0) {
+    const base = dayStart(TODAY);
+    const delta = ((directWeekday - base.getDay() + 7) % 7) || 7;
+    return addDaysSafe(base, delta);
+  }
+  if (/\btomorrow\b/.test(raw)) return addDaysSafe(TODAY, 1);
+  if (/\btoday\b/.test(raw)) return new Date(TODAY);
+  const parsed = parseDateMention(raw, TODAY) || parseDateRef(raw, TODAY);
+  return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+};
+const assistantTaskMatchesCommand = (task, raw, categories = []) => {
+  const lower = String(raw || "").toLowerCase();
+  const title = String(task?.title || "").toLowerCase();
+  const category = categories.find(c => c.id === task?.category);
+  const catText = `${task?.category || ""} ${category?.label || ""}`.toLowerCase();
+  if (/\badmin\b/.test(lower)) return /\b(admin|light|email|errand|follow|reply|ops)\b/.test(`${title} ${catText}`);
+  if (/\bimportant|main|deep|focus\b/.test(lower)) return /\b(important|main|deep|focus)\b/.test(`${title} ${catText}`);
+  if (/\bpersonal|life|home\b/.test(lower)) return /\b(personal|life|home|wellness)\b/.test(`${title} ${catText}`);
+  const categoryHit = categories.find(c => lower.includes(String(c.label || c.id).toLowerCase()));
+  if (categoryHit) return task.category === categoryHit.id;
+  const words = lower.match(/[a-z0-9]{4,}/g) || [];
+  return words.some(word => title.includes(word));
+};
+const assistantHours = minutes => {
+  const safe = Math.max(0, Math.round(Number(minutes || 0)));
+  if (safe < 60) return `${safe}m`;
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+};
+const assistantTimeRange = item => `${fmt(item.start)}–${fmt(item.end)}`;
+const assistantEventSource = (event, calendars = []) => calendarEventSource(event, calendars.find(c => c.id === event?.calendar));
+const assistantOpenDayTasks = (tasks = []) => normalizeTasks(tasks).filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY));
+const assistantTaskRank = t => {
+  const priority = { high: 0, medium: 1, low: 2 }[t.priority] ?? 1;
+  const mainBoost = Core.categoryIs?.(t.category, "main") ? -1 : 0;
+  const dueToday = t.deadline && dateKey(new Date(t.deadline)) === dateKey(TODAY) ? -1 : 0;
+  return priority + mainBoost + dueToday;
+};
+function buildTempoAssistantContext({ events = [], tasks = [], calendars = [], hiddenCals = [], hiddenCalendarSources = [], habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], freeSlots = [], assistantMemory = DEFAULT_ASSISTANT_MEMORY }) {
+  const now = new Date();
+  const memory = normalizeAssistantMemory(assistantMemory);
+  const visibleEvents = getEventsOnDay(events, TODAY)
+    .filter(e => !e.deletedAt && !hiddenCals.includes(e.calendar))
+    .filter(e => !hiddenCalendarSources.includes(assistantEventSource(e, calendars)))
+    .sort((a, b) => a.start - b.start);
+  const sourceCounts = visibleEvents.reduce((acc, e) => {
+    const src = assistantEventSource(e, calendars);
+    acc[src] = (acc[src] || 0) + 1;
+    return acc;
+  }, { tempo: 0, google: 0, habit: 0 });
+  const nextEvent = visibleEvents.find(e => !isAllDayEvent(e) && e.end > now) || null;
+  const allDayEvents = visibleEvents.filter(e => isAllDayEvent(e));
+  const timedEvents = visibleEvents.filter(e => !isAllDayEvent(e));
+  const openTasks = assistantOpenDayTasks(tasks).sort((a, b) => assistantTaskRank(a) - assistantTaskRank(b));
+  const topTasks = openTasks.slice(0, 3);
+  const taskMinutes = openTasks.reduce((sum, t) => sum + taskDurationToMinutes(t.duration, 30), 0);
+  const cleanHabits = normalizeHabits(habits).filter(h => habitRunsOnDate(h, TODAY));
+  const completedHabits = cleanHabits.filter(h => habitProgress(h, habitCompletions, TODAY).completed);
+  const checkIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const mood = checkIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === checkIn.mood) : null;
+  const energy = checkIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === checkIn.energy) : null;
+  const journalEntry = normalizeMemoryEntry(journal[dateKey(TODAY)] || {});
+  const hasJournal = hasJournalEntryForKey(journal, dateKey(TODAY));
+  const journalWeek = assistantJournalInsights(journal, 7);
+  const journalMonth = assistantJournalInsights(journal, 31);
+  const freeMinutes = freeSlots.reduce((sum, slot) => sum + Math.max(0, Number(slot.minutes || 0)), 0);
+  const largestFreeSlot = [...freeSlots].sort((a, b) => Number(b.minutes || 0) - Number(a.minutes || 0))[0] || null;
+  const freeSlotLabels = freeSlots.slice(0, 4).map(slot => `${assistantTimeRange(slot)} (${assistantHours(slot.minutes)})`);
+  const loadRatio = freeMinutes ? taskMinutes / freeMinutes : (taskMinutes ? 99 : 0);
+  const insights = [];
+  if (sourceCounts.google > 0) insights.push(`${sourceCounts.google} Google reference event${sourceCounts.google !== 1 ? "s" : ""} visible today.`);
+  if (openTasks.length && !topTasks.some(t => t.scheduled)) insights.push("Top tasks are not fully time-blocked yet.");
+  if (loadRatio > 0.9) insights.push("Your open tasks may be too much for the available free time.");
+  else if (freeMinutes >= 120) insights.push("You have enough open space to protect one focused block.");
+  if (cleanHabits.length && completedHabits.length < cleanHabits.length) insights.push(`${cleanHabits.length - completedHabits.length} habit${cleanHabits.length - completedHabits.length !== 1 ? "s" : ""} left for today.`);
+  if (mood && energy && ["low", "tired", "drained"].includes(String(energy.id))) insights.push("Low energy check-in detected — keep the plan lighter.");
+  if (!hasJournal) insights.push("No journal reflection yet today.");
+  if (memory.notes.length) insights.push("Personal rhythm memory is active.");
+  return {
+    dateKey: dateKey(TODAY),
+    greeting: new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening",
+    events: visibleEvents,
+    timedEvents,
+    allDayEvents,
+    nextEvent,
+    sourceCounts,
+    tasks: openTasks,
+    topTasks,
+    taskMinutes,
+    habits: cleanHabits,
+    completedHabits,
+    habitLabel: `${completedHabits.length}/${cleanHabits.length}`,
+    mood,
+    energy,
+    checkIn,
+    journalEntry,
+    hasJournal,
+    journalWeek,
+    journalMonth,
+    freeSlots,
+    freeMinutes,
+    freeHoursLabel: assistantHours(freeMinutes),
+    largestFreeSlot,
+    freeSlotLabels,
+    loadRatio,
+    insights,
+    assistantMemory: memory,
+  };
+}
+
+function buildAssistantGreeting(ctx) {
+  const freeLine = ctx.freeMinutes ? ` You have ${ctx.freeHoursLabel} of open space today.` : " Your calendar has no clear open space inside the planning window.";
+  const nextLine = ctx.nextEvent ? ` Next: ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : " No more timed events are coming up today.";
+  const memoryLine = assistantMemorySummary(ctx.assistantMemory);
+  return `${ctx.greeting} ✨ I’m looking at your rhythm now: ${ctx.events.length} event${ctx.events.length !== 1 ? "s" : ""}, ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""}, and ${ctx.habitLabel} habits done.${freeLine}${nextLine}${memoryLine ? `\n\nRhythm memory: ${memoryLine}.` : ""}\n\nAsk me what to focus on, where your free time is, or how to make today lighter.`;
+}
+function assistantTaskLine(task, index) {
+  const dur = taskDurationToMinutes(task.duration, 30);
+  const due = task.deadline ? ` · due ${fmtDate(new Date(task.deadline))}` : "";
+  return `${index + 1}. ${task.title}${dur ? ` (${assistantHours(dur)})` : ""}${due}`;
+}
+function assistantReflectionPrompt(ctx) {
+  const prompt = JOURNAL_PROMPTS[TODAY.getDate() % JOURNAL_PROMPTS.length];
+  const moodLine = ctx.mood ? `You checked in as ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` with ${ctx.energy.label.toLowerCase()} energy` : ""}.` : "You have not checked in yet, so start with how your body feels right now.";
+  const latest = ctx.journalWeek?.latestText ? `\n\nYour latest journal thread says: “${ctx.journalWeek.latestText.slice(0, 220)}${ctx.journalWeek.latestText.length > 220 ? "…" : ""}”` : "";
+  const themes = ctx.journalWeek?.themes?.length ? `\n\nThis week’s repeating words/themes: ${ctx.journalWeek.themes.join(", ")}.` : "";
+  return `${moodLine}${latest}${themes}\n\nReflection prompt:\n“${prompt}”\n\nA simple 3-line entry:\n1. What happened today?\n2. What felt heavy or smooth?\n3. What would make tomorrow easier?`;
+}
+function assistantWeeklyPattern(ctx) {
+  const journalPart = assistantJournalSummary(ctx.journalWeek, "week");
+  const signals = [];
+  if (ctx.sourceCounts.google > 0) signals.push("Google events are shaping part of your day, so leave transition space around them.");
+  if (ctx.loadRatio > 0.9) signals.push("Your task load is close to or above your remaining free time.");
+  if (ctx.habits?.length && ctx.completedHabits?.length < ctx.habits.length) signals.push("Your habits still need a lighter, more visible slot.");
+  if (!signals.length) signals.push("Today looks fairly balanced: a few tasks, some free space, and no obvious overload signal.");
+  return `${journalPart}\n\nToday’s rhythm signals:\n${signals.map(x => `• ${x}`).join("\n")}`;
+}
+function assistantMonthlyPattern(ctx) {
+  return assistantJournalSummary(ctx.journalMonth, "month");
+}
+function assistantTomorrowResetSuggestion(ctx) {
+  const carry = ctx.tasks.slice(Math.max(1, Math.min(6, Number(ctx.assistantMemory?.taskLimit || 3))));
+  const lines = [];
+  if (ctx.topTasks?.length) lines.push(`Keep the main thread clear: ${ctx.topTasks[0].title}.`);
+  if (carry.length) lines.push(`Consider moving out: ${carry.slice(0, 3).map(t => t.title).join(", ")}.`);
+  if (ctx.loadRatio > 0.75) lines.push("Make tomorrow smaller than your first instinct.");
+  if (ctx.journalWeek?.themes?.length) lines.push(`Your journal has been circling around: ${ctx.journalWeek.themes.slice(0, 3).join(", ")}.`);
+  if (!ctx.hasJournal) lines.push("Do a quick journal entry first so tomorrow is based on what actually happened.");
+  return `${lines.length ? lines.map(x => `• ${x}`).join("\n") : "Tomorrow can stay light. Choose one clear intention and one small recovery habit."}\n\nUse Tomorrow Reset when you want to turn this into a plan.`;
+}
+function assistantProactiveNudge(ctx) {
+  if (!ctx) return "";
+  if (ctx.loadRatio > 1 && ctx.tasks.length > Math.max(1, Number(ctx.assistantMemory?.taskLimit || 3))) {
+    return "Gentle nudge: your task load looks heavier than your remaining free space. I can suggest one safe adjustment if you tap “Suggest action”.";
+  }
+  if (ctx.largestFreeSlot && ctx.topTasks?.length) {
+    return `Gentle nudge: your best remaining focus window looks like ${assistantTimeRange(ctx.largestFreeSlot)}. This may be a good place for “${ctx.topTasks[0].title}”.`;
+  }
+  if (!ctx.hasJournal && new Date().getHours() >= 18) {
+    return "Gentle nudge: you have not journaled today yet. A short 3-line reflection could make tomorrow easier.";
+  }
+  return "";
+}
+function assistantReplyFromContext(input, ctx) {
+  const msg = String(input || "").toLowerCase();
+  if (/\b(summary|summarize|overview|today|status|rhythm)\b/.test(msg)) {
+    const lines = [
+      `Here’s today’s rhythm:`,
+      `• ${ctx.events.length} visible event${ctx.events.length !== 1 ? "s" : ""} (${ctx.sourceCounts.tempo || 0} Tempo · ${ctx.sourceCounts.google || 0} Google · ${ctx.sourceCounts.habit || 0} Habit)`,
+      `• ${ctx.tasks.length} open task${ctx.tasks.length !== 1 ? "s" : ""} (${assistantHours(ctx.taskMinutes)} estimated)`,
+      `• ${ctx.habitLabel} habits completed`,
+      `• ${ctx.freeHoursLabel} free inside your planning window`,
+      ctx.mood ? `• Check-in: ${ctx.mood.emoji} ${ctx.mood.label}${ctx.energy ? ` · ${ctx.energy.label} energy` : ""}` : `• No mood check-in yet`,
+    ];
+    if (ctx.insights.length) lines.push(`\nWhat I notice:\n${ctx.insights.slice(0, 3).map(x => `• ${x}`).join("\n")}`);
+    return lines.join("\n");
+  }
+  if (/\b(focus|priorit|important|next task|what should i do|what to do|do next)\b/.test(msg)) {
+    if (!ctx.topTasks.length) return ctx.nextEvent ? `Your task list is clear for today. I’d protect the next transition before ${ctx.nextEvent.title} at ${fmt(ctx.nextEvent.start)}.` : `Your task list is clear for today. Use the open space for a gentle reset, journal, or plan tomorrow.`;
+    const limit = Math.max(1, Math.min(6, Number(ctx.assistantMemory?.taskLimit || 3)));
+    const selectedTasks = ctx.topTasks.slice(0, limit);
+    const lines = [`I’d keep today focused on these ${Math.min(limit, selectedTasks.length)} thing${Math.min(limit, selectedTasks.length) === 1 ? "" : "s"}:`];
+    lines.push(...selectedTasks.map(assistantTaskLine));
+    if (ctx.largestFreeSlot) lines.push(`\nBest slot to protect: ${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)}).`);
+    if (ctx.assistantMemory?.preferredFocusWindow) lines.push(`I’ll also keep your preferred ${ctx.assistantMemory.preferredFocusWindow} focus window in mind.`);
+    if (ctx.loadRatio > 0.9) lines.push(`Your estimated task load is close to your free time, so I’d move anything outside your main priorities to tomorrow.`);
+    return lines.join("\n");
+  }
+  if (/\b(free|space|available|slot|when can|time block|calendar gap)\b/.test(msg)) {
+    if (!ctx.freeSlots.length) return `I don’t see a clear free block inside your planning window today. You may need to move a task or protect tomorrow instead.`;
+    return `Your clearest free blocks today:\n${ctx.freeSlotLabels.map(x => `• ${x}`).join("\n")}\n\nLargest block: ${assistantTimeRange(ctx.largestFreeSlot)} (${assistantHours(ctx.largestFreeSlot.minutes)}).`;
+  }
+  if (/\b(busy|packed|overwhelm|too much|enough time|realistic|load)\b/.test(msg)) {
+    if (!ctx.tasks.length) return `Your task load is light today. The main risk is calendar fragmentation, not task volume.`;
+    const verdict = ctx.loadRatio > 1 ? "too full" : ctx.loadRatio > 0.75 ? "tight but manageable" : "realistic";
+    const advice = ctx.loadRatio > 1 ? "Move at least one non-essential task to tomorrow." : ctx.loadRatio > 0.75 ? "Keep only your top 2–3 tasks and avoid adding new work." : "You have room for one focused block and a small admin block.";
+    return `Your day looks ${verdict}.\n\nOpen task estimate: ${assistantHours(ctx.taskMinutes)}\nAvailable free time: ${ctx.freeHoursLabel}\n\n${advice}`;
+  }
+  if (/\b(next|upcoming|coming up)\b/.test(msg)) {
+    if (ctx.nextEvent) return `Next up: ${ctx.nextEvent.title}\n${fmt(ctx.nextEvent.start)}–${fmt(ctx.nextEvent.end)} · ${calendarSourceLabel(assistantEventSource(ctx.nextEvent))}.\n\nAfter that, check whether your top task still fits the next free block.`;
+    if (ctx.topTasks.length) return `No more timed events today. Next useful move: ${ctx.topTasks[0].title}.`;
+    return `Nothing urgent is coming up. This is a good moment for a short reset or journal entry.`;
+  }
+  if (/\b(habit|routine|streak)\b/.test(msg)) {
+    if (!ctx.habits.length) return `You don’t have habits scheduled today. Start small: one gentle daily habit is enough.`;
+    const todo = ctx.habits.filter(h => !ctx.completedHabits.some(done => done.id === h.id));
+    return `Habits today: ${ctx.habitLabel} complete.\n${todo.length ? `Still left:\n${todo.slice(0, 4).map(h => `• ${h.emoji || "🌱"} ${h.name}`).join("\n")}` : "All scheduled habits are done — nice gentle consistency."}`;
+  }
+  if (/\b(monthly|month)\b.*\b(journal|pattern|summary|recap|theme)\b/.test(msg)) {
+    return assistantMonthlyPattern(ctx);
+  }
+  if (/\b(weekly|week)\b.*\b(journal|pattern|summary|recap|theme)\b/.test(msg)) {
+    return assistantWeeklyPattern(ctx);
+  }
+  if (/\b(journal|reflect|reflection|mood|energy|reset|theme|themes)\b/.test(msg)) {
+    return assistantReflectionPrompt(ctx);
+  }
+  if (/\b(memory|remember|preferences|preference)\b/.test(msg)) {
+    const summary = assistantMemorySummary(ctx.assistantMemory);
+    const notes = normalizeAssistantMemory(ctx.assistantMemory).notes;
+    if (!summary && !notes.length) return "I do not have any rhythm memory saved yet. You can say something like: remember that I prefer morning focus blocks.";
+    return `Here is what I remember about your rhythm:\n${notes.length ? notes.slice(0, 5).map(note => `• ${note.text}`).join("\n") : `• ${summary}`}`;
+  }
+  if (/\b(monthly|month)\b.*\b(pattern|notice|recap|trend)\b/.test(msg)) {
+    return assistantMonthlyPattern(ctx);
+  }
+  if (/\b(pattern|notice|weekly|week|recap|trend)\b/.test(msg)) {
+    return assistantWeeklyPattern(ctx);
+  }
+  if (/\b(tomorrow|prepare|carry over|move)\b/.test(msg)) {
+    return assistantTomorrowResetSuggestion(ctx);
+  }
+  return null;
+}
+
+// ─── Chat Panel ───────────────────────────────────────────────────────────────
+function ChatPanel({ events, tasks, calendars = CALENDARS, categories = CATEGORIES, assistantContext, assistantMemory = DEFAULT_ASSISTANT_MEMORY, assistantActionHistory = [], onUpdateAssistantMemory, onUpdateAssistantActionHistory, tomorrowResets = [], onUpdateTomorrowResets, onClose, onUpdateEvents, onUpdateTasks, onOpenCalendar, onOpenTasks, onOpenJournal, onOpenHabits, onPlanToday, onTomorrowReset, onOpenCheckIn }) {
+  const memory = normalizeAssistantMemory(assistantMemory);
+  const ctx = assistantContext || buildTempoAssistantContext({ events, tasks, calendars, assistantMemory: memory });
+  const [messages, setMessages] = useState([{ role: "assistant", text: buildAssistantGreeting(ctx) }]);
+  const [input, setInput]       = useState("");
+  const [pending, setPending]   = useState(null);
+  const [contextCollapsed, setContextCollapsed] = useState(true);
+  const [assistantFlow, setAssistantFlow] = useState(null);
+  const [assistantAction, setAssistantAction] = useState(null);
+  const bottomRef = useRef(null);
+  const eventsRef = useRef(events);
+  const tasksRef  = useRef(tasks);
+  const pendingRef = useRef(pending);
+  const ctxRef = useRef(ctx);
+  const flowRef = useRef(assistantFlow);
+  const actionRef = useRef(assistantAction);
+  const tomorrowResetsRef = useRef(tomorrowResets);
+  const actionHistoryRef = useRef(normalizeAssistantActionHistory(assistantActionHistory));
+  useEffect(() => { eventsRef.current  = events;  }, [events]);
+  useEffect(() => { tasksRef.current   = tasks;   }, [tasks]);
+  useEffect(() => { pendingRef.current = pending; }, [pending]);
+  useEffect(() => { ctxRef.current = ctx; }, [ctx]);
+  useEffect(() => { flowRef.current = assistantFlow; }, [assistantFlow]);
+  useEffect(() => { actionRef.current = assistantAction; }, [assistantAction]);
+  useEffect(() => { tomorrowResetsRef.current = tomorrowResets; }, [tomorrowResets]);
+  useEffect(() => { actionHistoryRef.current = normalizeAssistantActionHistory(assistantActionHistory); }, [assistantActionHistory]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, assistantFlow, assistantAction]);
+
+  const proactiveNudgeShownRef = useRef(false);
+  useEffect(() => {
+    if (proactiveNudgeShownRef.current) return;
+    proactiveNudgeShownRef.current = true;
+    const nudge = assistantProactiveNudge(ctxRef.current);
+    if (nudge) setMessages(p => [...p, { role: "assistant", text: nudge }]);
+  }, []);
+
+  const calendarChoices = normalizeCalendars(calendars).filter(c => c.source !== "google" && c.readOnly !== true);
+  const defaultCalendarId = calendarChoices.find(c => c.id === "personal")?.id || calendarChoices[0]?.id || "personal";
+  const meetingCategoryId = categories.find(c => c.id === "meeting")?.id || categories[0]?.id || "meeting";
+  const defaultCategoryId = categories.find(c => c.id === "personal")?.id || categories[0]?.id || "personal";
+  const timeOptions = ["09:00", "12:00", "15:00", "18:00"];
+  const durationOptions = [15, 30, 60, 90, 120];
+
+  function showAssistantMemory() {
+    const clean = normalizeAssistantMemory(assistantMemory);
+    if (!clean.notes.length && !assistantMemorySummary(clean)) {
+      setMessages(p => [...p, { role: "assistant", text: "I do not have any rhythm memory saved yet. You can type: remember that I prefer morning focus blocks." }]);
+      return;
+    }
+    const lines = clean.notes.length ? clean.notes.slice(0, 6).map(note => `• ${note.text}`) : [`• ${assistantMemorySummary(clean)}`];
+    setMessages(p => [...p, { role: "assistant", text: `Here is what I remember about your rhythm:\n${lines.join("\n")}` }]);
+  }
+  function rememberAssistantPreference(rawText) {
+    const next = learnAssistantMemoryFromText(rawText, assistantMemory);
+    onUpdateAssistantMemory?.(next);
+    setMessages(p => [...p, { role: "assistant", text: `Saved to Rhythm Memory. I’ll keep this in mind:
+• ${next.notes[0]?.text || assistantMemorySummary(next)}` }]);
+  }
+  function clearAssistantMemory() {
+    const next = normalizeAssistantMemory({ ...DEFAULT_ASSISTANT_MEMORY, updatedAt: new Date().toISOString() });
+    onUpdateAssistantMemory?.(next);
+    setMessages(p => [...p, { role: "assistant", text: "Cleared your Rhythm Memory. I’ll stop using those saved preferences." }]);
+  }
+
+  function send(ov) {
+    const text = (ov ?? input).trim(); if (!text) return;
+    setInput("");
+    if (flowRef.current) {
+      answerAssistantFlow(text);
+      return;
+    }
+    const lower = text.toLowerCase();
+    if (/^(remember|note)\b|^from now on\b|^going forward\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      rememberAssistantPreference(text);
+      return;
+    }
+    if (/\b(clear|forget|reset)\b.*\b(memory|preference|preferences|rhythm memory)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      clearAssistantMemory();
+      return;
+    }
+    if (/\b(what do you remember|show memory|rhythm memory|my preferences|preferences)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      showAssistantMemory();
+      return;
+    }
+    if (actionRef.current && ["yes", "y", "apply", "confirm", "do it", "go ahead"].includes(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      applyAssistantAction(actionRef.current);
+      return;
+    }
+    if (actionRef.current && ["no", "cancel", "stop", "never mind", "nevermind"].includes(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      cancelAssistantAction();
+      return;
+    }
+    if (/\b(add|create|schedule|block)\b.*\b(event|meeting|appointment|calendar)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      startAssistantFlow("event");
+      return;
+    }
+    if (/\b(add|create|make)\b.*\b(task|todo|to-do)\b/.test(lower)) {
+      setMessages(p => [...p, { role: "user", text }]);
+      startAssistantFlow("task");
+      return;
+    }
+    const commandAction = buildAssistantCommandAction(text);
+    if (commandAction) {
+      setMessages(p => [...p, { role: "user", text }]);
+      proposeAssistantAction(commandAction);
+      return;
+    }
+    const actionKind = assistantActionKindFromText(lower);
+    if (actionKind) {
+      setMessages(p => [...p, { role: "user", text }]);
+      proposeAssistantAction(actionKind);
+      return;
+    }
+    setMessages(p => [...p, { role: "user", text }]);
+    setTimeout(() => {
+      const contextReply = assistantReplyFromContext(text, ctxRef.current);
+      if (contextReply) {
+        setMessages(p => [...p, { role: "assistant", text: contextReply }]);
+        return;
+      }
+      const { text: rt, newEv, newTk, newP } = processMessage(text, eventsRef.current, tasksRef.current, pendingRef.current);
+      setMessages(p => [...p, { role: "assistant", text: rt }]);
+      if (newEv && Array.isArray(newEv)) onUpdateEvents(newEv);
+      if (newTk) onUpdateTasks(newTk);
+      setPending(newP || null);
+    }, CHAT_REPLY_DELAY_MS);
+  }
+  function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
+
+  const contextStats = [
+    { label: "Events", value: ctx.events.length, hint: `${ctx.sourceCounts.tempo || 0} Tempo · ${ctx.sourceCounts.google || 0} Google`, action: onOpenCalendar },
+    { label: "Free", value: ctx.freeHoursLabel, hint: ctx.largestFreeSlot ? `Best ${fmt(ctx.largestFreeSlot.start)}–${fmt(ctx.largestFreeSlot.end)}` : "No clear block", action: onOpenCalendar },
+    { label: "Tasks", value: ctx.tasks.length, hint: `${assistantHours(ctx.taskMinutes)} estimated`, action: onOpenTasks },
+    { label: "Habits", value: ctx.habitLabel, hint: ctx.habits.length ? "today" : "none scheduled", action: onOpenHabits },
+  ];
+  const promptGroups = [
+    { label: "Plan my day", prompt: "What should I focus on today?" },
+    { label: "Find free time", prompt: "When am I free today?" },
+    { label: "Check load", prompt: "Is my day too packed?" },
+    { label: "Next move", prompt: "What should I do next?" },
+    { label: "Suggest action", action: "best" },
+    { label: "Schedule top task", action: "scheduleTopTask" },
+    { label: "Focus block", action: "focusBlock" },
+    { label: "Add event", flow: "event" },
+    { label: "Add task", flow: "task" },
+    { label: "Reflect", prompt: "Help me reflect today" },
+    { label: "Patterns", prompt: "What pattern do you notice?" },
+    { label: "Memory", prompt: "What do you remember about my rhythm?" },
+    { label: "Tomorrow", prompt: "What should I prepare for tomorrow?" },
+  ];
+
+  function assistantActionKindFromText(lower) {
+    if (/\b(schedule|time[- ]?block|block in|put).*\b(top task|task|focus)\b/.test(lower)) return "scheduleTopTask";
+    if (/\b(focus block|deep work|protect.*time|block.*focus)\b/.test(lower)) return "focusBlock";
+    if (/\b(move|carry over|push|postpone|make.*lighter|too packed|overwhelmed|lighten)\b/.test(lower)) return "moveTaskTomorrow";
+    if (/\b(undo|revert)\b.*\b(assistant|last|action|change)\b/.test(lower)) return "undoLastAssistantAction";
+    if (/\b(suggest action|action|do for me|help me adjust|fix my day)\b/.test(lower)) return "best";
+    return null;
+  }
+  function assistantActionTitle(action) {
+    if (!action) return "Suggested action";
+    if (action.type === "scheduleTopTask") return "Schedule your top task";
+    if (action.type === "focusBlock") return "Create a focus block";
+    if (action.type === "moveTaskTomorrow") return "Move a task to tomorrow";
+    if (action.type === "openTomorrowReset") return "Open Tomorrow Reset";
+    if (action.type === "openCheckIn") return "Open Check-in";
+    if (action.type === "rescheduleEvent") return "Reschedule event";
+    if (action.type === "editTask") return "Edit task";
+    if (action.type === "chain") return "Apply assistant action chain";
+    if (action.type === "undoAssistantAction") return "Undo assistant action";
+    return "Suggested action";
+  }
+  function assistantActionDescription(action) {
+    if (!action) return "";
+    if (action.type === "scheduleTopTask") return `Create a calendar block for “${action.taskTitle}” from ${fmt(action.start)} to ${fmt(action.end)}.`;
+    if (action.type === "focusBlock") return `Create a ${assistantHours(action.minutes)} focus block from ${fmt(action.start)} to ${fmt(action.end)}.`;
+    if (action.type === "moveTaskTomorrow") return `Move “${action.taskTitle}” out of today and into tomorrow’s task list.`;
+    if (action.type === "openTomorrowReset") return "Open Tomorrow Reset so you can intentionally choose what carries into tomorrow.";
+    if (action.type === "openCheckIn") return "Open the daily check-in before making the plan heavier.";
+    if (action.type === "rescheduleEvent") return `Move “${action.eventTitle}” to ${fmtDate(action.start)} from ${fmt(action.start)} to ${fmt(action.end)}.`;
+    if (action.type === "editTask") return action.description || `Update “${action.taskTitle}”.`;
+    if (action.type === "chain") return `Apply ${action.operations?.length || 0} change${(action.operations?.length || 0) === 1 ? "" : "s"}:\n${(action.operations || []).map(op => `• ${op.label || op.type}`).join("\n")}`;
+    if (action.type === "undoAssistantAction") return `Restore events, tasks, and reset data from before “${action.historyLabel}”.`;
+    return "Review this change before applying it.";
+  }
+  function assistantFindEventFromText(raw) {
+    const lower = String(raw || "").toLowerCase();
+    const editable = (eventsRef.current || []).filter(e => !e.deletedAt && e.source !== "google" && !e.readOnly);
+    const words = lower.match(/[a-z0-9]{4,}/g) || [];
+    return editable
+      .map(e => ({ event: e, score: words.reduce((sum, word) => sum + (String(e.title || "").toLowerCase().includes(word) ? 1 : 0), 0) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)[0]?.event || null;
+  }
+  function assistantFindTaskFromText(raw) {
+    const lower = String(raw || "").toLowerCase();
+    const candidates = (tasksRef.current || []).filter(t => !t.done);
+    const words = lower.match(/[a-z0-9]{4,}/g) || [];
+    return candidates
+      .map(t => ({ task: t, score: words.reduce((sum, word) => sum + (String(t.title || "").toLowerCase().includes(word) ? 1 : 0), 0) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)[0]?.task || null;
+  }
+  function buildAssistantCommandAction(rawText) {
+    const raw = String(rawText || "");
+    const lower = raw.toLowerCase();
+    const operations = [];
+    const targetDate = assistantParseTargetDate(raw);
+    const wantsMoveTasks = /\b(move|push|postpone|carry)\b/.test(lower) && /\b(task|tasks|todo|to-do)\b/.test(lower);
+    if (wantsMoveTasks && targetDate) {
+      const all = /\ball\b/.test(lower);
+      const pool = (tasksRef.current || []).filter(t => !t.done && (all || taskBelongsToPeriod(t, "day", TODAY) || lower.includes(String(t.title || "").toLowerCase())));
+      const matched = pool.filter(t => assistantTaskMatchesCommand(t, raw, categories));
+      const selected = matched.length ? matched : (all ? pool : pool.slice(0, 1));
+      if (selected.length) {
+        operations.push({
+          type: "moveTasksToDate",
+          taskIds: selected.map(t => t.id),
+          taskTitles: selected.map(t => t.title),
+          targetDateKey: dateKey(targetDate),
+          label: `Move ${selected.length} unfinished task${selected.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}`,
+        });
+      }
+    }
+
+    const wantsReschedule = /\b(reschedule|move|shift)\b/.test(lower) && /\b(event|meeting|appointment|call|calendar)\b/.test(lower);
+    if (wantsReschedule) {
+      const event = assistantFindEventFromText(raw);
+      const time = parseAssistantTimeAnswer(raw);
+      const date = targetDate || (event?.start instanceof Date ? event.start : TODAY);
+      if (event && time) {
+        const [hh, mm] = time.split(":").map(Number);
+        const start = new Date(dayStart(date));
+        start.setHours(hh, mm || 0, 0, 0);
+        const duration = Math.max(15, Math.round(((event.end instanceof Date ? event.end : new Date(event.end)) - (event.start instanceof Date ? event.start : new Date(event.start))) / 60000) || 30);
+        const end = new Date(start.getTime() + duration * 60000);
+        operations.push({
+          type: "rescheduleEvent",
+          eventId: event.id,
+          eventTitle: event.title,
+          start,
+          end,
+          label: `Reschedule “${event.title}” to ${fmtDate(start)} ${fmt(start)}–${fmt(end)}`,
+        });
+      }
+    }
+
+    const wantsMarkDone = /\b(mark|set|make)\b.*\b(done|complete|completed)\b/.test(lower) && /\b(task|todo|to-do)\b/.test(lower);
+    if (wantsMarkDone) {
+      const task = assistantFindTaskFromText(raw);
+      if (task) operations.push({ type: "editTask", taskId: task.id, taskTitle: task.title, patch: { done: true, completedAt: new Date().toISOString(), completedDate: dateKey(TODAY) }, label: `Mark “${task.title}” complete` });
+    }
+
+    const wantsTomorrowResetUpdate = /\b(update|add|write|put)\b.*\b(tomorrow reset|tomorrow plan|reset)\b/.test(lower) || (operations.length > 1 && /\btomorrow\b/.test(lower));
+    if (wantsTomorrowResetUpdate) {
+      operations.push({
+        type: "updateTomorrowReset",
+        label: "Update Tomorrow Reset with assistant summary",
+        summaryText: operations.length ? operations.map(op => op.label).join("; ") : "Assistant suggested reviewing tomorrow.",
+      });
+    }
+
+    if (operations.length > 1) return { id: "aa" + uid(), type: "chain", operations };
+    if (operations.length === 1) {
+      const op = operations[0];
+      if (op.type === "rescheduleEvent") return { id: "aa" + uid(), type: "rescheduleEvent", ...op };
+      if (op.type === "editTask") return { id: "aa" + uid(), type: "editTask", ...op, description: op.label };
+      if (op.type === "moveTasksToDate") return { id: "aa" + uid(), type: "chain", operations: [op] };
+      if (op.type === "updateTomorrowReset") return { id: "aa" + uid(), type: "chain", operations: [op] };
+    }
+    return null;
+  }
+  function recordAssistantActionHistory(label) {
+    const item = {
+      id: "assistant-history-" + uid(),
+      label,
+      createdAt: new Date().toISOString(),
+      eventsBefore: reviveEvents(eventsRef.current || []),
+      tasksBefore: normalizeTasks(tasksRef.current || []),
+      tomorrowResetsBefore: normalizeTomorrowResets(tomorrowResetsRef.current || []),
+    };
+    onUpdateAssistantActionHistory?.(history => normalizeAssistantActionHistory([item, ...normalizeAssistantActionHistory(typeof history === "function" ? history(actionHistoryRef.current) : (history || actionHistoryRef.current))]));
+    return item;
+  }
+  function undoAssistantHistoryItem(item) {
+    const clean = normalizeAssistantActionHistory([item])[0];
+    if (!clean) return;
+    onUpdateEvents(reviveEvents(clean.eventsBefore || []));
+    onUpdateTasks(normalizeTasks(clean.tasksBefore || []));
+    onUpdateTomorrowResets?.(normalizeTomorrowResets(clean.tomorrowResetsBefore || []));
+    onUpdateAssistantActionHistory?.(history => normalizeAssistantActionHistory(history).filter(h => h.id !== clean.id));
+    setAssistantAction(null);
+    setMessages(p => [...p, { role: "assistant", text: `Undone — I restored the state from before “${clean.label}”.` }]);
+  }
+  function applyAssistantOperation(op, state) {
+    const now = new Date().toISOString();
+    let nextEvents = reviveEvents(state.events);
+    let nextTasks = normalizeTasks(state.tasks);
+    let nextTomorrowResets = normalizeTomorrowResets(state.tomorrowResets);
+    if (op.type === "moveTasksToDate") {
+      const targetDate = localDateFromKey(op.targetDateKey) || addDaysSafe(TODAY, 1);
+      const patch = taskPeriodPatchForScope("day", targetDate);
+      const ids = new Set(op.taskIds || []);
+      nextTasks = nextTasks.map(t => ids.has(t.id) ? { ...t, scope: "day", ...patch, done: false, completedAt: null, completedDate: null, scheduledEventId: null, scheduledStart: null, scheduledEnd: null, updatedAt: now } : t);
+    }
+    if (op.type === "rescheduleEvent") {
+      nextEvents = nextEvents.map(e => e.id === op.eventId ? { ...e, start: new Date(op.start), end: new Date(op.end), updatedAt: now } : e);
+    }
+    if (op.type === "editTask") {
+      nextTasks = nextTasks.map(t => t.id === op.taskId ? { ...t, ...(op.patch || {}), updatedAt: now } : t);
+    }
+    if (op.type === "updateTomorrowReset") {
+      const tomorrow = addDaysSafe(TODAY, 1);
+      const key = dateKey(tomorrow);
+      const existing = nextTomorrowResets.find(r => r.date === key);
+      const base = existing || { id: `reset-${key}`, date: key, taskActions: [], reflection: {}, createdAt: now };
+      const reflection = {
+        ...(base.reflection || {}),
+        tomorrowMainThing: base.reflection?.tomorrowMainThing || "Review assistant changes",
+        moveTomorrow: [base.reflection?.moveTomorrow, op.summaryText].filter(Boolean).join("\n").trim(),
+      };
+      const updated = normalizeTomorrowReset({ ...base, reflection, updatedAt: now, completedAt: base.completedAt || now });
+      nextTomorrowResets = normalizeTomorrowResets([updated, ...nextTomorrowResets.filter(r => r.date !== key)]);
+    }
+    return { events: nextEvents, tasks: nextTasks, tomorrowResets: nextTomorrowResets };
+  }
+  function buildAssistantAction(kind) {
+    const currentCtx = ctxRef.current || ctx;
+    if (kind === "undoLastAssistantAction") {
+      const last = normalizeAssistantActionHistory(actionHistoryRef.current)[0];
+      return last ? { id: "aa" + uid(), type: "undoAssistantAction", historyId: last.id, historyLabel: last.label, historyItem: last } : null;
+    }
+    const nowDate = new Date();
+    const futureSlots = (currentCtx.freeSlots || [])
+      .filter(s => s?.end instanceof Date && s.end > nowDate)
+      .map(s => {
+        const roundedNow = new Date(Math.ceil(nowDate.getTime() / (5 * 60000)) * 5 * 60000);
+        const start = s.start instanceof Date && s.start < roundedNow && sameDay(s.start, nowDate) ? roundedNow : s.start;
+        const end = s.end instanceof Date ? s.end : new Date(s.end);
+        return { ...s, start, end, minutes: Math.max(0, Math.round((end - start) / 60000)) };
+      })
+      .filter(s => s.minutes >= 15);
+    const slot = [...futureSlots].sort((a, b) => Number(b.minutes || 0) - Number(a.minutes || 0))[0] || null;
+    const unscheduledTop = (currentCtx.topTasks || currentCtx.tasks || []).find(t => !t.scheduledEventId && !t.done);
+    const fallbackTask = (currentCtx.tasks || []).find(t => !t.done);
+    const overflowTask = (currentCtx.tasks || []).slice(3).find(t => !t.done && !t.scheduledEventId) || (currentCtx.tasks || []).find(t => !t.done && !t.scheduledEventId);
+    const actualKind = kind === "best"
+      ? (currentCtx.loadRatio > 0.9 && overflowTask ? "moveTaskTomorrow" : unscheduledTop && slot ? "scheduleTopTask" : slot ? "focusBlock" : "openTomorrowReset")
+      : kind;
+    if (actualKind === "scheduleTopTask") {
+      if (!slot || !unscheduledTop) return null;
+      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), taskDurationToMinutes(unscheduledTop.duration, 30)));
+      if (minutes < 15) return null;
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + minutes * 60000);
+      return { id: "aa" + uid(), type: "scheduleTopTask", taskId: unscheduledTop.id, taskTitle: unscheduledTop.title, category: unscheduledTop.category || "important", minutes, start, end, calendar: defaultCalendarId };
+    }
+    if (actualKind === "focusBlock") {
+      if (!slot) return null;
+      const preferredMinutes = Math.max(15, Math.min(180, Number(currentCtx.assistantMemory?.focusMinutes || 60)));
+      const minutes = Math.max(15, Math.min(Number(slot.minutes || 0), preferredMinutes));
+      if (minutes < 15) return null;
+      const start = new Date(slot.start);
+      const end = new Date(start.getTime() + minutes * 60000);
+      return { id: "aa" + uid(), type: "focusBlock", title: unscheduledTop ? `Focus: ${unscheduledTop.title}` : "Focus block", taskId: unscheduledTop?.id || null, taskTitle: unscheduledTop?.title || "", category: unscheduledTop?.category || "important", minutes, start, end, calendar: defaultCalendarId };
+    }
+    if (actualKind === "moveTaskTomorrow") {
+      const task = overflowTask || fallbackTask;
+      if (!task) return null;
+      return { id: "aa" + uid(), type: "moveTaskTomorrow", taskId: task.id, taskTitle: task.title };
+    }
+    if (actualKind === "openCheckIn") return { id: "aa" + uid(), type: "openCheckIn" };
+    return { id: "aa" + uid(), type: "openTomorrowReset" };
+  }
+  function proposeAssistantAction(kind) {
+    const action = typeof kind === "object" && kind?.type ? kind : buildAssistantAction(kind);
+    if (!action) {
+      setMessages(p => [...p, { role: "assistant", text: "I don’t see a safe future free slot to schedule into right now. You can still use Plan Today, move something to tomorrow, or tell me what you want to adjust." }]);
+      return;
+    }
+    setAssistantAction(action);
+    setMessages(p => [...p, { role: "assistant", text: `I can suggest this, but I won’t change anything until you confirm:\n\n${assistantActionTitle(action)}\n${assistantActionDescription(action)}` }]);
+  }
+  function cancelAssistantAction() {
+    setAssistantAction(null);
+    setMessages(p => [...p, { role: "assistant", text: "Cancelled — I didn’t change anything." }]);
+  }
+  function applyAssistantAction(action) {
+    if (!action) return;
+    const now = new Date().toISOString();
+
+    if (action.type === "undoAssistantAction") {
+      undoAssistantHistoryItem(action.historyItem || normalizeAssistantActionHistory(actionHistoryRef.current).find(h => h.id === action.historyId));
+      return;
+    }
+
+    if (action.type === "chain" || action.type === "rescheduleEvent" || action.type === "editTask") {
+      const operations = action.type === "chain" ? (action.operations || []) : [action];
+      recordAssistantActionHistory(assistantActionTitle(action));
+      const applied = operations.reduce((state, op) => applyAssistantOperation(op, state), {
+        events: eventsRef.current || [],
+        tasks: tasksRef.current || [],
+        tomorrowResets: tomorrowResetsRef.current || [],
+      });
+      onUpdateEvents(reviveEvents(applied.events));
+      onUpdateTasks(normalizeTasks(applied.tasks));
+      onUpdateTomorrowResets?.(normalizeTomorrowResets(applied.tomorrowResets));
+      setAssistantAction(null);
+      setMessages(p => [...p, { role: "assistant", text: `Done — I applied ${operations.length} change${operations.length === 1 ? "" : "s"}.\n\n${operations.map(op => `• ${op.label || op.type}`).join("\n")}` }]);
+      return;
+    }
+
+    if (action.type === "scheduleTopTask" || action.type === "focusBlock") {
+      recordAssistantActionHistory(assistantActionTitle(action));
+      const eventId = "e" + uid();
+      const title = action.type === "scheduleTopTask" ? `Focus: ${action.taskTitle}` : action.title || "Focus block";
+      const ev = {
+        id: eventId,
+        title,
+        start: new Date(action.start),
+        end: new Date(action.end),
+        allDay: false,
+        calendar: action.calendar || defaultCalendarId,
+        category: action.category || "important",
+        fixed: false,
+        color: null,
+        notes: action.type === "scheduleTopTask" ? `Scheduled from Tempo Assistant for task: ${action.taskTitle}` : "Created with Tempo Assistant",
+        recurrence: null,
+        reminder: { type: "minutes", minutesBefore: 10 },
+        source: "tempo",
+        linkedTaskId: action.taskId || null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const nextEvents = [...(eventsRef.current || []), ev];
+      let nextTasks = tasksRef.current || [];
+      if (action.taskId) {
+        nextTasks = nextTasks.map(t => t.id === action.taskId ? { ...t, scheduledEventId: eventId, scheduledStart: ev.start.toISOString(), scheduledEnd: ev.end.toISOString(), updatedAt: now } : t);
+        onUpdateTasks(nextTasks);
+      }
+      onUpdateEvents(nextEvents);
+      setAssistantAction(null);
+      setMessages(p => [...p, { role: "assistant", text: `Done — I applied it.\n\n${title}\n${fmt(ev.start)}–${fmt(ev.end)}` }]);
+      return;
+    }
+    if (action.type === "moveTaskTomorrow") {
+      recordAssistantActionHistory(assistantActionTitle(action));
+      const tomorrow = addDaysSafe(TODAY, 1);
+      const tomorrowPatch = taskPeriodPatchForScope("day", tomorrow);
+      const nextTasks = (tasksRef.current || []).map(t => {
+        if (t.id !== action.taskId) return t;
+        return {
+          ...t,
+          scope: "day",
+          ...tomorrowPatch,
+          done: false,
+          completedAt: null,
+          completedDate: null,
+          scheduledEventId: null,
+          scheduledStart: null,
+          scheduledEnd: null,
+          updatedAt: now,
+        };
+      });
+      onUpdateTasks(nextTasks);
+      setAssistantAction(null);
+      setMessages(p => [...p, { role: "assistant", text: `Done — I moved “${action.taskTitle}” to tomorrow.` }]);
+      return;
+    }
+    if (action.type === "openCheckIn") {
+      setAssistantAction(null);
+      onOpenCheckIn?.();
+      setMessages(p => [...p, { role: "assistant", text: "Opening check-in now." }]);
+      return;
+    }
+    setAssistantAction(null);
+    onTomorrowReset?.();
+    setMessages(p => [...p, { role: "assistant", text: "Opening Tomorrow Reset now." }]);
+  }
+  const renderAssistantAction = () => {
+    const action = assistantAction;
+    if (!action) return null;
+    return (
+      <div className="assistant-safe-action-card">
+        <div className="assistant-safe-action-head">
+          <span>Review before applying</span>
+          <strong>{assistantActionTitle(action)}</strong>
+        </div>
+        <p>{assistantActionDescription(action)}</p>
+        <div className="assistant-safe-action-note">Tempo will only apply this after you tap Apply.</div>
+        <div className="assistant-safe-action-buttons">
+          <button type="button" className="tf-cancel" onClick={cancelAssistantAction}>Cancel</button>
+          <button type="button" className="tf-save" onClick={() => applyAssistantAction(action)}>Apply</button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAssistantUndoHistory = () => {
+    const history = normalizeAssistantActionHistory(assistantActionHistory);
+    if (!history.length) return null;
+    return (
+      <div className="assistant-undo-history-card">
+        <div className="assistant-undo-history-head"><strong>Assistant undo history</strong><span>{history.length} saved</span></div>
+        <div className="assistant-undo-history-list">
+          {history.slice(0, 5).map(item => (
+            <button key={item.id} type="button" onClick={() => undoAssistantHistoryItem(item)}>
+              <span>{item.label}</span>
+              <small>{new Date(item.createdAt).toLocaleString()}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  function assistantFlowDefaults(type) {
+    if (type === "event") return { type, step: "title", title: "", datePreset: "today", customDate: dateKey(TODAY), startTime: "09:00", duration: 60, calendar: defaultCalendarId, category: meetingCategoryId };
+    return { type: "task", step: "title", title: "", scope: "day", duration: 30, priority: "medium", category: defaultCategoryId };
+  }
+  function assistantFlowLabel(flow) {
+    return flow?.type === "event" ? "event" : "task";
+  }
+  function assistantFlowQuestion(flow) {
+    if (!flow) return "";
+    if (flow.step === "title") return flow.type === "event" ? "Sure — what should I call this event?" : "Sure — what task should I add?";
+    if (flow.type === "event") {
+      if (flow.step === "date") return `When is “${flow.title}”? You can pick below or type a day like “Friday”.`;
+      if (flow.step === "time") return "What time should it start? You can type something like 2pm or choose one.";
+      if (flow.step === "duration") return "How long should I block for it?";
+      if (flow.step === "calendar") return "Which Tempo calendar should I place it under?";
+      if (flow.step === "category") return "What type of event is it?";
+      if (flow.step === "confirm") return `Ready to add this event?\n\n${assistantFlowSummary(flow)}`;
+    }
+    if (flow.step === "scope") return `Where should “${flow.title}” live?`;
+    if (flow.step === "duration") return "How long do you think it will take?";
+    if (flow.step === "priority") return "How important is this task?";
+    if (flow.step === "category") return "Which category best fits it?";
+    if (flow.step === "confirm") return `Ready to add this task?\n\n${assistantFlowSummary(flow)}`;
+    return "Tell me a little more.";
+  }
+  function assistantFlowSummary(flow) {
+    if (!flow) return "";
+    if (flow.type === "event") {
+      const date = assistantFlowDate(flow);
+      const calendar = calendarChoices.find(c => c.id === flow.calendar)?.name || "Calendar";
+      const category = categories.find(c => c.id === flow.category)?.label || "Event";
+      return `• ${flow.title}\n• ${fmtDate(date)} at ${flow.startTime}\n• ${assistantHours(flow.duration)}\n• ${calendar} · ${category}`;
+    }
+    const category = categories.find(c => c.id === flow.category)?.label || "Task";
+    const scopeLabel = flow.scope === "day" ? "Today" : flow.scope === "week" ? "This week" : "This month";
+    return `• ${flow.title}\n• ${scopeLabel}\n• ${assistantHours(flow.duration)} estimate\n• ${flow.priority || "medium"} priority · ${category}`;
+  }
+  function assistantFlowDate(flow) {
+    if (flow?.datePreset === "tomorrow") return addDaysSafe(TODAY, 1);
+    if (flow?.datePreset === "custom" && flow.customDate) return localDateFromKey(flow.customDate);
+    return new Date(TODAY);
+  }
+  function parseAssistantDateAnswer(answer) {
+    const raw = String(answer || "").trim();
+    const lower = raw.toLowerCase();
+    if (lower === "today") return { datePreset: "today", customDate: dateKey(TODAY) };
+    if (lower === "tomorrow") return { datePreset: "tomorrow", customDate: dateKey(addDaysSafe(TODAY, 1)) };
+    const iso = raw.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (iso) return { datePreset: "custom", customDate: iso[1] };
+    const parsed = parseDateMention(raw, TODAY) || parseDateRef(raw, TODAY);
+    if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) return { datePreset: sameDay(parsed, TODAY) ? "today" : sameDay(parsed, addDaysSafe(TODAY, 1)) ? "tomorrow" : "custom", customDate: dateKey(parsed) };
+    return null;
+  }
+  function parseAssistantTimeAnswer(answer) {
+    const parsed = parseTimeStr(String(answer || "").trim(), null);
+    if (!parsed) return null;
+    const h = Math.max(0, Math.min(23, Number(parsed.h || 0)));
+    const m = Math.max(0, Math.min(59, Number(parsed.m || 0)));
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  function parseAssistantDurationAnswer(answer) {
+    if (typeof answer === "number") return Math.max(5, Math.min(480, answer));
+    const raw = String(answer || "").trim().toLowerCase();
+    const parsed = parseDur(raw) || (raw.match(/^\d+$/) ? Number(raw) : null);
+    return parsed ? Math.max(5, Math.min(480, parsed)) : null;
+  }
+  function assistantFlowOptions(flow) {
+    if (!flow) return [];
+    if (flow.step === "title") return [];
+    if (flow.type === "event") {
+      if (flow.step === "date") return [{ label: "Today", value: "today" }, { label: "Tomorrow", value: "tomorrow" }, { label: "Friday", value: "friday" }];
+      if (flow.step === "time") return timeOptions.map(t => ({ label: t, value: t }));
+      if (flow.step === "duration") return durationOptions.slice(1).map(d => ({ label: assistantHours(d), value: `${d}m` }));
+      if (flow.step === "calendar") return calendarChoices.map(c => ({ label: c.name, value: c.id }));
+      if (flow.step === "category") return categories.slice(0, 8).map(c => ({ label: `${c.icon || "•"} ${c.label}`, value: c.id }));
+      if (flow.step === "confirm") return [{ label: "Yes, add it", value: "yes" }, { label: "Change title", value: "change title" }, { label: "Cancel", value: "cancel" }];
+    }
+    if (flow.step === "scope") return [{ label: "Today", value: "today" }, { label: "This week", value: "week" }, { label: "This month", value: "month" }];
+    if (flow.step === "duration") return durationOptions.map(d => ({ label: assistantHours(d), value: `${d}m` }));
+    if (flow.step === "priority") return [{ label: "High", value: "high" }, { label: "Medium", value: "medium" }, { label: "Low", value: "low" }];
+    if (flow.step === "category") return categories.slice(0, 8).map(c => ({ label: `${c.icon || "•"} ${c.label}`, value: c.id }));
+    if (flow.step === "confirm") return [{ label: "Yes, add it", value: "yes" }, { label: "Change title", value: "change title" }, { label: "Cancel", value: "cancel" }];
+    return [];
+  }
+  function startAssistantFlow(type) {
+    const flow = assistantFlowDefaults(type);
+    setAssistantFlow(flow);
+    setMessages(p => [...p, { role: "assistant", text: assistantFlowQuestion(flow) }]);
+  }
+  function cancelAssistantFlow() {
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: "No problem — I cancelled that. We can shape it again later." }]);
+  }
+  function createAssistantEventFromFlow(flow) {
+    const baseDate = assistantFlowDate(flow);
+    const [hh, mm] = String(flow.startTime || "09:00").split(":").map(Number);
+    const start = new Date(baseDate);
+    start.setHours(Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0, 0, 0);
+    const duration = Math.max(15, Math.min(480, Number(flow.duration || 60)));
+    const end = new Date(start.getTime() + duration * 60000);
+    const now = new Date().toISOString();
+    const ev = { id: "e" + uid(), title: flow.title, start, end, allDay: false, calendar: flow.calendar || defaultCalendarId, category: flow.category || "meeting", fixed: false, color: null, notes: "Created with Tempo Assistant", recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }, source: "tempo", createdAt: now, updatedAt: now };
+    onUpdateEvents([...(eventsRef.current || []), ev]);
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: `Done — I added it to your calendar.\n\n${flow.title}\n${fmtDate(start)} · ${fmt(start)}–${fmt(end)}` }]);
+  }
+  function createAssistantTaskFromFlow(flow) {
+    const now = new Date().toISOString();
+    const scope = ["day", "week", "month"].includes(flow.scope) ? flow.scope : "day";
+    const task = withTaskPeriod({ id: "t" + uid(), title: flow.title, duration: Math.max(5, Math.min(480, Number(flow.duration || 30))), category: flow.category || defaultCategoryId, scope, done: false, deadline: null, priority: flow.priority || "medium", notes: "Created with Tempo Assistant", scheduled: null, createdAt: now, updatedAt: now }, TODAY);
+    onUpdateTasks([...(tasksRef.current || []), task]);
+    setAssistantFlow(null);
+    setMessages(p => [...p, { role: "assistant", text: `Done — I added the task.\n\n${flow.title}\n${scope === "day" ? "Today" : scope === "week" ? "This week" : "This month"} · ${flow.priority || "medium"} priority` }]);
+  }
+  function advanceAssistantFlow(flow, answer) {
+    const raw = String(answer || "").trim();
+    const lower = raw.toLowerCase();
+    if (["cancel", "stop", "never mind", "nevermind"].includes(lower)) { cancelAssistantFlow(); return; }
+    if (flow.step === "confirm") {
+      if (["yes", "y", "confirm", "add", "create", "yes, add it"].includes(lower)) {
+        if (flow.type === "event") createAssistantEventFromFlow(flow);
+        else createAssistantTaskFromFlow(flow);
+        return;
+      }
+      if (lower.includes("title") || lower.includes("name")) {
+        const next = { ...flow, step: "title" };
+        setAssistantFlow(next);
+        setMessages(p => [...p, { role: "assistant", text: "Sure — what should I rename it to?" }]);
+        return;
+      }
+      setMessages(p => [...p, { role: "assistant", text: "Tap “Yes, add it” when you’re ready, or type what you want to change." }]);
+      return;
+    }
+    let next = { ...flow };
+    if (flow.step === "title") {
+      if (raw.length < 2) { setMessages(p => [...p, { role: "assistant", text: `Give me a short ${assistantFlowLabel(flow)} name first.` }]); return; }
+      next.title = raw;
+      next.step = flow.type === "event" ? "date" : "scope";
+    } else if (flow.type === "event") {
+      if (flow.step === "date") {
+        const parsed = parseAssistantDateAnswer(raw);
+        if (!parsed) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t read that date. Try “today”, “tomorrow”, “Friday”, or YYYY-MM-DD." }]); return; }
+        next = { ...next, ...parsed, step: "time" };
+      } else if (flow.step === "time") {
+        const time = parseAssistantTimeAnswer(raw);
+        if (!time) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t read that time. Try 9am, 14:30, or pick one of the options." }]); return; }
+        next.startTime = time; next.step = "duration";
+      } else if (flow.step === "duration") {
+        const duration = parseAssistantDurationAnswer(raw);
+        if (!duration) { setMessages(p => [...p, { role: "assistant", text: "How long should it be? Try 30m, 1h, or pick one of the options." }]); return; }
+        next.duration = duration; next.step = "calendar";
+      } else if (flow.step === "calendar") {
+        const cal = calendarChoices.find(c => c.id === raw || c.name.toLowerCase() === lower) || calendarChoices[0];
+        if (!cal) { setMessages(p => [...p, { role: "assistant", text: "I couldn’t find a Tempo calendar to place this in." }]); return; }
+        next.calendar = cal.id; next.step = "category";
+      } else if (flow.step === "category") {
+        const cat = categories.find(c => c.id === raw || c.label.toLowerCase() === lower) || categories.find(c => c.id === meetingCategoryId) || categories[0];
+        next.category = cat?.id || meetingCategoryId; next.step = "confirm";
+      }
+    } else {
+      if (flow.step === "scope") {
+        const scope = lower.includes("week") ? "week" : lower.includes("month") ? "month" : "day";
+        next.scope = scope; next.step = "duration";
+      } else if (flow.step === "duration") {
+        const duration = parseAssistantDurationAnswer(raw);
+        if (!duration) { setMessages(p => [...p, { role: "assistant", text: "How long will it take? Try 15m, 30m, 1h, or choose one." }]); return; }
+        next.duration = duration; next.step = "priority";
+      } else if (flow.step === "priority") {
+        const priority = lower.includes("high") ? "high" : lower.includes("low") ? "low" : "medium";
+        next.priority = priority; next.step = "category";
+      } else if (flow.step === "category") {
+        const cat = categories.find(c => c.id === raw || c.label.toLowerCase() === lower) || categories.find(c => c.id === defaultCategoryId) || categories[0];
+        next.category = cat?.id || defaultCategoryId; next.step = "confirm";
+      }
+    }
+    setAssistantFlow(next);
+    setMessages(p => [...p, { role: "assistant", text: assistantFlowQuestion(next) }]);
+  }
+  function answerAssistantFlow(answer, label = null) {
+    const flow = flowRef.current;
+    if (!flow) return;
+    const raw = String(answer || "").trim();
+    if (!raw) return;
+    setInput("");
+    setMessages(p => [...p, { role: "user", text: label || raw }]);
+    setTimeout(() => advanceAssistantFlow(flow, raw), Math.min(220, CHAT_REPLY_DELAY_MS));
+  }
+  const renderAssistantFlow = () => {
+    const flow = assistantFlow;
+    if (!flow) return null;
+    const options = assistantFlowOptions(flow);
+    return (
+      <div className="assistant-flow-card">
+        <div className="assistant-flow-head">
+          <div><span>{flow.type === "event" ? "Creating event" : "Creating task"}</span><strong>{assistantFlowQuestion(flow)}</strong></div>
+          <button type="button" onClick={cancelAssistantFlow}>×</button>
+        </div>
+        {options.length > 0 && <div className="assistant-flow-options">{options.map(option => <button key={`${flow.step}-${option.value}`} type="button" onClick={() => answerAssistantFlow(option.value, option.label)}>{option.label}</button>)}</div>}
+        <div className="assistant-flow-hint">You can also type your answer below.</div>
+      </div>
+    );
+  };
+
   return (
-    <div className="tempo-assistant-popover" role="dialog" aria-modal="false" aria-label="My Tempo Assistant">
-      <div className="tempo-assistant-popover-head">
-        <div><strong>My Tempo Assistant</strong><span>Quick rhythm helper</span></div>
-        <button type="button" className="modal-close" onClick={onClose}>✕</button>
+    <div className="chat-panel tempo-assistant-panel">
+      <div className="chat-header assistant-header">
+        <div className="chat-title-row"><div className="chat-avatar">🌸</div><div><div className="chat-name">Tempo Assistant</div><div className="chat-status">● reading today’s rhythm</div></div></div>
+        <button className="chat-close" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
-      <div className="tempo-assistant-popover-body">
-        <button type="button" onClick={onGoToday}><span>🌤️</span><strong>Go to Today</strong><small>Return to your daily rhythm.</small></button>
-        <button type="button" onClick={onPlanDay}><span>✨</span><strong>Plan my day</strong><small>Open Tempo’s local day planner.</small></button>
-        <button type="button" onClick={onGoJournal}><span>📔</span><strong>Open Journal</strong><small>Reflect or decorate a memory.</small></button>
-        <button type="button" onClick={onGoTasks}><span>✅</span><strong>Open Tasks</strong><small>Check what needs attention.</small></button>
+
+      <div className={`assistant-context-card ${contextCollapsed ? "collapsed" : ""}`}>
+        <div className="assistant-context-top">
+          <div><span className="assistant-kicker">Today context</span><strong>{ctx.greeting} ✨</strong></div>
+          <div className="assistant-context-controls">
+            <button type="button" className="assistant-context-toggle" onClick={() => setContextCollapsed(v => !v)}>{contextCollapsed ? "Show" : "Hide"}</button>
+            <button type="button" onClick={onPlanToday}>Plan Today</button>
+          </div>
+        </div>
+        {contextCollapsed ? (
+          <div className="assistant-context-compact">
+            <span>{ctx.events.length} events</span>
+            <span>{ctx.tasks.length} tasks</span>
+            <span>{ctx.freeHoursLabel} free</span>
+            <span>{ctx.habitLabel} habits</span>
+          </div>
+        ) : (
+          <>
+            <div className="assistant-context-grid">
+              {contextStats.map(item => <button key={item.label} type="button" onClick={item.action}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></button>)}
+            </div>
+            {ctx.insights.length > 0 && <div className="assistant-insights">{ctx.insights.slice(0, 3).map((x, i) => <span key={i}>• {x}</span>)}</div>}
+            {assistantMemorySummary(ctx.assistantMemory) && <div className="assistant-memory-strip"><strong>Rhythm memory</strong><span>{assistantMemorySummary(ctx.assistantMemory)}</span></div>}
+            <div className="assistant-action-row">
+              <button type="button" onClick={onOpenCheckIn}>Check in</button>
+              <button type="button" onClick={onOpenJournal}>Journal</button>
+              <button type="button" onClick={onTomorrowReset}>Tomorrow Reset</button>
+            </div>
+          </>
+        )}
       </div>
+
+      <div className="assistant-prompt-bank">
+        {promptGroups.map(item => <button key={item.label} type="button" className={item.flow ? "assistant-create-chip" : item.action ? "assistant-action-chip" : ""} onClick={() => item.flow ? startAssistantFlow(item.flow) : item.action ? proposeAssistantAction(item.action) : send(item.prompt)}>{item.label}</button>)}
+      </div>
+
+      {renderAssistantAction()}
+      {renderAssistantUndoHistory()}
+      {renderAssistantFlow()}
+
+      <div className="chat-messages assistant-messages">
+        {messages.map((m, i) => <div key={i} className={`chat-msg ${m.role}`}>{m.role === "assistant" && <div className="msg-avatar">🌸</div>}<div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>{m.text}</div></div>)}
+        <div ref={bottomRef} />
+      </div>
+      <div className="chat-input-row"><textarea className="chat-input" placeholder={assistantFlow ? `Reply to Tempo to continue this ${assistantFlowLabel(assistantFlow)}…` : assistantAction ? "Type apply or cancel, or use the buttons above…" : "Ask what to focus on, where you’re free, or how to reset…"} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} aria-label="Chat input" /><button className="chat-send" onClick={() => send()} disabled={!input.trim()} aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg></button></div>
     </div>
   );
 }
@@ -4240,6 +5443,7 @@ export default function App() {
   const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
   const [tasks,  setTkRaw]          = useState(() => normalizeTasks(load(`${uk}_tk`, INIT_TASKS)));
+  const [chatOpen, setChatOpen]     = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth > 768));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fontSize,  setFSRaw]       = useState(() => load(`${uk}_fs`, "md"));
@@ -4270,10 +5474,13 @@ export default function App() {
   const [scheduleTaskTarget, setScheduleTaskTarget] = useState(null);
   const [dayPlan, setDayPlan] = useState(null);
   const [mobileTasksOpen, setMobileTasksOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [categories, setCatRaw] = useState(() => normalizeCategories(load(`${uk}_categories`, CATEGORIES)));
   const [templates, setTplRaw] = useState(() => load(`${uk}_templates`, DAY_TEMPLATES));
   const [journalActivities, setJournalActivitiesRaw] = useState(() => load(`${uk}_journal_activities`, JOURNAL_ACTIVITIES));
   const [memoryTags, setMemoryTagsRaw] = useState(() => load(`${uk}_memory_tags`, MEMORY_TAGS));
+  const [assistantMemory, setAssistantMemoryRaw] = useState(() => normalizeAssistantMemory(load(`${uk}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)));
+  const [assistantActionHistory, setAssistantActionHistoryRaw] = useState(() => normalizeAssistantActionHistory(load(`${uk}_assistant_action_history`, [])));
   const [rituals, setRitualsRaw] = useState(() => normalizeRituals(load(`${uk}_rituals`, DEFAULT_RITUALS)));
   const [ritualCompletions, setRitualCompletionsRaw] = useState(() => normalizeRitualCompletions(load(`${uk}_ritual_completions`, [])));
   const [habits, setHabitsRaw] = useState(() => normalizeHabits(load(`${uk}_habits`, DEFAULT_HABITS)));
@@ -4294,7 +5501,6 @@ export default function App() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showTempoAssistant, setShowTempoAssistant] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [calendars, setCalendarsRaw] = useState(() => normalizeCalendars(load(`${uk}_calendars`, CALENDARS)));
@@ -4358,6 +5564,14 @@ export default function App() {
   }, [dataReady, auth.user?.id, uk, events.length, tasks.length]);
 
   // Mobile viewport: keep the app-like layout while allowing zoom for accessibility.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setIsMobileViewport(window.innerWidth <= 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     let viewport = document.querySelector('meta[name="viewport"]');
@@ -4476,6 +5690,8 @@ export default function App() {
         templates: safeSettings.templates ?? load(`${userKey}_templates`, DAY_TEMPLATES),
         journalActivities: safeSettings.journalActivities ?? load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
         memoryTags: safeSettings.memoryTags ?? load(`${userKey}_memory_tags`, MEMORY_TAGS),
+        assistantMemory: normalizeAssistantMemory(safeSettings.assistantMemory ?? load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
+        assistantActionHistory: normalizeAssistantActionHistory(safeSettings.assistantActionHistory ?? load(`${userKey}_assistant_action_history`, [])),
         rituals: normalizeRituals(safeSettings.rituals ?? load(`${userKey}_rituals`, DEFAULT_RITUALS)),
         ritualCompletions: normalizeRitualCompletions(safeSettings.ritualCompletions ?? load(`${userKey}_ritual_completions`, [])),
         habits: normalizeHabits(safeSettings.habits ?? load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4511,6 +5727,8 @@ export default function App() {
       setTplRaw(nextSettings.templates);
       setJournalActivitiesRaw(nextSettings.journalActivities);
       setMemoryTagsRaw(nextSettings.memoryTags || MEMORY_TAGS);
+      setAssistantMemoryRaw(normalizeAssistantMemory(nextSettings.assistantMemory));
+      setAssistantActionHistoryRaw(normalizeAssistantActionHistory(nextSettings.assistantActionHistory));
       setRitualsRaw(normalizeRituals(nextSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(nextSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(nextSettings.habits));
@@ -4538,6 +5756,8 @@ export default function App() {
       save(`${userKey}_templates`, nextSettings.templates);
       save(`${userKey}_journal_activities`, nextSettings.journalActivities);
       save(`${userKey}_memory_tags`, nextSettings.memoryTags || MEMORY_TAGS);
+      save(`${userKey}_assistant_memory`, normalizeAssistantMemory(nextSettings.assistantMemory));
+      save(`${userKey}_assistant_action_history`, normalizeAssistantActionHistory(nextSettings.assistantActionHistory));
       save(`${userKey}_rituals`, normalizeRituals(nextSettings.rituals));
       save(`${userKey}_ritual_completions`, normalizeRitualCompletions(nextSettings.ritualCompletions));
       save(`${userKey}_habits`, normalizeHabits(nextSettings.habits));
@@ -4592,6 +5812,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
+          assistantActionHistory: normalizeAssistantActionHistory(load(`${userKey}_assistant_action_history`, [])),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4702,6 +5924,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
+          assistantActionHistory: normalizeAssistantActionHistory(load(`${userKey}_assistant_action_history`, [])),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4741,6 +5965,8 @@ export default function App() {
           templates: DAY_TEMPLATES,
           journalActivities: JOURNAL_ACTIVITIES,
           memoryTags: MEMORY_TAGS,
+          assistantMemory: normalizeAssistantMemory(DEFAULT_ASSISTANT_MEMORY),
+          assistantActionHistory: [],
           rituals: normalizeRituals(DEFAULT_RITUALS),
           ritualCompletions: [],
           habits: normalizeHabits(DEFAULT_HABITS),
@@ -4788,6 +6014,8 @@ export default function App() {
           templates: load(`${userKey}_templates`, DAY_TEMPLATES),
           journalActivities: load(`${userKey}_journal_activities`, JOURNAL_ACTIVITIES),
           memoryTags: load(`${userKey}_memory_tags`, MEMORY_TAGS),
+          assistantMemory: normalizeAssistantMemory(load(`${userKey}_assistant_memory`, DEFAULT_ASSISTANT_MEMORY)),
+          assistantActionHistory: normalizeAssistantActionHistory(load(`${userKey}_assistant_action_history`, [])),
           rituals: normalizeRituals(load(`${userKey}_rituals`, DEFAULT_RITUALS)),
           ritualCompletions: normalizeRitualCompletions(load(`${userKey}_ritual_completions`, [])),
           habits: normalizeHabits(load(`${userKey}_habits`, DEFAULT_HABITS)),
@@ -4849,6 +6077,8 @@ export default function App() {
     templates,
     journalActivities,
     memoryTags,
+    assistantMemory: normalizeAssistantMemory(assistantMemory),
+    assistantActionHistory: normalizeAssistantActionHistory(assistantActionHistory),
     rituals: normalizeRituals(rituals),
     ritualCompletions: normalizeRitualCompletions(ritualCompletions),
     habits: normalizeHabits(habits),
@@ -4922,6 +6152,8 @@ export default function App() {
         templates: nextSettings?.templates || templates,
         journalActivities: nextSettings?.journalActivities || journalActivities,
         memoryTags: nextSettings?.memoryTags || memoryTags,
+        assistantMemory: normalizeAssistantMemory(nextSettings?.assistantMemory || assistantMemory),
+        assistantActionHistory: normalizeAssistantActionHistory(nextSettings?.assistantActionHistory || assistantActionHistory),
         rituals: normalizeRituals(nextSettings?.rituals || rituals),
         ritualCompletions: normalizeRitualCompletions(nextSettings?.ritualCompletions || ritualCompletions),
         habits: normalizeHabits(nextSettings?.habits || habits),
@@ -4965,6 +6197,8 @@ export default function App() {
       setTplRaw(normalizedSettings.templates);
       setJournalActivitiesRaw(normalizedSettings.journalActivities);
       setMemoryTagsRaw(normalizedSettings.memoryTags || MEMORY_TAGS);
+      setAssistantMemoryRaw(normalizeAssistantMemory(normalizedSettings.assistantMemory));
+      setAssistantActionHistoryRaw(normalizeAssistantActionHistory(normalizedSettings.assistantActionHistory));
       setRitualsRaw(normalizeRituals(normalizedSettings.rituals));
       setRitualCompletionsRaw(normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       setHabitsRaw(normalizeHabits(normalizedSettings.habits));
@@ -5002,6 +6236,8 @@ export default function App() {
       save(`${uk}_templates`, normalizedSettings.templates);
       save(`${uk}_journal_activities`, normalizedSettings.journalActivities);
       save(`${uk}_memory_tags`, normalizedSettings.memoryTags || MEMORY_TAGS);
+      save(`${uk}_assistant_memory`, normalizeAssistantMemory(normalizedSettings.assistantMemory));
+      save(`${uk}_assistant_action_history`, normalizeAssistantActionHistory(normalizedSettings.assistantActionHistory));
       save(`${uk}_rituals`, normalizeRituals(normalizedSettings.rituals));
       save(`${uk}_ritual_completions`, normalizeRitualCompletions(normalizedSettings.ritualCompletions));
       save(`${uk}_habits`, normalizeHabits(normalizedSettings.habits));
@@ -5145,6 +6381,8 @@ export default function App() {
     save(`${uk}_templates`, next.templates);
     save(`${uk}_journal_activities`, next.journalActivities);
     save(`${uk}_memory_tags`, next.memoryTags || MEMORY_TAGS);
+    save(`${uk}_assistant_memory`, normalizeAssistantMemory(next.assistantMemory));
+    save(`${uk}_assistant_action_history`, normalizeAssistantActionHistory(next.assistantActionHistory));
     save(`${uk}_rituals`, normalizeRituals(next.rituals));
     save(`${uk}_ritual_completions`, normalizeRitualCompletions(next.ritualCompletions));
     save(`${uk}_habits`, normalizeHabits(next.habits));
@@ -5540,6 +6778,18 @@ export default function App() {
     setMemoryTagsRaw(n);
     save(`${uk}_memory_tags`, n);
     persistSettings({ memoryTags: n });
+  };
+  const setAssistantMemory = v => {
+    const n = normalizeAssistantMemory(typeof v === "function" ? v(assistantMemory) : v);
+    setAssistantMemoryRaw(n);
+    save(`${uk}_assistant_memory`, n);
+    persistSettings({ assistantMemory: n });
+  };
+  const setAssistantActionHistory = v => {
+    const n = normalizeAssistantActionHistory(typeof v === "function" ? v(assistantActionHistory) : v);
+    setAssistantActionHistoryRaw(n);
+    save(`${uk}_assistant_action_history`, n);
+    persistSettings({ assistantActionHistory: n });
   };
   // Ritual mutation handlers removed: rituals are legacy sync data only.
 
@@ -6876,7 +8126,7 @@ export default function App() {
       if (e.key === "Escape") {
         if (showSearch) { setShowSearch(false); return; }
         if (page !== "calendar") { setPage("today"); return; }
-        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); setShowTempoAssistant(false); return;
+        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); setChatOpen(false); return;
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
@@ -6887,12 +8137,13 @@ export default function App() {
       else if (k === "j") setPage(p => p === "journal" ? "calendar" : "journal");
       else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
       else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "important", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
+      else if (k === "a") setChatOpen(v => !v);
       else if (k === "s") setSettingsOpen(v => !v);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // Include events, tasks, and undo so the undo handler always operates on current state
-  }, [view, page, settingsOpen, showShortcuts, showSearch, showTempoAssistant, undoStack, events, tasks, taskScope, viewDate]);
+  }, [view, page, chatOpen, settingsOpen, showShortcuts, showSearch, undoStack, events, tasks, taskScope, viewDate]);
 
   // Show boot spinner while checking existing session
   if (auth.loading && !auth.user) return (
@@ -6952,6 +8203,20 @@ export default function App() {
     mainThings: tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY) && Core.categoryIs(t.category, "main")).length,
     firstEvent: firstScheduledEvent ? `${fmt(firstScheduledEvent.start)} — ${firstScheduledEvent.title}` : null,
   };
+  const assistantFreeSlots = freeSlotsForDate(TODAY);
+  const assistantContext = buildTempoAssistantContext({
+    events: todayDashboardEvents,
+    tasks,
+    calendars,
+    hiddenCals,
+    hiddenCalendarSources,
+    habits,
+    habitCompletions,
+    journal,
+    dailyCheckIns,
+    freeSlots: assistantFreeSlots,
+    assistantMemory,
+  });
   const syncSettingsSnapshot = currentSettings();
   const syncDebug = {
     dataReady,
@@ -8401,6 +9666,15 @@ body.tempo-modal-locked{
 
 
 
+
+/* Mobile: decorations can be viewed, but decoration editing is desktop-only. */
+@media(max-width:768px){
+  .decorate-entry-btn,
+  .decorate-after-save-overlay,
+  .journal-decoration-bottom-sheet,
+  .journal-decoration-tool-card{display:none!important;}
+}
+
 /* Mobile journal card consistency + restored local Tempo Assistant button */
 .tempo-assistant-fab{position:fixed!important;right:22px!important;bottom:22px!important;width:58px!important;height:58px!important;border-radius:999px!important;border:1px solid rgba(var(--accent-rgb),.28)!important;background:linear-gradient(135deg,var(--accent),#C99284)!important;color:white!important;box-shadow:0 18px 44px rgba(var(--accent-rgb),.28)!important;z-index:1200!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;font-size:25px!important;line-height:1!important;transition:transform .16s ease,box-shadow .16s ease!important;}
 .tempo-assistant-fab:hover{transform:translateY(-2px) scale(1.04)!important;box-shadow:0 22px 54px rgba(var(--accent-rgb),.34)!important;}
@@ -8524,7 +9798,7 @@ body.tempo-modal-locked{
           {page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} />
+            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} allowDecorationEditing={!isMobileViewport} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "habits" ? (
@@ -8931,18 +10205,7 @@ body.tempo-modal-locked{
         </div>
       )}
 
-      <button type="button" className="tempo-assistant-fab" aria-label="Open My Tempo Assistant" title="My Tempo Assistant" onClick={() => setShowTempoAssistant(open => !open)}>
-        <span className="tempo-assistant-fab-icon">🌸</span>
-      </button>
-      {showTempoAssistant && (
-        <TempoAssistantPanel
-          onClose={() => setShowTempoAssistant(false)}
-          onGoToday={() => { setPage("today"); setShowTempoAssistant(false); }}
-          onGoJournal={() => { setPage("journal"); setShowTempoAssistant(false); }}
-          onGoTasks={() => { setPage("tasks"); setShowTempoAssistant(false); }}
-          onPlanDay={() => { setDayPlan(buildDailyPlan(TODAY)); setShowTempoAssistant(false); }}
-        />
-      )}
+      {chatOpen && <ChatPanel events={events} tasks={tasks} calendars={calendars} categories={categories} assistantContext={assistantContext} assistantMemory={assistantMemory} assistantActionHistory={assistantActionHistory} onUpdateAssistantMemory={setAssistantMemory} onUpdateAssistantActionHistory={setAssistantActionHistory} tomorrowResets={tomorrowResets} onUpdateTomorrowResets={setTomorrowResets} onClose={() => setChatOpen(false)} onUpdateEvents={setEvents} onUpdateTasks={setTasks} onOpenCalendar={() => { setPage("calendar"); setView("day"); }} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenHabits={() => setPage("habits")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} />}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
@@ -8959,7 +10222,7 @@ body.tempo-modal-locked{
       {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
-            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} assistantMemory={assistantMemory} onUpdateAssistantMemory={setAssistantMemory} assistantActionHistory={assistantActionHistory} onClearAssistantActionHistory={() => setAssistantActionHistory([])} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
@@ -8997,6 +10260,7 @@ body.tempo-modal-locked{
       </div>
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
+      <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : <TempoLogoMark />}</button>
     </>
   );
 }
