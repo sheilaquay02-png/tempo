@@ -8,134 +8,13 @@ import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCl
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
+import { CALENDAR_COLOR_PRESETS, EVENT_TEMPLATES, calendarEventReadOnly, calendarEventSource, calendarSourceIcon, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
+import { JOURNAL_DECORATION_HISTORY_LIMIT, makeScrapbookItem, normalizeScrapbookBlocksForSave, scrapbookClamp, scrapbookItemLabel, scrapbookItemLayout, scrapbookItemType, scrapbookNumber, scrapbookStickerFlipStyle, scrapbookTextFitStyle } from "../lib/tempo/client/journalDecorationModel";
+import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleCalendarRequest as requestGoogleCalendar, googleDisconnectWarning } from "../lib/tempo/client/googleCalendarClient";
+import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
 
 function TempoLogoMark() {
   return <>🌸</>;
-}
-
-const CALENDAR_COLOR_PRESETS = [
-  "#FF7BAC", "#B08AE0", "#70C8A0", "#A0C8E0", "#FFB870",
-  "#D989A2", "#C060A0", "#7C8FE8", "#5FB8A8", "#F2A65A",
-  "#CB416B", "#8E6AD8"
-];
-
-const cleanCalendarColor = value => /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value).toUpperCase() : "#FF7BAC";
-
-const EVENT_TEMPLATES = [
-  { id: "meeting", label: "Meeting", emoji: "💬", title: "Meeting", minutes: 30, category: "meeting", color: "#FF7BAC", notes: "" },
-  { id: "deep-work", label: "Deep Work", emoji: "🎯", title: "Deep Work", minutes: 90, category: "important", color: "#B08AE0", notes: "Protected focus block." },
-  { id: "personal", label: "Personal", emoji: "🌿", title: "Personal Time", minutes: 60, category: "personal", color: "#70C8A0", notes: "" },
-  { id: "exercise", label: "Exercise", emoji: "🏃", title: "Exercise", minutes: 45, category: "wellness", color: "#70C8A0", notes: "" },
-  { id: "admin", label: "Admin", emoji: "🧾", title: "Admin Block", minutes: 45, category: "light", color: "#A0C8E0", notes: "Clear small tasks and follow-ups." },
-];
-
-const calendarEventSource = (event, calendar) => event?.source === "habit" ? "habit" : (event?.source === "google" || calendar?.source === "google" ? "google" : "tempo");
-const calendarSourceLabel = source => source === "google" ? "Google" : source === "habit" ? "Habit" : "Tempo";
-const calendarSourceIcon = source => source === "google" ? "G" : source === "habit" ? "🌱" : "T";
-const calendarEventReadOnly = event => Boolean(event?.readOnly || event?.source === "google" || event?.source === "habit");
-
-
-const JOURNAL_DECORATION_DEFAULTS = {
-  tape: { x: 10, y: 18, w: 42, h: 14, rotate: -2 },
-  sticker: { x: 68, y: 10, w: 18, h: 14, rotate: 0 },
-};
-const JOURNAL_DECORATION_HISTORY_LIMIT = 40;
-const JOURNAL_DECORATION_SAFE_TYPES = new Set(["tape", "sticker", "text", "quote"]);
-const scrapbookClamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const scrapbookNumber = (value, fallback) => {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-};
-function scrapbookItemType(item) {
-  const raw = item?.type;
-  if (raw === "sticker") return "sticker";
-  if (raw === "tape" || raw === "text" || raw === "quote") return "tape";
-  return null;
-}
-function scrapbookItemLabel(type) {
-  return type === "sticker" ? "Sticker" : "Tape note";
-}
-function scrapbookItemLayout(item = {}, index = 0) {
-  const type = scrapbookItemType(item) || "tape";
-  const fallback = JOURNAL_DECORATION_DEFAULTS[type] || JOURNAL_DECORATION_DEFAULTS.tape;
-  const stagger = (index % 6) * 5;
-  const minX = -12;
-  const minY = -8;
-  const maxEdge = 112;
-  const w = scrapbookClamp(scrapbookNumber(item.w, fallback.w), type === "sticker" ? 8 : 16, 110);
-  const h = scrapbookClamp(scrapbookNumber(item.h, fallback.h), type === "sticker" ? 8 : 8, 82);
-  const x = scrapbookClamp(scrapbookNumber(item.x, fallback.x + stagger), minX, maxEdge);
-  const y = scrapbookClamp(scrapbookNumber(item.y, fallback.y + stagger), minY, maxEdge);
-  return {
-    x: scrapbookClamp(x, minX, Math.max(minX, maxEdge - Math.min(w, 110))),
-    y: scrapbookClamp(y, minY, Math.max(minY, maxEdge - Math.min(h, 82))),
-    w,
-    h,
-    rotate: scrapbookClamp(scrapbookNumber(item.rotate, fallback.rotate || 0), -180, 180),
-    z: scrapbookNumber(item.z, index + 1),
-  };
-}
-function makeScrapbookItem(type = "sticker", index = 0) {
-  const cleanType = type === "sticker" ? "sticker" : "tape";
-  const layout = scrapbookItemLayout({ type: cleanType }, index);
-  const base = { id: `b${uid()}`, type: cleanType, ...layout };
-  if (cleanType === "sticker") return { ...base, sticker: "🌸", stickerAsset: COZY_STICKER_PACK[0]?.src || null, flipX: false, flipY: false };
-  return { ...base, text: "" };
-}
-function scrapbookTextFitStyle(item = {}, layout = {}, type = "tape") {
-  const text = String(item?.text || "");
-  const chars = text.replace(/\s+/g, " ").trim().length || 1;
-  const lines = Math.max(1, text.split(/\n/).length);
-  const area = Math.max(1, scrapbookNumber(layout.w, 40) * scrapbookNumber(layout.h, 16));
-  const density = chars / area;
-  let size = 13;
-  if (density > 0.085 || lines > 2) size = 12;
-  if (density > 0.125 || lines > 3) size = 11;
-  if (density > 0.18 || lines > 4) size = 10;
-  if (density > 0.27 || lines > 5) size = 9;
-  if (density > 0.38 || lines > 6) size = 8;
-  if (layout.h < 11) size = Math.min(size, 10);
-  if (layout.w < 18) size = Math.min(size, 9);
-  const line = size <= 9 ? 1.16 : size <= 11 ? 1.24 : 1.34;
-  return {
-    "--scrapbook-text-size": `${size}px`,
-    "--scrapbook-text-line": line,
-  };
-}
-function scrapbookStickerFlipStyle(item = {}) {
-  return {
-    transform: `scale(${item?.flipX ? -1 : 1}, ${item?.flipY ? -1 : 1})`,
-  };
-}
-function normalizeScrapbookBlocksForSave(blocks = []) {
-  return (Array.isArray(blocks) ? blocks : [])
-    .filter(block => JOURNAL_DECORATION_SAFE_TYPES.has(block?.type))
-    .map((block, index) => {
-      const type = scrapbookItemType(block);
-      if (!type) return null;
-      const layout = scrapbookItemLayout({ ...block, type }, index);
-      const hasPxLayout = [block?.xPx, block?.yPx, block?.wPx, block?.hPx].every(v => Number.isFinite(Number(v)));
-      return {
-        id: block?.id || `b${uid()}`,
-        type,
-        text: type === "tape" ? (block?.text || "") : "",
-        sticker: block?.sticker || "🌸",
-        stickerAsset: block?.stickerAsset || null,
-        flipX: Boolean(block?.flipX),
-        flipY: Boolean(block?.flipY),
-        ...layout,
-        ...(hasPxLayout ? {
-          coord: "px",
-          xPx: Math.round(Number(block.xPx) * 10) / 10,
-          yPx: Math.round(Number(block.yPx) * 10) / 10,
-          wPx: Math.max(24, Math.round(Number(block.wPx) * 10) / 10),
-          hPx: Math.max(24, Math.round(Number(block.hPx) * 10) / 10),
-          ...(Number.isFinite(Number(block.boardW)) ? { boardW: Math.max(1, Math.round(Number(block.boardW) * 10) / 10) } : {}),
-          ...(Number.isFinite(Number(block.boardH)) ? { boardH: Math.max(1, Math.round(Number(block.boardH) * 10) / 10) } : {}),
-        } : {}),
-      };
-    })
-    .filter(Boolean);
 }
 
 function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false, onHistoryCheckpoint }) {
@@ -6666,73 +6545,33 @@ export default function App() {
     persistSettings({ notificationPreferences: n, affirmationSettings: nextAffirmationSettings });
   };
   async function enableClosedPushNotifications() {
-    try {
-      const result = await registerTempoPushNotifications(auth.user?.id);
-      if (!result?.ok) throw new Error(result?.reason || "Push setup failed");
-      showToast("Closed-app push notifications enabled ✓");
-      return true;
-    } catch (err) {
-      console.warn("Push notification setup failed", err);
-      showToast(err?.message || "Push setup failed. Check VAPID/server setup.");
-      return false;
-    }
-  }
-
-  function mergeGoogleCalendarsLocal(googleCalendars = [], baseCalendars = calendars) {
-    const nonGoogle = normalizeCalendars(baseCalendars).filter(cal => cal.source !== "google");
-    return normalizeCalendars([...nonGoogle, ...googleCalendars]);
+    return enableClosedPushNotificationsForUser({
+      userId: auth.user?.id,
+      registerTempoPushNotifications,
+      showToast,
+      logger: console,
+    });
   }
 
   function applyGoogleCalendarPayload(payload = {}) {
-    let nextCalendars = calendars;
-    const googleCalendars = Array.isArray(payload.calendars) ? payload.calendars : [];
-    if (googleCalendars.length || payload.connected === false) {
-      nextCalendars = payload.calendars?.some?.(cal => cal.source !== "google")
-        ? normalizeCalendars(payload.calendars)
-        : mergeGoogleCalendarsLocal(googleCalendars);
-      setCalendarsRaw(nextCalendars);
-      save(`${uk}_calendars`, nextCalendars);
+    const derived = deriveGoogleCalendarPayloadState(payload, { calendars, prevGoogleSync: googleSync });
+    if (derived.shouldUpdateCalendars) {
+      setCalendarsRaw(derived.nextCalendars);
+      save(`${uk}_calendars`, derived.nextCalendars);
     }
-    if (Array.isArray(payload.hiddenCals)) {
-      setHiddenCals(payload.hiddenCals);
-      save(`${uk}_hidden_cals`, payload.hiddenCals);
+    if (derived.hiddenCals) {
+      setHiddenCals(derived.hiddenCals);
+      save(`${uk}_hidden_cals`, derived.hiddenCals);
     }
-    if (Array.isArray(payload.events)) {
-      const nextEvents = reviveEvents(payload.events);
-      setEvRaw(nextEvents);
-      save(`${uk}_ev`, nextEvents);
+    if (derived.events) {
+      setEvRaw(derived.events);
+      save(`${uk}_ev`, derived.events);
       markUpdated();
     }
-    const nextGoogleCalendars = normalizeCalendars(nextCalendars).filter(cal => cal.source === "google");
-    setGoogleSync(prev => ({
-      ...prev,
-      connected: payload.connected ?? (payload.ok ? true : prev.connected),
-      calendars: nextGoogleCalendars,
-      lastImportAt: payload.googleCalendarSync?.lastImportAt || payload.lastImportAt || prev.lastImportAt,
-      googleCalendarSync: payload.googleCalendarSync || prev.googleCalendarSync || null,
-      message: payload.message || prev.message,
-      error: "",
-      loading: false,
-    }));
+    setGoogleSync(derived.googleSync);
   }
 
-  async function googleCalendarRequest(path, options = {}) {
-    const sb = await getSupabase();
-    const { data: sessionData } = await sb.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    if (!token) throw new Error("Sign in again before using Google Calendar.");
-    const res = await fetch(`/api/google/${path}`, {
-      ...options,
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers || {}),
-      },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) throw new Error(data.error || `Google Calendar request failed (${res.status})`);
-    return data;
-  }
+  const googleCalendarRequest = (path, options = {}) => requestGoogleCalendar(getSupabase, path, options);
 
   async function refreshGoogleCalendarStatus({ silent = false } = {}) {
     if (!auth.user?.id) return;
@@ -6772,8 +6611,7 @@ export default function App() {
         body: JSON.stringify({}),
       });
       applyGoogleCalendarPayload(data);
-      const skipped = Number(data.skipped || 0);
-      setToast({ text: `Imported ${data.imported || 0} Google event${Number(data.imported || 0) === 1 ? "" : "s"}${skipped ? ` · skipped ${skipped} unsupported` : ""} ✓`, ts: Date.now() });
+      setToast({ text: formatGoogleImportToast(data), ts: Date.now() });
     } catch (err) {
       console.warn("Google Calendar import failed", err);
       setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
@@ -6783,10 +6621,8 @@ export default function App() {
 
   async function disconnectGoogleCalendar() {
     if (!auth.user?.id) return;
-    const importedCount = events.filter(ev => ev?.source === "google" || ev?.externalSource === "google_calendar").length;
-    const warning = `Disconnect Google Calendar from Tempo?
-
-This removes ${importedCount} imported Google reference event${importedCount === 1 ? "" : "s"} from Tempo. It will not delete anything from Google Calendar.`;
+    const importedCount = countImportedGoogleEvents(events);
+    const warning = googleDisconnectWarning(importedCount);
     if (!window.confirm(warning)) return;
     setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Disconnecting Google Calendar…" }));
     try {
