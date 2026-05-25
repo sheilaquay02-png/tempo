@@ -28,6 +28,7 @@ export async function POST(request) {
     const googleCalendars = settings.calendars.filter(c => c.source === "google" && c.syncEnabled !== false);
 
     const imported = [];
+    const skipped = [];
     const cancelled = new Set();
     const seenIds = new Set();
     const syncedCalendarIds = new Set(googleCalendars.map(calendar => calendar.googleCalendarId));
@@ -43,7 +44,11 @@ export async function POST(request) {
           cancelled.add(tempoId);
           continue;
         }
-        imported.push(mapGoogleEvent(item, calendar, { timeZone }));
+        try {
+          imported.push(mapGoogleEvent(item, calendar, { timeZone }));
+        } catch (eventError) {
+          skipped.push({ id: item.id, calendarId: calendar.googleCalendarId, reason: eventError?.message || "Could not import Google event" });
+        }
       }
     }
 
@@ -64,6 +69,7 @@ export async function POST(request) {
         lastImportAt: new Date().toISOString(),
         importedCount: imported.length,
         cancelledCount: cancelled.size,
+        skippedCount: skipped.length,
         staleRemovedCount: events.filter(ev => ev.source === "google" && ev.googleStatus === "missing_from_sync").length,
         mode: "import-first",
         timeMin: syncWindow.timeMin,
@@ -77,6 +83,7 @@ export async function POST(request) {
       mode: "import-first",
       imported: imported.length,
       cancelled: cancelled.size,
+      skipped: skipped.length,
       events,
       calendars: nextSettings.calendars,
       hiddenCals: nextSettings.hiddenCals || [],

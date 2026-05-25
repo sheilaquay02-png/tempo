@@ -1,15 +1,40 @@
+const TEMPO_SW_VERSION = 'phase-51-70-v1';
+const SAFE_PATHS = new Set(['/', '/?page=today', '/?page=calendar', '/?page=tasks', '/?page=journal', '/?page=reset', '/?page=weekly', '/?page=affirmations']);
+
 self.addEventListener('install', event => {
-  self.skipWaiting();
+  // Do not force-claim immediately. New service workers activate after the page naturally reloads,
+  // which avoids surprising users while they are editing a journal, task, or day plan.
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    if (self.registration?.navigationPreload) {
+      try { await self.registration.navigationPreload.enable(); } catch {}
+    }
+  })());
 });
 
 function payloadFromEvent(event) {
   try { return event.data ? event.data.json() : {}; }
   catch {
     return { title: 'Tempo reminder', body: event.data?.text?.() || 'You have a Tempo reminder.' };
+  }
+}
+
+function safeTempoUrl(input) {
+  try {
+    const raw = String(input || '/');
+    const url = new URL(raw, self.location.origin);
+    if (url.origin !== self.location.origin) return '/';
+    const page = url.searchParams.get('page');
+    if (page && !['today','calendar','tasks','journal','reset','weekly','affirmations'].includes(page)) {
+      url.searchParams.set('page', 'today');
+    }
+    // Removed/legacy routes should simply open Tempo instead of a blank/old page.
+    if (url.pathname !== '/') return '/';
+    return `${url.pathname}${url.search}${url.hash}` || '/';
+  } catch {
+    return '/';
   }
 }
 
@@ -24,13 +49,14 @@ function notificationOptions(payload) {
     renotify: Boolean(payload.tag),
     actions,
     data: {
-      url: data.url || payload.url || '/',
+      url: safeTempoUrl(data.url || payload.url || '/'),
       actionToken: data.actionToken || payload.actionToken || null,
       taskId: data.taskId || payload.taskId || null,
       habitId: data.habitId || payload.habitId || null,
       date: data.date || payload.date || null,
       sourceType: data.sourceType || payload.sourceType || null,
       sourceId: data.sourceId || payload.sourceId || null,
+      swVersion: TEMPO_SW_VERSION,
     },
   };
 }
@@ -42,37 +68,43 @@ self.addEventListener('push', event => {
 });
 
 async function postReminderAction(data, body) {
-  const res = await fetch('/api/push/action', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, actionToken: data?.actionToken || null }),
-  });
-  return res.ok ? res.json().catch(() => ({})) : null;
+  try {
+    const res = await fetch('/api/push/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, actionToken: data?.actionToken || null }),
+    });
+    const parsed = await res.json().catch(() => ({}));
+    return res.ok && parsed?.ok !== false ? { ok: true, ...parsed } : { ok: false, ...parsed };
+  } catch {
+    return { ok: false };
+  }
 }
 
 async function openTempoWindow(url) {
+  const safeUrl = safeTempoUrl(url);
   const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
   for (const client of allClients) {
     if ('focus' in client) {
-      try { await client.navigate(url); } catch {}
+      try { await client.navigate(safeUrl); } catch {}
       return client.focus();
     }
   }
-  if (clients.openWindow) return clients.openWindow(url);
+  if (clients.openWindow) return clients.openWindow(safeUrl);
 }
 
 self.addEventListener('notificationclick', event => {
   const data = event.notification?.data || {};
   const action = event.action || 'open';
-  const url = data.url || '/';
+  const url = safeTempoUrl(data.url || '/');
   event.notification.close();
 
   event.waitUntil((async () => {
     if (action === 'snooze_5' || action === 'snooze_10' || action === 'snooze_30') {
       const minutes = Number(action.split('_')[1] || 10);
-      await postReminderAction(data, { action: 'snooze', minutes });
-      await self.registration.showNotification('Snoozed 🌸', {
-        body: `Reminder will come back in ${minutes} minutes.`,
+      const result = await postReminderAction(data, { action: 'snooze', minutes });
+      await self.registration.showNotification(result?.ok ? 'Snoozed 🌸' : 'Could not snooze', {
+        body: result?.ok ? `Reminder will come back in ${minutes} minutes.` : 'Open Tempo to check this reminder.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         data: { url },
@@ -100,10 +132,6 @@ self.addEventListener('notificationclick', event => {
         data: { url },
       });
       return;
-    }
-
-    if (action === 'open_journal' || action === 'start_reset' || action === 'open') {
-      return openTempoWindow(url);
     }
 
     return openTempoWindow(url);

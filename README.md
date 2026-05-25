@@ -1,4 +1,6 @@
-# Tempo split — feature modules pass
+# Tempo
+
+> Current product note: older phase documents are kept as implementation history. The visible product is Tempo's daily rhythm planner; legacy Ritual/Bloom implementation names may remain internally for migration/sync compatibility, but they are not separate active navigation surfaces unless intentionally re-enabled.
 
 This package performs the next safe split after the initial route/component split.
 

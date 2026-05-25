@@ -19,6 +19,7 @@ export async function GET(request) {
       calendars: settings.calendars.filter(c => c.source === "google"),
       hiddenCals: settings.hiddenCals || [],
       lastCalendarRefreshAt: settings.googleCalendarSync?.lastCalendarRefreshAt || null,
+      googleCalendarSync: settings.googleCalendarSync || null,
     });
   } catch (err) {
     return handleRouteError(err);

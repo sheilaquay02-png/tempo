@@ -1969,17 +1969,45 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
   const settingsAssistantHistory = normalizeAssistantActionHistory(assistantActionHistory);
   const updateSettingsAssistantMemory = patch => onUpdateAssistantMemory?.(normalizeAssistantMemory({ ...settingsAssistantMemory, ...patch, updatedAt: new Date().toISOString() }));
   const removeAssistantMemoryNote = id => updateSettingsAssistantMemory({ notes: settingsAssistantMemory.notes.filter(note => note.id !== id) });
-  const clearAssistantMemory = () => onUpdateAssistantMemory?.(normalizeAssistantMemory(DEFAULT_ASSISTANT_MEMORY));
+  const clearAssistantMemory = () => {
+    if (!window.confirm("Clear Tempo Assistant rhythm memory? This only removes the local preferences Tempo remembers about your planning style.")) return;
+    onUpdateAssistantMemory?.(normalizeAssistantMemory(DEFAULT_ASSISTANT_MEMORY));
+  };
+  const notificationSupported = typeof window !== "undefined" && "Notification" in window;
+  const pushSupported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && notificationSupported;
+  const notificationPermission = notificationSupported ? Notification.permission : "unsupported";
+  const googleLastImportMs = googleSync?.lastImportAt ? new Date(googleSync.lastImportAt).getTime() : 0;
+  const googleIsStale = Boolean(googleSync?.connected && googleLastImportMs && Date.now() - googleLastImportMs > 24 * 60 * 60 * 1000);
+  const googleOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+  const googleNeedsReconnect = Boolean(googleSync?.error && /unauthorized|expired|revoked|invalid_grant|not connected/i.test(String(googleSync.error)));
+  const googleStatusTone = googleOffline ? "offline" : googleSync?.loading ? "loading" : googleSync?.error ? "failed" : googleNeedsReconnect ? "failed" : googleIsStale ? "stale" : googleSync?.connected ? "connected" : "disconnected";
+  const googleStatusLabel = googleOffline ? "Offline" : googleSync?.loading ? "Syncing" : googleSync?.error ? "Needs attention" : googleIsStale ? "Stale" : googleSync?.connected ? "Connected" : "Not connected";
   const debug = syncDebug || {};
   const datasetCounts = debug.datasetCounts || {};
   const recentConflicts = normalizeSyncConflictLog(debug.syncConflictLog || []).slice(0, 5);
   const tombstoneCount = Object.values(debug.deletedRecords || {}).reduce((sum, bucket) => sum + Object.keys(bucket || {}).length, 0);
-  function toggleNotifs() { if (!notifs && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); setNotifs(!notifs); }
+  async function toggleNotifs() {
+    if (!notificationSupported) {
+      window.alert("This browser does not support notifications. Tempo can still show reminders while the app is open, but browser alerts cannot be enabled here.");
+      return;
+    }
+    if (!notifs && Notification.permission === "default") await Notification.requestPermission();
+    if (!notifs && Notification.permission === "denied") {
+      window.alert("Notifications are blocked for this browser. Enable them in browser/site settings, then come back to Tempo.");
+      return;
+    }
+    setNotifs(!notifs);
+  }
   async function toggleClosedPush() {
     if (!pushEnabled) {
+      if (!pushSupported) {
+        window.alert("Closed-app push notifications are not supported on this browser/device. Tempo reminders still work while the app is open.");
+        return;
+      }
       const ok = await onEnableClosedPush?.();
       if (ok) setPushEnabled(true);
     } else {
+      if (!window.confirm("Turn off closed-app push notifications on this device? In-app reminders will stay available.")) return;
       await disableTempoPushNotifications();
       setPushEnabled(false);
     }
@@ -1991,7 +2019,12 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
     setCatDraft({ icon: "✨", label: "", color: "#FF7BAC" });
   }
   function updateCategory(id, patch) { setCategories(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c)); }
-  function removeCategory(id) { if (categories.length <= 1) return; setCategories(cs => cs.filter(c => c.id !== id)); }
+  function removeCategory(id) {
+    if (categories.length <= 1) return;
+    const label = categories.find(c => c.id === id)?.label || "this category";
+    if (!window.confirm(`Remove ${label}? Existing items keep their category id, but it will no longer appear in category settings.`)) return;
+    setCategories(cs => cs.filter(c => c.id !== id));
+  }
   function updateMealBreak(id, patch) {
     setMealBreaks(bs => normalizeMealBreaks(bs).map(b => b.id === id ? normalizeMealBreaks([{ ...b, ...patch }])[0] : b));
   }
@@ -2148,24 +2181,29 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
               <div className="settings-section-label small">Assistant action undo history</div>
               <div className="settings-section-desc">{settingsAssistantHistory.length ? `${settingsAssistantHistory.length} assistant-applied action${settingsAssistantHistory.length === 1 ? "" : "s"} saved for undo.` : "No assistant-applied actions yet."}</div>
               {settingsAssistantHistory.slice(0, 8).map(item => <div key={item.id} className="assistant-history-row"><span>{item.label}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>)}
-              {settingsAssistantHistory.length > 0 && <button type="button" className="tf-cancel" onClick={onClearAssistantActionHistory}>Clear assistant undo history</button>}
+              {settingsAssistantHistory.length > 0 && <button type="button" className="tf-cancel" onClick={() => { if (window.confirm("Clear assistant undo history? This only clears the history list and will not undo past changes.")) onClearAssistantActionHistory?.(); }}>Clear assistant undo history</button>}
             </div>
           </div>
 
           <div className="settings-section google-calendar-settings">
             <div className="settings-section-label">Google Calendar Sync</div>
-            <div className="settings-section-desc">Connect Google Calendar safely for reference inside Tempo. Tokens stay server-side, and Google events import into Tempo as read-only reference events.</div>
-            <div className="google-sync-status-row">
-              <span className={`google-sync-dot ${googleSync?.connected ? "connected" : "disconnected"}`} />
-              <strong>{googleSync?.connected ? "Connected" : "Not connected"}</strong>
+            <div className="settings-section-desc">Read-only import: Tempo can show Google events for planning context, but Tempo does not edit, delete, or write events back to Google Calendar.</div>
+            <div className={`google-sync-status-row ${googleStatusTone}`}>
+              <span className={`google-sync-dot ${googleStatusTone}`} />
+              <strong>{googleStatusLabel}</strong>
               {googleSync?.lastImportAt && <small>Last import {new Date(googleSync.lastImportAt).toLocaleString()}</small>}
+              {!googleSync?.lastImportAt && googleSync?.connected && <small>No import yet</small>}
+              {googleSync?.googleCalendarSync?.importedCount !== undefined && <small>{googleSync.googleCalendarSync.importedCount} events in last import</small>}
+              {googleOffline && <small className="google-sync-error">Reconnect to the internet, then retry import.</small>}
               {googleSync?.error && <small className="google-sync-error">{googleSync.error}</small>}
             </div>
+            {googleNeedsReconnect && <div className="google-sync-warning">Google access may have expired or been revoked. Reconnect Google Calendar to refresh Tempo’s read-only import.</div>}
+            {googleIsStale && !googleSync?.error && <div className="google-sync-warning">Google events may be stale. Retry import to refresh your reference calendar.</div>}
             <div className="settings-action-row google-sync-actions">
               {!googleSync?.connected
-                ? <button className="tf-save" onClick={onGoogleConnect} disabled={googleSync?.loading}>Connect Google Calendar</button>
+                ? <button className="tf-save" onClick={onGoogleConnect} disabled={googleSync?.loading || googleOffline}>Connect Google Calendar</button>
                 : <>
-                    <button className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading}>{googleSync?.loading ? "Syncing…" : "Import Google events"}</button>
+                    <button className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading || googleOffline}>{googleSync?.loading ? "Syncing…" : googleSync?.error ? "Retry import" : "Import Google events"}</button>
                     <button className="tf-cancel" onClick={onGoogleDisconnect} disabled={googleSync?.loading}>Disconnect</button>
                   </>}
             </div>
@@ -2176,13 +2214,19 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
                   <div key={cal.id} className="google-calendar-row">
                     <span className="google-calendar-color" style={{ background: cal.color || "var(--accent)" }} />
                     <div className="google-calendar-meta">
-                      <strong>{cal.name}</strong>
-                      <small>{cal.readOnly ? "Read-only" : "Writable"} · {cal.googleCalendarId}</small>
+                      <strong>{cal.name || "Untitled Google calendar"}</strong>
+                      <small>Read-only reference · {cal.googleCalendarId || "Google calendar"}</small>
                     </div>
                     <label><input type="checkbox" checked={cal.visible !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { visible: e.target.checked })} /> Show</label>
                     <label><input type="checkbox" checked={cal.syncEnabled !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { syncEnabled: e.target.checked })} /> Sync</label>
                   </div>
-                )) : <div className="settings-section-desc">No Google calendars loaded yet. Click “Import Google events” after connecting.</div>}
+                )) : (
+                  <div className="google-calendar-empty-state">
+                    <strong>No Google calendars loaded yet</strong>
+                    <span>Use Import Google events to fetch your readable calendars. If this stays empty, reconnect Google Calendar.</span>
+                    <button type="button" className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading || googleOffline}>Retry import</button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2212,13 +2256,15 @@ function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, 
           {/* Notifications */}
           <div className="settings-section">
             <div className="settings-section-label">In-app notifications</div>
-            <div className="settings-section-desc">Used for reminder alerts while the app is open</div>
-            <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs}><div className="toggle-thumb" /></button><span>On</span></div>
+            <div className="settings-section-desc">Used for reminder alerts while Tempo is open in this browser.</div>
+            <div className={`notification-support-note ${notificationSupported ? "supported" : "unsupported"}`}>{notificationSupported ? `Browser permission: ${notificationPermission}` : "This browser does not support notification permissions."}</div>
+            <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs} disabled={!notificationSupported}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Closed-app push notifications</div>
-            <div className="settings-section-desc">Registers this device for server-sent reminders while Tempo is closed. Requires the push setup files and VAPID keys.</div>
-            <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush}><div className="toggle-thumb" /></button><span>On</span></div>
+            <div className="settings-section-desc">Registers this device for server-sent reminders while Tempo is closed. This requires browser push support, service workers, and your VAPID setup.</div>
+            <div className={`notification-support-note ${pushSupported ? "supported" : "unsupported"}`}>{pushSupported ? "Supported on this device/browser." : "Not supported on this device/browser. Keep Tempo open for in-app reminders."}</div>
+            <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush} disabled={!pushEnabled && !pushSupported}><div className="toggle-thumb" /></button><span>On</span></div>
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Reminder categories</div>
@@ -5521,7 +5567,7 @@ export default function App() {
   const lastRealtimeSyncRef = useRef(0);
   const [dataReady,    setDataReady]    = useState(false);
   const [loadedUserId, setLoadedUserId] = useState(null);
-  const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null });
+  const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null, googleCalendarSync: null });
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
   // Real streak: count consecutive days the user has been active
@@ -6651,6 +6697,7 @@ export default function App() {
       connected: payload.connected ?? (payload.ok ? true : prev.connected),
       calendars: nextGoogleCalendars,
       lastImportAt: payload.googleCalendarSync?.lastImportAt || payload.lastImportAt || prev.lastImportAt,
+      googleCalendarSync: payload.googleCalendarSync || prev.googleCalendarSync || null,
       message: payload.message || prev.message,
       error: "",
       loading: false,
@@ -6713,7 +6760,8 @@ export default function App() {
         body: JSON.stringify({}),
       });
       applyGoogleCalendarPayload(data);
-      setToast({ text: `Imported ${data.imported || 0} Google event${Number(data.imported || 0) === 1 ? "" : "s"} ✓`, ts: Date.now() });
+      const skipped = Number(data.skipped || 0);
+      setToast({ text: `Imported ${data.imported || 0} Google event${Number(data.imported || 0) === 1 ? "" : "s"}${skipped ? ` · skipped ${skipped} unsupported` : ""} ✓`, ts: Date.now() });
     } catch (err) {
       console.warn("Google Calendar import failed", err);
       setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
@@ -6723,7 +6771,11 @@ export default function App() {
 
   async function disconnectGoogleCalendar() {
     if (!auth.user?.id) return;
-    if (!window.confirm("Disconnect Google Calendar from Tempo? Imported Google events will be removed from Tempo.")) return;
+    const importedCount = events.filter(ev => ev?.source === "google" || ev?.externalSource === "google_calendar").length;
+    const warning = `Disconnect Google Calendar from Tempo?
+
+This removes ${importedCount} imported Google reference event${importedCount === 1 ? "" : "s"} from Tempo. It will not delete anything from Google Calendar.`;
+    if (!window.confirm(warning)) return;
     setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Disconnecting Google Calendar…" }));
     try {
       const data = await googleCalendarRequest("disconnect", {
@@ -6731,7 +6783,7 @@ export default function App() {
         body: JSON.stringify({}),
       });
       applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
-      setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null });
+      setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null, googleCalendarSync: null });
       showToast("Google Calendar disconnected ✓");
     } catch (err) {
       console.warn("Google Calendar disconnect failed", err);
@@ -10967,6 +11019,25 @@ body.tempo-modal-locked{touch-action:auto!important;}
   .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card[data-open="false"]{
     transform:translateY(calc(100% - 46px))!important;
   }
+}
+
+
+/* ── Phase 51-70 conservative UX hardening ─────────────────────────────── */
+.google-sync-status-row.loading .google-sync-dot{background:#D8A74D;animation:pulseDot 1.1s ease-in-out infinite;}
+.google-sync-status-row.stale .google-sync-dot{background:#D8A74D;}
+.google-sync-status-row.failed .google-sync-dot,.google-sync-status-row.offline .google-sync-dot{background:#B94D6A;}
+.google-sync-warning,.google-calendar-empty-state,.notification-support-note{margin-top:8px;padding:10px 12px;border-radius:16px;border:1px solid rgba(var(--accent-rgb),.16);background:rgba(var(--accent-rgb),.06);color:var(--text2);font-size:12px;font-weight:800;line-height:1.35;}
+.google-calendar-empty-state{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+.google-calendar-empty-state strong{color:var(--text);font-size:13px;font-weight:950;}
+.google-calendar-empty-state span{color:var(--text3);font-size:11px;font-weight:800;}
+.notification-support-note.unsupported{border-color:rgba(185,77,106,.22);background:rgba(185,77,106,.08);color:#B94D6A;}
+.notification-support-note.supported{border-color:rgba(112,200,160,.24);background:rgba(112,200,160,.10);}
+@keyframes pulseDot{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.25);opacity:1}}
+@media(max-width:768px){
+  :root{--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);}
+  .mobile-nav,.bottom-nav{padding-bottom:max(8px,var(--safe-bottom))!important;}
+  .modal,.checkin-modal,.entry-modal,.entry-view-modal,.settings-panel,.templates-panel,.search-modal{max-height:calc(100dvh - max(16px,var(--safe-top)) - max(16px,var(--safe-bottom)))!important;}
+  .settings-overlay,.modal-overlay,.checkin-overlay,.templates-overlay,.search-overlay{padding-top:max(8px,var(--safe-top))!important;padding-bottom:max(8px,var(--safe-bottom))!important;}
 }
 
 
