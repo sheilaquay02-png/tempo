@@ -46,6 +46,13 @@ jobs:
           node --version
           npm --version
 
+      - name: Remove legacy generated/server-AI paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$APP_DIR"
+          node scripts/clean-legacy-release-files.mjs
+
       - name: Validate release safety before install
         shell: bash
         run: |
