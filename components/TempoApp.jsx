@@ -130,6 +130,8 @@ function normalizeScrapbookBlocksForSave(blocks = []) {
           yPx: Math.round(Number(block.yPx) * 10) / 10,
           wPx: Math.max(24, Math.round(Number(block.wPx) * 10) / 10),
           hPx: Math.max(24, Math.round(Number(block.hPx) * 10) / 10),
+          ...(Number.isFinite(Number(block.boardW)) ? { boardW: Math.max(1, Math.round(Number(block.boardW) * 10) / 10) } : {}),
+          ...(Number.isFinite(Number(block.boardH)) ? { boardH: Math.max(1, Math.round(Number(block.boardH) * 10) / 10) } : {}),
         } : {}),
       };
     })
@@ -159,12 +161,18 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
   function decorationLayoutToPx(item = {}, layout = {}, rect = decorationBoardRect()) {
     const hasPxLayout = [item?.xPx, item?.yPx, item?.wPx, item?.hPx].every(v => Number.isFinite(Number(v)));
     if (hasPxLayout) {
+      const baseW = Math.max(1, Number(item.boardW || item.boardWidth || 560));
+      const baseH = Math.max(1, Number(item.boardH || item.boardHeight || baseW));
+      const sx = Math.max(0.2, Math.min(2.5, rect.width / baseW));
+      const sy = Number.isFinite(Number(item.boardH || item.boardHeight)) ? Math.max(0.2, Math.min(2.5, rect.height / baseH)) : sx;
       return {
-        x: Number(item.xPx),
-        y: Number(item.yPx),
-        w: Math.max(24, Number(item.wPx)),
-        h: Math.max(24, Number(item.hPx)),
+        x: Number(item.xPx) * sx,
+        y: Number(item.yPx) * sy,
+        w: Math.max(24, Number(item.wPx) * sx),
+        h: Math.max(24, Number(item.hPx) * sy),
         rotate: scrapbookNumber(item.rotate, layout.rotate || 0),
+        scaleX: sx,
+        scaleY: sy,
       };
     }
     return {
@@ -183,12 +191,16 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
       "--decoration-rotate": `${layout.rotate}deg`,
     };
     if (hasPxLayout) {
+      const baseW = Math.max(1, Number(item.boardW || item.boardWidth || 560));
+      const baseH = Math.max(1, Number(item.boardH || item.boardHeight || baseW));
+      const sx = Math.max(0.2, Math.min(2.5, (boardMetrics.width || baseW) / baseW));
+      const sy = Number.isFinite(Number(item.boardH || item.boardHeight)) ? Math.max(0.2, Math.min(2.5, (boardMetrics.height || baseH) / baseH)) : sx;
       return {
         ...base,
-        left:`${Number(item.xPx)}px`,
-        top:`${Number(item.yPx)}px`,
-        width:`${Math.max(24, Number(item.wPx))}px`,
-        height:`${Math.max(24, Number(item.hPx))}px`,
+        left:`${Number(item.xPx) * sx}px`,
+        top:`${Number(item.yPx) * sy}px`,
+        width:`${Math.max(24, Number(item.wPx) * sx)}px`,
+        height:`${Math.max(24, Number(item.hPx) * sy)}px`,
       };
     }
     return {
@@ -253,6 +265,8 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
           yPx: Math.round(((layout.y / 100) * rect.height) * 10) / 10,
           wPx: Math.max(28, Math.round(((layout.w / 100) * rect.width) * 10) / 10),
           hPx: Math.max(28, Math.round(((layout.h / 100) * rect.height) * 10) / 10),
+          boardW: Math.max(1, Math.round(rect.width * 10) / 10),
+          boardH: Math.max(1, Math.round(rect.height * 10) / 10),
         };
       });
       return changed ? next : bs;
@@ -300,11 +314,19 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
     if (sourceIndex < 0) return;
     const source = normalizedBlocks[sourceIndex];
     const layout = scrapbookItemLayout(source, sourceIndex);
+    const hasPxLayout = [source?.xPx, source?.yPx, source?.wPx, source?.hPx].every(v => Number.isFinite(Number(v)));
     const copy = {
       ...source,
       id: `b${uid()}`,
       x: scrapbookClamp(layout.x + 4, -12, 104),
       y: scrapbookClamp(layout.y + 4, -8, 104),
+      ...(hasPxLayout ? {
+        coord: "px",
+        xPx: Number(source.xPx) + 18,
+        yPx: Number(source.yPx) + 18,
+        boardW: source.boardW || boardMetrics.width || 560,
+        boardH: source.boardH || boardMetrics.height || 560,
+      } : {}),
       z: Math.max(1, ...normalizedBlocks.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1)) + 1,
     };
     setBlocks(bs => [...bs, copy]);
@@ -391,6 +413,8 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
         xPx: scrapbookClamp(Math.round((centerXPx - nextW / 2) * 10) / 10, -edgePad, maxW - nextW + edgePad),
         yPx: scrapbookClamp(Math.round((centerYPx - nextH / 2) * 10) / 10, -edgePad, maxH - nextH + edgePad),
         rotate: Math.round(rotate * 10) / 10,
+        boardW: Math.max(1, Math.round(maxW * 10) / 10),
+        boardH: Math.max(1, Math.round(maxH * 10) / 10),
       });
     } else {
       patchDecoration(drag.blockId, {
@@ -399,6 +423,8 @@ function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setS
         yPx: scrapbookClamp(Math.round((drag.pxLayout.y + dyPx) * 10) / 10, -edgePad, maxH - drag.pxLayout.h + edgePad),
         wPx: Math.max(24, Math.round(drag.pxLayout.w * 10) / 10),
         hPx: Math.max(24, Math.round(drag.pxLayout.h * 10) / 10),
+        boardW: Math.max(1, Math.round(maxW * 10) / 10),
+        boardH: Math.max(1, Math.round(maxH * 10) / 10),
       });
     }
   }
@@ -577,11 +603,13 @@ function JournalDecorationControls({ blocks = [], setBlocks, selectedBlockId, se
     if (sourceIndex < 0) return;
     const source = normalizedBlocks[sourceIndex];
     const layout = scrapbookItemLayout(source, sourceIndex);
+    const hasPxLayout = [source?.xPx, source?.yPx, source?.wPx, source?.hPx].every(v => Number.isFinite(Number(v)));
     const copy = {
       ...source,
       id: `b${uid()}`,
       x: scrapbookClamp(layout.x + 4, -12, 104),
       y: scrapbookClamp(layout.y + 4, -8, 104),
+      ...(hasPxLayout ? { coord: "px", xPx: Number(source.xPx) + 18, yPx: Number(source.yPx) + 18 } : {}),
       z: Math.max(1, ...normalizedBlocks.map((b, idx) => scrapbookItemLayout(b, idx).z || idx + 1)) + 1,
     };
     setBlocks(bs => [...bs, copy]);
@@ -4173,6 +4201,24 @@ function CalendarEditModal({ mode = "edit", calendar, calendars = [], onClose, o
 }
 
 
+function TempoAssistantPanel({ onClose, onGoToday, onGoJournal, onGoTasks, onPlanDay }) {
+  return (
+    <div className="tempo-assistant-popover" role="dialog" aria-modal="false" aria-label="My Tempo Assistant">
+      <div className="tempo-assistant-popover-head">
+        <div><strong>My Tempo Assistant</strong><span>Quick rhythm helper</span></div>
+        <button type="button" className="modal-close" onClick={onClose}>✕</button>
+      </div>
+      <div className="tempo-assistant-popover-body">
+        <button type="button" onClick={onGoToday}><span>🌤️</span><strong>Go to Today</strong><small>Return to your daily rhythm.</small></button>
+        <button type="button" onClick={onPlanDay}><span>✨</span><strong>Plan my day</strong><small>Open Tempo’s local day planner.</small></button>
+        <button type="button" onClick={onGoJournal}><span>📔</span><strong>Open Journal</strong><small>Reflect or decorate a memory.</small></button>
+        <button type="button" onClick={onGoTasks}><span>✅</span><strong>Open Tasks</strong><small>Check what needs attention.</small></button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a persistent anonymous key so
@@ -4248,6 +4294,7 @@ export default function App() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTempoAssistant, setShowTempoAssistant] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
   const [pushEnabled, setPushEnabledRaw] = useState(() => load(`${uk}_push_enabled`, false));
   const [calendars, setCalendarsRaw] = useState(() => normalizeCalendars(load(`${uk}_calendars`, CALENDARS)));
@@ -6829,7 +6876,7 @@ export default function App() {
       if (e.key === "Escape") {
         if (showSearch) { setShowSearch(false); return; }
         if (page !== "calendar") { setPage("today"); return; }
-        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); return;
+        setSelectedEvent(null); setShowStats(false); setShowShortcuts(false); setSettingsOpen(false); setShowTemplates(false); setShowTempoAssistant(false); return;
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
@@ -6845,7 +6892,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // Include events, tasks, and undo so the undo handler always operates on current state
-  }, [view, page, settingsOpen, showShortcuts, showSearch, undoStack, events, tasks, taskScope, viewDate]);
+  }, [view, page, settingsOpen, showShortcuts, showSearch, showTempoAssistant, undoStack, events, tasks, taskScope, viewDate]);
 
   // Show boot spinner while checking existing session
   if (auth.loading && !auth.user) return (
@@ -8352,6 +8399,68 @@ body.tempo-modal-locked{
   }
 }
 
+
+
+/* Mobile journal card consistency + restored local Tempo Assistant button */
+.tempo-assistant-fab{position:fixed!important;right:22px!important;bottom:22px!important;width:58px!important;height:58px!important;border-radius:999px!important;border:1px solid rgba(var(--accent-rgb),.28)!important;background:linear-gradient(135deg,var(--accent),#C99284)!important;color:white!important;box-shadow:0 18px 44px rgba(var(--accent-rgb),.28)!important;z-index:1200!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;font-size:25px!important;line-height:1!important;transition:transform .16s ease,box-shadow .16s ease!important;}
+.tempo-assistant-fab:hover{transform:translateY(-2px) scale(1.04)!important;box-shadow:0 22px 54px rgba(var(--accent-rgb),.34)!important;}
+.tempo-assistant-fab-icon{display:block!important;filter:drop-shadow(0 2px 4px rgba(80,44,64,.16));}
+.tempo-assistant-popover{position:fixed!important;right:22px!important;bottom:92px!important;width:min(330px,calc(100vw - 28px))!important;border:1px solid rgba(var(--accent-rgb),.2)!important;border-radius:26px!important;background:linear-gradient(180deg,var(--surface),var(--surface-warm))!important;box-shadow:0 24px 70px rgba(76,38,58,.24)!important;z-index:1201!important;overflow:hidden!important;color:var(--text)!important;}
+.tempo-assistant-popover-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;padding:14px 14px 10px!important;border-bottom:1px solid rgba(var(--accent-rgb),.12)!important;}
+.tempo-assistant-popover-head strong{display:block!important;font-size:14px!important;font-weight:900!important;}
+.tempo-assistant-popover-head span{display:block!important;font-size:10px!important;color:var(--text2)!important;font-weight:800!important;margin-top:2px!important;}
+.tempo-assistant-popover-body{display:grid!important;gap:8px!important;padding:12px!important;}
+.tempo-assistant-popover-body button{display:grid!important;grid-template-columns:34px 1fr!important;grid-template-rows:auto auto!important;align-items:center!important;column-gap:9px!important;width:100%!important;text-align:left!important;border:1px solid rgba(var(--accent-rgb),.14)!important;border-radius:16px!important;background:rgba(255,255,255,.62)!important;color:var(--text)!important;padding:10px!important;cursor:pointer!important;font-family:var(--font)!important;}
+.tempo-assistant-popover-body button:hover{border-color:rgba(var(--accent-rgb),.32)!important;background:rgba(var(--accent-rgb),.07)!important;}
+.tempo-assistant-popover-body button>span{grid-row:1/3!important;font-size:22px!important;}
+.tempo-assistant-popover-body strong{font-size:12px!important;font-weight:900!important;}
+.tempo-assistant-popover-body small{font-size:10px!important;color:var(--text2)!important;font-weight:750!important;}
+
+.entry-view-scroll-content{--journal-decoration-board-w:560px;}
+.modal-overlay[aria-label="View journal entry"] .entry-view-modal{width:min(560px,calc(100vw - 24px))!important;max-width:min(560px,calc(100vw - 24px))!important;}
+.modal-overlay[aria-label="View journal entry"] .entry-view-scroll-content{min-width:0!important;width:100%!important;box-sizing:border-box!important;}
+
+@media(max-width:768px){
+  .tempo-assistant-fab{right:14px!important;bottom:calc(var(--mobile-nav-h,78px) + 12px)!important;width:54px!important;height:54px!important;font-size:23px!important;z-index:900!important;}
+  .tempo-assistant-popover{right:10px!important;bottom:calc(var(--mobile-nav-h,78px) + 76px)!important;width:min(320px,calc(100vw - 20px))!important;z-index:901!important;}
+  .modal-overlay[aria-label="View journal entry"],
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"]{align-items:flex-start!important;justify-content:center!important;inset:0 0 var(--mobile-nav-h,78px) 0!important;height:calc(100dvh - var(--mobile-nav-h,78px))!important;padding:calc(env(safe-area-inset-top,0px) + 6px) 7px 8px!important;overflow:hidden!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{width:min(560px,calc(100vw - 14px))!important;max-width:min(560px,calc(100vw - 14px))!important;height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 14px)!important;max-height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 14px)!important;min-height:0!important;margin:0 auto!important;border-radius:22px!important;overflow:hidden!important;font-size:12px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating{top:auto!important;left:auto!important;transform:none!important;position:relative!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-modal .entry-modal-header,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-modal-header{padding:11px 13px!important;min-height:58px!important;gap:8px!important;border-radius:22px 22px 0 0!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-modal-date{font-size:14px!important;letter-spacing:.01em!important;line-height:1.15!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-mood{font-size:11px!important;line-height:1.1!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-modal-header .tf-save,
+  .modal-overlay[aria-label="View journal entry"] .entry-modal-header .tf-cancel{min-height:32px!important;padding:7px 11px!important;font-size:10px!important;white-space:nowrap!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-modal-header .modal-close{width:32px!important;height:32px!important;min-width:32px!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-body,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{flex:1 1 auto!important;min-height:0!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important;border-radius:0 0 22px 22px!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-view-section{padding:11px 13px!important;min-height:auto!important;}
+  .modal-overlay[aria-label="View journal entry"] .entry-section-title{font-size:8.8px!important;letter-spacing:.16em!important;margin-bottom:8px!important;}
+  .modal-overlay[aria-label="View journal entry"] .memory-tag-chip,
+  .modal-overlay[aria-label="View journal entry"] .activity-chip{font-size:10px!important;padding:6px 10px!important;min-height:30px!important;}
+  .modal-overlay[aria-label="View journal entry"] .highlight-view-grid{gap:8px!important;}
+  .modal-overlay[aria-label="View journal entry"] .highlight-view-grid>div{padding:9px 10px!important;border-radius:13px!important;}
+  .modal-overlay[aria-label="View journal entry"] .highlight-view-grid strong,
+  .modal-overlay[aria-label="View journal entry"] .entry-view-note,
+  .modal-overlay[aria-label="View journal entry"] .gratitude-view-item{font-size:12px!important;line-height:1.38!important;}
+  .modal-overlay[aria-label="View journal entry"] .daily-score-card{padding:10px!important;border-radius:16px!important;min-height:0!important;}
+  .modal-overlay[aria-label="View journal entry"] .daily-score-main{min-width:78px!important;}
+  .modal-overlay[aria-label="View journal entry"] .daily-score-rank{font-size:26px!important;}
+  .modal-overlay[aria-label="View journal entry"] .daily-score-num{font-size:9px!important;}
+  .modal-overlay[aria-label="View journal entry"] .daily-score-lines{font-size:10px!important;gap:6px!important;}
+  .modal-overlay[aria-label="View journal entry"] .completed-task-item{padding:10px!important;border-radius:14px!important;}
+  .modal-overlay[aria-label="View journal entry"] .completed-task-title{font-size:12px!important;}
+  .modal-overlay[aria-label="View journal entry"] .completed-task-meta{font-size:9px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .entry-view-modal.decorating .entry-view-body{padding-bottom:52px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card{left:0!important;right:0!important;bottom:var(--mobile-nav-h,78px)!important;width:100%!important;max-width:100%!important;max-height:248px!important;border-radius:22px 22px 0 0!important;transform:translateY(0)!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card.collapsed,
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-bottom-sheet.journal-decoration-tool-card[data-open="false"]{transform:translateY(calc(100% - 54px))!important;max-height:58px!important;}
+  .modal-overlay.journal-decorating-overlay[aria-label="View journal entry"] .journal-decoration-sheet-handle{min-height:48px!important;}
+}
+
 `}</style>
 
       <div className="app">
@@ -8820,6 +8929,19 @@ body.tempo-modal-locked{
           <span className="event-copy-text">Copied: <strong>{copiedEvent.title}</strong>. Click any empty slot to paste multiple times, then Clear when done.</span>
           <button className="event-copy-clear" onClick={() => setCopiedEvent(null)}>Clear</button>
         </div>
+      )}
+
+      <button type="button" className="tempo-assistant-fab" aria-label="Open My Tempo Assistant" title="My Tempo Assistant" onClick={() => setShowTempoAssistant(open => !open)}>
+        <span className="tempo-assistant-fab-icon">🌸</span>
+      </button>
+      {showTempoAssistant && (
+        <TempoAssistantPanel
+          onClose={() => setShowTempoAssistant(false)}
+          onGoToday={() => { setPage("today"); setShowTempoAssistant(false); }}
+          onGoJournal={() => { setPage("journal"); setShowTempoAssistant(false); }}
+          onGoTasks={() => { setPage("tasks"); setShowTempoAssistant(false); }}
+          onPlanDay={() => { setDayPlan(buildDailyPlan(TODAY)); setShowTempoAssistant(false); }}
+        />
       )}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
