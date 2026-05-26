@@ -34,6 +34,7 @@ const {
   localDateFromKey,
   formatTaskDuration,
   completedTasksForDateKey,
+  dailyGameSummary,
   hasJournalEntryForKey,
   JOURNAL_MOODS,
   JOURNAL_ACTIVITIES,
