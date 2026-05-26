@@ -52,6 +52,7 @@ if (/OPENAI_API_KEY|OPENAI_MODEL/i.test(envExample)) {
 
 const tempoApp = has('components/TempoApp.jsx') ? readFileSync(join(root, 'components/TempoApp.jsx'), 'utf8') : '';
 const styles = has('styles/tempoStyles.js') ? readFileSync(join(root, 'styles/tempoStyles.js'), 'utf8') : '';
+const journalComponents = has('components/journal/Journal.jsx') ? readFileSync(join(root, 'components/journal/Journal.jsx'), 'utf8') : '';
 
 const requiredAssistantMarkers = [
   'function ChatPanel',
@@ -79,7 +80,7 @@ const requiredJournalMarkers = [
   'Redo',
 ];
 for (const marker of requiredJournalMarkers) {
-  if (!tempoApp.includes(marker) && !styles.includes(marker)) {
+  if (!tempoApp.includes(marker) && !styles.includes(marker) && !journalComponents.includes(marker)) {
     fail(`Journal decorator regression marker missing: ${marker}`);
   }
 }
