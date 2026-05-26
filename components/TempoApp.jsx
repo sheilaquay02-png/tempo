@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
-import { TempoLogoMark, DailyStartupModal, SyncStatusPill, ComingSoonPage } from "./shared/DisplayComponents";
+import { TempoLogoMark, DailyStartupModal } from "./shared/DisplayComponents";
+import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
 import { HabitsPage } from "./habits/Habits";
 import { DailyCheckInModal, TomorrowResetPage, WeeklyResetPage, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
@@ -4453,7 +4454,7 @@ export default function App() {
   if (auth.loading && !auth.user) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:20}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <TempoLoadingScreen />
     </>
   );
 
@@ -4470,7 +4471,7 @@ export default function App() {
   if (!dataReady || loadedUserId !== auth.user.id) return (
     <>
       <style>{loginCSS}</style>
-      <div className="login-page tempo-loading-page"><div className="login-bg-blobs"><div className="blob blob-1"/><div className="blob blob-2"/><div className="blob blob-3"/></div><div className="login-card tempo-loading-card" style={{textAlign:"center",padding:"48px 32px"}}><div className="login-hero" style={{marginBottom:16}}><div className="login-mascot"><div className="mascot-ring mascot-ring-outer"/><div className="mascot-ring mascot-ring-inner"/><div className="mascot-icon"><TempoLogoMark /></div></div><div className="login-brand"><span className="login-logo-text">Tempo</span></div></div><p style={{color:"#A07090",fontSize:13,fontWeight:600,marginBottom:20}}>Loading your schedule…</p><span className="login-spinner" style={{width:28,height:28,borderWidth:3,display:"inline-block",margin:"0 auto"}}/></div></div>
+      <TempoLoadingScreen message="Loading your schedule…" />
     </>
   );
 
@@ -4531,6 +4532,42 @@ export default function App() {
     datasetCounts: syncDatasetCounts(events, tasks, syncSettingsSnapshot),
   };
   const memoAppCSS    = appCSS(cvars, fontScale);
+  const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
+  const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
+  const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
+  const sidebarCheckInSummary = sidebarMood ? {
+    emoji: sidebarMood.emoji,
+    label: sidebarMood.label,
+    energyLabel: sidebarEnergy?.label || "",
+  } : null;
+  const calendarTopbarTitle = view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
+    const mon = new Date(viewDate);
+    mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return `${formatWithDisplayTimezone(mon, { month: "short", day: "numeric" })} – ${formatWithDisplayTimezone(sun, { month: "short", day: "numeric" })}`;
+  })() : formatWithDisplayTimezone(viewDate, { month: "long", year: "numeric" });
+
+  function navigateFromSidebar(nextPage) {
+    setPage(nextPage);
+    closeSidebarOnMobile();
+  }
+
+  function navigateFromMobileNav(nextPage) {
+    setPage(nextPage);
+    setSidebarOpen(false);
+  }
+
+  function shiftCalendarRange(direction) {
+    const d = new Date(viewDate);
+    if (view === "day") d.setDate(d.getDate() + direction);
+    if (view === "week") d.setDate(d.getDate() + direction * 7);
+    if (view === "month") d.setMonth(d.getMonth() + direction);
+    setViewDate(d);
+  }
+
+  const goToPreviousCalendarRange = () => shiftCalendarRange(-1);
+  const goToNextCalendarRange = () => shiftCalendarRange(1);
 
   return (
     <>
@@ -6042,60 +6079,30 @@ body.tempo-modal-locked{
 `}</style>
 
       <div className="app">
-        <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
-          <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark /></div><span>Tempo</span></div>
-          <div className="sidebar-date">
-            <div className="date-big">{TODAY.getDate()}</div>
-            {formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
-            {auth.user && <div className="sidebar-user">👤 {auth.user.name || auth.user.email}</div>}
-            <div className="sidebar-sync-under-user">
-              <button type="button" className="sidebar-sync-now-btn" onClick={forceSyncNow}>↻ Sync now</button>
-              <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
-            </div>
-          </div>
-          {(() => { const todayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY); const m = todayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x=>x.id===todayCheckIn.mood) : null; const e = todayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x=>x.id===todayCheckIn.energy) : null; return m ? <div className="mood-bar" onClick={() => { setShowCheckIn(true); closeSidebarOnMobile(); }} style={{cursor:"pointer"}}>{m.emoji} Feeling {m.label}{e ? ` · ${e.label} energy` : ""}</div> : null; })()}
-          <nav className="sidebar-nav">
-            <div className="nav-section-label">Main</div>
-            <div className={`nav-item ${page==="today"?"active":""}`} onClick={() => { setPage("today"); closeSidebarOnMobile(); }}><span className="nav-icon">🌤️</span>Today</div>
-            <div className={`nav-item ${page==="calendar"?"active":""}`} onClick={() => { setPage("calendar"); closeSidebarOnMobile(); }}><span className="nav-icon">🗓️</span>Calendar</div>
-            <div className={`nav-item ${page==="tasks"?"active":""}`} onClick={() => { setPage("tasks"); closeSidebarOnMobile(); }}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-section-label" style={{marginTop:8}}>Planning</div>
-            <div className="nav-item desktop-hidden-menu-item" onClick={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}><span className="nav-icon">✨</span>Plan Today</div>
-            <div className={`nav-item ${page==="tomorrow-reset"?"active":""}`} onClick={() => { setPage("tomorrow-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
-            <div className={`nav-item ${page==="weekly-reset"?"active":""}`} onClick={() => { setPage("weekly-reset"); closeSidebarOnMobile(); }}><span className="nav-icon">🧺</span>Weekly Reset</div>
-            <div className="nav-section-label" style={{marginTop:8}}>Personal</div>
-            <div className={`nav-item ${page==="habits"?"active":""}`} onClick={() => { setPage("habits"); closeSidebarOnMobile(); }}><span className="nav-icon">🌱</span>Habits</div>
-            <div className={`nav-item ${page==="journal"?"active":""}`} onClick={() => { setPage("journal"); closeSidebarOnMobile(); }}><span className="nav-icon">📔</span>Journal</div>
-            <div className={`nav-item ${page==="rhythm"?"active":""}`} onClick={() => { setPage("rhythm"); closeSidebarOnMobile(); }}><span className="nav-icon">📊</span>Rhythm Stats</div>
-            <div className="nav-item" onClick={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}><span className="nav-icon">⚙️</span>Settings</div>
-          </nav>
-          <div className="sidebar-cals">
-            <div className="cal-label-row">
-              <span className="cal-label">My Calendars</span>
-              <button type="button" className="cal-add-btn" onClick={addCalendar} title="Create calendar">＋</button>
-            </div>
-            <div className="calendar-source-filter-row" aria-label="Calendar source filters">
-              {[{id:"tempo", label:"Tempo", icon:"T"}, ...(calendars.some(c => c.source === "google") ? [{id:"google", label:"Google", icon:"G"}] : []), {id:"habit", label:"Habits", icon:"🌱"}].map(src => {
-                const hidden = hiddenCalendarSources.includes(src.id);
-                return <button key={src.id} type="button" className={`calendar-source-chip ${hidden ? "source-hidden" : ""}`} onClick={() => toggleCalendarSource(src.id)} title={hidden ? `Show ${src.label}` : `Hide ${src.label}`}><span>{src.icon}</span>{src.label}</button>;
-              })}
-            </div>
-            {calendars.map(c => {
-              const hidden = hiddenCals.includes(c.id);
-              return (
-                <div key={c.id} className={`cal-item cal-toggleable ${hidden ? "cal-hidden" : ""}`} title={hidden ? "Hidden" : "Visible"}>
-                  <button type="button" className="cal-visible-btn" onClick={() => toggleCalVisibility(c.id)} title={hidden ? "Show calendar" : "Hide calendar"}>
-                    <span className="cal-dot" style={{ background: hidden ? "var(--border)" : c.color }} />
-                    <span className="cal-eye">{hidden ? "○" : "●"}</span>
-                  </button>
-                  <span className="cal-name" onClick={() => toggleCalVisibility(c.id)}>{c.id === "work" && !c.name ? (auth.user?.email ?? c.name) : c.name}</span>
-                  <button type="button" className="cal-action-btn" onClick={() => editCalendar(c)} title="Rename/edit calendar">✎</button>
-                  {c.source !== "google" && <button type="button" className="cal-action-btn" onClick={() => requestRemoveCalendar(c)} title="Remove calendar">×</button>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <AppSidebar
+          sidebarOpen={sidebarOpen}
+          todayDate={TODAY}
+          sidebarDateLabel={formatWithDisplayTimezone(TODAY, { weekday: "long", month: "long", year: "numeric" })}
+          user={auth.user}
+          syncStatus={syncStatus}
+          pendingLocalChanges={pendingLocalChanges}
+          lastSyncedAt={lastSyncedAt}
+          onForceSync={forceSyncNow}
+          checkInSummary={sidebarCheckInSummary}
+          onOpenCheckIn={() => { setShowCheckIn(true); closeSidebarOnMobile(); }}
+          page={page}
+          onNavigate={navigateFromSidebar}
+          onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
+          onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
+          calendars={calendars}
+          hiddenCals={hiddenCals}
+          hiddenCalendarSources={hiddenCalendarSources}
+          onAddCalendar={addCalendar}
+          onToggleCalendarSource={toggleCalendarSource}
+          onToggleCalendarVisibility={toggleCalVisibility}
+          onEditCalendar={editCalendar}
+          onRequestRemoveCalendar={requestRemoveCalendar}
+        />
         <button type="button" className={`mobile-sidebar-scrim ${sidebarOpen ? "open" : ""}`} aria-label="Close menu" onClick={() => setSidebarOpen(false)} />
 
         <div className="main">
@@ -6114,41 +6121,25 @@ body.tempo-modal-locked{
           ) : page === "weekly-reset" ? (
             <WeeklyResetPage tasks={tasks} events={visibleEvents} habits={habits} dailyCheckIns={dailyCheckIns} latestReset={weeklyResetForDate(weeklyResets, TODAY)} onCompleteReset={saveWeeklyReset} />
           ) : (<>
-          <div className="topbar">
-            <button className="topbar-btn icon-only desktop-sidebar-toggle" onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle sidebar">☰</button>
-            <button className="topbar-btn icon-only nav-arrow" onClick={() => {
-              const d = new Date(viewDate);
-              if (view === "day")   d.setDate(d.getDate() - 1);
-              if (view === "week")  d.setDate(d.getDate() - 7);
-              if (view === "month") d.setMonth(d.getMonth() - 1);
-              setViewDate(d);
-            }} aria-label="Previous">‹</button>
-            <button className="topbar-btn today-btn" onClick={() => setViewDate(new Date(TODAY))}>Today</button>
-            <button className="topbar-btn icon-only nav-arrow" onClick={() => {
-              const d = new Date(viewDate);
-              if (view === "day")   d.setDate(d.getDate() + 1);
-              if (view === "week")  d.setDate(d.getDate() + 7);
-              if (view === "month") d.setMonth(d.getMonth() + 1);
-              setViewDate(d);
-            }} aria-label="Next">›</button>
-            <div className="topbar-date">
-              {view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
-                const mon = new Date(viewDate); mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
-                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-                return `${formatWithDisplayTimezone(mon,{month:"short",day:"numeric"})} – ${formatWithDisplayTimezone(sun,{month:"short",day:"numeric"})}`;
-              })() : formatWithDisplayTimezone(viewDate,{month:"long",year:"numeric"})}
-              {view === "day" && viewDate.toDateString() === TODAY.toDateString() && <span className="today-badge">{viewDayEvents.length} events</span>}
-            </div>
-            <div className="view-tabs">
-              {["day","week","month"].map(v => <button key={v} className={`view-tab ${view === v ? "active" : ""}`} onClick={() => setView(v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>)}
-            </div>
-            <SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
-            <button className="topbar-btn sync-now-btn" onClick={forceSyncNow}>↻ Sync</button>
-            <button className="topbar-btn plan-day-btn" onClick={() => setDayPlan(buildDailyPlan(TODAY))}>✨ Plan Today</button>
-            <button className="topbar-btn" onClick={() => setShowSearch(true)} aria-label="Search" title="Search (/)">🔍</button>
-            <button className="topbar-btn" onClick={() => setShowTemplates(true)} aria-label="Day templates">🗂 Templates</button>
-            <button className="topbar-btn icon-only keyboard-shortcuts-btn" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts">⌨️</button>
-          </div>
+          <CalendarTopbar
+            view={view}
+            title={calendarTopbarTitle}
+            showTodayBadge={view === "day" && viewDate.toDateString() === TODAY.toDateString()}
+            todayEventCount={viewDayEvents.length}
+            syncStatus={syncStatus}
+            pendingLocalChanges={pendingLocalChanges}
+            lastSyncedAt={lastSyncedAt}
+            onToggleSidebar={() => setSidebarOpen(v => !v)}
+            onPrevious={goToPreviousCalendarRange}
+            onToday={() => setViewDate(new Date(TODAY))}
+            onNext={goToNextCalendarRange}
+            onViewChange={setView}
+            onForceSync={forceSyncNow}
+            onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))}
+            onSearch={() => setShowSearch(true)}
+            onTemplates={() => setShowTemplates(true)}
+            onShortcuts={() => setShowShortcuts(true)}
+          />
 
           <div className="stats-bar">
             <div className="stat"><div className="stat-dot" style={{ background: "#B08AE0" }} />Important: {Math.round(viewDayEvents.filter(e => Core.categoryIs(e.category, "important")).reduce((a, e) => a + (e.end - e.start) / 60000, 0) / 60 * 10) / 10}h</div>
@@ -6258,19 +6249,20 @@ body.tempo-modal-locked{
 
       <RecurrenceScopeModal />
 
-      {/* Mobile bottom nav — visible only on small screens */}
-      {((syncStatus?.status && syncStatus.status !== "saved") || pendingLocalChanges > 0) && (
-        <div className="mobile-sync-strip"><SyncStatusPill syncStatus={syncStatus} onRetry={forceSyncNow} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} /></div>
-      )}
-
-      <div className="mobile-nav" role="navigation" aria-label="Mobile primary navigation">
-        <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={() => setSidebarOpen(v => !v)}>☰<span>Menu</span></button>
-        <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={() => { setPage("today"); setSidebarOpen(false); }}>🌤️<span>Today</span></button>
-        <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={() => { setPage("calendar"); setView("day"); setSidebarOpen(false); }}>🗓️<span>Calendar</span></button>
-        <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={() => { setPage("tasks"); setTaskScope("day"); setSidebarOpen(false); }}>✅<span>Tasks</span></button>
-        <button className={`mobile-nav-btn ${page === "journal" ? "active" : ""}`} onClick={() => { setPage("journal"); setSidebarOpen(false); }}>📔<span>Journal</span></button>
-        <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={() => { setPage("habits"); setSidebarOpen(false); }}>🌱<span>Habits</span></button>
-      </div>
+      <MobileBottomNav
+        sidebarOpen={sidebarOpen}
+        page={page}
+        syncStatus={syncStatus}
+        pendingLocalChanges={pendingLocalChanges}
+        lastSyncedAt={lastSyncedAt}
+        onRetrySync={forceSyncNow}
+        onToggleMenu={() => setSidebarOpen(v => !v)}
+        onNavigateToday={() => navigateFromMobileNav("today")}
+        onNavigateCalendar={() => { navigateFromMobileNav("calendar"); setView("day"); }}
+        onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
+        onNavigateJournal={() => navigateFromMobileNav("journal")}
+        onNavigateHabits={() => navigateFromMobileNav("habits")}
+      />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
       <button className="chat-fab" onClick={() => setChatOpen(v => !v)}>{chatOpen ? "✕" : <TempoLogoMark />}</button>
