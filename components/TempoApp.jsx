@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
-import { TempoLogoMark, DailyStartupModal, DailyAffirmationCard, SyncStatusPill, ComingSoonPage } from "./shared/DisplayComponents";
+import { TempoLogoMark, DailyStartupModal, SyncStatusPill, ComingSoonPage } from "./shared/DisplayComponents";
+import { DailyAffirmationCard } from "./affirmations/Affirmations";
 import { HabitCard, HabitsPage } from "./habits/Habits";
 import {
   DEFAULT_MEAL_BREAKS,
@@ -3226,55 +3227,6 @@ function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
         <div className="modal-footer">
           <button className="tf-cancel" onClick={onClose}>Cancel</button>
           <button className="tf-save" disabled={!mood && !energy && !note.trim()} onClick={saveCheckIn}>{checkIn ? "Update check-in" : "Save check-in"}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
-  const initial = affirmation ? normalizeAffirmation(affirmation) : normalizeAffirmation({ id: "affirm-" + uid(), text: "", category: "calm", favorite: false, source: "custom" });
-  const [form, setForm] = useState(initial);
-  const canDelete = Boolean(affirmation?.id && affirmation?.source === "custom");
-  function saveForm() {
-    const text = form.text.trim();
-    if (!text) return;
-    onSave?.({ ...form, text, source: "custom" });
-    onClose?.();
-  }
-  return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Affirmation editor">
-      <div className="affirmation-modal" onClick={e => e.stopPropagation()}>
-        <div className="checkin-modal-head">
-          <div>
-            <div className="phase-kicker">Affirmation</div>
-            <h2>{affirmation ? "Edit your affirmation" : "Create a custom affirmation"}</h2>
-            <p>Keep it grounded, kind, and simple enough to return to daily.</p>
-          </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="checkin-section">
-          <div className="checkin-section-title">Text</div>
-          <textarea className="checkin-note-input affirmation-textarea" rows={4} value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} placeholder="Example: I can move through today calmly and clearly." />
-        </div>
-        <div className="checkin-section">
-          <div className="checkin-section-title">Category</div>
-          <div className="affirmation-category-grid">
-            {AFFIRMATION_CATEGORIES.map(cat => (
-              <button type="button" key={cat.id} className={`affirmation-category ${form.category === cat.id ? "active" : ""}`} onClick={() => setForm(f => ({ ...f, category: cat.id }))}>
-                <span>{cat.emoji}</span>{cat.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="affirmation-inline-toggle">
-          <input type="checkbox" checked={Boolean(form.favorite)} onChange={e => setForm(f => ({ ...f, favorite: e.target.checked }))} />
-          <span>Save as favorite</span>
-        </label>
-        <div className="modal-footer">
-          {canDelete && <button className="modal-delete" onClick={() => { onDelete?.(affirmation); onClose?.(); }}>Delete</button>}
-          <button className="tf-cancel" onClick={onClose}>Cancel</button>
-          <button className="tf-save" disabled={!form.text.trim()} onClick={saveForm}>{affirmation ? "Save affirmation" : "Create affirmation"}</button>
         </div>
       </div>
     </div>

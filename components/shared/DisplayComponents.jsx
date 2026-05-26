@@ -5,9 +5,6 @@ import * as Core from "../../lib/tempo/core";
 const {
   TODAY,
   fmtDate,
-  DEFAULT_AFFIRMATIONS,
-  affirmationForDate,
-  affirmationCategoryById,
 } = Core;
 
 export function TempoLogoMark() {
@@ -32,23 +29,6 @@ export function DailyStartupModal({ summary, onClose, onPlanDay }) {
   );
 }
 
-
-export function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, compact = false }) {
-  const todayAffirmation = affirmationForDate(affirmations, TODAY);
-  if (!todayAffirmation) return null;
-  const category = affirmationCategoryById(todayAffirmation.category);
-  return (
-    <section className={`phase-card affirmation-daily-card ${compact ? "compact" : ""}`}>
-      <div className="phase-card-head"><span>Daily Affirmation</span><small>Randomized daily</small></div>
-      <div className="affirmation-quote-row">
-        <div className="affirmation-quote-text">
-          <blockquote>“{todayAffirmation.text}”</blockquote>
-        </div>
-        <span className="affirmation-quote-icon">{category.emoji}</span>
-      </div>
-    </section>
-  );
-}
 
 
 export function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
