@@ -2,8 +2,27 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
+import {
+  DEFAULT_MEAL_BREAKS,
+  DEFAULT_PLANNING_RULES,
+  PLANNING_MODES,
+  DEFAULT_RITUALS,
+  RITUAL_REMINDER_PRESETS,
+  DEFAULT_HABITS,
+  HABIT_TEMPLATES,
+  HABIT_CATEGORIES,
+  HABIT_REMINDER_PRESETS,
+} from "../constants/tempoConstants";
+import { pct } from "../utils/budgetUtils";
+import {
+  dateKeySetForLast,
+  hourLabel,
+  timeStringToMinutes,
+  validTimeString,
+  weekDatesFor,
+} from "../utils/dateUtils";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
@@ -715,15 +734,6 @@ function EventModal({ event, calendars, categories, onClose, onSave, onDelete, o
 }
 
 // ─── Rhythm Stats ─────────────────────────────────────────────────────────────
-function pct(done, total) {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, Math.round(done / total * 100)));
-}
-
-function dateKeySetForLast(days, endDate = TODAY) {
-  return new Set(dateRangeKeys(days - 1, 0).map(String));
-}
-
 function labelForCheckIn(collection, id) {
   return collection.find(item => item.id === id)?.label || "Not set";
 }
@@ -1193,224 +1203,6 @@ function ShortcutsModal({ onClose }) {
 }
 
 // ─── Scheduling / Meal Break Helpers ─────────────────────────────────────────
-const DEFAULT_MEAL_BREAKS = [
-  { id: "breakfast", label: "Breakfast", start: "08:00", end: "09:00", enabled: true },
-  { id: "lunch", label: "Lunch", start: "12:00", end: "13:00", enabled: true },
-  { id: "dinner", label: "Dinner", start: "18:00", end: "19:00", enabled: true },
-];
-
-const DEFAULT_PLANNING_RULES = {
-  bufferMinutes: 10,
-  maxPlanMinutes: 300,
-  maxDeepWorkBlocks: 3,
-  afterMealBufferMinutes: 15,
-};
-
-const PLANNING_MODES = [
-  { id: "light", label: "Light Day", emoji: "🕊️", desc: "Fewer tasks, more breathing room.", maxPlanMinutes: 150, maxDeepWorkBlocks: 1, bufferBonus: 10 },
-  { id: "normal", label: "Normal Day", emoji: "🌤️", desc: "Balanced plan for a steady day.", maxPlanMinutes: 300, maxDeepWorkBlocks: 3, bufferBonus: 0 },
-  { id: "productive", label: "Productive Day", emoji: "⚡", desc: "Use extra energy for important work.", maxPlanMinutes: 420, maxDeepWorkBlocks: 4, bufferBonus: 0 },
-];
-
-const DEFAULT_RITUALS = []; // Ritual seeding disabled; legacy ritual data is preserved only for sync compatibility.
-
-const RITUAL_REMINDER_PRESETS = [
-  { id: "none", label: "No reminder", minutesBefore: null },
-  { id: "at", label: "At ritual time", minutesBefore: 0 },
-  { id: "5", label: "5 minutes before", minutesBefore: 5 },
-  { id: "10", label: "10 minutes before", minutesBefore: 10 },
-  { id: "30", label: "30 minutes before", minutesBefore: 30 },
-  { id: "custom", label: "Custom", minutesBefore: 15 },
-];
-
-const DEFAULT_HABITS = [
-  {
-    id: "habit-journal",
-    name: "Journal",
-    emoji: "📓",
-    category: "mindset",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "entry",
-    reminder: { type: "evening", time: "21:00" },
-    archived: false,
-    deletedAt: null,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "habit-plan-tomorrow",
-    name: "Plan tomorrow",
-    emoji: "🌙",
-    category: "planning",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "check-in",
-    reminder: { type: "evening", time: "20:30" },
-    archived: false,
-    deletedAt: null,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "habit-tidy-space",
-    name: "Tidy space",
-    emoji: "🧺",
-    category: "home",
-    frequency: "weekdays",
-    repeatDays: [1,2,3,4,5],
-    targetCount: 1,
-    unit: "reset",
-    reminder: { type: "none", time: "" },
-    archived: false,
-    deletedAt: null,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  },
-];
-
-const HABIT_TEMPLATES = [
-  {
-    id: "drink-water",
-    name: "Drink water",
-    emoji: "💧",
-    category: "wellness",
-    description: "A gentle daily hydration check-in that is easy to keep consistent.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 3,
-    unit: "glasses",
-    reminder: { type: "morning", time: "09:00" },
-  },
-  {
-    id: "journal",
-    name: "Journal",
-    emoji: "📓",
-    category: "mindset",
-    description: "Write a quick reflection so the day feels more intentional.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "entry",
-    reminder: { type: "evening", time: "21:00" },
-  },
-  {
-    id: "stretch",
-    name: "Stretch",
-    emoji: "🧘",
-    category: "wellness",
-    description: "A light reset for your body between work, study, or errands.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "session",
-    reminder: { type: "afternoon", time: "15:00" },
-  },
-  {
-    id: "read-10-minutes",
-    name: "Read 10 minutes",
-    emoji: "📖",
-    category: "learning",
-    description: "A small reading habit that feels achievable even on busy days.",
-    frequency: "weekdays",
-    repeatDays: [1,2,3,4,5],
-    targetCount: 1,
-    unit: "reading block",
-    reminder: { type: "evening", time: "20:30" },
-  },
-  {
-    id: "walk",
-    name: "Walk",
-    emoji: "🚶",
-    category: "wellness",
-    description: "A simple movement habit to add air and space into your day.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "walk",
-    reminder: { type: "afternoon", time: "17:30" },
-  },
-  {
-    id: "plan-tomorrow",
-    name: "Plan tomorrow",
-    emoji: "🌙",
-    category: "planning",
-    description: "Close the day by making tomorrow feel lighter before it starts.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "check-in",
-    reminder: { type: "evening", time: "20:30" },
-  },
-  {
-    id: "tidy-room",
-    name: "Tidy room",
-    emoji: "🧺",
-    category: "home",
-    description: "A quick space reset so your room feels calmer and cleaner.",
-    frequency: "weekdays",
-    repeatDays: [1,2,3,4,5],
-    targetCount: 1,
-    unit: "reset",
-    reminder: { type: "none", time: "" },
-  },
-  {
-    id: "gratitude",
-    name: "Gratitude",
-    emoji: "🌷",
-    category: "mindset",
-    description: "Write one small thing you appreciated today.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "note",
-    reminder: { type: "evening", time: "21:15" },
-  },
-  {
-    id: "sleep-routine",
-    name: "Sleep routine",
-    emoji: "🛏️",
-    category: "wellness",
-    description: "A gentle reminder to wind down and protect your rest window.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "wind down",
-    reminder: { type: "evening", time: "22:00" },
-  },
-  {
-    id: "no-phone-before-bed",
-    name: "No phone before bed",
-    emoji: "📵",
-    category: "wellness",
-    description: "Create a calmer night by putting the phone away before sleep.",
-    frequency: "daily",
-    repeatDays: [0,1,2,3,4,5,6],
-    targetCount: 1,
-    unit: "night",
-    reminder: { type: "evening", time: "21:45" },
-  },
-];
-
-const HABIT_CATEGORIES = [
-  { id: "mindset", label: "Mindset", emoji: "🌸" },
-  { id: "wellness", label: "Wellness", emoji: "🌿" },
-  { id: "planning", label: "Planning", emoji: "🗓️" },
-  { id: "home", label: "Home", emoji: "🧺" },
-  { id: "learning", label: "Learning", emoji: "📚" },
-  { id: "personal", label: "Personal", emoji: "✨" },
-];
-
-const HABIT_REMINDER_PRESETS = [
-  { id: "none", label: "No reminder", time: "" },
-  { id: "morning", label: "Morning", time: "09:00" },
-  { id: "afternoon", label: "Afternoon", time: "13:00" },
-  { id: "evening", label: "Evening", time: "20:00" },
-  { id: "custom", label: "Custom time", time: "09:00" },
-];
-
 function normalizeRitualReminder(reminder) {
   if (reminder === null) return { type: "none", minutesBefore: null };
   if (typeof reminder === "number") return reminder < 0 ? { type: "none", minutesBefore: null } : { type: "minutes", minutesBefore: reminder };
@@ -1694,10 +1486,6 @@ function habitStreak(habit, completions, fromDate = TODAY) {
   return streak;
 }
 
-function weekDatesFor(date = TODAY) {
-  return weekDays(weekStart(date));
-}
-
 function normalizePlanningRules(value) {
   const source = value && typeof value === "object" ? value : {};
   const clamp = (v, min, max, fb) => {
@@ -1785,20 +1573,6 @@ function addDeletedRecords(records, kind, ids, timestamp = new Date().toISOStrin
 
 function filterActiveRecords(records) {
   return Array.isArray(records) ? records.filter(r => !r?.deletedAt) : [];
-}
-
-function validTimeString(value, fallback = "00:00") {
-  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return fallback;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function timeStringToMinutes(value) {
-  const [h, m] = validTimeString(value).split(":").map(Number);
-  return Math.max(0, Math.min(24 * 60, h * 60 + m));
 }
 
 function normalizeMealBreaks(value) {
@@ -3344,12 +3118,6 @@ function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, ca
   );
 }
 
-
-function hourLabel(hour) {
-  const h = Math.max(0, Math.min(23, Number(hour) || 0));
-  const display = h % 12 || 12;
-  return `${display}${h < 12 ? "am" : "pm"}`;
-}
 
 function TaskScheduleModal({ task, onClose, onSchedule, workStart = 9, workEnd = 19 }) {
   const [mode, setMode] = useState("today");
