@@ -6,6 +6,7 @@ const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurrin
 import { appCSS } from "../styles/tempoStyles";
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
+import { BudgetApp, OverallPage } from "./budget/BudgetApp";
 import { HabitsPage } from "./habits/Habits";
 import { DailyCheckInModal, TomorrowResetPage, WeeklyResetPage, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
@@ -61,6 +62,23 @@ import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoog
 import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
+import {
+  DEFAULT_BONUS_ALLOCATION_RULES,
+  DEFAULT_BUDGET_ACCOUNTS,
+  DEFAULT_BUDGET_BUCKETS,
+  DEFAULT_BUDGET_LEDGERS,
+  DEFAULT_BUDGET_PROFILE,
+  DEFAULT_BUDGET_TRANSACTIONS,
+} from "../constants/budgetConstants";
+import {
+  calculateBudgetSummary,
+  normalizeBonusAllocationRules,
+  normalizeBudgetAccounts,
+  normalizeBudgetBuckets,
+  normalizeBudgetLedgers,
+  normalizeBudgetProfile,
+  normalizeBudgetTransactions,
+} from "../utils/budgetPlanUtils";
 
 // ─── Rhythm Stats ─────────────────────────────────────────────────────────────
 function labelForCheckIn(collection, id) {
@@ -358,6 +376,7 @@ export default function App() {
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
   const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "habits" | "rhythm"
+  const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [taskScope, setTaskScope]   = useState("day");
   const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
@@ -414,6 +433,12 @@ export default function App() {
   const [notificationPreferences, setNotificationPreferencesRaw] = useState(() => normalizeNotificationPreferences(load(`${uk}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
   const [syncConflictLog, setSyncConflictLogRaw] = useState(() => normalizeSyncConflictLog(load(`${uk}_sync_conflict_log`, [])));
   const [dataMigrationVersion, setDataMigrationVersionRaw] = useState(() => Number(load(`${uk}_data_migration_version`, 0)) || 0);
+  const [budgetProfile, setBudgetProfileRaw] = useState(() => normalizeBudgetProfile(load(`${uk}_budget_profile`, DEFAULT_BUDGET_PROFILE)));
+  const [budgetAccounts, setBudgetAccountsRaw] = useState(() => normalizeBudgetAccounts(load(`${uk}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)));
+  const [budgetLedgers, setBudgetLedgersRaw] = useState(() => normalizeBudgetLedgers(load(`${uk}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)));
+  const [budgetBuckets, setBudgetBucketsRaw] = useState(() => normalizeBudgetBuckets(load(`${uk}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)));
+  const [budgetTransactions, setBudgetTransactionsRaw] = useState(() => normalizeBudgetTransactions(load(`${uk}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)));
+  const [bonusAllocationRules, setBonusAllocationRulesRaw] = useState(() => normalizeBonusAllocationRules(load(`${uk}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
   const [showCarryOver,setShowCarryOver]= useState(false);
@@ -555,6 +580,12 @@ export default function App() {
       setNotificationPreferencesRaw(normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES));
       setSyncConflictLogRaw([]);
       setDataMigrationVersionRaw(0);
+      setBudgetProfileRaw(normalizeBudgetProfile(DEFAULT_BUDGET_PROFILE));
+      setBudgetAccountsRaw(normalizeBudgetAccounts(DEFAULT_BUDGET_ACCOUNTS));
+      setBudgetLedgersRaw(normalizeBudgetLedgers(DEFAULT_BUDGET_LEDGERS));
+      setBudgetBucketsRaw(normalizeBudgetBuckets(DEFAULT_BUDGET_BUCKETS));
+      setBudgetTransactionsRaw(normalizeBudgetTransactions(DEFAULT_BUDGET_TRANSACTIONS));
+      setBonusAllocationRulesRaw(normalizeBonusAllocationRules(DEFAULT_BONUS_ALLOCATION_RULES));
       return;
     }
 
@@ -585,6 +616,13 @@ export default function App() {
     setNotificationPreferencesRaw(normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
     setSyncConflictLogRaw(normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])));
     setDataMigrationVersionRaw(Number(load(`${userKey}_data_migration_version`, 0)) || 0);
+    setAppModeRaw(load(`${userKey}_app_mode`, "schedule"));
+    setBudgetProfileRaw(normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)));
+    setBudgetAccountsRaw(normalizeBudgetAccounts(load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)));
+    setBudgetLedgersRaw(normalizeBudgetLedgers(load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)));
+    setBudgetBucketsRaw(normalizeBudgetBuckets(load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)));
+    setBudgetTransactionsRaw(normalizeBudgetTransactions(load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)));
+    setBonusAllocationRulesRaw(normalizeBonusAllocationRules(load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
 
     const applyLoadedData = async ({ loadedEvents, loadedTasks, settings, updatedAt }) => {
       if (cancelled) return;
@@ -630,6 +668,13 @@ export default function App() {
         affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
         notificationPreferences: normalizeNotificationPreferences(safeSettings.notificationPreferences ?? load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
         syncConflictLog: normalizeSyncConflictLog(safeSettings.syncConflictLog ?? load(`${userKey}_sync_conflict_log`, [])),
+        appMode: safeSettings.appMode ?? load(`${userKey}_app_mode`, "schedule"),
+        budgetProfile: normalizeBudgetProfile(safeSettings.budgetProfile ?? load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
+        budgetAccounts: normalizeBudgetAccounts(safeSettings.budgetAccounts ?? load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)),
+        budgetLedgers: normalizeBudgetLedgers(safeSettings.budgetLedgers ?? load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)),
+        budgetBuckets: normalizeBudgetBuckets(safeSettings.budgetBuckets ?? load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)),
+        budgetTransactions: normalizeBudgetTransactions(safeSettings.budgetTransactions ?? load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)),
+        bonusAllocationRules: normalizeBonusAllocationRules(safeSettings.bonusAllocationRules ?? load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)),
         dataMigrationVersion: Number(safeSettings.dataMigrationVersion ?? load(`${userKey}_data_migration_version`, 0)) || 0,
         memoryStorageMigratedAt: safeSettings.memoryStorageMigratedAt ?? load(`${userKey}_memory_storage_migrated_at`, null),
         journal: await decryptMemoryJournalFromStorage(userId, safeSettings.journal ?? load(`${userKey}_journal`, {})),
@@ -665,6 +710,13 @@ export default function App() {
       setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(nextSettings.notificationPreferences));
       setSyncConflictLogRaw(normalizeSyncConflictLog(nextSettings.syncConflictLog));
+      setAppModeRaw(["schedule", "budget", "overall"].includes(nextSettings.appMode) ? nextSettings.appMode : "schedule");
+      setBudgetProfileRaw(normalizeBudgetProfile(nextSettings.budgetProfile));
+      setBudgetAccountsRaw(normalizeBudgetAccounts(nextSettings.budgetAccounts));
+      setBudgetLedgersRaw(normalizeBudgetLedgers(nextSettings.budgetLedgers));
+      setBudgetBucketsRaw(normalizeBudgetBuckets(nextSettings.budgetBuckets));
+      setBudgetTransactionsRaw(normalizeBudgetTransactions(nextSettings.budgetTransactions));
+      setBonusAllocationRulesRaw(normalizeBonusAllocationRules(nextSettings.bonusAllocationRules));
       setDataMigrationVersionRaw(Number(nextSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(nextSettings.memoryStorageMigratedAt || null);
       setJournalRaw(nextSettings.journal || {});
@@ -692,6 +744,13 @@ export default function App() {
       save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
       save(`${userKey}_notification_preferences`, normalizeNotificationPreferences(nextSettings.notificationPreferences));
       save(`${userKey}_sync_conflict_log`, normalizeSyncConflictLog(nextSettings.syncConflictLog));
+      save(`${userKey}_app_mode`, ["schedule", "budget", "overall"].includes(nextSettings.appMode) ? nextSettings.appMode : "schedule");
+      save(`${userKey}_budget_profile`, normalizeBudgetProfile(nextSettings.budgetProfile));
+      save(`${userKey}_budget_accounts`, normalizeBudgetAccounts(nextSettings.budgetAccounts));
+      save(`${userKey}_budget_ledgers`, normalizeBudgetLedgers(nextSettings.budgetLedgers));
+      save(`${userKey}_budget_buckets`, normalizeBudgetBuckets(nextSettings.budgetBuckets));
+      save(`${userKey}_budget_transactions`, normalizeBudgetTransactions(nextSettings.budgetTransactions));
+      save(`${userKey}_bonus_allocation_rules`, normalizeBonusAllocationRules(nextSettings.bonusAllocationRules));
       save(`${userKey}_data_migration_version`, Number(nextSettings.dataMigrationVersion || 0));
       save(`${userKey}_memory_storage_migrated_at`, nextSettings.memoryStorageMigratedAt || null);
       save(`${userKey}_planning_rules`, normalizePlanningRules(nextSettings.planningRules));
@@ -746,6 +805,13 @@ export default function App() {
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
+          appMode: load(`${userKey}_app_mode`, "schedule"),
+          budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
+          budgetAccounts: normalizeBudgetAccounts(load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)),
+          budgetLedgers: normalizeBudgetLedgers(load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)),
+          budgetBuckets: normalizeBudgetBuckets(load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)),
+          budgetTransactions: normalizeBudgetTransactions(load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)),
+          bonusAllocationRules: normalizeBonusAllocationRules(load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -803,6 +869,13 @@ export default function App() {
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
+          appMode: load(`${userKey}_app_mode`, "schedule"),
+          budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
+          budgetAccounts: normalizeBudgetAccounts(load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)),
+          budgetLedgers: normalizeBudgetLedgers(load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)),
+          budgetBuckets: normalizeBudgetBuckets(load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)),
+          budgetTransactions: normalizeBudgetTransactions(load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)),
+          bonusAllocationRules: normalizeBonusAllocationRules(load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
             memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
             journal: load(`${userKey}_journal`, {}),
@@ -856,6 +929,13 @@ export default function App() {
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
+          appMode: load(`${userKey}_app_mode`, "schedule"),
+          budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
+          budgetAccounts: normalizeBudgetAccounts(load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)),
+          budgetLedgers: normalizeBudgetLedgers(load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)),
+          budgetBuckets: normalizeBudgetBuckets(load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)),
+          budgetTransactions: normalizeBudgetTransactions(load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)),
+          bonusAllocationRules: normalizeBonusAllocationRules(load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -895,6 +975,13 @@ export default function App() {
           affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
           notificationPreferences: normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES),
           syncConflictLog: [],
+          appMode: "schedule",
+          budgetProfile: normalizeBudgetProfile(DEFAULT_BUDGET_PROFILE),
+          budgetAccounts: normalizeBudgetAccounts(DEFAULT_BUDGET_ACCOUNTS),
+          budgetLedgers: normalizeBudgetLedgers(DEFAULT_BUDGET_LEDGERS),
+          budgetBuckets: normalizeBudgetBuckets(DEFAULT_BUDGET_BUCKETS),
+          budgetTransactions: normalizeBudgetTransactions(DEFAULT_BUDGET_TRANSACTIONS),
+          bonusAllocationRules: normalizeBonusAllocationRules(DEFAULT_BONUS_ALLOCATION_RULES),
           dataMigrationVersion: Core.DATA_MIGRATION_VERSION,
           memoryStorageMigratedAt: null,
           journal: {},
@@ -942,6 +1029,13 @@ export default function App() {
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
+          appMode: load(`${userKey}_app_mode`, "schedule"),
+          budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
+          budgetAccounts: normalizeBudgetAccounts(load(`${userKey}_budget_accounts`, DEFAULT_BUDGET_ACCOUNTS)),
+          budgetLedgers: normalizeBudgetLedgers(load(`${userKey}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)),
+          budgetBuckets: normalizeBudgetBuckets(load(`${userKey}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)),
+          budgetTransactions: normalizeBudgetTransactions(load(`${userKey}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)),
+          bonusAllocationRules: normalizeBonusAllocationRules(load(`${userKey}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)),
           dataMigrationVersion: Number(load(`${userKey}_data_migration_version`, 0)) || 0,
           memoryStorageMigratedAt: load(`${userKey}_memory_storage_migrated_at`, null),
           journal: load(`${userKey}_journal`, {}),
@@ -990,6 +1084,13 @@ export default function App() {
     affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
     notificationPreferences: normalizeNotificationPreferences(notificationPreferences),
     syncConflictLog: normalizeSyncConflictLog(syncConflictLog),
+    appMode: ["schedule", "budget", "overall"].includes(appMode) ? appMode : "schedule",
+    budgetProfile: normalizeBudgetProfile(budgetProfile),
+    budgetAccounts: normalizeBudgetAccounts(budgetAccounts),
+    budgetLedgers: normalizeBudgetLedgers(budgetLedgers),
+    budgetBuckets: normalizeBudgetBuckets(budgetBuckets),
+    budgetTransactions: normalizeBudgetTransactions(budgetTransactions),
+    bonusAllocationRules: normalizeBonusAllocationRules(bonusAllocationRules),
     dataMigrationVersion: Math.max(Number(dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
     memoryStorageMigratedAt,
     journal,
@@ -1035,6 +1136,13 @@ export default function App() {
         affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
         notificationPreferences: normalizeNotificationPreferences(nextSettings?.notificationPreferences || notificationPreferences),
         syncConflictLog: normalizeSyncConflictLog(nextSettings?.syncConflictLog || syncConflictLog),
+        appMode: ["schedule", "budget", "overall"].includes(nextSettings?.appMode) ? nextSettings.appMode : (["schedule", "budget", "overall"].includes(appMode) ? appMode : "schedule"),
+        budgetProfile: normalizeBudgetProfile(nextSettings?.budgetProfile || budgetProfile),
+        budgetAccounts: normalizeBudgetAccounts(nextSettings?.budgetAccounts || budgetAccounts),
+        budgetLedgers: normalizeBudgetLedgers(nextSettings?.budgetLedgers || budgetLedgers),
+        budgetBuckets: normalizeBudgetBuckets(nextSettings?.budgetBuckets || budgetBuckets),
+        budgetTransactions: normalizeBudgetTransactions(nextSettings?.budgetTransactions || budgetTransactions),
+        bonusAllocationRules: normalizeBonusAllocationRules(nextSettings?.bonusAllocationRules || bonusAllocationRules),
         dataMigrationVersion: Math.max(Number(nextSettings?.dataMigrationVersion || dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
@@ -1078,6 +1186,13 @@ export default function App() {
       setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
       setSyncConflictLogRaw(normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
+      setAppModeRaw(["schedule", "budget", "overall"].includes(normalizedSettings.appMode) ? normalizedSettings.appMode : "schedule");
+      setBudgetProfileRaw(normalizeBudgetProfile(normalizedSettings.budgetProfile));
+      setBudgetAccountsRaw(normalizeBudgetAccounts(normalizedSettings.budgetAccounts));
+      setBudgetLedgersRaw(normalizeBudgetLedgers(normalizedSettings.budgetLedgers));
+      setBudgetBucketsRaw(normalizeBudgetBuckets(normalizedSettings.budgetBuckets));
+      setBudgetTransactionsRaw(normalizeBudgetTransactions(normalizedSettings.budgetTransactions));
+      setBonusAllocationRulesRaw(normalizeBonusAllocationRules(normalizedSettings.bonusAllocationRules));
       setDataMigrationVersionRaw(Number(normalizedSettings.dataMigrationVersion || 0));
       setMemoryStorageMigratedAtRaw(normalizedSettings.memoryStorageMigratedAt || null);
       setJournalRaw(normalizedSettings.journal || {});
@@ -1115,6 +1230,13 @@ export default function App() {
       save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       save(`${uk}_notification_preferences`, normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
       save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
+      save(`${uk}_app_mode`, ["schedule", "budget", "overall"].includes(normalizedSettings.appMode) ? normalizedSettings.appMode : "schedule");
+      save(`${uk}_budget_profile`, normalizeBudgetProfile(normalizedSettings.budgetProfile));
+      save(`${uk}_budget_accounts`, normalizeBudgetAccounts(normalizedSettings.budgetAccounts));
+      save(`${uk}_budget_ledgers`, normalizeBudgetLedgers(normalizedSettings.budgetLedgers));
+      save(`${uk}_budget_buckets`, normalizeBudgetBuckets(normalizedSettings.budgetBuckets));
+      save(`${uk}_budget_transactions`, normalizeBudgetTransactions(normalizedSettings.budgetTransactions));
+      save(`${uk}_bonus_allocation_rules`, normalizeBonusAllocationRules(normalizedSettings.bonusAllocationRules));
       save(`${uk}_data_migration_version`, Number(normalizedSettings.dataMigrationVersion || 0));
       save(`${uk}_memory_storage_migrated_at`, normalizedSettings.memoryStorageMigratedAt || null);
       saveJournalLocal(uk, auth.user.id, normalizedSettings.journal || {});
@@ -1219,6 +1341,13 @@ export default function App() {
     save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
     save(`${uk}_notification_preferences`, normalizeNotificationPreferences(next.notificationPreferences));
     save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(next.syncConflictLog));
+    save(`${uk}_app_mode`, ["schedule", "budget", "overall"].includes(next.appMode) ? next.appMode : "schedule");
+    save(`${uk}_budget_profile`, normalizeBudgetProfile(next.budgetProfile));
+    save(`${uk}_budget_accounts`, normalizeBudgetAccounts(next.budgetAccounts));
+    save(`${uk}_budget_ledgers`, normalizeBudgetLedgers(next.budgetLedgers));
+    save(`${uk}_budget_buckets`, normalizeBudgetBuckets(next.budgetBuckets));
+    save(`${uk}_budget_transactions`, normalizeBudgetTransactions(next.budgetTransactions));
+    save(`${uk}_bonus_allocation_rules`, normalizeBonusAllocationRules(next.bonusAllocationRules));
     save(`${uk}_data_migration_version`, Number(next.dataMigrationVersion || 0));
     save(`${uk}_memory_storage_migrated_at`, next.memoryStorageMigratedAt || null);
     saveJournalLocal(uk, auth.user?.id, next.journal ?? journal);
@@ -1228,6 +1357,31 @@ export default function App() {
       queueCloudSave(events, tasks, next);
     }
   };
+
+  const persistBudgetSettings = overrides => {
+    const next = currentSettings(overrides);
+    save(`${uk}_app_mode`, ["schedule", "budget", "overall"].includes(next.appMode) ? next.appMode : "schedule");
+    save(`${uk}_budget_profile`, normalizeBudgetProfile(next.budgetProfile));
+    save(`${uk}_budget_accounts`, normalizeBudgetAccounts(next.budgetAccounts));
+    save(`${uk}_budget_ledgers`, normalizeBudgetLedgers(next.budgetLedgers));
+    save(`${uk}_budget_buckets`, normalizeBudgetBuckets(next.budgetBuckets));
+    save(`${uk}_budget_transactions`, normalizeBudgetTransactions(next.budgetTransactions));
+    save(`${uk}_bonus_allocation_rules`, normalizeBonusAllocationRules(next.bonusAllocationRules));
+    save(`${uk}_updated_at`, new Date().toISOString());
+    if (auth.user && dataReady) queueCloudSave(events, tasks, next);
+    else markPendingLocalChange();
+  };
+
+  const setAppMode = mode => {
+    const next = ["schedule", "budget", "overall"].includes(mode) ? mode : "schedule";
+    setAppModeRaw(next);
+    persistBudgetSettings({ appMode: next });
+    closeSidebarOnMobile();
+  };
+  const setBudgetProfile = value => { const next = normalizeBudgetProfile(typeof value === "function" ? value(budgetProfile) : value); setBudgetProfileRaw(next); persistBudgetSettings({ budgetProfile: next }); };
+  const setBudgetAccounts = value => { const next = normalizeBudgetAccounts(typeof value === "function" ? value(budgetAccounts) : value); setBudgetAccountsRaw(next); persistBudgetSettings({ budgetAccounts: next }); };
+  const setBudgetLedgers = value => { const next = normalizeBudgetLedgers(typeof value === "function" ? value(budgetLedgers) : value); setBudgetLedgersRaw(next); persistBudgetSettings({ budgetLedgers: next }); };
+  const setBudgetBuckets = value => { const next = normalizeBudgetBuckets(typeof value === "function" ? value(budgetBuckets) : value); setBudgetBucketsRaw(next); persistBudgetSettings({ budgetBuckets: next }); };
 
 
   useEffect(() => {
@@ -3050,13 +3204,23 @@ export default function App() {
     sun.setDate(mon.getDate() + 6);
     return `${formatWithDisplayTimezone(mon, { month: "short", day: "numeric" })} – ${formatWithDisplayTimezone(sun, { month: "short", day: "numeric" })}`;
   })() : formatWithDisplayTimezone(viewDate, { month: "long", year: "numeric" });
+  const budgetSummary = calculateBudgetSummary({
+    profile: budgetProfile,
+    accounts: budgetAccounts,
+    ledgers: budgetLedgers,
+    buckets: budgetBuckets,
+    transactions: budgetTransactions,
+  });
+  const overallRhythmSummary = buildRhythmStatsSnapshot({ tasks, habits, habitCompletions, journal, dailyCheckIns, tomorrowResets, weeklyResets, categories });
 
   function navigateFromSidebar(nextPage) {
+    setAppMode("schedule");
     setPage(nextPage);
     closeSidebarOnMobile();
   }
 
   function navigateFromMobileNav(nextPage) {
+    setAppMode("schedule");
     setPage(nextPage);
     setSidebarOpen(false);
   }
@@ -4576,6 +4740,8 @@ body.tempo-modal-locked{
           checkInSummary={sidebarCheckInSummary}
           onOpenCheckIn={() => { setShowCheckIn(true); closeSidebarOnMobile(); }}
           page={page}
+          appMode={appMode}
+          onAppModeChange={setAppMode}
           onNavigate={navigateFromSidebar}
           onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
           onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
@@ -4591,7 +4757,11 @@ body.tempo-modal-locked{
         <button type="button" className={`mobile-sidebar-scrim ${sidebarOpen ? "open" : ""}`} aria-label="Close menu" onClick={() => setSidebarOpen(false)} />
 
         <div className="main">
-          {page === "today" ? (
+          {appMode === "budget" ? (
+            <BudgetApp profile={budgetProfile} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} transactions={budgetTransactions} onProfileChange={setBudgetProfile} onAccountsChange={setBudgetAccounts} onLedgersChange={setBudgetLedgers} onBucketsChange={setBudgetBuckets} />
+          ) : appMode === "overall" ? (
+            <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
+          ) : page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "journal" ? (
             <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} onQueuePhotoCleanup={enqueueMemoryPhotoCleanup} allowDecorationEditing={!isMobileViewport} />
@@ -4735,6 +4905,7 @@ body.tempo-modal-locked{
       <MobileBottomNav
         sidebarOpen={sidebarOpen}
         page={page}
+        appMode={appMode}
         syncStatus={syncStatus}
         pendingLocalChanges={pendingLocalChanges}
         lastSyncedAt={lastSyncedAt}
@@ -4745,6 +4916,8 @@ body.tempo-modal-locked{
         onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
         onNavigateJournal={() => navigateFromMobileNav("journal")}
         onNavigateHabits={() => navigateFromMobileNav("habits")}
+        onNavigateBudget={() => setAppMode("budget")}
+        onNavigateOverall={() => setAppMode("overall")}
       />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}

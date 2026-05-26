@@ -3069,6 +3069,191 @@ body.tempo-modal-locked{
     padding-inline:10px!important;
   }
 }
+
+/* ── Phase 142: Budget / Schedule / Overall shell ───────────────────────── */
+.app-mode-switch{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:5px;
+  padding:6px;
+  margin:0 12px 12px;
+  border:1px solid rgba(var(--accent-rgb),.15);
+  background:var(--surface-soft);
+  border-radius:18px;
+}
+.app-mode-btn{
+  min-width:0;
+  border:0;
+  border-radius:13px;
+  padding:8px 6px;
+  background:transparent;
+  color:var(--text3);
+  font:inherit;
+  font-size:10px;
+  font-weight:950;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+}
+.app-mode-btn.active{
+  background:var(--surface);
+  color:var(--accent);
+  box-shadow:0 8px 18px rgba(var(--accent-rgb),.10), inset 0 0 0 1px rgba(var(--accent-rgb),.16);
+}
+.budget-page{
+  height:100%;
+  overflow:auto;
+  padding:24px 28px 96px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.budget-hero{
+  position:relative!important;
+  top:auto!important;
+  margin:0!important;
+}
+.budget-metrics-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.budget-metric,.budget-card{
+  background:var(--surface);
+  border:1px solid rgba(var(--accent-rgb),.15);
+  border-radius:24px;
+  box-shadow:var(--shadow-sm);
+}
+.budget-metric{
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.budget-metric span,.budget-kicker,.budget-field-label{
+  color:var(--text3);
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.budget-metric strong{
+  color:var(--text);
+  font-size:24px;
+  font-weight:950;
+  letter-spacing:-.04em;
+}
+.budget-metric small,.budget-helper-copy,.budget-card p,.budget-ledger-card small{
+  color:var(--text2);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.45;
+}
+.budget-metric-good strong{color:#2F9B72;}.budget-metric-danger strong{color:#D05A7B;}
+.budget-layout-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);
+  gap:16px;
+  align-items:stretch;
+}
+.budget-card{
+  padding:18px;
+}
+.budget-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+.budget-card h2{
+  color:var(--text);
+  font-size:18px;
+  font-weight:950;
+  letter-spacing:-.03em;
+}
+.budget-editable-pill{
+  background:rgba(var(--accent-rgb),.10);
+  border:1px solid rgba(var(--accent-rgb),.18);
+  color:var(--accent);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:10px;
+  font-weight:950;
+}
+.budget-form-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.budget-form-grid label{display:flex;flex-direction:column;gap:5px;}
+.budget-input{
+  width:100%;
+  min-height:40px;
+  border:1px solid rgba(var(--accent-rgb),.16);
+  background:var(--surface-soft);
+  color:var(--text);
+  border-radius:14px;
+  padding:9px 11px;
+  font:inherit;
+  font-size:12px;
+  font-weight:850;
+}
+.budget-input.money{text-align:right;font-variant-numeric:tabular-nums;}
+.budget-notes{margin-top:10px;min-height:72px;resize:vertical;}
+.budget-account-list,.budget-bucket-list{display:flex;flex-direction:column;gap:8px;}
+.budget-account-row,.budget-bucket-row{
+  display:grid;
+  gap:8px;
+  align-items:center;
+  padding:10px;
+  background:var(--surface-soft);
+  border:1px solid rgba(var(--accent-rgb),.12);
+  border-radius:18px;
+}
+.budget-account-row{grid-template-columns:1.25fr .75fr .75fr 1fr auto auto auto;}
+.budget-bucket-row{grid-template-columns:1.4fr .65fr .9fr 1fr 1fr auto auto .55fr auto;}
+.budget-bucket-row.protected{border-color:rgba(var(--accent-rgb),.30);background:rgba(var(--accent-rgb),.07);}
+.budget-bucket-row .bucket-notes{grid-column:1 / -1;min-height:46px;resize:vertical;}
+.budget-check{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--text2);
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.budget-check input{accent-color:var(--accent);}
+.budget-ledger-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px;
+}
+.budget-ledger-card{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  background:var(--surface-soft);
+  border:1px solid rgba(var(--accent-rgb),.12);
+  border-radius:18px;
+  padding:12px;
+}
+.budget-ledger-card textarea{min-height:70px;resize:vertical;}
+.budget-roadmap-card ul{display:flex;flex-direction:column;gap:7px;margin:12px 0 0;padding-left:18px;color:var(--text2);font-size:12px;font-weight:800;}
+.dark .app-mode-switch,.dark .budget-metric,.dark .budget-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
+.dark .budget-input,.dark .budget-account-row,.dark .budget-bucket-row,.dark .budget-ledger-card{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
+@media(max-width:1100px){.budget-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.budget-layout-grid{grid-template-columns:1fr}.budget-account-row,.budget-bucket-row{grid-template-columns:1fr 1fr}.budget-bucket-row .bucket-notes{grid-column:1/-1;}}
+@media(max-width:768px){
+  .app-mode-switch{margin:0 10px 10px;}
+  .budget-page{padding:12px 12px calc(var(--mobile-nav-h) + 20px)!important;}
+  .budget-metrics-grid,.budget-form-grid{grid-template-columns:1fr!important;}
+  .budget-account-row,.budget-bucket-row{grid-template-columns:1fr!important;}
+  .budget-card-head{flex-direction:column;}
+}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }

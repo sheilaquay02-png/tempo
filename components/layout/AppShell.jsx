@@ -16,6 +16,31 @@ export function TempoLoadingScreen({ message = null }) {
   );
 }
 
+
+export function AppModeSwitch({ appMode = "schedule", onChange }) {
+  const modes = [
+    { id: "schedule", label: "Schedule", emoji: "🗓️" },
+    { id: "budget", label: "Budget", emoji: "💰" },
+    { id: "overall", label: "Overall", emoji: "🌿" },
+  ];
+  return (
+    <div className="app-mode-switch" role="tablist" aria-label="Tempo app mode">
+      {modes.map(mode => (
+        <button
+          key={mode.id}
+          type="button"
+          role="tab"
+          aria-selected={appMode === mode.id}
+          className={`app-mode-btn ${appMode === mode.id ? "active" : ""}`}
+          onClick={() => onChange?.(mode.id)}
+        >
+          <span>{mode.emoji}</span>{mode.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function AppSidebar({
   sidebarOpen,
   todayDate,
@@ -28,6 +53,8 @@ export function AppSidebar({
   checkInSummary,
   onOpenCheckIn,
   page,
+  appMode = "schedule",
+  onAppModeChange,
   onNavigate,
   onPlanToday,
   onOpenSettings,
@@ -49,6 +76,7 @@ export function AppSidebar({
   return (
     <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
       <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark /></div><span>Tempo</span></div>
+      <AppModeSwitch appMode={appMode} onChange={onAppModeChange} />
       <div className="sidebar-date">
         <div className="date-big">{todayDate.getDate()}</div>
         {sidebarDateLabel}
@@ -65,17 +93,17 @@ export function AppSidebar({
       )}
       <nav className="sidebar-nav">
         <div className="nav-section-label">Main</div>
-        <div className={`nav-item ${page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
-        <div className={`nav-item ${page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
-        <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
         <div className="nav-section-label" style={{ marginTop: 8 }}>Planning</div>
         <div className="nav-item desktop-hidden-menu-item" onClick={onPlanToday}><span className="nav-icon">✨</span>Plan Today</div>
-        <div className={`nav-item ${page === "tomorrow-reset" ? "active" : ""}`} onClick={() => onNavigate("tomorrow-reset")}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
-        <div className={`nav-item ${page === "weekly-reset" ? "active" : ""}`} onClick={() => onNavigate("weekly-reset")}><span className="nav-icon">🧺</span>Weekly Reset</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "tomorrow-reset" ? "active" : ""}`} onClick={() => onNavigate("tomorrow-reset")}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "weekly-reset" ? "active" : ""}`} onClick={() => onNavigate("weekly-reset")}><span className="nav-icon">🧺</span>Weekly Reset</div>
         <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
-        <div className={`nav-item ${page === "habits" ? "active" : ""}`} onClick={() => onNavigate("habits")}><span className="nav-icon">🌱</span>Habits</div>
-        <div className={`nav-item ${page === "journal" ? "active" : ""}`} onClick={() => onNavigate("journal")}><span className="nav-icon">📔</span>Journal</div>
-        <div className={`nav-item ${page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "habits" ? "active" : ""}`} onClick={() => onNavigate("habits")}><span className="nav-icon">🌱</span>Habits</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "journal" ? "active" : ""}`} onClick={() => onNavigate("journal")}><span className="nav-icon">📔</span>Journal</div>
+        <div className={`nav-item ${appMode === "schedule" && page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
         <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
       </nav>
       <div className="sidebar-cals">
@@ -153,6 +181,7 @@ export function CalendarTopbar({
 export function MobileBottomNav({
   sidebarOpen,
   page,
+  appMode = "schedule",
   syncStatus,
   pendingLocalChanges,
   lastSyncedAt,
@@ -163,6 +192,8 @@ export function MobileBottomNav({
   onNavigateTasks,
   onNavigateJournal,
   onNavigateHabits,
+  onNavigateBudget,
+  onNavigateOverall,
 }) {
   return (
     <>
@@ -172,11 +203,11 @@ export function MobileBottomNav({
 
       <div className="mobile-nav" role="navigation" aria-label="Mobile primary navigation">
         <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
-        <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
-        <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
-        <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
-        <button className={`mobile-nav-btn ${page === "journal" ? "active" : ""}`} onClick={onNavigateJournal}>📔<span>Journal</span></button>
-        <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={onNavigateHabits}>🌱<span>Habits</span></button>
+        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
+        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
+        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
+        <button className={`mobile-nav-btn ${appMode === "budget" ? "active" : ""}`} onClick={onNavigateBudget}>💰<span>Budget</span></button>
+        <button className={`mobile-nav-btn ${appMode === "overall" ? "active" : ""}`} onClick={onNavigateOverall}>🌿<span>Overall</span></button>
       </div>
     </>
   );
