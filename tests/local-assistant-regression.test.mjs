@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 const appSource = readFileSync('components/TempoApp.jsx', 'utf8');
+const settingsSource = existsSync('components/settings/SettingsPanel.jsx') ? readFileSync('components/settings/SettingsPanel.jsx', 'utf8') : '';
 const styleSource = readFileSync('styles/tempoStyles.js', 'utf8');
-const combined = `${appSource}\n${styleSource}`;
+const combined = `${appSource}\n${settingsSource}\n${styleSource}`;
 
 test('local Tempo Assistant remains restored and local-only', () => {
   assert.equal(existsSync('app/api/assistant/route.js'), false, 'OpenAI/API assistant route must stay removed');
@@ -44,7 +45,7 @@ test('Tempo Assistant UI affordances and guided flows remain present', () => {
 });
 
 test('assistant local memory and undo history are still wired into Settings', () => {
-  assert.match(appSource, /onUpdateAssistantMemory/, 'settings should still update local assistant rhythm memory');
-  assert.match(appSource, /onClearAssistantActionHistory/, 'settings should still clear assistant undo history');
-  assert.match(appSource, /clear assistant undo history/i, 'assistant undo history copy should remain visible');
+  assert.match(combined, /onUpdateAssistantMemory/, 'settings should still update local assistant rhythm memory');
+  assert.match(combined, /onClearAssistantActionHistory/, 'settings should still clear assistant undo history');
+  assert.match(combined, /clear assistant undo history/i, 'assistant undo history copy should remain visible');
 });
