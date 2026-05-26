@@ -12,32 +12,13 @@ const {
   normalizeSyncConflictLog,
 } = Core;
 
-export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, assistantMemory, defaultAssistantMemory, normalizeAssistantMemoryValue, normalizeAssistantActionHistoryValue, onUpdateAssistantMemory, assistantActionHistory = [], onClearAssistantActionHistory, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
+export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
   const reminderDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const settingsAssistantDefault = defaultAssistantMemory || {
-    planningStyle: "gentle",
-    preferredFocusWindow: "",
-    taskLimit: 3,
-    focusMinutes: 60,
-    avoidAfter: "",
-    notes: [],
-    updatedAt: null,
-  };
-  const normalizeSettingsAssistantMemory = normalizeAssistantMemoryValue || (value => value || settingsAssistantDefault);
-  const normalizeSettingsAssistantActionHistory = normalizeAssistantActionHistoryValue || (value => Array.isArray(value) ? value : []);
-  const settingsAssistantMemory = normalizeSettingsAssistantMemory(assistantMemory || settingsAssistantDefault);
-  const settingsAssistantHistory = normalizeSettingsAssistantActionHistory(assistantActionHistory);
-  const updateSettingsAssistantMemory = patch => onUpdateAssistantMemory?.(normalizeSettingsAssistantMemory({ ...settingsAssistantMemory, ...patch, updatedAt: new Date().toISOString() }));
-  const removeAssistantMemoryNote = id => updateSettingsAssistantMemory({ notes: settingsAssistantMemory.notes.filter(note => note.id !== id) });
-  const clearAssistantMemory = () => {
-    if (!window.confirm("Clear Tempo Assistant rhythm memory? This only removes the local preferences Tempo remembers about your planning style.")) return;
-    onUpdateAssistantMemory?.(normalizeSettingsAssistantMemory(settingsAssistantDefault));
-  };
   const notificationSupported = typeof window !== "undefined" && "Notification" in window;
   const pushSupported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && notificationSupported;
   const notificationPermission = notificationSupported ? Notification.permission : "unsupported";
@@ -224,30 +205,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
             <select className="tf-select" value={timezone || detected} onChange={e => setTimezone(e.target.value)}>
               {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
             </select>
-          </div>
-
-          <div className="settings-section assistant-memory-settings">
-            <div className="settings-section-label">Assistant Rhythm Memory</div>
-            <div className="settings-section-desc">Manage what Tempo Assistant remembers locally about your planning preferences. This stays inside your Tempo data and does not use AI.</div>
-            <div className="assistant-memory-settings-grid">
-              <label><span>Planning style</span><select className="tf-select" value={settingsAssistantMemory.planningStyle} onChange={e => updateSettingsAssistantMemory({ planningStyle: e.target.value })}><option value="gentle">Gentle</option><option value="flexible">Flexible</option><option value="structured">Structured</option></select></label>
-              <label><span>Focus window</span><select className="tf-select" value={settingsAssistantMemory.preferredFocusWindow} onChange={e => updateSettingsAssistantMemory({ preferredFocusWindow: e.target.value })}><option value="">No preference</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
-              <label><span>Main task limit</span><input className="tf-input" type="number" min="1" max="6" value={settingsAssistantMemory.taskLimit} onChange={e => updateSettingsAssistantMemory({ taskLimit: Number(e.target.value) })} /></label>
-              <label><span>Focus block minutes</span><input className="tf-input" type="number" min="15" max="180" step="15" value={settingsAssistantMemory.focusMinutes} onChange={e => updateSettingsAssistantMemory({ focusMinutes: Number(e.target.value) })} /></label>
-              <label><span>Avoid after</span><input className="tf-input" type="time" value={settingsAssistantMemory.avoidAfter} onChange={e => updateSettingsAssistantMemory({ avoidAfter: e.target.value })} /></label>
-            </div>
-            <div className="assistant-memory-note-list">
-              {settingsAssistantMemory.notes.length ? settingsAssistantMemory.notes.map(note => (
-                <div key={note.id} className="assistant-memory-note-row"><span>{note.text}</span><button type="button" className="tf-cancel" onClick={() => removeAssistantMemoryNote(note.id)}>Remove</button></div>
-              )) : <div className="settings-section-desc">No custom memory notes yet. In the assistant, type “remember that…” to add one.</div>}
-            </div>
-            <div className="settings-action-row"><button type="button" className="tf-cancel" onClick={clearAssistantMemory}>Clear rhythm memory</button></div>
-            <div className="assistant-history-settings">
-              <div className="settings-section-label small">Assistant action undo history</div>
-              <div className="settings-section-desc">{settingsAssistantHistory.length ? `${settingsAssistantHistory.length} assistant-applied action${settingsAssistantHistory.length === 1 ? "" : "s"} saved for undo.` : "No assistant-applied actions yet."}</div>
-              {settingsAssistantHistory.slice(0, 8).map(item => <div key={item.id} className="assistant-history-row"><span>{item.label}</span><small>{new Date(item.createdAt).toLocaleString()}</small></div>)}
-              {settingsAssistantHistory.length > 0 && <button type="button" className="tf-cancel" onClick={() => { if (window.confirm("Clear assistant undo history? This only clears the history list and will not undo past changes.")) onClearAssistantActionHistory?.(); }}>Clear assistant undo history</button>}
-            </div>
           </div>
 
           <div className="settings-section google-calendar-settings">

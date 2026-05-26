@@ -47,27 +47,26 @@ if (has('app/api/assistant/route.js')) {
 
 const envExample = has('.env.example') ? readFileSync(join(root, '.env.example'), 'utf8') : '';
 if (/OPENAI_API_KEY|OPENAI_MODEL/i.test(envExample)) {
-  fail('.env.example must not require OpenAI assistant variables. Tempo Assistant is local-only.');
+  fail('.env.example must not require OpenAI variables.');
 }
 
 const tempoApp = has('components/TempoApp.jsx') ? readFileSync(join(root, 'components/TempoApp.jsx'), 'utf8') : '';
 const styles = has('styles/tempoStyles.js') ? readFileSync(join(root, 'styles/tempoStyles.js'), 'utf8') : '';
 const journalComponents = has('components/journal/Journal.jsx') ? readFileSync(join(root, 'components/journal/Journal.jsx'), 'utf8') : '';
 
-const requiredAssistantMarkers = [
+const removedAssistantMarkers = [
   'function ChatPanel',
   'buildTempoAssistantContext',
-  'assistant-context-card',
+  'chat-fab',
+  'tempo-assistant-panel',
   'assistant-prompt-bank',
-  'startAssistantFlow',
-  'buildAssistantAction',
+  'Assistant Rhythm Memory',
   'normalizeAssistantMemory',
   'assistantActionHistory',
-  'Created with Tempo Assistant',
 ];
-for (const marker of requiredAssistantMarkers) {
-  if (!tempoApp.includes(marker) && !styles.includes(marker)) {
-    fail(`Local Tempo Assistant regression marker missing: ${marker}`);
+for (const marker of removedAssistantMarkers) {
+  if (tempoApp.includes(marker) || styles.includes(marker)) {
+    fail(`Removed assistant marker should not be present in product source: ${marker}`);
   }
 }
 
