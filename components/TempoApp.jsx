@@ -5,6 +5,7 @@ import * as Core from "../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { TempoLogoMark, DailyStartupModal, DailyAffirmationCard, SyncStatusPill, ComingSoonPage } from "./shared/DisplayComponents";
+import { HabitCard, HabitsPage } from "./habits/Habits";
 import {
   DEFAULT_MEAL_BREAKS,
   DEFAULT_PLANNING_RULES,
@@ -13,16 +14,24 @@ import {
   RITUAL_REMINDER_PRESETS,
   DEFAULT_HABITS,
   HABIT_TEMPLATES,
-  HABIT_CATEGORIES,
-  HABIT_REMINDER_PRESETS,
 } from "../constants/tempoConstants";
 import { pct } from "../utils/budgetUtils";
+import {
+  habitFromTemplate,
+  habitProgress,
+  habitRunsOnDate,
+  habitStreak,
+  normalizeHabit,
+  normalizeHabitCompletion,
+  normalizeHabitCompletions,
+  normalizeHabitReminder,
+  normalizeHabits,
+} from "../utils/habitUtils";
 import {
   dateKeySetForLast,
   hourLabel,
   timeStringToMinutes,
   validTimeString,
-  weekDatesFor,
 } from "../utils/dateUtils";
 import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications, disableTempoPushNotifications } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
@@ -1332,155 +1341,6 @@ function ritualProgress(ritual, completions, date = TODAY) {
   const total = Math.max(1, ritual.steps?.length || 0);
   const done = completion?.skippedAt ? 0 : (completion?.completedSteps || []).filter(id => ritual.steps.some(s => s.id === id)).length;
   return { completion, done, total, percent: Math.min(100, Math.round(done / total * 100)), completed: Boolean(completion?.completedAt), skipped: Boolean(completion?.skippedAt) };
-}
-
-function habitRepeatDaysFromFrequency(frequency, repeatDays) {
-  if (Array.isArray(repeatDays) && repeatDays.length) return [...new Set(repeatDays.map(Number).filter(d => d >= 0 && d <= 6))].sort((a,b) => a-b);
-  if (frequency === "weekdays") return [1,2,3,4,5];
-  if (frequency === "weekends") return [0,6];
-  return [0,1,2,3,4,5,6];
-}
-
-function normalizeHabitReminder(reminder) {
-  if (reminder === null) return { type: "none", time: "" };
-  if (typeof reminder === "string") {
-    const preset = HABIT_REMINDER_PRESETS.find(p => p.id === reminder);
-    if (preset) return { type: preset.id, time: preset.time };
-    return /^\d{2}:\d{2}$/.test(reminder) ? { type: "custom", time: reminder } : { type: "none", time: "" };
-  }
-  if (!reminder) return { type: "none", time: "" };
-  const type = reminder.type || reminder.mode || reminder.id || "none";
-  if (type === "none") return { type: "none", time: "" };
-  const preset = HABIT_REMINDER_PRESETS.find(p => p.id === type);
-  return { type: preset ? preset.id : "custom", time: validTimeString(reminder.time || preset?.time || "09:00", preset?.time || "09:00") };
-}
-
-function habitReminderPresetId(reminder) {
-  const r = normalizeHabitReminder(reminder);
-  if (r.type === "none") return "none";
-  if (["morning", "afternoon", "evening"].includes(r.type)) return r.type;
-  return "custom";
-}
-
-function normalizeHabit(habit, index = 0) {
-  const now = new Date().toISOString();
-  const fallback = DEFAULT_HABITS[index % DEFAULT_HABITS.length] || DEFAULT_HABITS[0];
-  const frequency = ["daily", "weekdays", "weekends", "custom"].includes(habit?.frequency) ? habit.frequency : (fallback?.frequency || "daily");
-  const repeatDays = habitRepeatDaysFromFrequency(frequency, habit?.repeatDays ?? fallback?.repeatDays);
-  const target = Math.max(1, Math.min(20, Number(habit?.targetCount || habit?.target || fallback?.targetCount || 1)));
-  return {
-    id: String(habit?.id || `habit-${uid()}`),
-    name: String(habit?.name || fallback?.name || "New Habit").trim() || "New Habit",
-    templateId: habit?.templateId ? String(habit.templateId) : (fallback?.templateId ? String(fallback.templateId) : null),
-    emoji: String(habit?.emoji || fallback?.emoji || "🌱").trim() || "🌱",
-    category: String(habit?.category || fallback?.category || "personal"),
-    frequency,
-    repeatDays: repeatDays.length ? repeatDays : [0,1,2,3,4,5,6],
-    targetCount: target,
-    unit: String(habit?.unit || fallback?.unit || (target > 1 ? "times" : "check-in")).trim() || "check-in",
-    reminder: normalizeHabitReminder(habit?.reminder ?? fallback?.reminder),
-    archived: Boolean(habit?.archived),
-    deletedAt: habit?.deletedAt || null,
-    createdAt: habit?.createdAt || now,
-    updatedAt: habit?.updatedAt || habit?.createdAt || now,
-  };
-}
-
-function normalizeHabits(value) {
-  const source = Array.isArray(value) ? value : DEFAULT_HABITS;
-  const seen = new Set();
-  return source.map(normalizeHabit).filter(h => {
-    if (!h.id || seen.has(h.id)) return false;
-    seen.add(h.id);
-    return !h.deletedAt;
-  });
-}
-
-function habitNameWithCopySuffix(name, habits = []) {
-  const base = String(name || "New Habit").trim() || "New Habit";
-  const names = new Set(normalizeHabits(habits).map(h => String(h.name || "").trim().toLowerCase()).filter(Boolean));
-  if (!names.has(base.toLowerCase())) return base;
-  let i = 2;
-  while (names.has(`${base} ${i}`.toLowerCase())) i += 1;
-  return `${base} ${i}`;
-}
-
-function habitFromTemplate(template, habits = []) {
-  const now = new Date().toISOString();
-  return normalizeHabit({
-    id: `habit-${template.id}-${uid()}`,
-    templateId: template.id,
-    name: habitNameWithCopySuffix(template.name, habits),
-    emoji: template.emoji,
-    category: template.category,
-    frequency: template.frequency,
-    repeatDays: template.repeatDays,
-    targetCount: template.targetCount,
-    unit: template.unit,
-    reminder: template.reminder,
-    archived: false,
-    deletedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
-function normalizeHabitCompletion(completion) {
-  const now = new Date().toISOString();
-  const count = Math.max(0, Math.min(999, Number(completion?.count || (completion?.completedAt ? 1 : 0)) || 0));
-  return {
-    id: String(completion?.id || `${completion?.habitId || "habit"}:${completion?.date || dateKey(TODAY)}`),
-    habitId: String(completion?.habitId || ""),
-    date: String(completion?.date || dateKey(TODAY)),
-    count,
-    completedAt: completion?.completedAt || (count > 0 ? now : null),
-    note: String(completion?.note || ""),
-    createdAt: completion?.createdAt || now,
-    updatedAt: completion?.updatedAt || completion?.createdAt || now,
-  };
-}
-
-function normalizeHabitCompletions(value) {
-  const source = Array.isArray(value) ? value : [];
-  const map = new Map();
-  source.map(normalizeHabitCompletion).filter(c => c.habitId && c.date).forEach(c => {
-    const prev = map.get(c.id);
-    if (!prev || new Date(c.updatedAt || 0) >= new Date(prev.updatedAt || 0)) map.set(c.id, c);
-  });
-  return [...map.values()];
-}
-
-function habitRunsOnDate(habit, date = TODAY) {
-  if (!habit || habit.archived || habit.deletedAt) return false;
-  const days = Array.isArray(habit.repeatDays) ? habit.repeatDays.map(Number) : [0,1,2,3,4,5,6];
-  return days.includes(dayStart(date).getDay());
-}
-
-function habitCompletionFor(completions, habitId, date = TODAY) {
-  const key = dateKey(date);
-  return (Array.isArray(completions) ? completions : []).find(c => c.habitId === habitId && c.date === key) || null;
-}
-
-function habitProgress(habit, completions, date = TODAY) {
-  const completion = habitCompletionFor(completions, habit.id, date);
-  const target = Math.max(1, Number(habit.targetCount || 1));
-  const count = Math.max(0, Number(completion?.count || 0));
-  const completed = count >= target;
-  return { completion, count, target, percent: Math.min(100, Math.round(count / target * 100)), completed };
-}
-
-function habitStreak(habit, completions, fromDate = TODAY) {
-  const all = normalizeHabitCompletions(completions);
-  let streak = 0;
-  let cursor = dayStart(fromDate);
-  for (let i = 0; i < 370; i++) {
-    if (!habitRunsOnDate(habit, cursor)) { cursor = addDaysSafe(cursor, -1); continue; }
-    const progress = habitProgress(habit, all, cursor);
-    if (!progress.completed) break;
-    streak += 1;
-    cursor = addDaysSafe(cursor, -1);
-  }
-  return streak;
 }
 
 function normalizePlanningRules(value) {
@@ -3510,196 +3370,6 @@ function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCh
 }
 
 // Ritual UI was removed from visible product surfaces; legacy ritual data normalizers remain for sync compatibility.
-
-function HabitReminderEditor({ value, onChange }) {
-  const reminder = normalizeHabitReminder(value);
-  const presetId = habitReminderPresetId(reminder);
-  const setPreset = id => {
-    const preset = HABIT_REMINDER_PRESETS.find(p => p.id === id);
-    if (id === "none") return onChange({ type: "none", time: "" });
-    if (id === "custom") return onChange({ type: "custom", time: reminder.time || "09:00" });
-    return onChange({ type: preset?.id || id, time: preset?.time || "09:00" });
-  };
-  return (
-    <div className="reminder-editor">
-      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
-        {HABIT_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-      </select>
-      {presetId === "custom" && <input type="time" className="modal-select" value={reminder.time || "09:00"} onChange={e => onChange({ type: "custom", time: e.target.value })} />}
-    </div>
-  );
-}
-
-function HabitModal({ habit, onClose, onSave, onDelete, onArchive }) {
-  const isTemplateDraft = Boolean(habit?._templateDraft);
-  const isExistingHabit = Boolean(habit?.id && !isTemplateDraft);
-  const initial = habit ? normalizeHabit(habit) : normalizeHabit({ id: "habit-" + uid(), name: "New Habit", emoji: "🌱", category: "personal", frequency: "daily", repeatDays: [0,1,2,3,4,5,6], targetCount: 1, unit: "check-in", reminder: { type: "none", time: "" } });
-  const [form, setForm] = useState(initial);
-  const days = ["S","M","T","W","T","F","S"];
-  const toggleDay = day => setForm(f => {
-    const set = new Set(f.repeatDays || []);
-    if (set.has(day)) set.delete(day); else set.add(day);
-    const next = [...set].sort((a,b) => a-b);
-    return { ...f, frequency: "custom", repeatDays: next.length ? next : [day] };
-  });
-  const setFrequency = frequency => setForm(f => ({ ...f, frequency, repeatDays: habitRepeatDaysFromFrequency(frequency, null) }));
-  const saveForm = () => {
-    const clean = normalizeHabit(form);
-    if (!clean.name.trim()) return;
-    onSave(clean);
-  };
-  return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Habit editor">
-      <div className="modal habit-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><span style={{ fontWeight: 900 }}>{isTemplateDraft ? "Customize Template" : isExistingHabit ? "Edit Habit" : "Create Habit"}</span><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div className="ritual-form-title-row">
-            <input className="modal-select ritual-emoji-input" value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value.slice(0, 4) || "🌱" }))} aria-label="Habit emoji" />
-            <input className="modal-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Habit name" />
-          </div>
-          <div className="modal-row"><label>Category</label><select className="modal-select" disabled={isReferenceEvent} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{HABIT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></div>
-          <div className="modal-row"><label>Frequency</label><select className="modal-select" value={form.frequency} onChange={e => setFrequency(e.target.value)}><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option><option value="custom">Custom days</option></select></div>
-          <div className="modal-row modal-row-full"><label>Repeat days</label><div className="weekday-picker ritual-weekday-picker">{days.map((d,i) => <button type="button" key={i} className={`weekday-btn ${form.repeatDays?.includes(i) ? "active" : ""}`} onClick={() => toggleDay(i)}>{d}</button>)}</div></div>
-          <div className="modal-row"><label>Daily target</label><div className="habit-target-row"><input type="number" min={1} max={20} className="modal-select modal-time" value={form.targetCount} onChange={e => setForm(f => ({ ...f, targetCount: Math.max(1, Number(e.target.value) || 1) }))}/><input className="modal-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="check-in" /></div></div>
-          <div className="modal-row"><label>Reminder</label><HabitReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
-        </div>
-        <div className="modal-actions">
-          {isExistingHabit && <button className="tf-cancel" onClick={() => onArchive(habit, !habit.archived)}>{habit.archived ? "Restore" : "Archive"}</button>}
-          {isExistingHabit && <button className="tf-delete" onClick={() => onDelete(habit)}>Delete</button>}
-          <button className="tf-cancel" onClick={onClose}>Cancel</button>
-          <button className="tf-save" onClick={saveForm}>Save Habit</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HabitCard({ habit, progress, streak = 0, onToggle, onIncrement, onEdit, compact = false }) {
-  const category = HABIT_CATEGORIES.find(c => c.id === habit.category);
-  const target = Math.max(1, Number(habit.targetCount || 1));
-  return (
-    <div className={`habit-card ${progress.completed ? "habit-complete" : ""}`}>
-      <div className="habit-card-top">
-        <div className="habit-title-wrap"><div className="habit-emoji">{habit.emoji}</div><div><h3>{habit.name}</h3><p>{category?.emoji || "✨"} {category?.label || "Habit"} · {streak} day streak</p></div></div>
-        {!compact && <button className="tf-cancel ritual-edit-btn" onClick={() => onEdit(habit)}>Edit</button>}
-      </div>
-      <div className="ritual-progress-track"><i style={{ width: `${progress.percent}%` }} /></div>
-      <div className="ritual-progress-label">{progress.completed ? "Checked off today ✨" : `${progress.count}/${target} ${habit.unit || "done"}`}</div>
-      <div className="habit-card-actions">
-        {target <= 1 ? <label className={`ritual-step habit-check ${progress.completed ? "checked" : ""}`}><input type="checkbox" checked={progress.completed} onChange={() => onToggle(habit)} /><span>{progress.completed ? "Done for today" : "Check off"}</span></label> : <><button className="tf-cancel" onClick={() => onIncrement(habit, -1)} disabled={progress.count <= 0}>−</button><button className="tf-save" onClick={() => onIncrement(habit, 1)}>＋ Add one</button></>}
-      </div>
-    </div>
-  );
-}
-
-function HabitWeeklyGrid({ habits = [], completions = [] }) {
-  const days = weekDatesFor(TODAY);
-  const active = normalizeHabits(habits).filter(h => !h.archived && !h.deletedAt);
-  return (
-    <div className="habit-week-grid-wrap">
-      <div className="habit-week-grid habit-week-grid-head"><span>Habit</span>{days.map(d => <span key={dateKey(d)}>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]}</span>)}</div>
-      {active.map(h => <div key={h.id} className="habit-week-grid"><strong>{h.emoji} {h.name}</strong>{days.map(d => {
-        const runs = habitRunsOnDate(h, d);
-        const done = habitProgress(h, completions, d).completed;
-        return <span key={dateKey(d)} className={!runs ? "muted" : done ? "done" : ""}>{!runs ? "·" : done ? "✓" : "○"}</span>;
-      })}</div>)}
-      {!active.length && <div className="phase-empty">No active habits yet.</div>}
-    </div>
-  );
-}
-
-function HabitTemplateLibrary({ habits = [], onUseTemplate, onCustomizeTemplate }) {
-  const [filter, setFilter] = useState("all");
-  const [open, setOpen] = useState(false);
-  const normalized = normalizeHabits(habits);
-  const categories = ["all", ...HABIT_CATEGORIES.map(c => c.id)];
-  const filtered = HABIT_TEMPLATES.filter(t => filter === "all" || t.category === filter);
-  const hasTemplate = template => normalized.some(h => h.templateId === template.id || String(h.name || "").trim().toLowerCase() === String(template.name || "").trim().toLowerCase());
-  return (
-    <div className={`phase-card ritual-template-library habit-template-library ${open ? "open" : "collapsed"}`}>
-      <div className="phase-card-head ritual-template-head">
-        <div><span>Template Library</span><small>Starter habits are tucked away. Expand when you want ideas.</small></div>
-        <button className="mini-pill" onClick={() => setOpen(v => !v)}>{open ? "Collapse" : "Expand"}</button>
-      </div>
-      {open ? <>
-        <div className="ritual-template-filters">
-          {categories.map(id => {
-            const cat = HABIT_CATEGORIES.find(c => c.id === id);
-            return <button key={id} className={`mini-pill ${filter === id ? "active" : ""}`} onClick={() => setFilter(id)}>{id === "all" ? "All" : `${cat?.emoji || "✨"} ${cat?.label || id}`}</button>;
-          })}
-        </div>
-        <div className="ritual-template-grid habit-template-grid">
-          {filtered.map(template => {
-            const cat = HABIT_CATEGORIES.find(c => c.id === template.category);
-            const alreadyAdded = hasTemplate(template);
-            const reminder = normalizeHabitReminder(template.reminder);
-            return (
-              <div key={template.id} className={`ritual-template-card habit-template-card ${alreadyAdded ? "template-added" : ""}`} style={{ "--ritual-color": template.color || "var(--accent)" }}>
-                <div className="ritual-template-top">
-                  <div className="ritual-template-emoji">{template.emoji}</div>
-                  <div><h3>{template.name}</h3><p>{cat?.emoji || "✨"} {cat?.label || "Habit"} · {template.frequency === "daily" ? "Daily" : template.frequency === "weekdays" ? "Weekdays" : template.frequency === "weekends" ? "Weekends" : "Custom"}</p></div>
-                </div>
-                <div className="ritual-template-desc">{template.description}</div>
-                <div className="ritual-template-steps">
-                  <span>✓ Target: {template.targetCount || 1} {template.unit || "check-in"}</span>
-                  <span>✓ Reminder: {reminder.type === "none" ? "No reminder" : reminder.time}</span>
-                  <span>✓ Repeat: {template.repeatDays?.length === 7 ? "Every day" : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => template.repeatDays?.includes(i)).join(" · ")}</span>
-                </div>
-                {alreadyAdded && <div className="template-added-badge">Already in your habits</div>}
-                <div className="ritual-template-actions">
-                  <button className="tf-cancel" onClick={() => onCustomizeTemplate(template)}>Customize</button>
-                  <button className="tf-save" onClick={() => onUseTemplate(template)}>{alreadyAdded ? "Add another" : "Use template"}</button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </> : <div className="phase-empty habit-template-collapsed-note">Template Library is collapsed to keep Habits cleaner.</div>}
-    </div>
-  );
-}
-
-function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, onArchive, onToggle, onIncrement }) {
-  const [modalHabit, setModalHabit] = useState(null);
-  const normalized = normalizeHabits(habits);
-  const active = normalized.filter(h => !h.archived && !h.deletedAt);
-  const archived = normalized.filter(h => h.archived && !h.deletedAt);
-  const todayHabits = active.filter(h => habitRunsOnDate(h, TODAY));
-  const saveHabit = habit => {
-    habit.id && habits.some(h => h.id === habit.id) ? onEdit(habit.id, habit) : onAdd(habit);
-    setModalHabit(null);
-  };
-  const useTemplate = template => onAdd(habitFromTemplate(template, habits));
-  const customizeTemplate = template => setModalHabit({ ...habitFromTemplate(template, habits), _templateDraft: true });
-  const deleteHabit = habit => { onDelete(habit); setModalHabit(null); };
-  return (
-    <div className="phase-page habits-page">
-      <div className="phase-hero habit-hero">
-        <div><div className="phase-kicker">Habits</div><h1>🌱 Build gentle consistency</h1><p>Track small daily check-ins that support your rhythm without making the app feel noisy.</p></div>
-        <button className="tf-save phase-primary" onClick={() => setModalHabit({})}>＋ Create Habit</button>
-      </div>
-      <div className="phase-card phase-wide-card ritual-section-card">
-        <div className="phase-card-head"><span>Today’s Habits</span><small>{todayHabits.length} scheduled today</small></div>
-        {todayHabits.length ? <div className="habit-grid">{todayHabits.map(h => <HabitCard key={h.id} habit={h} progress={habitProgress(h, completions, TODAY)} streak={habitStreak(h, completions, TODAY)} onToggle={onToggle} onIncrement={onIncrement} onEdit={setModalHabit} />)}</div> : <div className="phase-empty">No habits scheduled today. Create one gentle habit to begin.</div>}
-      </div>
-      <div className="phase-card phase-wide-card ritual-section-card">
-        <div className="phase-card-head"><span>Weekly Grid</span><small>This week</small></div>
-        <HabitWeeklyGrid habits={active} completions={completions} />
-      </div>
-      <div className="phase-card phase-wide-card ritual-section-card">
-        <div className="phase-card-head"><span>All Habits</span><small>{active.length} active</small></div>
-        {active.length ? <div className="ritual-list-compact">{active.map(h => {
-          const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].filter((_, i) => h.repeatDays.includes(i)).join(" · ");
-          const reminder = normalizeHabitReminder(h.reminder);
-          return <div key={h.id} className="ritual-list-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>{days || "No repeat days"}{reminder.type !== "none" ? ` · ${reminder.time}` : ""}</small></div><button className="tf-cancel" onClick={() => setModalHabit(h)}>Edit</button></div>;
-        })}</div> : <div className="phase-empty">No habits yet.</div>}
-      </div>
-      <HabitTemplateLibrary habits={normalized} onUseTemplate={useTemplate} onCustomizeTemplate={customizeTemplate} />
-      {archived.length > 0 && <div className="phase-card phase-wide-card ritual-section-card"><div className="phase-card-head"><span>Archived</span><small>{archived.length}</small></div><div className="ritual-list-compact">{archived.map(h => <div key={h.id} className="ritual-list-row ritual-archived-row"><span className="ritual-list-emoji">{h.emoji}</span><div><strong>{h.name}</strong><small>Archived</small></div><button className="tf-cancel" onClick={() => onArchive(h, false)}>Restore</button></div>)}</div></div>}
-      {modalHabit !== null && <HabitModal habit={modalHabit?.id || modalHabit?._templateDraft ? modalHabit : null} onClose={() => setModalHabit(null)} onSave={saveHabit} onDelete={deleteHabit} onArchive={(habit, archived) => { onArchive(habit, archived); setModalHabit(null); }} />}
-    </div>
-  );
-}
 
 function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES }) {
   const [goals, setGoals] = useState(() => new Set(["organized", "plan", "habits"]));

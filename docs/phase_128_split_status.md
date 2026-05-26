@@ -25,22 +25,14 @@ No reminder logic, sync logic, storage logic, task mutation logic, journal mutat
 
 ## Remaining split phases
 
-### Phase 129 — Extract habit components
+### Phase 129 — Extract habit components — completed
 
-Suggested files:
+Completed files:
 
-- `components/habits/HabitCard.jsx`
-- `components/habits/HabitWeeklyGrid.jsx`
-- `components/habits/HabitTemplateLibrary.jsx`
-- `components/habits/HabitReminderEditor.jsx`
+- `components/habits/Habits.jsx`
+- `utils/habitUtils.js`
 
-Check:
-
-- Add/edit/archive habits
-- Toggle single-count habit
-- Increment/decrement multi-count habit
-- Weekly habit grid updates correctly
-- Template library filter/customize/use actions still work
+Check details are in `docs/phase_129_split_status.md`.
 
 ### Phase 130 — Extract affirmation components
 
