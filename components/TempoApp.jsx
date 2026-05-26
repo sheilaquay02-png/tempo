@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
 const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
+import { TempoLogoMark, DailyStartupModal, DailyAffirmationCard, SyncStatusPill, ComingSoonPage } from "./shared/DisplayComponents";
 import {
   DEFAULT_MEAL_BREAKS,
   DEFAULT_PLANNING_RULES,
@@ -31,10 +32,6 @@ import { CALENDAR_COLOR_PRESETS, EVENT_TEMPLATES, calendarEventReadOnly, calenda
 import { JOURNAL_DECORATION_HISTORY_LIMIT, makeScrapbookItem, normalizeScrapbookBlocksForSave, scrapbookClamp, scrapbookItemLabel, scrapbookItemLayout, scrapbookItemType, scrapbookNumber, scrapbookStickerFlipStyle, scrapbookTextFitStyle } from "../lib/tempo/client/journalDecorationModel";
 import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleCalendarRequest as requestGoogleCalendar, googleDisconnectWarning } from "../lib/tempo/client/googleCalendarClient";
 import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
-
-function TempoLogoMark() {
-  return <>🌸</>;
-}
 
 function JournalDecorationCanvas({ blocks = [], setBlocks, selectedBlockId, setSelectedBlockId, editing = false, onHistoryCheckpoint }) {
   const decorationCanvasRef = useRef(null);
@@ -1593,23 +1590,6 @@ function normalizeMealBreaks(value) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-
-function DailyStartupModal({ summary, onClose, onPlanDay }) {
-  if (!summary) return null;
-  return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Today’s plan">
-      <div className="modal startup-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><div><strong>🌤 Today’s Plan</strong><div style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>{fmtDate(TODAY)}</div></div><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div className="startup-grid"><div><strong>{summary.events}</strong><span>events</span></div><div><strong>{summary.tasks}</strong><span>open tasks</span></div><div><strong>{summary.freeHours}h</strong><span>free time</span></div><div><strong>{summary.mainThings}</strong><span>main things</span></div></div>
-          <div className="startup-next">{summary.firstEvent ? `First scheduled item: ${summary.firstEvent}` : "No scheduled items yet."}</div>
-          <div className="settings-section-desc">Use Plan Today to place the most important tasks into realistic free slots before the day gets noisy.</div>
-        </div>
-        <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Later</button><button className="tf-save" onClick={onPlanDay}>Plan Today</button></div></div>
-      </div>
-    </div>
-  );
-}
 
 function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, assistantMemory = DEFAULT_ASSISTANT_MEMORY, onUpdateAssistantMemory, assistantActionHistory = [], onClearAssistantActionHistory, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
@@ -3392,24 +3372,6 @@ function DailyCheckInModal({ date = TODAY, checkIn, onSave, onClose }) {
   );
 }
 
-
-function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, compact = false }) {
-  const todayAffirmation = affirmationForDate(affirmations, TODAY);
-  if (!todayAffirmation) return null;
-  const category = affirmationCategoryById(todayAffirmation.category);
-  return (
-    <section className={`phase-card affirmation-daily-card ${compact ? "compact" : ""}`}>
-      <div className="phase-card-head"><span>Daily Affirmation</span><small>Randomized daily</small></div>
-      <div className="affirmation-quote-row">
-        <div className="affirmation-quote-text">
-          <blockquote>“{todayAffirmation.text}”</blockquote>
-        </div>
-        <span className="affirmation-quote-icon">{category.emoji}</span>
-      </div>
-    </section>
-  );
-}
-
 function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
   const initial = affirmation ? normalizeAffirmation(affirmation) : normalizeAffirmation({ id: "affirm-" + uid(), text: "", category: "calm", favorite: false, source: "custom" });
   const [form, setForm] = useState(initial);
@@ -3460,20 +3422,6 @@ function AffirmationEditorModal({ affirmation, onClose, onSave, onDelete }) {
 }
 
 // Affirmations are intentionally a Today-only card; the old standalone page was removed during the pre-Phase 22 audit.
-
-function SyncStatusPill({ syncStatus, onRetry, pendingLocalChanges = 0, lastSyncedAt = null }) {
-  const status = syncStatus?.status || "saved";
-  const lastSyncedLabel = lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
-  const label = pendingLocalChanges > 0
-    ? `Unsaved Changes · ${pendingLocalChanges}${lastSyncedLabel}`
-    : (syncStatus?.message || (status === "saving" ? "Saving…" : status === "failed" ? "Sync failed" : status === "offline" ? "Saved on this device only" : "Saved to cloud"));
-  const icon = status === "saving" ? "⏳" : status === "failed" ? "⚠️" : status === "offline" ? "📱" : "✓";
-  return (
-    <button type="button" className={`sync-pill sync-${status}`} onClick={status === "failed" ? onRetry : undefined} title={status === "failed" ? "Tap to retry cloud sync" : label}>
-      <span>{icon}</span><span>{label}</span>
-    </button>
-  );
-}
 
 function TodayLitePage({ summary, events = [], tasks = [], journal = {}, dailyCheckIns = [], affirmations = DEFAULT_AFFIRMATIONS, categories = CATEGORIES, habits = [], habitCompletions = [], onOpenCalendar, onOpenTasks, onOpenJournal, onOpenCheckIn, onOpenAffirmations, onFavoriteAffirmation, onOpenHabits, onPlanToday, onTomorrowReset, onToggleHabit, onIncrementHabit, onToggleTask, onEditTask }) {
   const todayKey = dateKey(TODAY);
@@ -3752,27 +3700,6 @@ function HabitsPage({ habits = [], completions = [], onAdd, onEdit, onDelete, on
     </div>
   );
 }
-
-function ComingSoonPage({ icon, title, phase, description, bullets = [] }) {
-  return (
-    <div className="phase-page coming-soon-page">
-      <div className="phase-hero">
-        <div>
-          <div className="phase-kicker">{phase}</div>
-          <h1>{icon} {title}</h1>
-          <p>{description}</p>
-        </div>
-      </div>
-      <div className="phase-card phase-wide-card">
-        <div className="phase-card-head"><span>Coming in a later build</span><small>Not wired to data yet</small></div>
-        <div className="phase-bullet-list">
-          {bullets.map(item => <div key={item} className="phase-list-row"><span>{item}</span></div>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES }) {
   const [goals, setGoals] = useState(() => new Set(["organized", "plan", "habits"]));
