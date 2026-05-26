@@ -52,6 +52,8 @@ import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
 import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleCalendarRequest as requestGoogleCalendar, googleDisconnectWarning } from "../lib/tempo/client/googleCalendarClient";
 import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
+import { useTempoUserKey } from "../hooks/useTempoPersistence";
+import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
 
 // ─── Rhythm Stats ─────────────────────────────────────────────────────────────
 function labelForCheckIn(collection, id) {
@@ -1713,15 +1715,7 @@ export default function App() {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a persistent anonymous key so
   // unsigned-in users do not lose their local Tempo data after closing the browser.
-  const uk = useMemo(() => {
-    if (auth.user?.id) return auth.user.id;
-    if (typeof localStorage !== "undefined") {
-      let k = localStorage.getItem("tempo_anon_key");
-      if (!k) { k = "anon_" + Math.random().toString(36).slice(2, 10); localStorage.setItem("tempo_anon_key", k); }
-      return k;
-    }
-    return "anon";
-  }, [auth.user?.id]);
+  const uk = useTempoUserKey(auth.user?.id);
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
@@ -1800,13 +1794,18 @@ export default function App() {
   const [hiddenCalendarSources, setHiddenCalendarSources] = useState(() => load(`${uk}_hidden_calendar_sources`, ["habit"]));
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
-  const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
-  const [pendingLocalChanges, setPendingLocalChanges] = useState(() => load(`${uk}_pending_sync_count`, 0));
-  const [lastSyncedAt, setLastSyncedAt] = useState(() => load(`${uk}_last_synced_at`, null));
-  const cloudQueueRef = useRef(Promise.resolve());
-  const cloudHydrationRef = useRef({ usingFallback: false, cloudResolved: false });
-  const lastRealtimeSyncRef = useRef(0);
   const [dataReady,    setDataReady]    = useState(false);
+  const {
+    syncStatus,
+    setSyncStatus,
+    pendingLocalChanges,
+    lastSyncedAt,
+    cloudQueueRef,
+    cloudHydrationRef,
+    markPendingLocalChange,
+    markCloudSynced,
+    queueCloudSave,
+  } = useTempoCloudSync({ authUser: auth.user, userKey: uk, dataReady });
   const [loadedUserId, setLoadedUserId] = useState(null);
   const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null, googleCalendarSync: null });
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
@@ -2339,19 +2338,6 @@ export default function App() {
   // Helper: save locally + push to cloud — always use passed values to avoid stale closure
   const markUpdated = () => save(`${uk}_updated_at`, new Date().toISOString());
   const touchRecord = (record, patch = {}) => ({ ...record, ...patch, updatedAt: new Date().toISOString() });
-  const markPendingLocalChange = () => {
-    const next = Number(load(`${uk}_pending_sync_count`, 0)) + 1;
-    setPendingLocalChanges(next);
-    save(`${uk}_pending_sync_count`, next);
-  };
-  const markCloudSynced = () => {
-    const stamp = new Date().toISOString();
-    setPendingLocalChanges(0);
-    setLastSyncedAt(stamp);
-    save(`${uk}_pending_sync_count`, 0);
-    save(`${uk}_last_synced_at`, stamp);
-  };
-
   const currentSettings = (overrides = {}) => ({
     fontSize,
     darkMode,
@@ -2391,34 +2377,6 @@ export default function App() {
     ...overrides,
   });
 
-  const queueCloudSave = (evs = events, tks = tasks, settings = currentSettings(), options = {}) => {
-    if (!auth.user || !dataReady) {
-      markPendingLocalChange();
-      setSyncStatus({ status: "offline", message: "Offline edits pending", lastError: "Not signed in or cloud not ready" });
-      return Promise.resolve(!options.strict);
-    }
-    if (cloudHydrationRef.current.usingFallback && !cloudHydrationRef.current.cloudResolved) {
-      markPendingLocalChange();
-      setSyncStatus({ status: "offline", message: "Waiting for cloud before saving fallback data", lastError: "Cloud load still pending" });
-      return Promise.resolve(!options.strict);
-    }
-    const run = async () => {
-      setSyncStatus({ status: "saving", message: "Saving…", lastError: "" });
-      const ok = await saveToCloud(auth.user.id, evs, tks, settings);
-      if (ok) {
-        markCloudSynced();
-        setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
-        return true;
-      }
-      markPendingLocalChange();
-      setSyncStatus({ status: "failed", message: "Sync failed — tap to retry", lastError: "Cloud save failed" });
-      if (options.strict) throw new Error("Cloud save failed. Your Journal change was not finalized.");
-      return false;
-    };
-    const queued = cloudQueueRef.current.then(run, run);
-    cloudQueueRef.current = queued.catch(() => {});
-    return queued;
-  };
   const retryCloudSave = () => queueCloudSave(events, tasks, currentSettings());
 
   async function forceSyncNow(options = {}) {
@@ -2567,46 +2525,7 @@ export default function App() {
   }
 
 
-  useEffect(() => {
-    if (!auth.user?.id || !dataReady) return;
-    let cancelled = false;
-    let channel = null;
-    const pullLatest = (reason = "cloud") => {
-      const now = Date.now();
-      if (now - lastRealtimeSyncRef.current < 2500) return;
-      lastRealtimeSyncRef.current = now;
-      forceSyncNow({ silent: true, skipCloudSave: reason === "realtime" }).catch(() => {});
-    };
-
-    getSupabase().then(sb => {
-      if (cancelled) return;
-      channel = sb
-        .channel(`tempo-user-data-${auth.user.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "user_data", filter: `user_id=eq.${auth.user.id}` }, payload => {
-          const cloudUpdatedAt = payload?.new?.updated_at;
-          const localUpdatedAt = load(`${uk}_updated_at`, null);
-          const cloudTime = cloudUpdatedAt ? new Date(cloudUpdatedAt).getTime() : 0;
-          const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
-          if (cloudTime && cloudTime <= localTime + 1000) return;
-          pullLatest("realtime");
-        })
-        .subscribe();
-    }).catch(() => {});
-
-    const onFocus = () => pullLatest("focus");
-    const onOnline = () => pullLatest("online");
-    const onVisibility = () => { if (document.visibilityState === "visible") pullLatest("visible"); };
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("online", onOnline);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("online", onOnline);
-      document.removeEventListener("visibilitychange", onVisibility);
-      try { channel?.unsubscribe?.(); } catch {}
-    };
-  }, [auth.user?.id, dataReady, uk]);
+  useTempoRealtimeSync({ userId: auth.user?.id, userKey: uk, dataReady, forceSyncNow });
 
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
