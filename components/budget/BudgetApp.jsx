@@ -379,6 +379,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
   const protectedBuckets = buckets.filter(bucket => bucket.isProtected);
   const incomeGoalTotal = incomeBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
   const [homeForm, setHomeForm] = useState(null);
+
   const openHomeTransaction = (type, bucketId = "") => {
     const bucket = buckets.find(item => item.id === bucketId);
     const next = createEmptyTransactionForm({ accounts, ledgers, buckets, type });
