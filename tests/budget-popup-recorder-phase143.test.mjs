@@ -7,7 +7,7 @@ test('Budget Home and Transactions use popup transaction recorder', () => {
   assert.match(budgetApp, /function BudgetTransactionPopup/);
   assert.match(budgetApp, /budget-transaction-popup-overlay/);
   assert.match(budgetApp, /BudgetAmountKeypad/);
-  assert.match(budgetApp, /onClick=\{\(\) => openHomeTransaction\("expense"\)\}/);
+  assert.match(budgetApp, /openHomeTransaction\("expense", expenseBuckets\[0\]\?\.id\)/);
   assert.match(budgetApp, /onClick=\{\(\) => openTransaction\("income"\)\}/);
   assert.doesNotMatch(budgetApp, /<BudgetTransactionForm form=\{form\} setForm=\{setForm\} accounts=\{accounts\} ledgers=\{ledgers\} buckets=\{buckets\} currency=\{currency\} onSave=\{saveTransaction\}/);
 });

@@ -14,7 +14,8 @@ test("Phase 144 account page follows the account overview/detail skeleton", () =
   assert.match(budgetApp, /AccountDetailView/);
   assert.match(budgetApp, /AccountEditPopup/);
   assert.match(budgetApp, /AccountAddSheet/);
-  assert.match(budgetApp, /budget-account-transfer-fab/);
+  assert.doesNotMatch(budgetApp, /budget-account-transfer-fab/);
+  assert.match(budgetApp, /onOpenTransfer/);
   assert.match(budgetApp, /Add Account/);
 });
 

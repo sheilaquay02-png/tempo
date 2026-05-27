@@ -26,11 +26,10 @@ test("Budget foundation includes multiple accounts and ledgers", () => {
   const accounts = normalizeBudgetAccounts();
   const ledgers = normalizeBudgetLedgers();
   assert.ok(accounts.length >= 5);
-  assert.ok(ledgers.length >= 5);
+  assert.equal(ledgers.length, 3);
   assert.ok(accounts.some(account => account.type === "investment"));
   assert.ok(accounts.some(account => account.includeInAustraliaReady));
-  assert.ok(ledgers.some(ledger => ledger.id === "business-ledger"));
-  assert.ok(ledgers.some(ledger => ledger.id === "travel-ledger"));
+  assert.deepEqual(ledgers.map(ledger => ledger.id), ["daily-ledger", "travel-ledger", "business-ledger"]);
 });
 
 test("Budget/Schedule/Overall shell is wired into TempoApp", () => {
@@ -48,11 +47,11 @@ test("Budget/Schedule/Overall shell is wired into TempoApp", () => {
 
 test("Budget UI exposes editable accounts, ledgers, and bucket rows", () => {
   assert.match(budgetApp, /BudgetAccountPage/);
-  assert.match(budgetApp, /LedgersPanel/);
+  assert.match(budgetApp, /BudgetAccountPage/);
   assert.match(budgetApp, /BucketsPanel/);
+  assert.match(budgetApp, /Daily, Travel, and Business cards/);
   assert.match(budgetApp, /onProfileChange/);
   assert.match(budgetApp, /onAccountsChange/);
-  assert.match(budgetApp, /onLedgersChange/);
   assert.match(budgetApp, /onBucketsChange/);
 });
 

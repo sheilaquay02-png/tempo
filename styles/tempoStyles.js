@@ -3740,6 +3740,17 @@ body.tempo-modal-locked{
 
 /* ── Phase 144 Account page card/detail polish ───────────────────────── */
 .budget-page-account{background:linear-gradient(180deg,rgba(255,255,255,.96),var(--bg));}
+
+.budget-home-ledger-list,.budget-ledger-card-manager-list{display:flex;flex-direction:column;gap:16px;}
+.budget-home-ledger-section,.budget-ledger-card-section{padding:14px;border-radius:24px;background:rgba(255,255,255,.58);border:1px solid rgba(var(--accent-rgb),.10);box-shadow:0 10px 24px rgba(var(--accent-rgb),.05);}
+.dark .budget-home-ledger-section,.dark .budget-ledger-card-section{background:rgba(255,255,255,.05);border-color:rgba(var(--accent-rgb),.18);}
+.budget-home-ledger-head,.budget-ledger-card-section-head,.budget-card-flow-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.budget-home-ledger-head h2,.budget-ledger-card-section-head h3{margin:0;color:var(--text);font-weight:950;letter-spacing:-.04em;}
+.budget-home-ledger-head small,.budget-ledger-card-section-head small{color:var(--text2);font-size:12px;font-weight:800;text-transform:capitalize;}
+.budget-card-flow-head{margin:14px 0 8px;color:var(--text2);font-size:13px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;}
+.budget-card-flow-head .tf-save{padding:8px 10px;border-radius:999px;font-size:12px;}
+.budget-home-tile.income-card{background:rgba(119,211,155,.16);}
+.budget-ledger-card-manager .budget-bucket-list{margin-bottom:10px;}
 .budget-account-overview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:-4px;}
 .budget-account-filter{border:0;background:transparent;color:var(--accent);font:inherit;font-size:15px;font-weight:950;cursor:pointer;padding:8px 4px;}
 .budget-account-networth-card{position:relative;overflow:hidden;min-height:176px;padding:28px 22px 22px!important;background:linear-gradient(135deg,#5046a5,#6d68bd)!important;color:#fff;text-align:center;}
@@ -3764,7 +3775,6 @@ body.tempo-modal-locked{
 .budget-account-card strong{font-size:16px;font-weight:950;letter-spacing:-.02em;line-height:1.1;}
 .budget-account-card small{display:block;color:var(--text3);font-size:13px;font-weight:850;margin-top:-6px;}
 .budget-account-card em{font-style:normal;font-size:24px;font-weight:950;letter-spacing:-.06em;}
-.budget-account-transfer-fab{position:fixed;right:24px;bottom:calc(var(--mobile-nav-h) + 24px);z-index:20;width:58px;height:58px;border:0;border-radius:999px;background:#F7D94D;color:#6b5a00;font-size:25px;font-weight:950;box-shadow:0 14px 32px rgba(184,150,0,.22);cursor:pointer;}
 .budget-account-detail-view{display:flex;flex-direction:column;gap:14px;min-height:100%;}
 .budget-account-detail-topbar{display:grid;grid-template-columns:44px minmax(0,1fr) 64px;align-items:center;gap:8px;}
 .budget-account-detail-topbar strong{text-align:center;font-size:22px;font-weight:950;letter-spacing:-.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -3782,7 +3792,7 @@ body.tempo-modal-locked{
 .budget-account-toggle-list{display:flex;flex-direction:column;gap:8px;margin:14px 0;}.budget-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border-radius:14px;background:var(--surface-soft);color:var(--text2);font-size:13px;font-weight:900;}.budget-switch-row input{accent-color:var(--accent);}
 .budget-account-edit-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;}.tf-cancel.danger{color:#D05A7B!important;border-color:rgba(208,90,123,.26)!important;}
 .dark .budget-account-sheet,.dark .budget-account-edit-sheet{background:var(--dark-surface);}.dark .budget-account-card,.dark .budget-account-detail-card{background:var(--dark-card)!important;border:1px solid rgba(var(--accent-rgb),.24);}
-@media(max-width:768px){.budget-page-account{padding-top:14px!important;}.budget-account-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.budget-account-card{min-height:142px;padding:14px;border-radius:20px;}.budget-account-card em{font-size:23px;}.budget-account-networth-card strong{font-size:34px;}.budget-account-detail-card{grid-template-columns:54px minmax(0,1fr);}.budget-account-detail-actions{grid-column:1/-1;justify-content:flex-end;}.budget-account-sheet-overlay{padding:0;}.budget-account-sheet,.budget-account-edit-sheet{width:100%;max-height:94vh;border-radius:32px 32px 0 0;padding:16px 16px max(18px,env(safe-area-inset-bottom));}.budget-account-edit-grid{grid-template-columns:74px minmax(0,1fr);}.budget-account-transfer-fab{right:18px;bottom:calc(var(--mobile-nav-h) + 18px);}}
+@media(max-width:768px){.budget-page-account{padding-top:14px!important;}.budget-account-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.budget-account-card{min-height:142px;padding:14px;border-radius:20px;}.budget-account-card em{font-size:23px;}.budget-account-networth-card strong{font-size:34px;}.budget-account-detail-card{grid-template-columns:54px minmax(0,1fr);}.budget-account-detail-actions{grid-column:1/-1;justify-content:flex-end;}.budget-account-sheet-overlay{padding:0;}.budget-account-sheet,.budget-account-edit-sheet{width:100%;max-height:94vh;border-radius:32px 32px 0 0;padding:16px 16px max(18px,env(safe-area-inset-bottom));}.budget-account-edit-grid{grid-template-columns:74px minmax(0,1fr);}}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}

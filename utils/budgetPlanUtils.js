@@ -1,6 +1,7 @@
 import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
+  BUDGET_CARD_FLOW_TYPES,
   BUDGET_LEDGER_TYPES,
   BUDGET_TRANSACTION_TYPES,
   DEFAULT_BONUS_ALLOCATION_RULES,
@@ -25,6 +26,14 @@ const clampMonthDay = value => Math.min(31, Math.max(1, Math.round(toNumber(valu
 
 export function budgetUid(prefix = "budget") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function normalizeBudgetLedgerId(ledgerId = "daily-ledger") {
+  const value = cleanString(ledgerId, "daily-ledger");
+  if (["personal-ledger", "daily-ledger"].includes(value)) return "daily-ledger";
+  if (["australia-ledger", "investment-ledger", "travel-ledger"].includes(value)) return "travel-ledger";
+  if (value === "business-ledger") return "business-ledger";
+  return value;
 }
 
 export function todayBudgetDateKey(date = new Date()) {
@@ -64,7 +73,7 @@ export function normalizeBudgetAccount(account = {}) {
     hideBalance: Boolean(account.hideBalance),
     includeInNetWorth: account.includeInNetWorth !== false,
     includeInAustraliaReady: Boolean(account.includeInAustraliaReady),
-    ledgerId: cleanString(account.ledgerId, "personal-ledger"),
+    ledgerId: normalizeBudgetLedgerId(account.ledgerId),
     updatedAt: account.updatedAt || null,
   };
 }
@@ -75,32 +84,44 @@ export function normalizeBudgetAccounts(accounts = DEFAULT_BUDGET_ACCOUNTS) {
 }
 
 export function normalizeBudgetLedger(ledger = {}) {
-  const type = BUDGET_LEDGER_TYPES.includes(ledger.type) ? ledger.type : "personal";
+  const id = normalizeBudgetLedgerId(ledger.id);
+  const defaultLedger = DEFAULT_BUDGET_LEDGERS.find(item => item.id === id) || DEFAULT_BUDGET_LEDGERS[0];
+  const type = BUDGET_LEDGER_TYPES.includes(ledger.type) ? ledger.type : defaultLedger.type;
   return {
-    id: cleanString(ledger.id, budgetUid("ledger")),
-    name: cleanString(ledger.name, "Untitled ledger"),
+    id,
+    name: cleanString(ledger.name, defaultLedger.name),
     type,
-    accountIds: Array.isArray(ledger.accountIds) ? ledger.accountIds.filter(Boolean) : [],
-    description: cleanString(ledger.description, ""),
+    accountIds: Array.isArray(ledger.accountIds) ? ledger.accountIds.filter(Boolean) : defaultLedger.accountIds,
+    description: cleanString(ledger.description, defaultLedger.description),
     updatedAt: ledger.updatedAt || null,
   };
 }
 
 export function normalizeBudgetLedgers(ledgers = DEFAULT_BUDGET_LEDGERS) {
-  const list = Array.isArray(ledgers) && ledgers.length ? ledgers : DEFAULT_BUDGET_LEDGERS;
-  return list.map(normalizeBudgetLedger);
+  const incoming = Array.isArray(ledgers) ? ledgers : [];
+  const byCanonicalId = new Map();
+  incoming.forEach(ledger => {
+    const normalized = normalizeBudgetLedger(ledger);
+    byCanonicalId.set(normalized.id, {
+      ...normalized,
+      accountIds: Array.from(new Set([...(byCanonicalId.get(normalized.id)?.accountIds || []), ...normalized.accountIds])),
+    });
+  });
+  return DEFAULT_BUDGET_LEDGERS.map(defaultLedger => byCanonicalId.get(defaultLedger.id) || normalizeBudgetLedger(defaultLedger));
 }
 
 export function normalizeBudgetBucket(bucket = {}) {
   const type = BUDGET_BUCKET_TYPES.includes(bucket.type) ? bucket.type : "flexible_spending";
+  const cashFlowType = BUDGET_CARD_FLOW_TYPES.includes(bucket.cashFlowType) ? bucket.cashFlowType : type === "income" ? "income" : "expense";
   return {
     id: cleanString(bucket.id, budgetUid("bucket")),
-    name: cleanString(bucket.name, "Untitled bucket"),
+    name: cleanString(bucket.name, "Untitled card"),
     monthlyAmount: toNumber(bucket.monthlyAmount, 0),
     type,
-    group: cleanString(bucket.group, "Flexible spending"),
+    cashFlowType,
+    group: cleanString(bucket.group, cashFlowType === "income" ? "Income" : "Flexible spending"),
     accountId: cleanString(bucket.accountId, "main-bank"),
-    ledgerId: cleanString(bucket.ledgerId, "personal-ledger"),
+    ledgerId: normalizeBudgetLedgerId(bucket.ledgerId),
     isProtected: Boolean(bucket.isProtected),
     rolloverEnabled: Boolean(bucket.rolloverEnabled),
     damageControlPriority: bucket.damageControlPriority === null || bucket.damageControlPriority === undefined ? null : toNumber(bucket.damageControlPriority, null),
@@ -130,7 +151,7 @@ export function normalizeBudgetTransaction(transaction = {}) {
     amount: Math.abs(toNumber(transaction.amount, 0)),
     accountId: cleanString(transaction.accountId, "main-bank"),
     toAccountId: type === "transfer" ? cleanString(transaction.toAccountId, "") : cleanString(transaction.toAccountId, ""),
-    ledgerId: cleanString(transaction.ledgerId, "personal-ledger"),
+    ledgerId: normalizeBudgetLedgerId(transaction.ledgerId),
     bucketId: type === "transfer" ? "" : cleanString(transaction.bucketId, ""),
     notes: cleanString(transaction.notes ?? transaction.note, ""),
     tags,
@@ -206,6 +227,17 @@ export function calculateBudgetBucketSpending(buckets = [], transactions = []) {
   return spending;
 }
 
+export function calculateBudgetBucketIncome(buckets = [], transactions = []) {
+  const safeBuckets = normalizeBudgetBuckets(buckets);
+  const safeTransactions = normalizeBudgetTransactions(transactions);
+  const income = Object.fromEntries(safeBuckets.map(bucket => [bucket.id, 0]));
+  safeTransactions.forEach(transaction => {
+    if (transaction.type !== "income" || transaction.excludedFromBudget || !transaction.bucketId) return;
+    income[transaction.bucketId] = (income[transaction.bucketId] || 0) + Math.abs(toNumber(transaction.amount, 0));
+  });
+  return income;
+}
+
 export function groupBudgetTransactionsByDate(transactions = []) {
   const safeTransactions = normalizeBudgetTransactions(transactions)
     .sort((a, b) => `${b.date}-${b.createdAt}`.localeCompare(`${a.date}-${a.createdAt}`));
@@ -236,20 +268,22 @@ export function calculateBudgetSummary({ profile, accounts = [], ledgers = [], b
   const safeTransactions = normalizeBudgetTransactions(transactions);
   const adjustedAccounts = calculateBudgetAccountBalances(safeAccounts, safeTransactions);
   const monthlyIncome = toNumber(safeProfile.monthlyIncome, 0);
-  const allocated = safeBuckets.reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
-  const protectedMonthly = safeBuckets.filter(bucket => bucket.isProtected).reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
-  const sinkingFundsMonthly = safeBuckets.filter(bucket => bucket.type === "sinking_fund").reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
+  const expenseBuckets = safeBuckets.filter(bucket => bucket.cashFlowType !== "income");
+  const allocated = expenseBuckets.reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
+  const protectedMonthly = expenseBuckets.filter(bucket => bucket.isProtected).reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
+  const sinkingFundsMonthly = expenseBuckets.filter(bucket => bucket.type === "sinking_fund").reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
   const incomeTotal = safeTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
   const expenseTotal = safeTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
   const transferTotal = safeTransactions.filter(t => t.type === "transfer").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
   const bucketSpendById = calculateBudgetBucketSpending(safeBuckets, safeTransactions);
+  const bucketIncomeById = calculateBudgetBucketIncome(safeBuckets, safeTransactions);
   return {
     monthlyIncome,
     allocated,
     remaining: monthlyIncome - allocated,
     protectedMonthly,
     sinkingFundsMonthly,
-    flexibleMonthly: safeBuckets.filter(bucket => bucket.type === "flexible_spending").reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0),
+    flexibleMonthly: expenseBuckets.filter(bucket => bucket.type === "flexible_spending").reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0),
     accountCount: safeAccounts.length,
     ledgerCount: normalizeBudgetLedgers(ledgers).length,
     bucketCount: safeBuckets.length,
@@ -263,6 +297,7 @@ export function calculateBudgetSummary({ profile, accounts = [], ledgers = [], b
     australiaReadyFunds: adjustedAccounts.filter(account => account.includeInAustraliaReady).reduce((sum, account) => sum + toNumber(account.currentBalance, 0), 0),
     adjustedAccounts,
     bucketSpendById,
+    bucketIncomeById,
     dailyTotals: calculateBudgetDailyTotals(safeTransactions),
   };
 }
