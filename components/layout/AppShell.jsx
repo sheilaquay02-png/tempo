@@ -31,10 +31,12 @@ export function AppModeSwitch({ appMode = "schedule", onChange }) {
           type="button"
           role="tab"
           aria-selected={appMode === mode.id}
+          aria-label={mode.label}
+          title={mode.label}
           className={`app-mode-btn ${appMode === mode.id ? "active" : ""}`}
           onClick={() => onChange?.(mode.id)}
         >
-          <span>{mode.emoji}</span>{mode.label}
+          <span aria-hidden="true">{mode.emoji}</span>
         </button>
       ))}
     </div>
@@ -54,8 +56,10 @@ export function AppSidebar({
   onOpenCheckIn,
   page,
   appMode = "schedule",
+  budgetPage = "home",
   onAppModeChange,
   onNavigate,
+  onNavigateBudgetPage,
   onPlanToday,
   onOpenSettings,
   calendars,
@@ -72,6 +76,13 @@ export function AppSidebar({
     ...(calendars.some(c => c.source === "google") ? [{ id: "google", label: "Google", icon: "G" }] : []),
     { id: "habit", label: "Habits", icon: "🌱" },
   ];
+  const budgetNavItems = [
+    { id: "home", label: "Home", icon: "🏠" },
+    { id: "account", label: "Account", icon: "💳" },
+    { id: "transactions", label: "Transactions", icon: "🧾" },
+    { id: "budget", label: "Budget", icon: "🪣" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
+  ];
 
   return (
     <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
@@ -86,52 +97,72 @@ export function AppSidebar({
           <SyncStatusPill syncStatus={syncStatus} onRetry={onForceSync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
         </div>
       </div>
-      {checkInSummary && (
+      {appMode === "schedule" && checkInSummary && (
         <div className="mood-bar" onClick={onOpenCheckIn} style={{ cursor: "pointer" }}>
           {checkInSummary.emoji} Feeling {checkInSummary.label}{checkInSummary.energyLabel ? ` · ${checkInSummary.energyLabel} energy` : ""}
         </div>
       )}
       <nav className="sidebar-nav">
-        <div className="nav-section-label">Main</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
-        <div className="nav-section-label" style={{ marginTop: 8 }}>Planning</div>
-        <div className="nav-item desktop-hidden-menu-item" onClick={onPlanToday}><span className="nav-icon">✨</span>Plan Today</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "tomorrow-reset" ? "active" : ""}`} onClick={() => onNavigate("tomorrow-reset")}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "weekly-reset" ? "active" : ""}`} onClick={() => onNavigate("weekly-reset")}><span className="nav-icon">🧺</span>Weekly Reset</div>
-        <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "habits" ? "active" : ""}`} onClick={() => onNavigate("habits")}><span className="nav-icon">🌱</span>Habits</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "journal" ? "active" : ""}`} onClick={() => onNavigate("journal")}><span className="nav-icon">📔</span>Journal</div>
-        <div className={`nav-item ${appMode === "schedule" && page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
-        <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
+        {appMode === "budget" ? (
+          <>
+            <div className="nav-section-label">Budget</div>
+            {budgetNavItems.map(item => (
+              <div key={item.id} className={`nav-item ${budgetPage === item.id ? "active" : ""}`} onClick={() => onNavigateBudgetPage?.(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</div>
+            ))}
+          </>
+        ) : appMode === "overall" ? (
+          <>
+            <div className="nav-section-label">Overall</div>
+            <div className="nav-item active"><span className="nav-icon">🌿</span>Overall</div>
+            <div className="nav-section-label" style={{ marginTop: 8 }}>Later</div>
+            <div className="nav-item muted"><span className="nav-icon">🔎</span>Pattern insights</div>
+          </>
+        ) : (
+          <>
+            <div className="nav-section-label">Main</div>
+            <div className={`nav-item ${page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
+            <div className={`nav-item ${page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
+            <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
+            <div className="nav-section-label" style={{ marginTop: 8 }}>Planning</div>
+            <div className="nav-item desktop-hidden-menu-item" onClick={onPlanToday}><span className="nav-icon">✨</span>Plan Today</div>
+            <div className={`nav-item ${page === "tomorrow-reset" ? "active" : ""}`} onClick={() => onNavigate("tomorrow-reset")}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
+            <div className={`nav-item ${page === "weekly-reset" ? "active" : ""}`} onClick={() => onNavigate("weekly-reset")}><span className="nav-icon">🧺</span>Weekly Reset</div>
+            <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
+            <div className={`nav-item ${page === "habits" ? "active" : ""}`} onClick={() => onNavigate("habits")}><span className="nav-icon">🌱</span>Habits</div>
+            <div className={`nav-item ${page === "journal" ? "active" : ""}`} onClick={() => onNavigate("journal")}><span className="nav-icon">📔</span>Journal</div>
+            <div className={`nav-item ${page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
+            <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
+          </>
+        )}
       </nav>
-      <div className="sidebar-cals">
-        <div className="cal-label-row">
-          <span className="cal-label">My Calendars</span>
-          <button type="button" className="cal-add-btn" onClick={onAddCalendar} title="Create calendar">＋</button>
-        </div>
-        <div className="calendar-source-filter-row" aria-label="Calendar source filters">
-          {calendarSources.map(src => {
-            const hidden = hiddenCalendarSources.includes(src.id);
-            return <button key={src.id} type="button" className={`calendar-source-chip ${hidden ? "source-hidden" : ""}`} onClick={() => onToggleCalendarSource(src.id)} title={hidden ? `Show ${src.label}` : `Hide ${src.label}`}><span>{src.icon}</span>{src.label}</button>;
+      {appMode === "schedule" && (
+        <div className="sidebar-cals">
+          <div className="cal-label-row">
+            <span className="cal-label">My Calendars</span>
+            <button type="button" className="cal-add-btn" onClick={onAddCalendar} title="Create calendar">＋</button>
+          </div>
+          <div className="calendar-source-filter-row" aria-label="Calendar source filters">
+            {calendarSources.map(src => {
+              const hidden = hiddenCalendarSources.includes(src.id);
+              return <button key={src.id} type="button" className={`calendar-source-chip ${hidden ? "source-hidden" : ""}`} onClick={() => onToggleCalendarSource(src.id)} title={hidden ? `Show ${src.label}` : `Hide ${src.label}`}><span>{src.icon}</span>{src.label}</button>;
+            })}
+          </div>
+          {calendars.map(c => {
+            const hidden = hiddenCals.includes(c.id);
+            return (
+              <div key={c.id} className={`cal-item cal-toggleable ${hidden ? "cal-hidden" : ""}`} title={hidden ? "Hidden" : "Visible"}>
+                <button type="button" className="cal-visible-btn" onClick={() => onToggleCalendarVisibility(c.id)} title={hidden ? "Show calendar" : "Hide calendar"}>
+                  <span className="cal-dot" style={{ background: hidden ? "var(--border)" : c.color }} />
+                  <span className="cal-eye">{hidden ? "○" : "●"}</span>
+                </button>
+                <span className="cal-name" onClick={() => onToggleCalendarVisibility(c.id)}>{c.id === "work" && !c.name ? (user?.email ?? c.name) : c.name}</span>
+                <button type="button" className="cal-action-btn" onClick={() => onEditCalendar(c)} title="Rename/edit calendar">✎</button>
+                {c.source !== "google" && <button type="button" className="cal-action-btn" onClick={() => onRequestRemoveCalendar(c)} title="Remove calendar">×</button>}
+              </div>
+            );
           })}
         </div>
-        {calendars.map(c => {
-          const hidden = hiddenCals.includes(c.id);
-          return (
-            <div key={c.id} className={`cal-item cal-toggleable ${hidden ? "cal-hidden" : ""}`} title={hidden ? "Hidden" : "Visible"}>
-              <button type="button" className="cal-visible-btn" onClick={() => onToggleCalendarVisibility(c.id)} title={hidden ? "Show calendar" : "Hide calendar"}>
-                <span className="cal-dot" style={{ background: hidden ? "var(--border)" : c.color }} />
-                <span className="cal-eye">{hidden ? "○" : "●"}</span>
-              </button>
-              <span className="cal-name" onClick={() => onToggleCalendarVisibility(c.id)}>{c.id === "work" && !c.name ? (user?.email ?? c.name) : c.name}</span>
-              <button type="button" className="cal-action-btn" onClick={() => onEditCalendar(c)} title="Rename/edit calendar">✎</button>
-              {c.source !== "google" && <button type="button" className="cal-action-btn" onClick={() => onRequestRemoveCalendar(c)} title="Remove calendar">×</button>}
-            </div>
-          );
-        })}
-      </div>
+      )}
     </div>
   );
 }
@@ -182,6 +213,7 @@ export function MobileBottomNav({
   sidebarOpen,
   page,
   appMode = "schedule",
+  budgetPage = "home",
   syncStatus,
   pendingLocalChanges,
   lastSyncedAt,
@@ -192,22 +224,41 @@ export function MobileBottomNav({
   onNavigateTasks,
   onNavigateJournal,
   onNavigateHabits,
-  onNavigateBudget,
-  onNavigateOverall,
+  onNavigateBudgetPage,
 }) {
+  const showSync = (syncStatus?.status && syncStatus.status !== "saved") || pendingLocalChanges > 0;
+  const budgetItems = [
+    { id: "home", label: "Home", icon: "🏠" },
+    { id: "account", label: "Account", icon: "💳" },
+    { id: "transactions", label: "Transactions", icon: "🧾" },
+    { id: "budget", label: "Budget", icon: "🪣" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
+  ];
+
   return (
     <>
-      {((syncStatus?.status && syncStatus.status !== "saved") || pendingLocalChanges > 0) && (
+      {showSync && (
         <div className="mobile-sync-strip"><SyncStatusPill syncStatus={syncStatus} onRetry={onRetrySync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} /></div>
       )}
 
       <div className="mobile-nav" role="navigation" aria-label="Mobile primary navigation">
-        <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
-        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
-        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
-        <button className={`mobile-nav-btn ${appMode === "schedule" && page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
-        <button className={`mobile-nav-btn ${appMode === "budget" ? "active" : ""}`} onClick={onNavigateBudget}>💰<span>Budget</span></button>
-        <button className={`mobile-nav-btn ${appMode === "overall" ? "active" : ""}`} onClick={onNavigateOverall}>🌿<span>Overall</span></button>
+        {appMode === "budget" ? budgetItems.map(item => (
+          <button key={item.id} className={`mobile-nav-btn ${budgetPage === item.id ? "active" : ""}`} onClick={() => onNavigateBudgetPage?.(item.id)}>{item.icon}<span>{item.label}</span></button>
+        )) : appMode === "overall" ? (
+          <>
+            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
+            <button className="mobile-nav-btn active">🌿<span>Overall</span></button>
+          </>
+        ) : (
+          <>
+            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
+            <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
+            <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
+            <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
+            <button className={`mobile-nav-btn ${page === "journal" ? "active" : ""}`} onClick={onNavigateJournal}>📔<span>Journal</span></button>
+            <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={onNavigateHabits}>🌱<span>Habits</span></button>
+          </>
+        )}
       </div>
     </>
   );

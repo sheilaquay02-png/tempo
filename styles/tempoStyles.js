@@ -3083,20 +3083,22 @@ body.tempo-modal-locked{
 }
 .app-mode-btn{
   min-width:0;
+  min-height:34px;
   border:0;
   border-radius:13px;
   padding:8px 6px;
   background:transparent;
   color:var(--text3);
   font:inherit;
-  font-size:10px;
+  font-size:18px;
   font-weight:950;
   cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:4px;
+  gap:0;
 }
+.app-mode-btn span{line-height:1;}
 .app-mode-btn.active{
   background:var(--surface);
   color:var(--accent);
@@ -3243,6 +3245,40 @@ body.tempo-modal-locked{
 }
 .budget-ledger-card textarea{min-height:70px;resize:vertical;}
 .budget-roadmap-card ul{display:flex;flex-direction:column;gap:7px;margin:12px 0 0;padding-left:18px;color:var(--text2);font-size:12px;font-weight:800;}
+
+.budget-networth-card{
+  position:relative;
+  overflow:hidden;
+  min-height:150px;
+  background:linear-gradient(135deg,rgba(var(--accent-rgb),.88),rgba(88,88,170,.72));
+  color:white;
+}
+.budget-networth-card .budget-kicker,.budget-networth-card span,.budget-networth-card strong{color:white;}
+.budget-networth-inner{position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;padding:8px 0 22px;}
+.budget-networth-inner strong{font-size:38px;font-weight:950;letter-spacing:-.06em;}
+.budget-networth-wave{position:absolute;left:-6%;right:-6%;bottom:-24px;height:74px;background:rgba(255,255,255,.18);border-radius:50% 50% 0 0;transform:rotate(-2deg);}
+.budget-home-tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
+.budget-home-tile{min-height:128px;padding:16px;border-radius:22px;background:var(--surface-soft);border:1px solid rgba(var(--accent-rgb),.12);display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 12px 26px rgba(var(--accent-rgb),.06);}
+.budget-home-tile:nth-child(3n+1){background:rgba(255,223,117,.18);}.budget-home-tile:nth-child(3n+2){background:rgba(255,123,92,.12);}.budget-home-tile:nth-child(3n+3){background:rgba(100,200,210,.14);}
+.budget-home-tile.protected{background:rgba(var(--accent-rgb),.10);border-color:rgba(var(--accent-rgb),.24);}
+.budget-home-tile-icon{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:rgba(255,255,255,.58);font-size:22px;}
+.budget-home-tile strong{color:var(--text);font-size:17px;font-weight:950;letter-spacing:-.02em;}
+.budget-home-tile small{color:var(--text2);font-size:12px;font-weight:850;}
+.budget-home-tile-grid.compact{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+.budget-calendar-placeholder{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;}
+.budget-calendar-placeholder span{min-height:50px;border-radius:13px;background:var(--surface-soft);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:12px;font-weight:900;}
+.budget-calendar-placeholder span.active{background:#FFE05D;color:#4C4078;}
+.budget-transaction-list{display:flex;flex-direction:column;gap:8px;}
+.budget-transaction-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;background:var(--surface-soft);font-size:13px;font-weight:850;color:var(--text);}
+.budget-settings-list{padding:10px;display:flex;flex-direction:column;gap:2px;}
+.budget-settings-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto 18px;gap:10px;align-items:center;min-height:58px;padding:8px 10px;border-radius:16px;color:var(--text);}
+.budget-settings-row:hover{background:var(--surface-soft);}
+.budget-settings-icon{font-size:20px;}
+.budget-settings-row strong{font-size:15px;font-weight:950;}
+.budget-settings-row small{font-size:12px;font-weight:800;color:var(--text3);}
+.budget-settings-profile-card h2{margin:4px 0 8px;}
+.nav-item.muted{opacity:.55;pointer-events:none;}
+
 .dark .app-mode-switch,.dark .budget-metric,.dark .budget-card{background:var(--dark-card)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
 .dark .budget-input,.dark .budget-account-row,.dark .budget-bucket-row,.dark .budget-ledger-card{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
 @media(max-width:1100px){.budget-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.budget-layout-grid{grid-template-columns:1fr}.budget-account-row,.budget-bucket-row{grid-template-columns:1fr 1fr}.budget-bucket-row .bucket-notes{grid-column:1/-1;}}

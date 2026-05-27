@@ -377,6 +377,7 @@ export default function App() {
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
   const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "habits" | "rhythm"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
+  const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
   const [taskPeriodDate, setTaskPeriodDate] = useState(new Date(TODAY));
   const [events, setEvRaw]          = useState(() => reviveEvents(load(`${uk}_ev`, INIT_EVENTS)));
@@ -3225,6 +3226,16 @@ export default function App() {
     setSidebarOpen(false);
   }
 
+  function navigateBudgetPage(nextPage) {
+    const safePage = ["home", "account", "transactions", "budget", "settings"].includes(nextPage) ? nextPage : "home";
+    if (appMode !== "budget") {
+      setAppModeRaw("budget");
+      persistBudgetSettings({ appMode: "budget" });
+    }
+    setBudgetPage(safePage);
+    closeSidebarOnMobile();
+  }
+
   function shiftCalendarRange(direction) {
     const d = new Date(viewDate);
     if (view === "day") d.setDate(d.getDate() + direction);
@@ -4741,8 +4752,10 @@ body.tempo-modal-locked{
           onOpenCheckIn={() => { setShowCheckIn(true); closeSidebarOnMobile(); }}
           page={page}
           appMode={appMode}
+          budgetPage={budgetPage}
           onAppModeChange={setAppMode}
           onNavigate={navigateFromSidebar}
+          onNavigateBudgetPage={navigateBudgetPage}
           onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
           onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
           calendars={calendars}
@@ -4758,7 +4771,7 @@ body.tempo-modal-locked{
 
         <div className="main">
           {appMode === "budget" ? (
-            <BudgetApp profile={budgetProfile} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} transactions={budgetTransactions} onProfileChange={setBudgetProfile} onAccountsChange={setBudgetAccounts} onLedgersChange={setBudgetLedgers} onBucketsChange={setBudgetBuckets} />
+            <BudgetApp activePage={budgetPage} profile={budgetProfile} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} transactions={budgetTransactions} onProfileChange={setBudgetProfile} onAccountsChange={setBudgetAccounts} onLedgersChange={setBudgetLedgers} onBucketsChange={setBudgetBuckets} />
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
@@ -4906,6 +4919,7 @@ body.tempo-modal-locked{
         sidebarOpen={sidebarOpen}
         page={page}
         appMode={appMode}
+        budgetPage={budgetPage}
         syncStatus={syncStatus}
         pendingLocalChanges={pendingLocalChanges}
         lastSyncedAt={lastSyncedAt}
@@ -4916,8 +4930,7 @@ body.tempo-modal-locked{
         onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
         onNavigateJournal={() => navigateFromMobileNav("journal")}
         onNavigateHabits={() => navigateFromMobileNav("habits")}
-        onNavigateBudget={() => setAppMode("budget")}
-        onNavigateOverall={() => setAppMode("overall")}
+        onNavigateBudgetPage={navigateBudgetPage}
       />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}

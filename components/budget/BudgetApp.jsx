@@ -237,7 +237,165 @@ function BudgetRoadmapCard() {
   );
 }
 
+function BudgetHero({ activePage }) {
+  const pageCopy = {
+    home: ["Budget Home", "A soft overview of cash, goals, and monthly allocation health."],
+    account: ["Accounts", "Multiple bank accounts and ledgers stay editable and separate."],
+    transactions: ["Transactions", "The ledger-entry skeleton is ready for Phase 143 transaction entry."],
+    budget: ["Budget Plan", "Your pasted Budget V1 defaults stay fully editable."],
+    settings: ["Budget Settings", "Budget-specific managers live here, separate from Schedule settings."],
+  };
+  const [title, body] = pageCopy[activePage] || pageCopy.home;
+  return (
+    <section className="budget-hero phase-hero">
+      <div>
+        <div className="phase-kicker">Budget</div>
+        <h1>💰 {title}</h1>
+        <p>{body}</p>
+      </div>
+    </section>
+  );
+}
+
+function BudgetMetrics({ summary, currency }) {
+  const balanceTone = summary.remaining < 0 ? "danger" : summary.remaining > 0 ? "good" : "neutral";
+  return (
+    <section className="budget-metrics-grid">
+      <BudgetMetric label="Monthly income" value={formatBudgetMoney(summary.monthlyIncome, currency)} detail="Editable plan income" />
+      <BudgetMetric label="Allocated" value={formatBudgetMoney(summary.allocated, currency)} detail={`${summary.bucketCount} buckets`} />
+      <BudgetMetric label="Unallocated" value={formatBudgetMoney(summary.remaining, currency)} tone={balanceTone} detail={summary.remaining === 0 ? "Budget balances exactly" : "Adjust buckets anytime"} />
+      <BudgetMetric label="Australia-ready" value={formatBudgetMoney(summary.australiaReadyFunds, currency)} detail="Accounts marked migration-ready" />
+    </section>
+  );
+}
+
+function BudgetHomePage({ summary, currency, buckets, accounts }) {
+  const expenseBuckets = buckets.filter(bucket => bucket.type !== "protected_goal" && bucket.type !== "investment");
+  const protectedBuckets = buckets.filter(bucket => bucket.isProtected);
+  return (
+    <>
+      <BudgetMetrics summary={summary} currency={currency} />
+      <section className="budget-card budget-networth-card">
+        <div className="budget-networth-inner">
+          <p className="budget-kicker">Net worth skeleton</p>
+          <strong>{formatBudgetMoney(summary.netWorth, currency)}</strong>
+          <span>Assets across {accounts.length} editable account{accounts.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="budget-networth-wave" aria-hidden="true" />
+      </section>
+      <section className="budget-card">
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Monthly spending buckets</p>
+            <h2>Home cards</h2>
+          </div>
+        </div>
+        <div className="budget-home-tile-grid">
+          {expenseBuckets.map(bucket => (
+            <div className="budget-home-tile" key={bucket.id}>
+              <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
+              <strong>{bucket.name}</strong>
+              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} / month</small>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="budget-card">
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Protected funds</p>
+            <h2>Goals to protect first</h2>
+          </div>
+        </div>
+        <div className="budget-home-tile-grid compact">
+          {protectedBuckets.map(bucket => (
+            <div className="budget-home-tile protected" key={bucket.id}>
+              <span className="budget-home-tile-icon">🛡️</span>
+              <strong>{bucket.name}</strong>
+              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} / month</small>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function BudgetTransactionsPage({ transactions, currency }) {
+  return (
+    <>
+      <section className="budget-card budget-calendar-card">
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Transaction calendar</p>
+            <h2>This Month</h2>
+          </div>
+          <span className="budget-editable-pill">Phase 143</span>
+        </div>
+        <div className="budget-calendar-placeholder">
+          {Array.from({ length: 35 }, (_, index) => <span key={index} className={index === 26 ? "active" : ""}>{index % 7 === 0 ? "" : index + 1}</span>)}
+        </div>
+      </section>
+      <section className="budget-card">
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Ledger entries</p>
+            <h2>Transactions</h2>
+          </div>
+        </div>
+        {transactions.length ? (
+          <div className="budget-transaction-list">
+            {transactions.map(transaction => (
+              <div className="budget-transaction-row" key={transaction.id}>
+                <span>{transaction.description || "Untitled transaction"}</span>
+                <strong>{formatBudgetMoney(transaction.amount, currency)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="budget-helper-copy">Transaction entry starts in Phase 143. This page is intentionally a skeleton so the Budget footer already matches the target app structure.</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+function BudgetSettingsPage({ profile, accounts, ledgers, buckets }) {
+  const settingsRows = [
+    ["🎟️", "Ledger Manager", `${ledgers.length} ledgers`],
+    ["💳", "Account Manager", `${accounts.length} accounts`],
+    ["🧩", "Category Manager", `${buckets.length} budget buckets`],
+    ["💰", "Budget", profile.name || "Budget V1"],
+    ["🏦", "Saving", "Australia-ready funds later"],
+    ["💱", "Base Currency", profile.currency || "SGD"],
+    ["🔁", "Recurring", "Phase 143+"],
+    ["📤", "Export/Import", "Later"],
+    ["☁️", "Cloud Sync", "Uses Tempo sync"],
+  ];
+  return (
+    <>
+      <section className="budget-card budget-settings-profile-card">
+        <p className="budget-kicker">Budget profile</p>
+        <h2>{profile.name || "Budget V1"}</h2>
+        <p>Budget settings are intentionally separate from Schedule settings. This keeps finance setup focused on accounts, ledgers, buckets, savings, and currency.</p>
+      </section>
+      <section className="budget-card budget-settings-list" aria-label="Budget settings skeleton">
+        {settingsRows.map(([icon, label, detail]) => (
+          <div className="budget-settings-row" key={label}>
+            <span className="budget-settings-icon">{icon}</span>
+            <strong>{label}</strong>
+            <small>{detail}</small>
+            <span aria-hidden="true">›</span>
+          </div>
+        ))}
+      </section>
+      <BudgetRoadmapCard />
+    </>
+  );
+}
+
 export function BudgetApp({
+  activePage = "home",
   profile,
   accounts,
   ledgers,
@@ -248,35 +406,34 @@ export function BudgetApp({
   onLedgersChange,
   onBucketsChange,
 }) {
+  const safePage = ["home", "account", "transactions", "budget", "settings"].includes(activePage) ? activePage : "home";
   const summary = calculateBudgetSummary({ profile, accounts, ledgers, buckets, transactions });
   const currency = profile.currency || "SGD";
-  const balanceTone = summary.remaining < 0 ? "danger" : summary.remaining > 0 ? "good" : "neutral";
 
   return (
-    <main className="budget-page phase-page">
-      <section className="budget-hero phase-hero">
-        <div>
-          <div className="phase-kicker">Budget</div>
-          <h1>💰 Budget V1 foundation</h1>
-          <p>Accounts, ledgers, and editable buckets for your Australia savings plan — separate from Schedule, connected later in Overall.</p>
-        </div>
-      </section>
+    <main className={`budget-page budget-page-${safePage} phase-page`}>
+      <BudgetHero activePage={safePage} />
 
-      <section className="budget-metrics-grid">
-        <BudgetMetric label="Monthly income" value={formatBudgetMoney(summary.monthlyIncome, currency)} detail="Editable plan income" />
-        <BudgetMetric label="Allocated" value={formatBudgetMoney(summary.allocated, currency)} detail={`${summary.bucketCount} buckets`} />
-        <BudgetMetric label="Unallocated" value={formatBudgetMoney(summary.remaining, currency)} tone={balanceTone} detail={summary.remaining === 0 ? "Budget balances exactly" : "Adjust buckets anytime"} />
-        <BudgetMetric label="Australia-ready" value={formatBudgetMoney(summary.australiaReadyFunds, currency)} detail="Accounts marked migration-ready" />
-      </section>
-
-      <div className="budget-layout-grid">
-        <EditableProfileCard profile={profile} onChange={onProfileChange} />
-        <BudgetRoadmapCard />
-      </div>
-
-      <AccountsPanel accounts={accounts} ledgers={ledgers} currency={currency} onChange={onAccountsChange} />
-      <LedgersPanel ledgers={ledgers} accounts={accounts} onChange={onLedgersChange} />
-      <BucketsPanel buckets={buckets} accounts={accounts} ledgers={ledgers} currency={currency} onChange={onBucketsChange} />
+      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} />}
+      {safePage === "account" && (
+        <>
+          <BudgetMetrics summary={summary} currency={currency} />
+          <AccountsPanel accounts={accounts} ledgers={ledgers} currency={currency} onChange={onAccountsChange} />
+          <LedgersPanel ledgers={ledgers} accounts={accounts} onChange={onLedgersChange} />
+        </>
+      )}
+      {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} currency={currency} />}
+      {safePage === "budget" && (
+        <>
+          <BudgetMetrics summary={summary} currency={currency} />
+          <div className="budget-layout-grid">
+            <EditableProfileCard profile={profile} onChange={onProfileChange} />
+            <BudgetRoadmapCard />
+          </div>
+          <BucketsPanel buckets={buckets} accounts={accounts} ledgers={ledgers} currency={currency} onChange={onBucketsChange} />
+        </>
+      )}
+      {safePage === "settings" && <BudgetSettingsPage profile={profile} accounts={accounts} ledgers={ledgers} buckets={buckets} />}
     </main>
   );
 }
