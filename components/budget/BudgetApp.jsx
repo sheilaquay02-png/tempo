@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
@@ -162,6 +162,59 @@ function updateKeypadAmount(value, key) {
   const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
   const [, cents = ""] = next.split(".");
   return cents.length > 2 ? current : next;
+}
+
+function moveBudgetItem(items, itemId, direction, predicate = () => true) {
+  const eligibleItems = items.filter(predicate);
+  const eligibleIndex = eligibleItems.findIndex(item => item.id === itemId);
+  const swapItem = eligibleItems[eligibleIndex + direction];
+  if (eligibleIndex < 0 || !swapItem) return items;
+  const nextItems = [...items];
+  const sourceIndex = nextItems.findIndex(item => item.id === itemId);
+  const targetIndex = nextItems.findIndex(item => item.id === swapItem.id);
+  if (sourceIndex < 0 || targetIndex < 0) return items;
+  [nextItems[sourceIndex], nextItems[targetIndex]] = [nextItems[targetIndex], nextItems[sourceIndex]];
+  return nextItems;
+}
+
+function canMoveBudgetItem(items, itemId, direction, predicate = () => true) {
+  const eligibleItems = items.filter(predicate);
+  const eligibleIndex = eligibleItems.findIndex(item => item.id === itemId);
+  return eligibleIndex >= 0 && Boolean(eligibleItems[eligibleIndex + direction]);
+}
+
+function useBudgetLongPress(onLongPress, disabled = false, delay = 3000) {
+  const timerRef = useRef(null);
+  const longPressedRef = useRef(false);
+  const clearTimer = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  };
+  const start = () => {
+    if (disabled) return;
+    longPressedRef.current = false;
+    clearTimer();
+    timerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true;
+      onLongPress?.();
+    }, delay);
+  };
+  const end = () => clearTimer();
+  const consumeLongPress = () => {
+    const wasLongPressed = longPressedRef.current;
+    longPressedRef.current = false;
+    return wasLongPressed;
+  };
+  useEffect(() => () => clearTimer(), []);
+  return {
+    longPressHandlers: {
+      onPointerDown: start,
+      onPointerUp: end,
+      onPointerLeave: end,
+      onPointerCancel: end,
+    },
+    consumeLongPress,
+  };
 }
 
 function BudgetAmountKeypad({ value, onChange, onSave, currency }) {
@@ -412,16 +465,38 @@ function AccountEditPopup({ account, ledgers, currency, canDelete, onSave, onDel
   );
 }
 
-function AccountCard({ account, currency, onOpen }) {
+function AccountCard({ account, currency, onOpen, editMode = false, onEnterEditMode, onDelete, onMoveLeft, onMoveRight, canMoveLeft = false, canMoveRight = false }) {
   const meta = accountMeta(account);
   const amount = account.hideBalance ? "••••" : formatBudgetMoney(account.currentBalance ?? account.balance, currency);
+  const { longPressHandlers, consumeLongPress } = useBudgetLongPress(onEnterEditMode, editMode);
+  const openAccount = event => {
+    if (editMode || consumeLongPress()) {
+      event.preventDefault();
+      return;
+    }
+    onOpen(account.id);
+  };
+  const stopAction = handler => event => {
+    event.preventDefault();
+    event.stopPropagation();
+    handler?.(account);
+  };
   return (
-    <button className={`budget-account-card budget-account-card-${meta.group}`} type="button" onClick={() => onOpen(account.id)} aria-label={`Open ${account.name}`}>
-      <span className="budget-account-logo">{accountDisplayIcon(account)}</span>
-      <strong>{account.name}</strong>
-      <small>{account.institution || meta.label}</small>
-      <em>{amount}</em>
-    </button>
+    <div className={`budget-account-card budget-account-card-${meta.group} ${editMode ? "budget-edit-mode-card" : ""}`} {...longPressHandlers} role="group" aria-label={`${account.name} account card`}>
+      <button className="budget-account-card-main" type="button" onClick={openAccount} aria-label={`Open ${account.name}`}>
+        <span className="budget-account-logo">{accountDisplayIcon(account)}</span>
+        <strong>{account.name}</strong>
+        <small>{account.institution || meta.label}</small>
+        <em>{amount}</em>
+      </button>
+      {editMode && (
+        <div className="budget-card-edit-controls" aria-label={`${account.name} edit controls`}>
+          <button type="button" onClick={stopAction(onMoveLeft)} disabled={!canMoveLeft} aria-label={`Move ${account.name} left`}>‹</button>
+          <button className="danger" type="button" onClick={stopAction(onDelete)} aria-label={`Delete ${account.name}`}>×</button>
+          <button type="button" onClick={stopAction(onMoveRight)} disabled={!canMoveRight} aria-label={`Move ${account.name} right`}>›</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -479,6 +554,7 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
   const [editingAccount, setEditingAccount] = useState(null);
   const [addingAccount, setAddingAccount] = useState(false);
   const [transferForm, setTransferForm] = useState(null);
+  const [accountCardEditMode, setAccountCardEditMode] = useState(false);
   const selectedAccount = adjustedAccounts.find(account => account.id === selectedAccountId) || null;
 
   const groupedAccounts = adjustedAccounts.reduce((groups, account) => {
@@ -488,7 +564,10 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
     return groups;
   }, {});
 
-  const addAccount = account => onAccountsChange([...accounts, account].map(normalizeBudgetAccount));
+  const addAccount = account => {
+    onAccountsChange([...accounts, account].map(normalizeBudgetAccount));
+    setAccountCardEditMode(false);
+  };
   const saveAccount = account => {
     onAccountsChange(patchBudgetItem(accounts, account.id, account).map(normalizeBudgetAccount));
     setEditingAccount(null);
@@ -498,6 +577,17 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
     onAccountsChange(accounts.filter(account => account.id !== id).map(normalizeBudgetAccount));
     if (selectedAccountId === id) setSelectedAccountId(null);
     setEditingAccount(null);
+  };
+  const quickDeleteAccount = account => {
+    if (!account || accounts.length <= 1) return;
+    const hasEntries = normalizeBudgetTransactions(transactions).some(transaction => transaction.accountId === account.id || transaction.toAccountId === account.id);
+    if (typeof window !== "undefined" && hasEntries && !window.confirm(`Delete ${account.name}? Existing transactions will stay in history but may reference a removed account.`)) return;
+    deleteAccount(account.id);
+  };
+  const moveAccountCard = (account, direction) => {
+    if (!account) return;
+    const groupKey = accountGroupKey(account);
+    onAccountsChange(moveBudgetItem(accounts, account.id, direction, item => accountGroupKey(item) === groupKey).map(normalizeBudgetAccount));
   };
   const openTransfer = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "transfer" }), accountId, description: "Transfer" });
   const openAccountExpense = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "expense" }), accountId, description: "Expense" });
@@ -532,7 +622,11 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
     <>
       <section className="budget-account-overview-head">
         <span className="budget-account-filter static">Accounts</span>
-        <button className="budget-round-icon" type="button" onClick={() => setAddingAccount(true)} aria-label="Add account">＋</button>
+        <div className="budget-card-edit-mode-toolbar">
+          {accountCardEditMode && <span>Account edit mode</span>}
+          {accountCardEditMode && <button className="tf-cancel" type="button" onClick={() => setAccountCardEditMode(false)}>Done</button>}
+          <button className="budget-round-icon" type="button" onClick={() => setAddingAccount(true)} aria-label="Add account">＋</button>
+        </div>
       </section>
       <section className="budget-card budget-account-networth-card">
         <div className="budget-networth-eye">◉</div>
@@ -551,8 +645,22 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
           return (
             <section className="budget-account-group" key={groupKey}>
               <div className="budget-account-group-head"><h2>{meta.label}</h2><span>{groupKey === "credit" || groupKey === "borrowed" ? "Owed" : "Bal."} {formatBudgetMoney(Math.abs(total), currency)}⌄</span></div>
-              <div className="budget-account-card-grid">
-                {groupAccounts.map(account => <AccountCard key={account.id} account={account} currency={currency} onOpen={setSelectedAccountId} />)}
+              <div className={`budget-account-card-grid ${accountCardEditMode ? "budget-card-grid-editing" : ""}`}>
+                {groupAccounts.map(account => (
+                  <AccountCard
+                    key={account.id}
+                    account={account}
+                    currency={currency}
+                    onOpen={setSelectedAccountId}
+                    editMode={accountCardEditMode}
+                    onEnterEditMode={() => setAccountCardEditMode(true)}
+                    onDelete={quickDeleteAccount}
+                    onMoveLeft={item => moveAccountCard(item, -1)}
+                    onMoveRight={item => moveAccountCard(item, 1)}
+                    canMoveLeft={canMoveBudgetItem(accounts, account.id, -1, item => accountGroupKey(item) === groupKey)}
+                    canMoveRight={canMoveBudgetItem(accounts, account.id, 1, item => accountGroupKey(item) === groupKey)}
+                  />
+                ))}
               </div>
             </section>
           );
@@ -760,15 +868,35 @@ function BudgetCardEditorPopup({ draft, setDraft, accounts, ledgers, currency, c
   );
 }
 
-function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, ...ariaProps }) {
+function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, editMode = false, onEnterEditMode, onDelete, onMoveLeft, onMoveRight, canMoveLeft = false, canMoveRight = false, ...ariaProps }) {
+  const { longPressHandlers, consumeLongPress } = useBudgetLongPress(onEnterEditMode, editMode);
+  const record = event => {
+    if (editMode || consumeLongPress()) {
+      event.preventDefault();
+      return;
+    }
+    onRecord?.();
+  };
+  const stopAction = handler => event => {
+    event.preventDefault();
+    event.stopPropagation();
+    handler?.(bucket);
+  };
   return (
-    <div className={`budget-home-tile budget-home-card-shell ${bucket.isProtected ? "protected" : ""} ${bucket.cashFlowType === "income" ? "income-card" : ""}`}>
-      <button className="budget-home-card-record" type="button" onClick={onRecord} aria-label={ariaProps["aria-label"]}>
+    <div className={`budget-home-tile budget-home-card-shell ${bucket.isProtected ? "protected" : ""} ${bucket.cashFlowType === "income" ? "income-card" : ""} ${editMode ? "budget-edit-mode-card" : ""}`} {...longPressHandlers}>
+      <button className="budget-home-card-record" type="button" onClick={record} aria-label={ariaProps["aria-label"]}>
         <strong>{bucket.name}</strong>
         <span className="budget-home-tile-icon">{icon}</span>
         <small>{formatBudgetMoney(amount, currency)}</small>
       </button>
-      <button className="budget-home-card-edit" type="button" onClick={onEdit} aria-label={`Edit ${bucket.name}`}>✎</button>
+      {!editMode && <button className="budget-home-card-edit" type="button" onClick={onEdit} aria-label={`Edit ${bucket.name}`}>✎</button>}
+      {editMode && (
+        <div className="budget-card-edit-controls" aria-label={`${bucket.name} edit controls`}>
+          <button type="button" onClick={stopAction(onMoveLeft)} disabled={!canMoveLeft} aria-label={`Move ${bucket.name} left`}>‹</button>
+          <button className="danger" type="button" onClick={stopAction(onDelete)} aria-label={`Delete ${bucket.name}`}>×</button>
+          <button type="button" onClick={stopAction(onMoveRight)} disabled={!canMoveRight} aria-label={`Move ${bucket.name} right`}>›</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1014,6 +1142,7 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
   const [selectedLedgerId, setSelectedLedgerId] = useState(() => ledgers[0]?.id || "daily-ledger");
   const [homeMonthDate, setHomeMonthDate] = useState(() => new Date());
   const [collapsedSections, setCollapsedSections] = useState({ expense: false, income: false });
+  const [homeCardEditMode, setHomeCardEditMode] = useState(false);
   const selectedLedger = ledgers.find(ledger => ledger.id === selectedLedgerId) || ledgers[0] || { id: "daily-ledger", name: "Daily" };
   const homeMonthKey = `${homeMonthDate.getFullYear()}-${String(homeMonthDate.getMonth() + 1).padStart(2, "0")}`;
   const monthTransactions = useMemo(
@@ -1102,6 +1231,16 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
     setCardDraft(null);
   };
 
+  const quickDeleteCard = bucket => {
+    if (!bucket || buckets.length <= 1) return;
+    if (bucket.isProtected && typeof window !== "undefined" && !window.confirm(`Delete protected card ${bucket.name}?`)) return;
+    onBucketsChange(buckets.filter(item => item.id !== bucket.id).map(normalizeBudgetBucket));
+  };
+  const moveHomeCard = (bucket, direction) => {
+    if (!bucket) return;
+    onBucketsChange(moveBudgetItem(buckets, bucket.id, direction, item => item.ledgerId === bucket.ledgerId && item.cashFlowType === bucket.cashFlowType).map(normalizeBudgetBucket));
+  };
+
   const toggleSection = section => setCollapsedSections(current => ({ ...current, [section]: !current[section] }));
   return (
     <>
@@ -1111,7 +1250,10 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
             className="budget-ledger-home-select"
             value={selectedLedger.id}
             aria-label="Choose budget ledger"
-            onChange={event => setSelectedLedgerId(event.target.value)}
+            onChange={event => {
+              setSelectedLedgerId(event.target.value);
+              setHomeCardEditMode(false);
+            }}
           >
             {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
           </select>
@@ -1120,7 +1262,10 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
             <strong>{monthTitle(homeMonthDate)}</strong>
             <button type="button" onClick={() => changeHomeMonth(1)} aria-label="Next budget month">›</button>
           </div>
-          <span className="budget-home-toolbar-spacer" aria-hidden="true" />
+          <div className="budget-home-toolbar-spacer budget-card-edit-mode-toolbar">
+            {homeCardEditMode && <span>Card edit mode</span>}
+            {homeCardEditMode && <button className="tf-cancel" type="button" onClick={() => setHomeCardEditMode(false)}>Done</button>}
+          </div>
         </div>
 
         <div className="budget-month-total-row budget-section-control-row">
@@ -1142,7 +1287,25 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
             {expenseBuckets.map(bucket => {
               const spent = monthSummary.bucketSpendById?.[bucket.id] || 0;
               const icon = bucket.isProtected ? "🛡️" : bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️";
-              return <BudgetCardTile key={bucket.id} bucket={bucket} amount={spent} currency={currency} icon={icon} aria-label={`Record expense for ${bucket.name}`} onRecord={() => openHomeTransaction("expense", bucket.id)} onEdit={() => openCardEditor("expense", bucket)} />;
+              return (
+                <BudgetCardTile
+                  key={bucket.id}
+                  bucket={bucket}
+                  amount={spent}
+                  currency={currency}
+                  icon={icon}
+                  aria-label={`Record expense for ${bucket.name}`}
+                  onRecord={() => openHomeTransaction("expense", bucket.id)}
+                  onEdit={() => openCardEditor("expense", bucket)}
+                  editMode={homeCardEditMode}
+                  onEnterEditMode={() => setHomeCardEditMode(true)}
+                  onDelete={quickDeleteCard}
+                  onMoveLeft={item => moveHomeCard(item, -1)}
+                  onMoveRight={item => moveHomeCard(item, 1)}
+                  canMoveLeft={canMoveBudgetItem(buckets, bucket.id, -1, item => item.ledgerId === bucket.ledgerId && item.cashFlowType === bucket.cashFlowType)}
+                  canMoveRight={canMoveBudgetItem(buckets, bucket.id, 1, item => item.ledgerId === bucket.ledgerId && item.cashFlowType === bucket.cashFlowType)}
+                />
+              );
             })}
             {!expenseBuckets.length && <p className="budget-helper-copy">No expense cards in {selectedLedger.name} yet. Add cards from Budget.</p>}
           </div>
@@ -1165,7 +1328,23 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
         {!collapsedSections.income && (
           <div id="budget-home-income-cards" className="budget-home-tile-grid budget-home-category-grid compact">
             {incomeBuckets.map(bucket => (
-              <BudgetCardTile key={bucket.id} bucket={bucket} amount={monthSummary.bucketIncomeById?.[bucket.id] || 0} currency={currency} icon="💵" aria-label={`Record income for ${bucket.name}`} onRecord={() => openHomeTransaction("income", bucket.id)} onEdit={() => openCardEditor("income", bucket)} />
+              <BudgetCardTile
+                key={bucket.id}
+                bucket={bucket}
+                amount={monthSummary.bucketIncomeById?.[bucket.id] || 0}
+                currency={currency}
+                icon="💵"
+                aria-label={`Record income for ${bucket.name}`}
+                onRecord={() => openHomeTransaction("income", bucket.id)}
+                onEdit={() => openCardEditor("income", bucket)}
+                editMode={homeCardEditMode}
+                onEnterEditMode={() => setHomeCardEditMode(true)}
+                onDelete={quickDeleteCard}
+                onMoveLeft={item => moveHomeCard(item, -1)}
+                onMoveRight={item => moveHomeCard(item, 1)}
+                canMoveLeft={canMoveBudgetItem(buckets, bucket.id, -1, item => item.ledgerId === bucket.ledgerId && item.cashFlowType === bucket.cashFlowType)}
+                canMoveRight={canMoveBudgetItem(buckets, bucket.id, 1, item => item.ledgerId === bucket.ledgerId && item.cashFlowType === bucket.cashFlowType)}
+              />
             ))}
             {!incomeBuckets.length && <p className="budget-helper-copy">No income cards in {selectedLedger.name} yet. Add cards from Budget.</p>}
           </div>

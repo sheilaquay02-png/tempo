@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 test("account edit popup syncs draft when account opens", () => {
   const source = readFileSync("components/budget/BudgetApp.jsx", "utf8");
-  assert.match(source, /import \{ useEffect, useMemo, useState \} from "react";/);
+  assert.match(source, /import \{ useEffect, useMemo, useRef, useState \} from "react";/);
   assert.match(source, /function AccountEditPopup/);
   assert.match(source, /useEffect\(\(\) => \{\s*setDraft\(account \? \{ \.\.\.account \} : null\);\s*\}, \[account\]\);/s);
 });

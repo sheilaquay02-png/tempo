@@ -4238,4 +4238,123 @@ body.tempo-modal-locked{
   .budget-account-card em{font-size:18px;letter-spacing:-.05em;}
 }
 
+
+/* ── Phase 145 Home/account long-press edit mode patch ───────────────── */
+.budget-card-edit-mode-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-width:0;
+}
+.budget-card-edit-mode-toolbar span{
+  border-radius:999px;
+  background:rgba(var(--accent-rgb),.10);
+  color:var(--accent);
+  padding:7px 10px;
+  font-size:11px;
+  font-weight:950;
+  white-space:nowrap;
+}
+.budget-card-grid-editing .budget-edit-mode-card,
+.budget-edit-mode-card{
+  outline:2px dashed rgba(var(--accent-rgb),.35);
+  outline-offset:-6px;
+  animation:budgetCardEditPulse 1.4s ease-in-out infinite;
+}
+@keyframes budgetCardEditPulse{
+  0%,100%{transform:translateY(0) rotate(0deg);}
+  50%{transform:translateY(-1px) rotate(-.25deg);}
+}
+.budget-card-edit-controls{
+  position:absolute;
+  inset:auto 8px 8px 8px;
+  z-index:4;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+  pointer-events:auto;
+}
+.budget-card-edit-controls button{
+  border:0;
+  border-radius:999px;
+  min-height:30px;
+  background:rgba(255,255,255,.88);
+  color:var(--accent);
+  font-size:16px;
+  font-weight:950;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(var(--accent-rgb),.12);
+}
+.budget-card-edit-controls button:disabled{
+  opacity:.38;
+  cursor:not-allowed;
+}
+.budget-card-edit-controls button.danger{
+  background:#D05A7B;
+  color:#fff;
+}
+.budget-account-card{
+  position:relative;
+  padding:0!important;
+}
+.budget-account-card-main{
+  width:100%;
+  height:100%;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  text-align:left;
+  padding:18px;
+  cursor:pointer;
+}
+.budget-account-card-main:hover,
+.budget-account-card-main:focus-visible{
+  outline:0;
+  background:rgba(255,255,255,.20);
+}
+.budget-account-card-main strong,
+.budget-account-card-main small,
+.budget-account-card-main em{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.budget-account-card-main strong,
+.budget-account-card-main small{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+.budget-account-card-main em{
+  display:block;
+  white-space:nowrap;
+  font-style:normal;
+}
+.budget-account-card.budget-edit-mode-card .budget-account-card-main,
+.budget-home-card-shell.budget-edit-mode-card .budget-home-card-record{
+  pointer-events:auto;
+  padding-bottom:46px;
+}
+@media(max-width:768px){
+  .budget-home-combined-card .budget-home-category-grid.compact{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .budget-card-edit-mode-toolbar{justify-content:flex-end;}
+  .budget-card-edit-mode-toolbar span{display:none;}
+  .budget-card-edit-controls{inset:auto 6px 6px 6px;gap:4px;}
+  .budget-card-edit-controls button{min-height:26px;font-size:14px;}
+  .budget-account-card-main{padding:12px;gap:5px;}
+  .budget-account-card.budget-edit-mode-card .budget-account-card-main,
+  .budget-home-card-shell.budget-edit-mode-card .budget-home-card-record{
+    padding-bottom:38px;
+  }
+}
+
 `; }
