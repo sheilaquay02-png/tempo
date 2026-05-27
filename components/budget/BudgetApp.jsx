@@ -214,7 +214,7 @@ function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, cur
           onCancelEdit={onClose}
           popup
           contextBucket={contextBucket}
-          summary={summary}
+          summary={monthSummary}
         />
       </div>
     </div>
@@ -773,20 +773,28 @@ function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, ...a
   );
 }
 
-function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transactions, onBucketsChange, onTransactionsChange }) {
+function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, onBucketsChange, onTransactionsChange }) {
   const [homeForm, setHomeForm] = useState(null);
   const [cardDraft, setCardDraft] = useState(null);
   const [selectedLedgerId, setSelectedLedgerId] = useState(() => ledgers[0]?.id || "daily-ledger");
+  const [homeMonthDate, setHomeMonthDate] = useState(() => new Date());
   const [collapsedSections, setCollapsedSections] = useState({ expense: false, income: false });
   const selectedLedger = ledgers.find(ledger => ledger.id === selectedLedgerId) || ledgers[0] || { id: "daily-ledger", name: "Daily" };
+  const homeMonthKey = `${homeMonthDate.getFullYear()}-${String(homeMonthDate.getMonth() + 1).padStart(2, "0")}`;
+  const monthTransactions = useMemo(
+    () => normalizeBudgetTransactions(transactions).filter(transaction => String(transaction.date || "").startsWith(homeMonthKey)),
+    [transactions, homeMonthKey],
+  );
+  const monthSummary = useMemo(
+    () => calculateBudgetSummary({ accounts, ledgers, buckets, transactions: monthTransactions }),
+    [accounts, ledgers, buckets, monthTransactions],
+  );
   const ledgerBuckets = buckets.filter(bucket => bucket.ledgerId === selectedLedger.id);
   const expenseBuckets = ledgerBuckets.filter(bucket => bucket.cashFlowType !== "income");
   const incomeBuckets = ledgerBuckets.filter(bucket => bucket.cashFlowType === "income");
-  const protectedBuckets = ledgerBuckets.filter(bucket => bucket.isProtected);
-  const expensePlanned = expenseBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
-  const incomePlanned = incomeBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
-  const expenseRecorded = expenseBuckets.reduce((total, bucket) => total + Number(summary.bucketSpendById?.[bucket.id] || 0), 0);
-  const incomeRecorded = incomeBuckets.reduce((total, bucket) => total + Number(summary.bucketIncomeById?.[bucket.id] || 0), 0);
+  const expenseRecorded = expenseBuckets.reduce((total, bucket) => total + Number(monthSummary.bucketSpendById?.[bucket.id] || 0), 0);
+  const incomeRecorded = incomeBuckets.reduce((total, bucket) => total + Number(monthSummary.bucketIncomeById?.[bucket.id] || 0), 0);
+  const changeHomeMonth = delta => setHomeMonthDate(current => new Date(current.getFullYear(), current.getMonth() + delta, 1));
 
   const openHomeTransaction = (type, bucketId = "") => {
     const bucket = buckets.find(item => item.id === bucketId);
@@ -860,12 +868,10 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
   };
 
   const toggleSection = section => setCollapsedSections(current => ({ ...current, [section]: !current[section] }));
-  const sectionPercent = (recorded, planned) => planned ? `${Math.round((recorded / planned) * 100)}%` : "—";
-
   return (
     <>
       <section className="budget-card budget-month-summary-card budget-home-combined-card">
-        <div className="budget-month-toolbar">
+        <div className="budget-month-toolbar budget-home-month-toolbar">
           <select
             className="budget-ledger-home-select"
             value={selectedLedger.id}
@@ -874,10 +880,12 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
           >
             {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
           </select>
-          <strong>‹ This Month ›</strong>
-          <span>{summary.monthlyIncome ? Math.round((summary.allocated / summary.monthlyIncome) * 100) : 0}%</span>
+          <div className="budget-home-month-switcher" aria-label="Budget month selector">
+            <button type="button" onClick={() => changeHomeMonth(-1)} aria-label="Previous budget month">‹</button>
+            <strong>{monthTitle(homeMonthDate)}</strong>
+            <button type="button" onClick={() => changeHomeMonth(1)} aria-label="Next budget month">›</button>
+          </div>
         </div>
-        <p className="budget-helper-copy budget-home-record-hint">Showing {selectedLedger.name}. Tap a card to record. Tap Expense or Income to collapse that section.</p>
 
         <div className="budget-month-total-row budget-section-control-row">
           <button
@@ -889,14 +897,14 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
           >
             <span>Expense</span>
             <strong>{formatBudgetMoney(expenseRecorded, currency)}</strong>
-            <em>{sectionPercent(expenseRecorded, expensePlanned)} {collapsedSections.expense ? "⌃" : "⌄"}</em>
+            <em>{collapsedSections.expense ? "⌃" : "⌄"}</em>
           </button>
           <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("expense")} aria-label={`Add expense card to ${selectedLedger.name}`}>＋ Card</button>
         </div>
         {!collapsedSections.expense && (
           <div id="budget-home-expense-cards" className="budget-home-tile-grid budget-home-category-grid">
             {expenseBuckets.map(bucket => {
-              const spent = summary.bucketSpendById?.[bucket.id] || 0;
+              const spent = monthSummary.bucketSpendById?.[bucket.id] || 0;
               const icon = bucket.isProtected ? "🛡️" : bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️";
               return <BudgetCardTile key={bucket.id} bucket={bucket} amount={spent} currency={currency} icon={icon} aria-label={`Record expense for ${bucket.name}`} onRecord={() => openHomeTransaction("expense", bucket.id)} onEdit={() => openCardEditor("expense", bucket)} />;
             })}
@@ -913,7 +921,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
             aria-controls="budget-home-income-cards"
           >
             <span>Income</span>
-            <strong>{formatBudgetMoney(incomeRecorded || incomePlanned, currency)}</strong>
+            <strong>{formatBudgetMoney(incomeRecorded, currency)}</strong>
             <em>{collapsedSections.income ? "⌃" : "⌄"}</em>
           </button>
           <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("income")} aria-label={`Add income card to ${selectedLedger.name}`}>＋ Card</button>
@@ -921,7 +929,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         {!collapsedSections.income && (
           <div id="budget-home-income-cards" className="budget-home-tile-grid budget-home-category-grid compact">
             {incomeBuckets.map(bucket => (
-              <BudgetCardTile key={bucket.id} bucket={bucket} amount={summary.bucketIncomeById?.[bucket.id] || 0} currency={currency} icon="💵" aria-label={`Record income for ${bucket.name}`} onRecord={() => openHomeTransaction("income", bucket.id)} onEdit={() => openCardEditor("income", bucket)} />
+              <BudgetCardTile key={bucket.id} bucket={bucket} amount={monthSummary.bucketIncomeById?.[bucket.id] || 0} currency={currency} icon="💵" aria-label={`Record income for ${bucket.name}`} onRecord={() => openHomeTransaction("income", bucket.id)} onEdit={() => openCardEditor("income", bucket)} />
             ))}
             {!incomeBuckets.length && <p className="budget-helper-copy">No income cards in {selectedLedger.name} yet. Add cards from Budget.</p>}
           </div>
@@ -934,7 +942,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         ledgers={ledgers}
         buckets={buckets}
         currency={currency}
-        summary={summary}
+        summary={monthSummary}
         onSave={saveHomeTransaction}
         onClose={closeHomeTransaction}
       />
@@ -949,40 +957,6 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         onDelete={removeCardDraft}
         onClose={closeCardEditor}
       />
-      <section className="budget-card budget-networth-card">
-        <div className="budget-networth-inner">
-          <p className="budget-kicker">Net worth</p>
-          <strong>{formatBudgetMoney(summary.netWorth, currency)}</strong>
-          <span>Assets across {accounts.length} editable account{accounts.length === 1 ? "" : "s"}</span>
-        </div>
-        <div className="budget-networth-wave" aria-hidden="true" />
-      </section>
-      <BudgetMetrics summary={summary} currency={currency} />
-      {protectedBuckets.length ? (
-        <section className="budget-card">
-          <div className="budget-card-head">
-            <div>
-              <p className="budget-kicker">Protected funds</p>
-              <h2>{selectedLedger.name} goals to protect first</h2>
-            </div>
-          </div>
-          <div className="budget-home-tile-grid compact">
-            {protectedBuckets.map(bucket => (
-              <div className="budget-home-tile protected" key={bucket.id}>
-                <span className="budget-home-tile-icon">🛡️</span>
-                <strong>{bucket.name}</strong>
-                <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} / month</small>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      <section className="budget-card budget-home-flow-card">
-        <p className="budget-kicker">Month flow</p>
-        <div className="budget-flow-row"><span>Income recorded</span><strong className="good">{formatBudgetMoney(summary.incomeTotal || 0, currency)}</strong></div>
-        <div className="budget-flow-row"><span>Expenses recorded</span><strong className="danger">{formatBudgetMoney(summary.expenseTotal || 0, currency)}</strong></div>
-        <div className="budget-flow-row"><span>Balance</span><strong>{formatBudgetMoney(summary.monthlyBalance || 0, currency)}</strong></div>
-      </section>
     </>
   );
 }
@@ -1344,7 +1318,7 @@ export function BudgetApp({
     <main className={`budget-page budget-page-${safePage} phase-page`}>
       {safePage !== "account" && <BudgetHero activePage={safePage} />}
 
-      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onBucketsChange={onBucketsChange} onTransactionsChange={onTransactionsChange} />}
+      {safePage === "home" && <BudgetHomePage currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onBucketsChange={onBucketsChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "account" && <BudgetAccountPage accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} transactions={transactions} summary={summary} onAccountsChange={onAccountsChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onTransactionsChange={onTransactionsChange} />}
       {safePage === "budget" && (

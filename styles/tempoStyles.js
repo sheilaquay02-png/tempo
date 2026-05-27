@@ -4048,4 +4048,113 @@ body.tempo-modal-locked{
   .budget-card-editor-grid{grid-template-columns:1fr;}
 }
 
+/* ── Phase 144 Home visual/month correction patch ─────────────────────── */
+.budget-home-month-toolbar{
+  grid-template-columns:minmax(150px,220px) minmax(0,1fr);
+  gap:14px;
+}
+.budget-home-month-switcher{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-width:0;
+}
+.budget-home-month-switcher button{
+  width:30px;
+  height:30px;
+  border:0;
+  border-radius:999px;
+  background:rgba(var(--accent-rgb),.08);
+  color:var(--accent);
+  font-size:22px;
+  font-weight:950;
+  line-height:1;
+  cursor:pointer;
+}
+.budget-home-month-switcher strong{
+  min-width:160px;
+}
+.budget-ledger-home-select{
+  min-width:170px;
+  max-width:240px;
+  padding:8px 8px;
+}
+.budget-home-combined-card .budget-home-category-grid,
+.budget-home-combined-card .budget-home-category-grid.compact{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:14px;
+  align-items:stretch;
+}
+.budget-home-combined-card .budget-home-card-shell{
+  width:100%;
+  min-height:158px;
+  height:158px;
+}
+.budget-home-combined-card .budget-home-card-record{
+  min-height:158px;
+  height:158px;
+}
+.budget-home-combined-card .budget-home-card-record strong{
+  min-height:2.35em;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.budget-account-networth-card{
+  background:linear-gradient(135deg,#C85A8A 0%,#8D78C7 100%)!important;
+}
+.budget-account-networth-card .budget-networth-wave{
+  background:rgba(255,255,255,.22);
+}
+@media(max-width:768px){
+  .budget-home-month-toolbar{
+    grid-template-columns:minmax(132px,160px) minmax(0,1fr);
+    gap:8px;
+  }
+  .budget-ledger-home-select{
+    min-width:132px;
+    max-width:160px;
+    font-size:14px;
+  }
+  .budget-home-month-switcher{gap:4px;}
+  .budget-home-month-switcher strong{
+    min-width:0;
+    font-size:17px;
+  }
+  .budget-home-month-switcher button{
+    width:26px;
+    height:26px;
+    font-size:18px;
+  }
+  .budget-home-combined-card .budget-home-category-grid,
+  .budget-home-combined-card .budget-home-category-grid.compact{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:10px;
+  }
+  .budget-home-combined-card .budget-home-card-shell,
+  .budget-home-combined-card .budget-home-card-record{
+    min-height:132px;
+    height:132px;
+  }
+  .budget-home-combined-card .budget-home-card-record{
+    gap:8px;
+    padding:14px 6px 10px;
+  }
+  .budget-home-combined-card .budget-home-tile-icon{
+    width:36px;
+    height:36px;
+    font-size:18px;
+  }
+  .budget-home-combined-card .budget-home-card-record strong{
+    font-size:13px;
+    line-height:1.12;
+  }
+  .budget-home-combined-card .budget-home-card-record small{
+    font-size:11px;
+  }
+}
+
 `; }
