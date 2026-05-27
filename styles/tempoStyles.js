@@ -3914,4 +3914,138 @@ body.tempo-modal-locked{
   .budget-popup-date-panel{grid-template-columns:1fr;}
 }
 
+
+/* ── Phase 144 account/card editor bugfix patch ───────────────────────── */
+.budget-section-control-row{
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 2px;
+}
+.budget-section-control-row.income{margin-top:14px;}
+.budget-section-collapse-main{
+  flex:1;
+  min-width:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:8px;
+  border-radius:16px;
+  padding:8px;
+  cursor:pointer;
+}
+.budget-section-collapse-main:hover,
+.budget-section-collapse-main:focus-visible{
+  background:rgba(var(--accent-rgb),.06);
+  outline:0;
+}
+.budget-section-collapse-main em{
+  color:var(--accent);
+  font-size:13px;
+  font-style:normal;
+  font-weight:950;
+}
+.budget-card-add-button{
+  flex:0 0 auto;
+  border:0;
+  border-radius:999px;
+  background:rgba(var(--accent-rgb),.10);
+  color:var(--accent);
+  font-size:12px;
+  font-weight:950;
+  padding:9px 12px;
+  cursor:pointer;
+}
+.budget-home-card-shell{
+  position:relative;
+  overflow:hidden;
+  padding:0!important;
+}
+.budget-home-card-record{
+  width:100%;
+  min-height:inherit;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  text-align:center;
+  cursor:pointer;
+}
+.budget-home-card-record:hover,
+.budget-home-card-record:focus-visible{
+  outline:0;
+  background:rgba(255,255,255,.20);
+}
+.budget-home-card-edit{
+  position:absolute;
+  top:8px;
+  right:8px;
+  width:30px;
+  height:30px;
+  border:0;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  color:var(--accent);
+  font-size:13px;
+  font-weight:950;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(var(--accent-rgb),.10);
+}
+.budget-home-card-edit:hover,
+.budget-home-card-edit:focus-visible{
+  outline:0;
+  transform:translateY(-1px);
+  background:white;
+}
+.budget-card-editor-overlay{
+  position:fixed;
+  inset:0;
+  z-index:12200;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:18px;
+  pointer-events:auto;
+}
+.budget-card-editor-sheet{
+  position:relative;
+  z-index:1;
+  width:min(620px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:var(--surface);
+  border-radius:34px 34px 24px 24px;
+  box-shadow:0 -18px 60px rgba(42,31,64,.22);
+  padding:18px;
+  animation:budgetPopupRise .18s ease-out;
+}
+.budget-card-editor-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.budget-card-editor-grid label{display:flex;flex-direction:column;gap:5px;}
+.budget-card-editor-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;}
+.dark .budget-card-editor-sheet{background:var(--dark-surface);}
+.dark .budget-home-card-edit{background:rgba(255,255,255,.14);}
+@media(max-width:768px){
+  .budget-section-control-row{gap:6px;}
+  .budget-section-collapse-main{justify-content:flex-start;padding:8px 4px;}
+  .budget-card-add-button{font-size:11px;padding:8px 10px;}
+  .budget-home-card-record{padding:14px 8px 12px;}
+  .budget-card-editor-overlay{padding:0;}
+  .budget-card-editor-sheet{width:100%;max-height:94vh;border-radius:32px 32px 0 0;padding:16px 16px max(18px,env(safe-area-inset-bottom));}
+  .budget-card-editor-grid{grid-template-columns:1fr;}
+}
+
 `; }

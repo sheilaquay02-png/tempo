@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
@@ -374,6 +374,9 @@ function AccountAddSheet({ open, currency, ledgers, onAdd, onClose }) {
 
 function AccountEditPopup({ account, ledgers, currency, canDelete, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(() => account ? { ...account } : null);
+  useEffect(() => {
+    setDraft(account ? { ...account } : null);
+  }, [account]);
   if (!account || !draft) return null;
   const update = patch => setDraft(current => ({ ...current, ...patch }));
   const save = () => onSave(normalizeBudgetAccount({ ...draft, updatedAt: new Date().toISOString() }));
@@ -699,8 +702,80 @@ function BudgetMetrics({ summary, currency }) {
   );
 }
 
-function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transactions, onTransactionsChange }) {
+
+function BudgetCardEditorPopup({ draft, setDraft, accounts, ledgers, currency, canDelete, onSave, onDelete, onClose }) {
+  if (!draft) return null;
+  const update = patch => setDraft(current => ({ ...current, ...patch }));
+  const title = draft.id ? `Edit ${draft.name || "card"}` : `Add ${draft.cashFlowType === "income" ? "income" : "expense"} card`;
+  return (
+    <div className="budget-card-editor-overlay" role="dialog" aria-modal="true" aria-label={title}>
+      <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close card editor" />
+      <div className="budget-card-editor-sheet">
+        <div className="budget-popup-header">
+          <button type="button" onClick={onClose} aria-label="Close card editor">×</button>
+          <strong>{title}</strong>
+          <span aria-hidden="true">☷</span>
+        </div>
+        <div className="budget-card-editor-grid">
+          <label>
+            <FieldLabel>Card name</FieldLabel>
+            <input className="budget-input" value={draft.name || ""} onChange={event => update({ name: event.target.value })} aria-label="Card name" />
+          </label>
+          <label>
+            <FieldLabel>Monthly amount</FieldLabel>
+            <MoneyInput value={draft.monthlyAmount} onChange={monthlyAmount => update({ monthlyAmount })} ariaLabel="Card monthly amount" />
+          </label>
+          <label>
+            <FieldLabel>Income / Expense</FieldLabel>
+            <SelectInput value={draft.cashFlowType || "expense"} options={BUDGET_CARD_FLOW_TYPES} onChange={cashFlowType => update({ cashFlowType, type: cashFlowType === "income" ? "income" : draft.type === "income" ? "flexible_spending" : draft.type })} ariaLabel="Card flow type" />
+          </label>
+          <label>
+            <FieldLabel>Card type</FieldLabel>
+            <SelectInput value={draft.type || "flexible_spending"} options={BUDGET_BUCKET_TYPES} onChange={type => update({ type, cashFlowType: type === "income" ? "income" : draft.cashFlowType === "income" && type !== "income" ? "expense" : draft.cashFlowType })} ariaLabel="Card type" />
+          </label>
+          <label>
+            <FieldLabel>Ledger</FieldLabel>
+            <select className="budget-input" value={draft.ledgerId} onChange={event => update({ ledgerId: event.target.value })} aria-label="Card ledger">
+              {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
+            </select>
+          </label>
+          <label>
+            <FieldLabel>Default account</FieldLabel>
+            <select className="budget-input" value={draft.accountId} onChange={event => update({ accountId: event.target.value })} aria-label="Card account">
+              {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="budget-account-toggle-list">
+          <label className="budget-switch-row"><span>Protected card</span><input type="checkbox" checked={Boolean(draft.isProtected)} onChange={event => update({ isProtected: event.target.checked })} /></label>
+          <label className="budget-switch-row"><span>Rollover monthly balance</span><input type="checkbox" checked={Boolean(draft.rolloverEnabled)} onChange={event => update({ rolloverEnabled: event.target.checked })} /></label>
+        </div>
+        <textarea className="budget-input budget-notes" value={draft.notes || ""} placeholder="Optional note for this card" onChange={event => update({ notes: event.target.value })} aria-label="Card notes" />
+        <div className="budget-card-editor-actions">
+          <button className="tf-save" type="button" onClick={onSave}>Save card</button>
+          {canDelete && <button className="tf-cancel danger" type="button" onClick={onDelete}>Remove card</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, ...ariaProps }) {
+  return (
+    <div className={`budget-home-tile budget-home-card-shell ${bucket.isProtected ? "protected" : ""} ${bucket.cashFlowType === "income" ? "income-card" : ""}`}>
+      <button className="budget-home-card-record" type="button" onClick={onRecord} aria-label={ariaProps["aria-label"]}>
+        <strong>{bucket.name}</strong>
+        <span className="budget-home-tile-icon">{icon}</span>
+        <small>{formatBudgetMoney(amount, currency)}</small>
+      </button>
+      <button className="budget-home-card-edit" type="button" onClick={onEdit} aria-label={`Edit ${bucket.name}`}>✎</button>
+    </div>
+  );
+}
+
+function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transactions, onBucketsChange, onTransactionsChange }) {
   const [homeForm, setHomeForm] = useState(null);
+  const [cardDraft, setCardDraft] = useState(null);
   const [selectedLedgerId, setSelectedLedgerId] = useState(() => ledgers[0]?.id || "daily-ledger");
   const [collapsedSections, setCollapsedSections] = useState({ expense: false, income: false });
   const selectedLedger = ledgers.find(ledger => ledger.id === selectedLedgerId) || ledgers[0] || { id: "daily-ledger", name: "Daily" };
@@ -745,6 +820,45 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
     setHomeForm(null);
   };
 
+  const openCardEditor = (cashFlowType, bucket = null) => {
+    const defaultAccount = accounts.find(account => account.ledgerId === selectedLedger.id) || accounts[0];
+    setCardDraft(bucket ? { ...normalizeBudgetBucket(bucket), isNew: false } : {
+      id: "",
+      name: cashFlowType === "income" ? "New income card" : "New expense card",
+      monthlyAmount: 0,
+      type: cashFlowType === "income" ? "income" : "flexible_spending",
+      cashFlowType,
+      group: cashFlowType === "income" ? "Income" : "Flexible spending",
+      accountId: defaultAccount?.id || "main-bank",
+      ledgerId: selectedLedger.id,
+      isProtected: false,
+      rolloverEnabled: cashFlowType === "expense",
+      damageControlPriority: null,
+      notes: "",
+      isNew: true,
+    });
+  };
+  const closeCardEditor = () => setCardDraft(null);
+  const saveCardDraft = () => {
+    if (!cardDraft) return;
+    const timestamp = new Date().toISOString();
+    const normalized = normalizeBudgetBucket({
+      ...cardDraft,
+      id: cardDraft.id || budgetUid("card"),
+      updatedAt: timestamp,
+    });
+    const nextBuckets = cardDraft.isNew
+      ? [...buckets, normalized]
+      : patchBudgetItem(buckets, normalized.id, normalized).map(normalizeBudgetBucket);
+    onBucketsChange(nextBuckets);
+    setCardDraft(null);
+  };
+  const removeCardDraft = () => {
+    if (!cardDraft?.id || buckets.length <= 1) return;
+    onBucketsChange(buckets.filter(bucket => bucket.id !== cardDraft.id).map(normalizeBudgetBucket));
+    setCardDraft(null);
+  };
+
   const toggleSection = section => setCollapsedSections(current => ({ ...current, [section]: !current[section] }));
   const sectionPercent = (recorded, planned) => planned ? `${Math.round((recorded / planned) * 100)}%` : "—";
 
@@ -765,52 +879,49 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         </div>
         <p className="budget-helper-copy budget-home-record-hint">Showing {selectedLedger.name}. Tap a card to record. Tap Expense or Income to collapse that section.</p>
 
-        <button
-          className="budget-month-total-row budget-collapse-toggle"
-          type="button"
-          onClick={() => toggleSection("expense")}
-          aria-expanded={!collapsedSections.expense}
-          aria-controls="budget-home-expense-cards"
-        >
-          <span>Expense</span>
-          <strong>{formatBudgetMoney(expenseRecorded, currency)}</strong>
-          <em>{sectionPercent(expenseRecorded, expensePlanned)} {collapsedSections.expense ? "⌃" : "⌄"}</em>
-        </button>
+        <div className="budget-month-total-row budget-section-control-row">
+          <button
+            className="budget-section-collapse-main budget-collapse-toggle"
+            type="button"
+            onClick={() => toggleSection("expense")}
+            aria-expanded={!collapsedSections.expense}
+            aria-controls="budget-home-expense-cards"
+          >
+            <span>Expense</span>
+            <strong>{formatBudgetMoney(expenseRecorded, currency)}</strong>
+            <em>{sectionPercent(expenseRecorded, expensePlanned)} {collapsedSections.expense ? "⌃" : "⌄"}</em>
+          </button>
+          <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("expense")} aria-label={`Add expense card to ${selectedLedger.name}`}>＋ Card</button>
+        </div>
         {!collapsedSections.expense && (
           <div id="budget-home-expense-cards" className="budget-home-tile-grid budget-home-category-grid">
             {expenseBuckets.map(bucket => {
               const spent = summary.bucketSpendById?.[bucket.id] || 0;
-              return (
-                <button className={`budget-home-tile budget-home-record-trigger ${bucket.isProtected ? "protected" : ""}`} type="button" key={bucket.id} onClick={() => openHomeTransaction("expense", bucket.id)} aria-label={`Record expense for ${bucket.name}`}>
-                  <strong>{bucket.name}</strong>
-                  <span className="budget-home-tile-icon">{bucket.isProtected ? "🛡️" : bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
-                  <small>{formatBudgetMoney(spent, currency)}</small>
-                </button>
-              );
+              const icon = bucket.isProtected ? "🛡️" : bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️";
+              return <BudgetCardTile key={bucket.id} bucket={bucket} amount={spent} currency={currency} icon={icon} aria-label={`Record expense for ${bucket.name}`} onRecord={() => openHomeTransaction("expense", bucket.id)} onEdit={() => openCardEditor("expense", bucket)} />;
             })}
             {!expenseBuckets.length && <p className="budget-helper-copy">No expense cards in {selectedLedger.name} yet. Add cards from Budget.</p>}
           </div>
         )}
 
-        <button
-          className="budget-month-total-row budget-collapse-toggle income"
-          type="button"
-          onClick={() => toggleSection("income")}
-          aria-expanded={!collapsedSections.income}
-          aria-controls="budget-home-income-cards"
-        >
-          <span>Income</span>
-          <strong>{formatBudgetMoney(incomeRecorded || incomePlanned, currency)}</strong>
-          <em>{collapsedSections.income ? "⌃" : "⌄"}</em>
-        </button>
+        <div className="budget-month-total-row budget-section-control-row income">
+          <button
+            className="budget-section-collapse-main budget-collapse-toggle"
+            type="button"
+            onClick={() => toggleSection("income")}
+            aria-expanded={!collapsedSections.income}
+            aria-controls="budget-home-income-cards"
+          >
+            <span>Income</span>
+            <strong>{formatBudgetMoney(incomeRecorded || incomePlanned, currency)}</strong>
+            <em>{collapsedSections.income ? "⌃" : "⌄"}</em>
+          </button>
+          <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("income")} aria-label={`Add income card to ${selectedLedger.name}`}>＋ Card</button>
+        </div>
         {!collapsedSections.income && (
           <div id="budget-home-income-cards" className="budget-home-tile-grid budget-home-category-grid compact">
             {incomeBuckets.map(bucket => (
-              <button className="budget-home-tile budget-home-record-trigger income-card" type="button" key={bucket.id} onClick={() => openHomeTransaction("income", bucket.id)} aria-label={`Record income for ${bucket.name}`}>
-                <strong>{bucket.name}</strong>
-                <span className="budget-home-tile-icon">💵</span>
-                <small>{formatBudgetMoney(summary.bucketIncomeById?.[bucket.id] || 0, currency)}</small>
-              </button>
+              <BudgetCardTile key={bucket.id} bucket={bucket} amount={summary.bucketIncomeById?.[bucket.id] || 0} currency={currency} icon="💵" aria-label={`Record income for ${bucket.name}`} onRecord={() => openHomeTransaction("income", bucket.id)} onEdit={() => openCardEditor("income", bucket)} />
             ))}
             {!incomeBuckets.length && <p className="budget-helper-copy">No income cards in {selectedLedger.name} yet. Add cards from Budget.</p>}
           </div>
@@ -826,6 +937,17 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         summary={summary}
         onSave={saveHomeTransaction}
         onClose={closeHomeTransaction}
+      />
+      <BudgetCardEditorPopup
+        draft={cardDraft}
+        setDraft={setCardDraft}
+        accounts={accounts}
+        ledgers={ledgers}
+        currency={currency}
+        canDelete={Boolean(cardDraft?.id && buckets.length > 1)}
+        onSave={saveCardDraft}
+        onDelete={removeCardDraft}
+        onClose={closeCardEditor}
       />
       <section className="budget-card budget-networth-card">
         <div className="budget-networth-inner">
@@ -1222,7 +1344,7 @@ export function BudgetApp({
     <main className={`budget-page budget-page-${safePage} phase-page`}>
       {safePage !== "account" && <BudgetHero activePage={safePage} />}
 
-      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onTransactionsChange={onTransactionsChange} />}
+      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onBucketsChange={onBucketsChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "account" && <BudgetAccountPage accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} transactions={transactions} summary={summary} onAccountsChange={onAccountsChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onTransactionsChange={onTransactionsChange} />}
       {safePage === "budget" && (
