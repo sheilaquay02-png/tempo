@@ -26,7 +26,9 @@ test("schedule and budget navigation render separate menu sets", () => {
 });
 
 test("mobile footer changes between schedule and budget menus", () => {
-  assert.match(appShell, /appMode === "budget" \? budgetItems\.map/);
+  assert.match(appShell, /appMode === "budget" \? \(/);
+  assert.match(appShell, /budget-mobile-nav/);
+  assert.match(appShell, />☰<span>Menu<\/span><\/button>/);
   assert.match(appShell, /onNavigateBudgetPage/);
   assert.match(appShell, /<span>Journal<\/span>/);
   assert.match(appShell, /<span>Habits<\/span>/);
@@ -42,4 +44,12 @@ test("BudgetApp supports skeleton pages without implementing extra roadmap pages
   assert.match(budgetApp, /safePage === "transactions"/);
   assert.match(budgetApp, /safePage === "settings"/);
   assert.match(budgetApp, /Transaction entry starts in Phase 143/);
+});
+
+
+test("transaction calendar placeholder renders values in the first column", () => {
+  assert.match(budgetApp, /const calendarDays = Array\.from\(\{ length: 35 \}, \(_, index\) => index \+ 1\)/);
+  assert.match(budgetApp, /calendarDays\.map\(day => <span/);
+  assert.doesNotMatch(budgetApp, /index % 7 === 0 \? ""/);
+  assert.match(budgetApp, /budget-calendar-weekdays/);
 });

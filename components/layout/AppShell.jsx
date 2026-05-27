@@ -241,10 +241,15 @@ export function MobileBottomNav({
         <div className="mobile-sync-strip"><SyncStatusPill syncStatus={syncStatus} onRetry={onRetrySync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} /></div>
       )}
 
-      <div className="mobile-nav" role="navigation" aria-label="Mobile primary navigation">
-        {appMode === "budget" ? budgetItems.map(item => (
-          <button key={item.id} className={`mobile-nav-btn ${budgetPage === item.id ? "active" : ""}`} onClick={() => onNavigateBudgetPage?.(item.id)}>{item.icon}<span>{item.label}</span></button>
-        )) : appMode === "overall" ? (
+      <div className={`mobile-nav ${appMode === "budget" ? "budget-mobile-nav" : ""}`} role="navigation" aria-label="Mobile primary navigation">
+        {appMode === "budget" ? (
+          <>
+            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
+            {budgetItems.map(item => (
+              <button key={item.id} className={`mobile-nav-btn ${budgetPage === item.id ? "active" : ""}`} onClick={() => onNavigateBudgetPage?.(item.id)}>{item.icon}<span>{item.label}</span></button>
+            ))}
+          </>
+        ) : appMode === "overall" ? (
           <>
             <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
             <button className="mobile-nav-btn active">🌿<span>Overall</span></button>

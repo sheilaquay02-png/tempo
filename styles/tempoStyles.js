@@ -3290,6 +3290,140 @@ body.tempo-modal-locked{
   .budget-card-head{flex-direction:column;}
 }
 
+
+/* ── Phase 142 budget navigation/layout hotfix ─────────────────────────── */
+.budget-month-summary-card{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding:20px;
+  background:linear-gradient(180deg,var(--surface),rgba(255,255,255,.72));
+}
+.budget-month-toolbar{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:10px;
+  color:var(--text2);
+  font-size:14px;
+  font-weight:900;
+}
+.budget-month-toolbar strong{
+  color:var(--text);
+  font-size:21px;
+  font-weight:950;
+  letter-spacing:-.03em;
+  text-align:center;
+}
+.budget-month-toolbar span:last-child{text-align:right;color:var(--accent);}
+.budget-month-total-row{
+  display:flex;
+  justify-content:center;
+  align-items:baseline;
+  gap:8px;
+  color:var(--text2);
+  font-size:18px;
+  font-weight:800;
+}
+.budget-month-total-row strong{
+  color:var(--text);
+  font-size:22px;
+  font-weight:950;
+  letter-spacing:-.05em;
+}
+.budget-month-total-row.income{margin-top:14px;}
+.budget-home-category-grid{
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+}
+.budget-home-category-grid .budget-home-tile{
+  align-items:center;
+  text-align:center;
+  justify-content:center;
+  gap:14px;
+  min-height:142px;
+}
+.budget-home-category-grid .budget-home-tile strong{
+  font-size:18px;
+  line-height:1.15;
+}
+.budget-home-category-grid .budget-home-tile small{
+  color:var(--text);
+  font-size:18px;
+  font-weight:950;
+  letter-spacing:-.04em;
+}
+.budget-month-head{
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) 40px auto;
+  align-items:center;
+}
+.budget-round-icon{
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  background:rgba(var(--accent-rgb),.10);
+  color:var(--accent);
+  font-size:24px;
+  font-weight:900;
+  cursor:pointer;
+}
+.budget-calendar-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:7px;
+  margin-bottom:7px;
+}
+.budget-calendar-weekdays span{
+  color:var(--text3);
+  font-size:11px;
+  font-weight:950;
+  text-align:center;
+}
+.budget-calendar-placeholder span{
+  flex-direction:column;
+  gap:2px;
+  align-items:center;
+  justify-content:center;
+}
+.budget-calendar-placeholder span b{
+  color:var(--text);
+  font-size:15px;
+  line-height:1;
+}
+.budget-calendar-placeholder span small{
+  color:var(--text3);
+  font-size:10px;
+  font-weight:850;
+}
+.budget-calendar-placeholder span.active b{color:#4C4078;}
+.mobile-nav.budget-mobile-nav{
+  grid-template-columns:repeat(6,minmax(0,1fr));
+}
+.mobile-nav.budget-mobile-nav .mobile-nav-btn{
+  min-width:0!important;
+  padding-inline:2px!important;
+  font-size:18px!important;
+}
+.mobile-nav.budget-mobile-nav .mobile-nav-btn span{
+  font-size:8px!important;
+  letter-spacing:-.03em;
+}
+@media(max-width:768px){
+  .budget-page{background:linear-gradient(180deg,rgba(255,255,255,.95),var(--bg));}
+  .budget-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  .budget-home-category-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;}
+  .budget-home-category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  .budget-home-category-grid .budget-home-tile{min-height:122px;padding:12px 8px;border-radius:22px;}
+  .budget-home-category-grid .budget-home-tile strong{font-size:15px;}
+  .budget-home-category-grid .budget-home-tile small{font-size:16px;}
+  .budget-home-tile-icon{width:48px;height:48px;}
+  .budget-month-summary-card{border-radius:28px;box-shadow:0 20px 40px rgba(var(--accent-rgb),.08);}
+  .budget-month-head{grid-template-columns:32px minmax(0,1fr) 32px;}
+  .budget-month-head .budget-editable-pill{grid-column:1/-1;justify-self:center;margin-top:6px;}
+  .budget-round-icon{width:32px;height:32px;font-size:22px;}
+}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }

@@ -271,10 +271,45 @@ function BudgetMetrics({ summary, currency }) {
 
 function BudgetHomePage({ summary, currency, buckets, accounts }) {
   const expenseBuckets = buckets.filter(bucket => bucket.type !== "protected_goal" && bucket.type !== "investment");
+  const incomeBuckets = buckets.filter(bucket => bucket.type === "protected_goal" || bucket.type === "investment");
   const protectedBuckets = buckets.filter(bucket => bucket.isProtected);
+  const expenseTotal = expenseBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
+  const incomeGoalTotal = incomeBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
   return (
     <>
-      <BudgetMetrics summary={summary} currency={currency} />
+      <section className="budget-card budget-month-summary-card">
+        <div className="budget-month-toolbar">
+          <span>Daily⌄</span>
+          <strong>‹ This Month ›</strong>
+          <span>{summary.monthlyIncome ? Math.round((summary.allocated / summary.monthlyIncome) * 100) : 0}%</span>
+        </div>
+        <div className="budget-month-total-row">
+          <span>Expense</span>
+          <strong>{formatBudgetMoney(expenseTotal, currency)}</strong>
+        </div>
+        <div className="budget-home-tile-grid budget-home-category-grid">
+          {expenseBuckets.map(bucket => (
+            <div className="budget-home-tile" key={bucket.id}>
+              <strong>{bucket.name}</strong>
+              <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
+              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
+            </div>
+          ))}
+        </div>
+        <div className="budget-month-total-row income">
+          <span>Income / goals</span>
+          <strong>{formatBudgetMoney(incomeGoalTotal, currency)}</strong>
+        </div>
+        <div className="budget-home-tile-grid budget-home-category-grid compact">
+          {incomeBuckets.map(bucket => (
+            <div className={`budget-home-tile ${bucket.isProtected ? "protected" : ""}`} key={bucket.id}>
+              <strong>{bucket.name}</strong>
+              <span className="budget-home-tile-icon">{bucket.isProtected ? "🛡️" : "💹"}</span>
+              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
+            </div>
+          ))}
+        </div>
+      </section>
       <section className="budget-card budget-networth-card">
         <div className="budget-networth-inner">
           <p className="budget-kicker">Net worth skeleton</p>
@@ -283,23 +318,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
         </div>
         <div className="budget-networth-wave" aria-hidden="true" />
       </section>
-      <section className="budget-card">
-        <div className="budget-card-head">
-          <div>
-            <p className="budget-kicker">Monthly spending buckets</p>
-            <h2>Home cards</h2>
-          </div>
-        </div>
-        <div className="budget-home-tile-grid">
-          {expenseBuckets.map(bucket => (
-            <div className="budget-home-tile" key={bucket.id}>
-              <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
-              <strong>{bucket.name}</strong>
-              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} / month</small>
-            </div>
-          ))}
-        </div>
-      </section>
+      <BudgetMetrics summary={summary} currency={currency} />
       <section className="budget-card">
         <div className="budget-card-head">
           <div>
@@ -322,18 +341,25 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
 }
 
 function BudgetTransactionsPage({ transactions, currency }) {
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const calendarDays = Array.from({ length: 35 }, (_, index) => index + 1);
   return (
     <>
       <section className="budget-card budget-calendar-card">
-        <div className="budget-card-head">
+        <div className="budget-card-head budget-month-head">
+          <button className="budget-round-icon" type="button" aria-label="Previous month">‹</button>
           <div>
             <p className="budget-kicker">Transaction calendar</p>
             <h2>This Month</h2>
           </div>
+          <button className="budget-round-icon" type="button" aria-label="Next month">›</button>
           <span className="budget-editable-pill">Phase 143</span>
         </div>
+        <div className="budget-calendar-weekdays" aria-hidden="true">
+          {weekdays.map(day => <span key={day}>{day}</span>)}
+        </div>
         <div className="budget-calendar-placeholder">
-          {Array.from({ length: 35 }, (_, index) => <span key={index} className={index === 26 ? "active" : ""}>{index % 7 === 0 ? "" : index + 1}</span>)}
+          {calendarDays.map(day => <span key={day} className={day === 27 ? "active" : ""}><b>{day}</b><small>—</small></span>)}
         </div>
       </section>
       <section className="budget-card">
