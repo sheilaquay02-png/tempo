@@ -3463,6 +3463,55 @@ body.tempo-modal-locked{
 @media(max-width:1100px){.budget-transaction-form-grid{grid-template-columns:1fr 1fr;}.budget-transaction-row{grid-template-columns:38px minmax(0,1fr) auto;}.budget-transaction-row .budget-row-link{grid-row:2;}.budget-transaction-row .budget-row-link.danger{grid-column:3;}}
 @media(max-width:768px){.budget-amount-stage{min-height:180px;}.budget-amount-stage input{font-size:52px;}.budget-transaction-form-grid{grid-template-columns:1fr!important;}.budget-calendar-month-summary{grid-template-columns:1fr;}.budget-calendar-real{gap:5px;}.budget-calendar-real span{min-height:58px;padding:4px 2px;}.budget-transaction-type-tabs button{font-size:11px;}.budget-transaction-row{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;}.budget-transaction-row > strong{font-size:13px;}.budget-account-impact,.budget-bucket-impact{flex-direction:column;align-items:flex-start;}}
 
+
+/* ── Phase 143 Budget Home quick record hotfix ─────────────────────────── */
+.budget-home-record-trigger{
+  border:0;
+  width:100%;
+  font:inherit;
+  color:inherit;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.budget-month-total-row.budget-home-record-trigger{
+  background:transparent;
+  padding:6px 8px;
+  border-radius:16px;
+  transition:background .18s ease,transform .18s ease;
+}
+.budget-month-total-row.budget-home-record-trigger em{
+  color:rgba(var(--accent-rgb),.66);
+  font-style:normal;
+  font-size:14px;
+  font-weight:950;
+}
+.budget-home-tile.budget-home-record-trigger{
+  appearance:none;
+  text-align:inherit;
+}
+.budget-home-record-trigger:hover,
+.budget-home-record-trigger:focus-visible{
+  background:rgba(var(--accent-rgb),.08);
+  outline:none;
+  transform:translateY(-1px);
+}
+.budget-home-record-trigger:focus-visible{
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.22),0 12px 26px rgba(var(--accent-rgb),.07);
+}
+.budget-home-record-hint{
+  text-align:center;
+  margin:0;
+  font-size:12px;
+}
+.budget-page-home .budget-transaction-entry-card{
+  border-color:rgba(var(--accent-rgb),.22);
+  box-shadow:0 20px 46px rgba(var(--accent-rgb),.10);
+}
+@media(max-width:768px){
+  .budget-month-total-row.budget-home-record-trigger{padding:8px;}
+  .budget-home-record-hint{font-size:11px;}
+}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }

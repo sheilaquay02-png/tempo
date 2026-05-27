@@ -59,6 +59,10 @@ test("Phase 143 UI wires transaction entry and persistence setter", () => {
   assert.match(budgetApp, /onTransactionsChange/);
   assert.match(budgetApp, /calculateBudgetAccountBalances/);
   assert.match(budgetApp, /budget-calendar-real/);
+  assert.match(budgetApp, /Record expense from Budget Home/);
+  assert.match(budgetApp, /Record income from Budget Home/);
+  assert.match(budgetApp, /openHomeTransaction/);
+  assert.match(budgetApp, /showCancel/);
   assert.match(tempoApp, /const setBudgetTransactions = value =>/);
   assert.match(tempoApp, /onTransactionsChange=\{setBudgetTransactions\}/);
 });

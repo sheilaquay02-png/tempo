@@ -373,12 +373,40 @@ function BudgetMetrics({ summary, currency }) {
   );
 }
 
-function BudgetHomePage({ summary, currency, buckets, accounts }) {
+function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transactions, onTransactionsChange }) {
   const expenseBuckets = buckets.filter(bucket => bucket.type !== "protected_goal" && bucket.type !== "investment");
   const incomeBuckets = buckets.filter(bucket => bucket.type === "protected_goal" || bucket.type === "investment");
   const protectedBuckets = buckets.filter(bucket => bucket.isProtected);
-  const expenseTotal = expenseBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
   const incomeGoalTotal = incomeBuckets.reduce((total, bucket) => total + Number(bucket.monthlyAmount || 0), 0);
+  const [homeForm, setHomeForm] = useState(null);
+  const openHomeTransaction = (type, bucketId = "") => {
+    const bucket = buckets.find(item => item.id === bucketId);
+    const next = createEmptyTransactionForm({ accounts, ledgers, buckets, type });
+    setHomeForm({
+      ...next,
+      bucketId: type === "transfer" ? "" : bucketId || next.bucketId,
+      description: bucket?.name || transactionTypeCopy[type]?.label || "Transaction",
+    });
+  };
+
+  const closeHomeTransaction = () => setHomeForm(null);
+
+  const saveHomeTransaction = () => {
+    if (!homeForm) return;
+    const amount = Math.abs(Number(homeForm.amount || 0));
+    if (!amount) return;
+    const timestamp = new Date().toISOString();
+    const next = normalizeBudgetTransaction({
+      ...homeForm,
+      amount,
+      description: homeForm.description || transactionTypeCopy[homeForm.type]?.label,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    onTransactionsChange([...transactions, next]);
+    setHomeForm(null);
+  };
+
   return (
     <>
       <section className="budget-card budget-month-summary-card">
@@ -387,36 +415,52 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
           <strong>‹ This Month ›</strong>
           <span>{summary.monthlyIncome ? Math.round((summary.allocated / summary.monthlyIncome) * 100) : 0}%</span>
         </div>
-        <div className="budget-month-total-row">
+        <button className="budget-month-total-row budget-home-record-trigger" type="button" onClick={() => openHomeTransaction("expense")} aria-label="Record expense from Budget Home">
           <span>Expense</span>
           <strong>{formatBudgetMoney(summary.expenseTotal || 0, currency)}</strong>
-        </div>
+          <em>⌄</em>
+        </button>
         <div className="budget-home-tile-grid budget-home-category-grid">
           {expenseBuckets.map(bucket => {
             const spent = summary.bucketSpendById?.[bucket.id] || 0;
             return (
-              <div className="budget-home-tile" key={bucket.id}>
+              <button className="budget-home-tile budget-home-record-trigger" type="button" key={bucket.id} onClick={() => openHomeTransaction("expense", bucket.id)} aria-label={`Record expense for ${bucket.name}`}>
                 <strong>{bucket.name}</strong>
                 <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
                 <small>{formatBudgetMoney(spent, currency)} spent / {formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
-              </div>
+              </button>
             );
           })}
         </div>
-        <div className="budget-month-total-row income">
+        <button className="budget-month-total-row budget-home-record-trigger income" type="button" onClick={() => openHomeTransaction("income")} aria-label="Record income from Budget Home">
           <span>Income / goals</span>
           <strong>{formatBudgetMoney(summary.incomeTotal || incomeGoalTotal, currency)}</strong>
-        </div>
+          <em>⌄</em>
+        </button>
         <div className="budget-home-tile-grid budget-home-category-grid compact">
           {incomeBuckets.map(bucket => (
-            <div className={`budget-home-tile ${bucket.isProtected ? "protected" : ""}`} key={bucket.id}>
+            <button className={`budget-home-tile budget-home-record-trigger ${bucket.isProtected ? "protected" : ""}`} type="button" key={bucket.id} onClick={() => openHomeTransaction("income", bucket.id)} aria-label={`Record income for ${bucket.name}`}>
               <strong>{bucket.name}</strong>
               <span className="budget-home-tile-icon">{bucket.isProtected ? "🛡️" : "💹"}</span>
               <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} planned</small>
-            </div>
+            </button>
           ))}
         </div>
+        <p className="budget-helper-copy budget-home-record-hint">Tap an Expense or Income card to record a transaction from Home.</p>
       </section>
+      {homeForm && (
+        <BudgetTransactionForm
+          form={homeForm}
+          setForm={setHomeForm}
+          accounts={accounts}
+          ledgers={ledgers}
+          buckets={buckets}
+          currency={currency}
+          onSave={saveHomeTransaction}
+          onCancelEdit={closeHomeTransaction}
+          showCancel
+        />
+      )}
       <section className="budget-card budget-networth-card">
         <div className="budget-networth-inner">
           <p className="budget-kicker">Net worth</p>
@@ -453,7 +497,7 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
   );
 }
 
-function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, currency, onSave, onCancelEdit }) {
+function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, currency, onSave, onCancelEdit, showCancel = false }) {
   const update = patch => setForm(current => ({ ...current, ...patch }));
   const typeMeta = transactionTypeCopy[form.type] || transactionTypeCopy.expense;
   return (
@@ -463,7 +507,7 @@ function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, curr
           <p className="budget-kicker">Quick record</p>
           <h2>{form.id ? "Edit transaction" : "Add transaction"}</h2>
         </div>
-        {form.id && <button className="tf-cancel" type="button" onClick={onCancelEdit}>Cancel edit</button>}
+        {form.id ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Cancel edit</button> : showCancel ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Close</button> : null}
       </div>
       <div className="budget-transaction-type-tabs" role="tablist" aria-label="Transaction type">
         {BUDGET_TRANSACTION_TYPES.map(type => (
@@ -710,7 +754,7 @@ export function BudgetApp({
     <main className={`budget-page budget-page-${safePage} phase-page`}>
       <BudgetHero activePage={safePage} />
 
-      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} />}
+      {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onTransactionsChange={onTransactionsChange} />}
       {safePage === "account" && (
         <>
           <BudgetMetrics summary={summary} currency={currency} />
