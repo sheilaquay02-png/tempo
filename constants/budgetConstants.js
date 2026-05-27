@@ -202,6 +202,8 @@ export const DEFAULT_BUDGET_BUCKETS = [
 
 export const DEFAULT_BUDGET_TRANSACTIONS = [];
 
+export const BUDGET_TRANSACTION_TYPES = ["expense", "income", "transfer"];
+
 export const DEFAULT_BONUS_ALLOCATION_RULES = [
   { bucketId: "australia-fund", label: "Australia Fund", percentage: 65 },
   { bucketId: "investments", label: "Investments", percentage: 25 },

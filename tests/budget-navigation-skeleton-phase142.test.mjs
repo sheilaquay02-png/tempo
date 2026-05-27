@@ -43,13 +43,14 @@ test("BudgetApp supports skeleton pages without implementing extra roadmap pages
   assert.match(budgetApp, /safePage === "account"/);
   assert.match(budgetApp, /safePage === "transactions"/);
   assert.match(budgetApp, /safePage === "settings"/);
-  assert.match(budgetApp, /Transaction entry starts in Phase 143/);
+  assert.match(budgetApp, /Record transaction/);
 });
 
 
-test("transaction calendar placeholder renders values in the first column", () => {
-  assert.match(budgetApp, /const calendarDays = Array\.from\(\{ length: 35 \}, \(_, index\) => index \+ 1\)/);
-  assert.match(budgetApp, /calendarDays\.map\(day => <span/);
+test("transaction calendar renders real date cells without blanking the first column", () => {
+  assert.match(budgetApp, /function buildBudgetCalendarDays/);
+  assert.match(budgetApp, /Array\.from\(\{ length: 42 \}/);
+  assert.match(budgetApp, /calendarDays\.map\(day =>/);
   assert.doesNotMatch(budgetApp, /index % 7 === 0 \? ""/);
   assert.match(budgetApp, /budget-calendar-weekdays/);
 });

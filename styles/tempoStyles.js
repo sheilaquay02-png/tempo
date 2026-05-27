@@ -3424,9 +3424,47 @@ body.tempo-modal-locked{
   .budget-round-icon{width:32px;height:32px;font-size:22px;}
 }
 
+
+/* ── Phase 143 budget transactions + spending tracker ─────────────────── */
+.budget-transaction-entry-card{display:flex;flex-direction:column;gap:12px;}
+.budget-transaction-type-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:5px;border-radius:18px;background:var(--surface-soft);border:1px solid rgba(var(--accent-rgb),.10);}
+.budget-transaction-type-tabs button{border:0;border-radius:14px;background:transparent;color:var(--text2);min-height:42px;font-size:12px;font-weight:950;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;}
+.budget-transaction-type-tabs button span{width:22px;height:22px;border-radius:999px;background:rgba(var(--accent-rgb),.10);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-weight:950;}
+.budget-transaction-type-tabs button.active{background:var(--surface);color:var(--text);box-shadow:0 8px 18px rgba(var(--accent-rgb),.08);}
+.budget-amount-stage{min-height:150px;border-radius:26px;background:linear-gradient(135deg,rgba(var(--accent-rgb),.10),rgba(255,255,255,.72));border:1px solid rgba(var(--accent-rgb),.14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;}
+.budget-amount-stage span,.budget-amount-stage small{color:var(--text3);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;}
+.budget-amount-stage input{width:min(360px,90%);border:0;background:transparent;color:var(--text);font-size:58px;font-weight:300;text-align:center;letter-spacing:-.08em;outline:none;}
+.budget-amount-stage input::placeholder{color:rgba(var(--accent-rgb),.30);}
+.budget-amount-good input{color:#2F9B72;}.budget-amount-danger input{color:#D05A7B;}
+.budget-transaction-form-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+.budget-transaction-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--text3);font-size:12px;font-weight:850;}
+.budget-calendar-real span{min-height:62px;}
+.budget-calendar-real span.muted{opacity:.45;}
+.budget-calendar-real span small{display:flex;flex-direction:column;gap:1px;min-height:24px;}
+.budget-calendar-real span small em{font-style:normal;font-size:9px;font-weight:950;line-height:1.1;}
+.budget-calendar-month-summary{margin-top:12px;padding-top:12px;border-top:1px solid rgba(var(--accent-rgb),.10);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;color:var(--text2);font-size:12px;font-weight:850;}
+.budget-calendar-month-summary span{display:flex;flex-direction:column;gap:4px;}
+.budget-calendar-month-summary strong{font-size:18px;font-weight:950;color:var(--text);letter-spacing:-.04em;}
+.budget-transaction-grouped-list{gap:14px;}
+.budget-date-group{display:flex;flex-direction:column;gap:8px;}
+.budget-date-group-head{display:flex;align-items:center;justify-content:space-between;color:var(--text3);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;padding:0 4px;}
+.budget-transaction-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto auto auto;align-items:center;}
+.budget-transaction-row.good > strong{color:#2F9B72;}.budget-transaction-row.danger > strong{color:#D05A7B;}
+.budget-transaction-row > div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.budget-transaction-row > div strong{color:var(--text);font-size:14px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.budget-transaction-row > div small{color:var(--text3);font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.budget-transaction-icon{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(var(--accent-rgb),.10);color:var(--accent);font-size:18px;font-weight:950;}
+.budget-row-link{border:0;background:transparent;color:var(--accent);font-size:11px;font-weight:950;cursor:pointer;padding:4px 2px;}
+.budget-row-link.danger{color:#D05A7B;}
+.budget-account-impact,.budget-bucket-impact{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:14px;background:rgba(var(--accent-rgb),.07);color:var(--text2);font-size:11px;font-weight:850;}
+.budget-account-impact strong,.budget-bucket-impact strong{color:var(--text);font-size:14px;font-weight:950;}.budget-bucket-impact strong.good,.good{color:#2F9B72!important;}.budget-bucket-impact strong.danger,.danger{color:#D05A7B!important;}
+.budget-home-flow-card{display:flex;flex-direction:column;gap:10px;}.budget-flow-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(var(--accent-rgb),.08);color:var(--text2);font-size:13px;font-weight:850;}.budget-flow-row:last-child{border-bottom:0;}.budget-flow-row strong{color:var(--text);font-size:18px;font-weight:950;letter-spacing:-.04em;}
+.dark .budget-transaction-type-tabs,.dark .budget-amount-stage,.dark .budget-account-impact,.dark .budget-bucket-impact{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.20)!important;}
+@media(max-width:1100px){.budget-transaction-form-grid{grid-template-columns:1fr 1fr;}.budget-transaction-row{grid-template-columns:38px minmax(0,1fr) auto;}.budget-transaction-row .budget-row-link{grid-row:2;}.budget-transaction-row .budget-row-link.danger{grid-column:3;}}
+@media(max-width:768px){.budget-amount-stage{min-height:180px;}.budget-amount-stage input{font-size:52px;}.budget-transaction-form-grid{grid-template-columns:1fr!important;}.budget-calendar-month-summary{grid-template-columns:1fr;}.budget-calendar-real{gap:5px;}.budget-calendar-real span{min-height:58px;padding:4px 2px;}.budget-transaction-type-tabs button{font-size:11px;}.budget-transaction-row{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;}.budget-transaction-row > strong{font-size:13px;}.budget-account-impact,.budget-bucket-impact{flex-direction:column;align-items:flex-start;}}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }
 
 `; }
-

@@ -1383,6 +1383,7 @@ export default function App() {
   const setBudgetAccounts = value => { const next = normalizeBudgetAccounts(typeof value === "function" ? value(budgetAccounts) : value); setBudgetAccountsRaw(next); persistBudgetSettings({ budgetAccounts: next }); };
   const setBudgetLedgers = value => { const next = normalizeBudgetLedgers(typeof value === "function" ? value(budgetLedgers) : value); setBudgetLedgersRaw(next); persistBudgetSettings({ budgetLedgers: next }); };
   const setBudgetBuckets = value => { const next = normalizeBudgetBuckets(typeof value === "function" ? value(budgetBuckets) : value); setBudgetBucketsRaw(next); persistBudgetSettings({ budgetBuckets: next }); };
+  const setBudgetTransactions = value => { const next = normalizeBudgetTransactions(typeof value === "function" ? value(budgetTransactions) : value); setBudgetTransactionsRaw(next); persistBudgetSettings({ budgetTransactions: next }); };
 
 
   useEffect(() => {
@@ -4771,7 +4772,7 @@ body.tempo-modal-locked{
 
         <div className="main">
           {appMode === "budget" ? (
-            <BudgetApp activePage={budgetPage} profile={budgetProfile} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} transactions={budgetTransactions} onProfileChange={setBudgetProfile} onAccountsChange={setBudgetAccounts} onLedgersChange={setBudgetLedgers} onBucketsChange={setBudgetBuckets} />
+            <BudgetApp activePage={budgetPage} profile={budgetProfile} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} transactions={budgetTransactions} onProfileChange={setBudgetProfile} onAccountsChange={setBudgetAccounts} onLedgersChange={setBudgetLedgers} onBucketsChange={setBudgetBuckets} onTransactionsChange={setBudgetTransactions} />
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (

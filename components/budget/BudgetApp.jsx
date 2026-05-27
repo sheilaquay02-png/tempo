@@ -1,17 +1,30 @@
+import { useMemo, useState } from "react";
 import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
   BUDGET_LEDGER_TYPES,
+  BUDGET_TRANSACTION_TYPES,
 } from "../../constants/budgetConstants";
 import {
   budgetUid,
+  calculateBudgetAccountBalances,
+  calculateBudgetDailyTotals,
   calculateBudgetSummary,
   formatBudgetMoney,
+  groupBudgetTransactionsByDate,
   normalizeBudgetAccount,
   normalizeBudgetBucket,
   normalizeBudgetLedger,
+  normalizeBudgetTransaction,
   patchBudgetItem,
+  todayBudgetDateKey,
 } from "../../utils/budgetPlanUtils";
+
+const transactionTypeCopy = {
+  expense: { label: "Expense", icon: "−", tone: "danger" },
+  income: { label: "Income", icon: "+", tone: "good" },
+  transfer: { label: "Transfer", icon: "⇄", tone: "neutral" },
+};
 
 function FieldLabel({ children }) {
   return <span className="budget-field-label">{children}</span>;
@@ -48,6 +61,78 @@ function BudgetMetric({ label, value, detail, tone = "neutral" }) {
   );
 }
 
+function formatShortDate(dateKey) {
+  const [, month, day] = String(dateKey || "").split("-");
+  return month && day ? `${Number(day)}/${Number(month)}` : dateKey;
+}
+
+function transactionTone(transaction) {
+  if (transaction.type === "income") return "good";
+  if (transaction.type === "expense") return "danger";
+  return "neutral";
+}
+
+function transactionDisplayAmount(transaction, currency) {
+  const amount = Math.abs(Number(transaction.amount || 0));
+  const prefix = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "⇄ ";
+  return `${prefix}${formatBudgetMoney(amount, currency)}`;
+}
+
+function buildBudgetCalendarDays(monthDate) {
+  const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const mondayOffset = (first.getDay() + 6) % 7;
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(first);
+    date.setDate(first.getDate() + index - mondayOffset);
+    return {
+      key: todayBudgetDateKey(date),
+      day: date.getDate(),
+      inMonth: date.getMonth() === monthDate.getMonth(),
+    };
+  });
+}
+
+function monthTitle(date) {
+  return new Intl.DateTimeFormat("en-SG", { month: "long", year: "numeric" }).format(date);
+}
+
+function createEmptyTransactionForm({ accounts, ledgers, buckets, type = "expense" }) {
+  const firstAccount = accounts[0]?.id || "main-bank";
+  const secondAccount = accounts.find(account => account.id !== firstAccount)?.id || firstAccount;
+  const firstLedger = ledgers[0]?.id || "personal-ledger";
+  const firstExpenseBucket = buckets.find(bucket => !bucket.isProtected && bucket.type !== "protected_goal")?.id || buckets[0]?.id || "";
+  return {
+    id: null,
+    type,
+    amount: "",
+    date: todayBudgetDateKey(),
+    description: "",
+    accountId: firstAccount,
+    toAccountId: secondAccount,
+    ledgerId: firstLedger,
+    bucketId: type === "transfer" ? "" : firstExpenseBucket,
+    notes: "",
+    tags: "",
+  };
+}
+
+function formFromTransaction(transaction, fallback) {
+  const safe = normalizeBudgetTransaction(transaction);
+  return {
+    id: safe.id,
+    type: safe.type,
+    amount: String(safe.amount || ""),
+    date: safe.date,
+    description: safe.description,
+    accountId: safe.accountId,
+    toAccountId: safe.toAccountId || fallback.toAccountId,
+    ledgerId: safe.ledgerId,
+    bucketId: safe.bucketId,
+    notes: safe.notes,
+    tags: safe.tags.join(", "),
+  };
+}
+
 function EditableProfileCard({ profile, onChange }) {
   return (
     <section className="budget-card budget-profile-card">
@@ -81,7 +166,9 @@ function EditableProfileCard({ profile, onChange }) {
   );
 }
 
-function AccountsPanel({ accounts, ledgers, currency, onChange }) {
+function AccountsPanel({ accounts, ledgers, currency, transactions, onChange }) {
+  const adjustedAccounts = calculateBudgetAccountBalances(accounts, transactions);
+  const balanceById = Object.fromEntries(adjustedAccounts.map(account => [account.id, account]));
   const patchAccount = (id, patch) => onChange(patchBudgetItem(accounts, id, patch).map(normalizeBudgetAccount));
   const addAccount = () => onChange([
     ...accounts,
@@ -110,19 +197,27 @@ function AccountsPanel({ accounts, ledgers, currency, onChange }) {
         <button className="tf-save" type="button" onClick={addAccount}>＋ Account</button>
       </div>
       <div className="budget-account-list">
-        {accounts.map(account => (
-          <div className="budget-account-row" key={account.id}>
-            <input className="budget-input" value={account.name} onChange={event => patchAccount(account.id, { name: event.target.value })} aria-label={`${account.name} name`} />
-            <SelectInput value={account.type} options={BUDGET_ACCOUNT_TYPES} onChange={type => patchAccount(account.id, { type })} ariaLabel={`${account.name} type`} />
-            <MoneyInput value={account.balance} onChange={balance => patchAccount(account.id, { balance })} ariaLabel={`${account.name} balance`} />
-            <select className="budget-input" value={account.ledgerId} onChange={event => patchAccount(account.id, { ledgerId: event.target.value })} aria-label={`${account.name} ledger`}>
-              {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
-            </select>
-            <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInNetWorth)} onChange={event => patchAccount(account.id, { includeInNetWorth: event.target.checked })} /> Net worth</label>
-            <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInAustraliaReady)} onChange={event => patchAccount(account.id, { includeInAustraliaReady: event.target.checked })} /> Australia-ready</label>
-            <button className="tf-cancel" type="button" onClick={() => removeAccount(account.id)} disabled={accounts.length <= 1}>Remove</button>
-          </div>
-        ))}
+        {accounts.map(account => {
+          const adjusted = balanceById[account.id];
+          return (
+            <div className="budget-account-row" key={account.id}>
+              <input className="budget-input" value={account.name} onChange={event => patchAccount(account.id, { name: event.target.value })} aria-label={`${account.name} name`} />
+              <SelectInput value={account.type} options={BUDGET_ACCOUNT_TYPES} onChange={type => patchAccount(account.id, { type })} ariaLabel={`${account.name} type`} />
+              <MoneyInput value={account.balance} onChange={balance => patchAccount(account.id, { balance })} ariaLabel={`${account.name} balance`} />
+              <select className="budget-input" value={account.ledgerId} onChange={event => patchAccount(account.id, { ledgerId: event.target.value })} aria-label={`${account.name} ledger`}>
+                {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
+              </select>
+              <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInNetWorth)} onChange={event => patchAccount(account.id, { includeInNetWorth: event.target.checked })} /> Net worth</label>
+              <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInAustraliaReady)} onChange={event => patchAccount(account.id, { includeInAustraliaReady: event.target.checked })} /> Australia-ready</label>
+              <button className="tf-cancel" type="button" onClick={() => removeAccount(account.id)} disabled={accounts.length <= 1}>Remove</button>
+              <div className="budget-account-impact">
+                <span>After transactions</span>
+                <strong>{formatBudgetMoney(adjusted?.currentBalance ?? account.balance, currency)}</strong>
+                <small>{adjusted?.transactionDelta ? `${adjusted.transactionDelta > 0 ? "+" : ""}${formatBudgetMoney(adjusted.transactionDelta, currency)} from entries` : "No entries yet"}</small>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -163,7 +258,8 @@ function LedgersPanel({ ledgers, accounts, onChange }) {
   );
 }
 
-function BucketsPanel({ buckets, accounts, ledgers, currency, onChange }) {
+function BucketsPanel({ buckets, accounts, ledgers, currency, transactions, onChange }) {
+  const summary = calculateBudgetSummary({ buckets, accounts, ledgers, transactions });
   const patchBucket = (id, patch) => onChange(patchBudgetItem(buckets, id, patch).map(normalizeBudgetBucket));
   const addBucket = () => onChange([
     ...buckets,
@@ -194,24 +290,32 @@ function BucketsPanel({ buckets, accounts, ledgers, currency, onChange }) {
         <button className="tf-save" type="button" onClick={addBucket}>＋ Bucket</button>
       </div>
       <div className="budget-bucket-list">
-        {buckets.map(bucket => (
-          <div className={`budget-bucket-row ${bucket.isProtected ? "protected" : ""}`} key={bucket.id}>
-            <input className="budget-input bucket-name" value={bucket.name} onChange={event => patchBucket(bucket.id, { name: event.target.value })} aria-label={`${bucket.name} name`} />
-            <MoneyInput value={bucket.monthlyAmount} onChange={monthlyAmount => patchBucket(bucket.id, { monthlyAmount })} ariaLabel={`${bucket.name} monthly amount`} />
-            <SelectInput value={bucket.type} options={BUDGET_BUCKET_TYPES} onChange={type => patchBucket(bucket.id, { type })} ariaLabel={`${bucket.name} type`} />
-            <select className="budget-input" value={bucket.accountId} onChange={event => patchBucket(bucket.id, { accountId: event.target.value })} aria-label={`${bucket.name} account`}>
-              {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
-            </select>
-            <select className="budget-input" value={bucket.ledgerId} onChange={event => patchBucket(bucket.id, { ledgerId: event.target.value })} aria-label={`${bucket.name} ledger`}>
-              {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
-            </select>
-            <label className="budget-check protected-check"><input type="checkbox" checked={Boolean(bucket.isProtected)} onChange={event => patchBucket(bucket.id, { isProtected: event.target.checked })} /> Protected</label>
-            <label className="budget-check"><input type="checkbox" checked={Boolean(bucket.rolloverEnabled)} onChange={event => patchBucket(bucket.id, { rolloverEnabled: event.target.checked })} /> Rollover</label>
-            <input className="budget-input damage" type="number" min="1" max="6" value={bucket.damageControlPriority ?? ""} placeholder="Repair #" onChange={event => patchBucket(bucket.id, { damageControlPriority: event.target.value === "" ? null : Number(event.target.value) })} aria-label={`${bucket.name} damage control priority`} />
-            <button className="tf-cancel" type="button" onClick={() => removeBucket(bucket.id)} disabled={buckets.length <= 1}>Remove</button>
-            <textarea className="budget-input bucket-notes" value={bucket.notes || ""} onChange={event => patchBucket(bucket.id, { notes: event.target.value })} aria-label={`${bucket.name} notes`} />
-          </div>
-        ))}
+        {buckets.map(bucket => {
+          const spent = summary.bucketSpendById?.[bucket.id] || 0;
+          const remaining = Number(bucket.monthlyAmount || 0) - spent;
+          return (
+            <div className={`budget-bucket-row ${bucket.isProtected ? "protected" : ""}`} key={bucket.id}>
+              <input className="budget-input bucket-name" value={bucket.name} onChange={event => patchBucket(bucket.id, { name: event.target.value })} aria-label={`${bucket.name} name`} />
+              <MoneyInput value={bucket.monthlyAmount} onChange={monthlyAmount => patchBucket(bucket.id, { monthlyAmount })} ariaLabel={`${bucket.name} monthly amount`} />
+              <SelectInput value={bucket.type} options={BUDGET_BUCKET_TYPES} onChange={type => patchBucket(bucket.id, { type })} ariaLabel={`${bucket.name} type`} />
+              <select className="budget-input" value={bucket.accountId} onChange={event => patchBucket(bucket.id, { accountId: event.target.value })} aria-label={`${bucket.name} account`}>
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+              </select>
+              <select className="budget-input" value={bucket.ledgerId} onChange={event => patchBucket(bucket.id, { ledgerId: event.target.value })} aria-label={`${bucket.name} ledger`}>
+                {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
+              </select>
+              <label className="budget-check protected-check"><input type="checkbox" checked={Boolean(bucket.isProtected)} onChange={event => patchBucket(bucket.id, { isProtected: event.target.checked })} /> Protected</label>
+              <label className="budget-check"><input type="checkbox" checked={Boolean(bucket.rolloverEnabled)} onChange={event => patchBucket(bucket.id, { rolloverEnabled: event.target.checked })} /> Rollover</label>
+              <input className="budget-input damage" type="number" min="1" max="6" value={bucket.damageControlPriority ?? ""} placeholder="Repair #" onChange={event => patchBucket(bucket.id, { damageControlPriority: event.target.value === "" ? null : Number(event.target.value) })} aria-label={`${bucket.name} damage control priority`} />
+              <button className="tf-cancel" type="button" onClick={() => removeBucket(bucket.id)} disabled={buckets.length <= 1}>Remove</button>
+              <div className="budget-bucket-impact">
+                <span>Spent {formatBudgetMoney(spent, currency)}</span>
+                <strong className={remaining < 0 ? "danger" : "good"}>{remaining < 0 ? "Exceeded" : "Left"} {formatBudgetMoney(Math.abs(remaining), currency)}</strong>
+              </div>
+              <textarea className="budget-input bucket-notes" value={bucket.notes || ""} onChange={event => patchBucket(bucket.id, { notes: event.target.value })} aria-label={`${bucket.name} notes`} />
+            </div>
+          );
+        })}
       </div>
       <p className="budget-helper-copy">Protected buckets stay editable, but later damage-control flows will warn before reducing them.</p>
     </section>
@@ -220,10 +324,10 @@ function BucketsPanel({ buckets, accounts, ledgers, currency, onChange }) {
 
 function BudgetRoadmapCard() {
   const nextItems = [
-    "Phase 143: transactions, categories, and ledger entries",
-    "Phase 144: spending pace tracker and budget calendar",
-    "Phase 145: protected-fund warnings and damage-control repair plans",
-    "Phase 146: bonus rules and yearly auto-increases",
+    "Phase 144: account page refinement, cards, and ledgers",
+    "Phase 145: spending pace tracker and budget repair warnings",
+    "Phase 146: Budget Home dashboard and quick actions",
+    "Phase 147: mobile calculator keypad for fast entry",
   ];
   return (
     <section className="budget-card budget-roadmap-card">
@@ -241,7 +345,7 @@ function BudgetHero({ activePage }) {
   const pageCopy = {
     home: ["Budget Home", "A soft overview of cash, goals, and monthly allocation health."],
     account: ["Accounts", "Multiple bank accounts and ledgers stay editable and separate."],
-    transactions: ["Transactions", "The ledger-entry skeleton is ready for Phase 143 transaction entry."],
+    transactions: ["Transactions", "Record income, expenses, and transfers across accounts and ledgers."],
     budget: ["Budget Plan", "Your pasted Budget V1 defaults stay fully editable."],
     settings: ["Budget Settings", "Budget-specific managers live here, separate from Schedule settings."],
   };
@@ -285,34 +389,37 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
         </div>
         <div className="budget-month-total-row">
           <span>Expense</span>
-          <strong>{formatBudgetMoney(expenseTotal, currency)}</strong>
+          <strong>{formatBudgetMoney(summary.expenseTotal || 0, currency)}</strong>
         </div>
         <div className="budget-home-tile-grid budget-home-category-grid">
-          {expenseBuckets.map(bucket => (
-            <div className="budget-home-tile" key={bucket.id}>
-              <strong>{bucket.name}</strong>
-              <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
-              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
-            </div>
-          ))}
+          {expenseBuckets.map(bucket => {
+            const spent = summary.bucketSpendById?.[bucket.id] || 0;
+            return (
+              <div className="budget-home-tile" key={bucket.id}>
+                <strong>{bucket.name}</strong>
+                <span className="budget-home-tile-icon">{bucket.type === "sinking_fund" ? "✈️" : bucket.type === "fixed_commitment" ? "🤝" : bucket.type === "business" ? "🧰" : "🛍️"}</span>
+                <small>{formatBudgetMoney(spent, currency)} spent / {formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
+              </div>
+            );
+          })}
         </div>
         <div className="budget-month-total-row income">
           <span>Income / goals</span>
-          <strong>{formatBudgetMoney(incomeGoalTotal, currency)}</strong>
+          <strong>{formatBudgetMoney(summary.incomeTotal || incomeGoalTotal, currency)}</strong>
         </div>
         <div className="budget-home-tile-grid budget-home-category-grid compact">
           {incomeBuckets.map(bucket => (
             <div className={`budget-home-tile ${bucket.isProtected ? "protected" : ""}`} key={bucket.id}>
               <strong>{bucket.name}</strong>
               <span className="budget-home-tile-icon">{bucket.isProtected ? "🛡️" : "💹"}</span>
-              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)}</small>
+              <small>{formatBudgetMoney(bucket.monthlyAmount, currency)} planned</small>
             </div>
           ))}
         </div>
       </section>
       <section className="budget-card budget-networth-card">
         <div className="budget-networth-inner">
-          <p className="budget-kicker">Net worth skeleton</p>
+          <p className="budget-kicker">Net worth</p>
           <strong>{formatBudgetMoney(summary.netWorth, currency)}</strong>
           <span>Assets across {accounts.length} editable account{accounts.length === 1 ? "" : "s"}</span>
         </div>
@@ -336,30 +443,175 @@ function BudgetHomePage({ summary, currency, buckets, accounts }) {
           ))}
         </div>
       </section>
+      <section className="budget-card budget-home-flow-card">
+        <p className="budget-kicker">Month flow</p>
+        <div className="budget-flow-row"><span>Income recorded</span><strong className="good">{formatBudgetMoney(summary.incomeTotal || 0, currency)}</strong></div>
+        <div className="budget-flow-row"><span>Expenses recorded</span><strong className="danger">{formatBudgetMoney(summary.expenseTotal || 0, currency)}</strong></div>
+        <div className="budget-flow-row"><span>Balance</span><strong>{formatBudgetMoney(summary.monthlyBalance || 0, currency)}</strong></div>
+      </section>
     </>
   );
 }
 
-function BudgetTransactionsPage({ transactions, currency }) {
-  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const calendarDays = Array.from({ length: 35 }, (_, index) => index + 1);
+function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, currency, onSave, onCancelEdit }) {
+  const update = patch => setForm(current => ({ ...current, ...patch }));
+  const typeMeta = transactionTypeCopy[form.type] || transactionTypeCopy.expense;
+  return (
+    <section className="budget-card budget-transaction-entry-card">
+      <div className="budget-card-head">
+        <div>
+          <p className="budget-kicker">Quick record</p>
+          <h2>{form.id ? "Edit transaction" : "Add transaction"}</h2>
+        </div>
+        {form.id && <button className="tf-cancel" type="button" onClick={onCancelEdit}>Cancel edit</button>}
+      </div>
+      <div className="budget-transaction-type-tabs" role="tablist" aria-label="Transaction type">
+        {BUDGET_TRANSACTION_TYPES.map(type => (
+          <button
+            className={form.type === type ? "active" : ""}
+            type="button"
+            key={type}
+            onClick={() => update({ type, bucketId: type === "transfer" ? "" : form.bucketId || buckets[0]?.id || "" })}
+          >
+            <span>{transactionTypeCopy[type]?.icon}</span>{transactionTypeCopy[type]?.label}
+          </button>
+        ))}
+      </div>
+      <div className={`budget-amount-stage budget-amount-${typeMeta.tone}`}>
+        <span>{typeMeta.label}</span>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={form.amount}
+          placeholder="0.00"
+          aria-label="Transaction amount"
+          onChange={event => update({ amount: event.target.value })}
+        />
+        <small>{currency}</small>
+      </div>
+      <div className="budget-form-grid budget-transaction-form-grid">
+        <label>
+          <FieldLabel>Date</FieldLabel>
+          <input className="budget-input" type="date" value={form.date} onChange={event => update({ date: event.target.value })} />
+        </label>
+        <label>
+          <FieldLabel>{form.type === "transfer" ? "From account" : "Account"}</FieldLabel>
+          <select className="budget-input" value={form.accountId} onChange={event => update({ accountId: event.target.value })}>
+            {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+        </label>
+        {form.type === "transfer" && (
+          <label>
+            <FieldLabel>To account</FieldLabel>
+            <select className="budget-input" value={form.toAccountId} onChange={event => update({ toAccountId: event.target.value })}>
+              {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+            </select>
+          </label>
+        )}
+        <label>
+          <FieldLabel>Ledger</FieldLabel>
+          <select className="budget-input" value={form.ledgerId} onChange={event => update({ ledgerId: event.target.value })}>
+            {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
+          </select>
+        </label>
+        {form.type !== "transfer" && (
+          <label>
+            <FieldLabel>Bucket</FieldLabel>
+            <select className="budget-input" value={form.bucketId} onChange={event => update({ bucketId: event.target.value })}>
+              <option value="">No bucket</option>
+              {buckets.map(bucket => <option key={bucket.id} value={bucket.id}>{bucket.name}</option>)}
+            </select>
+          </label>
+        )}
+        <label>
+          <FieldLabel>Description</FieldLabel>
+          <input className="budget-input" value={form.description} placeholder={form.type === "expense" ? "Lunch, Grab, groceries..." : form.type === "income" ? "Salary, returned money..." : "Move to savings..."} onChange={event => update({ description: event.target.value })} />
+        </label>
+        <label>
+          <FieldLabel>Tags</FieldLabel>
+          <input className="budget-input" value={form.tags} placeholder="travel, emotional, planned" onChange={event => update({ tags: event.target.value })} />
+        </label>
+      </div>
+      <textarea className="budget-input budget-notes" value={form.notes} placeholder="Optional note" onChange={event => update({ notes: event.target.value })} aria-label="Transaction notes" />
+      <div className="budget-transaction-actions">
+        <button className="tf-save" type="button" onClick={onSave}>{form.id ? "Save changes" : "Record transaction"}</button>
+        <span>{formatBudgetMoney(Number(form.amount || 0), currency)} ready to record</span>
+      </div>
+    </section>
+  );
+}
+
+function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, currency, onTransactionsChange }) {
+  const [monthDate, setMonthDate] = useState(() => new Date());
+  const emptyForm = useMemo(() => createEmptyTransactionForm({ accounts, ledgers, buckets }), [accounts, ledgers, buckets]);
+  const [form, setForm] = useState(() => emptyForm);
+  const calendarDays = buildBudgetCalendarDays(monthDate);
+  const dailyTotals = calculateBudgetDailyTotals(transactions);
+  const grouped = groupBudgetTransactionsByDate(transactions);
+  const accountById = Object.fromEntries(accounts.map(account => [account.id, account]));
+  const ledgerById = Object.fromEntries(ledgers.map(ledger => [ledger.id, ledger]));
+  const bucketById = Object.fromEntries(buckets.map(bucket => [bucket.id, bucket]));
+  const monthPrefix = todayBudgetDateKey(monthDate).slice(0, 7);
+  const monthTransactions = transactions
+    .map(normalizeBudgetTransaction)
+    .filter(transaction => transaction.date.startsWith(monthPrefix))
+    .sort((a, b) => `${b.date}-${b.createdAt}`.localeCompare(`${a.date}-${a.createdAt}`));
+  const monthIncome = monthTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const monthExpense = monthTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const resetForm = (type = form.type || "expense") => setForm(createEmptyTransactionForm({ accounts, ledgers, buckets, type }));
+  const saveTransaction = () => {
+    const amount = Math.abs(Number(form.amount || 0));
+    if (!amount) return;
+    const timestamp = new Date().toISOString();
+    const next = normalizeBudgetTransaction({
+      ...form,
+      amount,
+      description: form.description || transactionTypeCopy[form.type]?.label,
+      createdAt: form.id ? transactions.find(transaction => transaction.id === form.id)?.createdAt : timestamp,
+      updatedAt: timestamp,
+    });
+    const others = transactions.filter(transaction => transaction.id !== next.id);
+    onTransactionsChange([...others, next]);
+    resetForm(next.type);
+  };
+  const editTransaction = transaction => setForm(formFromTransaction(transaction, emptyForm));
+  const deleteTransaction = id => onTransactionsChange(transactions.filter(transaction => transaction.id !== id));
+  const moveMonth = offset => setMonthDate(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+
   return (
     <>
+      <BudgetTransactionForm form={form} setForm={setForm} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onSave={saveTransaction} onCancelEdit={() => resetForm()} />
       <section className="budget-card budget-calendar-card">
         <div className="budget-card-head budget-month-head">
-          <button className="budget-round-icon" type="button" aria-label="Previous month">‹</button>
+          <button className="budget-round-icon" type="button" aria-label="Previous month" onClick={() => moveMonth(-1)}>‹</button>
           <div>
             <p className="budget-kicker">Transaction calendar</p>
-            <h2>This Month</h2>
+            <h2>{monthTitle(monthDate)}</h2>
           </div>
-          <button className="budget-round-icon" type="button" aria-label="Next month">›</button>
-          <span className="budget-editable-pill">Phase 143</span>
+          <button className="budget-round-icon" type="button" aria-label="Next month" onClick={() => moveMonth(1)}>›</button>
+          <span className="budget-editable-pill">Record</span>
         </div>
         <div className="budget-calendar-weekdays" aria-hidden="true">
-          {weekdays.map(day => <span key={day}>{day}</span>)}
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}
         </div>
-        <div className="budget-calendar-placeholder">
-          {calendarDays.map(day => <span key={day} className={day === 27 ? "active" : ""}><b>{day}</b><small>—</small></span>)}
+        <div className="budget-calendar-placeholder budget-calendar-real">
+          {calendarDays.map(day => {
+            const totals = dailyTotals[day.key] || {};
+            const active = day.key === todayBudgetDateKey();
+            return (
+              <span key={day.key} className={`${active ? "active" : ""} ${day.inMonth ? "" : "muted"}`}>
+                <b>{day.day}</b>
+                <small>{totals.income ? <em className="good">+{formatBudgetMoney(totals.income, currency)}</em> : null}{totals.expense ? <em className="danger">−{formatBudgetMoney(totals.expense, currency)}</em> : null}{!totals.income && !totals.expense ? "—" : null}</small>
+              </span>
+            );
+          })}
+        </div>
+        <div className="budget-calendar-month-summary">
+          <span>Income <strong className="good">{formatBudgetMoney(monthIncome, currency)}</strong></span>
+          <span>Expense <strong className="danger">{formatBudgetMoney(monthExpense, currency)}</strong></span>
+          <span>Balance <strong>{formatBudgetMoney(monthIncome - monthExpense, currency)}</strong></span>
         </div>
       </section>
       <section className="budget-card">
@@ -368,25 +620,41 @@ function BudgetTransactionsPage({ transactions, currency }) {
             <p className="budget-kicker">Ledger entries</p>
             <h2>Transactions</h2>
           </div>
+          <span className="budget-editable-pill">{transactions.length} entries</span>
         </div>
-        {transactions.length ? (
-          <div className="budget-transaction-list">
-            {transactions.map(transaction => (
-              <div className="budget-transaction-row" key={transaction.id}>
-                <span>{transaction.description || "Untitled transaction"}</span>
-                <strong>{formatBudgetMoney(transaction.amount, currency)}</strong>
-              </div>
-            ))}
+        {monthTransactions.length ? (
+          <div className="budget-transaction-list budget-transaction-grouped-list">
+            {Object.entries(grouped)
+              .filter(([date]) => date.startsWith(monthPrefix))
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([date, entries]) => (
+                <div className="budget-date-group" key={date}>
+                  <div className="budget-date-group-head"><strong>{formatShortDate(date)}</strong><span>{entries.length} entr{entries.length === 1 ? "y" : "ies"}</span></div>
+                  {entries.map(transaction => (
+                    <div className={`budget-transaction-row ${transactionTone(transaction)}`} key={transaction.id}>
+                      <span className="budget-transaction-icon">{transactionTypeCopy[transaction.type]?.icon}</span>
+                      <div>
+                        <strong>{transaction.description || "Untitled transaction"}</strong>
+                        <small>{bucketById[transaction.bucketId]?.name || ledgerById[transaction.ledgerId]?.name || "No bucket"} · {accountById[transaction.accountId]?.name || "Account"}{transaction.type === "transfer" && transaction.toAccountId ? ` → ${accountById[transaction.toAccountId]?.name || "Account"}` : ""}</small>
+                        {transaction.tags?.length ? <small>#{transaction.tags.join(" #")}</small> : null}
+                      </div>
+                      <strong>{transactionDisplayAmount(transaction, currency)}</strong>
+                      <button className="budget-row-link" type="button" onClick={() => editTransaction(transaction)}>Edit</button>
+                      <button className="budget-row-link danger" type="button" onClick={() => deleteTransaction(transaction.id)}>Delete</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
           </div>
         ) : (
-          <p className="budget-helper-copy">Transaction entry starts in Phase 143. This page is intentionally a skeleton so the Budget footer already matches the target app structure.</p>
+          <p className="budget-helper-copy">No transactions recorded for this month yet. Add an expense, income, or transfer above to start tracking account balances and bucket spending.</p>
         )}
       </section>
     </>
   );
 }
 
-function BudgetSettingsPage({ profile, accounts, ledgers, buckets }) {
+function BudgetSettingsPage({ profile, accounts, ledgers, buckets, transactions }) {
   const settingsRows = [
     ["🎟️", "Ledger Manager", `${ledgers.length} ledgers`],
     ["💳", "Account Manager", `${accounts.length} accounts`],
@@ -394,7 +662,8 @@ function BudgetSettingsPage({ profile, accounts, ledgers, buckets }) {
     ["💰", "Budget", profile.name || "Budget V1"],
     ["🏦", "Saving", "Australia-ready funds later"],
     ["💱", "Base Currency", profile.currency || "SGD"],
-    ["🔁", "Recurring", "Phase 143+"],
+    ["🔁", "Recurring", "Later"],
+    ["🧾", "Transactions", `${transactions.length} saved entries`],
     ["📤", "Export/Import", "Later"],
     ["☁️", "Cloud Sync", "Uses Tempo sync"],
   ];
@@ -431,6 +700,7 @@ export function BudgetApp({
   onAccountsChange,
   onLedgersChange,
   onBucketsChange,
+  onTransactionsChange,
 }) {
   const safePage = ["home", "account", "transactions", "budget", "settings"].includes(activePage) ? activePage : "home";
   const summary = calculateBudgetSummary({ profile, accounts, ledgers, buckets, transactions });
@@ -444,11 +714,11 @@ export function BudgetApp({
       {safePage === "account" && (
         <>
           <BudgetMetrics summary={summary} currency={currency} />
-          <AccountsPanel accounts={accounts} ledgers={ledgers} currency={currency} onChange={onAccountsChange} />
+          <AccountsPanel accounts={accounts} ledgers={ledgers} currency={currency} transactions={transactions} onChange={onAccountsChange} />
           <LedgersPanel ledgers={ledgers} accounts={accounts} onChange={onLedgersChange} />
         </>
       )}
-      {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} currency={currency} />}
+      {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onTransactionsChange={onTransactionsChange} />}
       {safePage === "budget" && (
         <>
           <BudgetMetrics summary={summary} currency={currency} />
@@ -456,10 +726,10 @@ export function BudgetApp({
             <EditableProfileCard profile={profile} onChange={onProfileChange} />
             <BudgetRoadmapCard />
           </div>
-          <BucketsPanel buckets={buckets} accounts={accounts} ledgers={ledgers} currency={currency} onChange={onBucketsChange} />
+          <BucketsPanel buckets={buckets} accounts={accounts} ledgers={ledgers} currency={currency} transactions={transactions} onChange={onBucketsChange} />
         </>
       )}
-      {safePage === "settings" && <BudgetSettingsPage profile={profile} accounts={accounts} ledgers={ledgers} buckets={buckets} />}
+      {safePage === "settings" && <BudgetSettingsPage profile={profile} accounts={accounts} ledgers={ledgers} buckets={buckets} transactions={transactions} />}
     </main>
   );
 }

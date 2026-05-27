@@ -2,6 +2,7 @@ import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
   BUDGET_LEDGER_TYPES,
+  BUDGET_TRANSACTION_TYPES,
   DEFAULT_BONUS_ALLOCATION_RULES,
   DEFAULT_BUDGET_ACCOUNTS,
   DEFAULT_BUDGET_BUCKETS,
@@ -20,8 +21,22 @@ const cleanString = (value, fallback = "") => {
   return text || fallback;
 };
 
+const clampMonthDay = value => Math.min(31, Math.max(1, Math.round(toNumber(value, 1))));
+
 export function budgetUid(prefix = "budget") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function todayBudgetDateKey(date = new Date()) {
+  const source = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const y = source.getFullYear();
+  const m = String(source.getMonth() + 1).padStart(2, "0");
+  const d = String(source.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function budgetMonthKey(dateKey = todayBudgetDateKey()) {
+  return String(dateKey || "").slice(0, 7) || todayBudgetDateKey().slice(0, 7);
 }
 
 export function normalizeBudgetProfile(profile = DEFAULT_BUDGET_PROFILE) {
@@ -31,7 +46,7 @@ export function normalizeBudgetProfile(profile = DEFAULT_BUDGET_PROFILE) {
     ...source,
     currency: cleanString(source.currency, DEFAULT_BUDGET_PROFILE.currency).toUpperCase(),
     monthlyIncome: toNumber(source.monthlyIncome, DEFAULT_BUDGET_PROFILE.monthlyIncome),
-    resetDay: Math.min(31, Math.max(1, Math.round(toNumber(source.resetDay, 1)))),
+    resetDay: clampMonthDay(source.resetDay),
   };
 }
 
@@ -97,18 +112,28 @@ export function normalizeBudgetBuckets(buckets = DEFAULT_BUDGET_BUCKETS) {
 }
 
 export function normalizeBudgetTransaction(transaction = {}) {
+  const legacyDirection = transaction.direction === "income" ? "income" : transaction.direction === "transfer" ? "transfer" : "expense";
+  const type = BUDGET_TRANSACTION_TYPES.includes(transaction.type) ? transaction.type : legacyDirection;
+  const tags = Array.isArray(transaction.tags)
+    ? transaction.tags.map(tag => cleanString(tag, "")).filter(Boolean)
+    : String(transaction.tags || "").split(",").map(tag => cleanString(tag, "")).filter(Boolean);
+  const now = new Date().toISOString();
   return {
     id: cleanString(transaction.id, budgetUid("txn")),
-    date: cleanString(transaction.date, new Date().toISOString().slice(0, 10)),
-    description: cleanString(transaction.description, ""),
-    amount: toNumber(transaction.amount, 0),
-    direction: transaction.direction === "income" ? "income" : "expense",
+    type,
+    direction: type === "income" ? "income" : type === "transfer" ? "transfer" : "expense",
+    date: cleanString(transaction.date, todayBudgetDateKey()),
+    description: cleanString(transaction.description, type === "transfer" ? "Transfer" : type === "income" ? "Income" : "Expense"),
+    amount: Math.abs(toNumber(transaction.amount, 0)),
     accountId: cleanString(transaction.accountId, "main-bank"),
+    toAccountId: type === "transfer" ? cleanString(transaction.toAccountId, "") : cleanString(transaction.toAccountId, ""),
     ledgerId: cleanString(transaction.ledgerId, "personal-ledger"),
-    bucketId: cleanString(transaction.bucketId, ""),
-    notes: cleanString(transaction.notes, ""),
-    createdAt: transaction.createdAt || null,
-    updatedAt: transaction.updatedAt || null,
+    bucketId: type === "transfer" ? "" : cleanString(transaction.bucketId, ""),
+    notes: cleanString(transaction.notes ?? transaction.note, ""),
+    tags,
+    excludedFromBudget: Boolean(transaction.excludedFromBudget),
+    createdAt: transaction.createdAt || now,
+    updatedAt: transaction.updatedAt || now,
   };
 }
 
@@ -125,18 +150,96 @@ export function normalizeBonusAllocationRules(rules = DEFAULT_BONUS_ALLOCATION_R
   }));
 }
 
+export function budgetTransactionSignedAmount(transaction = {}) {
+  const safe = normalizeBudgetTransaction(transaction);
+  if (safe.type === "income") return Math.abs(safe.amount);
+  if (safe.type === "expense") return -Math.abs(safe.amount);
+  return 0;
+}
+
+export function calculateBudgetAccountBalances(accounts = [], transactions = []) {
+  const safeAccounts = normalizeBudgetAccounts(accounts);
+  const safeTransactions = normalizeBudgetTransactions(transactions);
+  const balanceMap = new Map(safeAccounts.map(account => [account.id, {
+    ...account,
+    startingBalance: toNumber(account.balance, 0),
+    transactionDelta: 0,
+    currentBalance: toNumber(account.balance, 0),
+  }]));
+
+  const applyDelta = (accountId, delta) => {
+    if (!accountId || !balanceMap.has(accountId)) return;
+    const current = balanceMap.get(accountId);
+    const transactionDelta = current.transactionDelta + delta;
+    balanceMap.set(accountId, {
+      ...current,
+      transactionDelta,
+      currentBalance: current.startingBalance + transactionDelta,
+    });
+  };
+
+  safeTransactions.forEach(transaction => {
+    const amount = Math.abs(toNumber(transaction.amount, 0));
+    if (!amount) return;
+    if (transaction.type === "income") applyDelta(transaction.accountId, amount);
+    if (transaction.type === "expense") applyDelta(transaction.accountId, -amount);
+    if (transaction.type === "transfer") {
+      applyDelta(transaction.accountId, -amount);
+      applyDelta(transaction.toAccountId, amount);
+    }
+  });
+
+  return safeAccounts.map(account => balanceMap.get(account.id));
+}
+
+export function calculateBudgetBucketSpending(buckets = [], transactions = []) {
+  const safeBuckets = normalizeBudgetBuckets(buckets);
+  const safeTransactions = normalizeBudgetTransactions(transactions);
+  const spending = Object.fromEntries(safeBuckets.map(bucket => [bucket.id, 0]));
+  safeTransactions.forEach(transaction => {
+    if (transaction.type !== "expense" || transaction.excludedFromBudget || !transaction.bucketId) return;
+    spending[transaction.bucketId] = (spending[transaction.bucketId] || 0) + Math.abs(toNumber(transaction.amount, 0));
+  });
+  return spending;
+}
+
+export function groupBudgetTransactionsByDate(transactions = []) {
+  const safeTransactions = normalizeBudgetTransactions(transactions)
+    .sort((a, b) => `${b.date}-${b.createdAt}`.localeCompare(`${a.date}-${a.createdAt}`));
+  return safeTransactions.reduce((groups, transaction) => {
+    if (!groups[transaction.date]) groups[transaction.date] = [];
+    groups[transaction.date].push(transaction);
+    return groups;
+  }, {});
+}
+
+export function calculateBudgetDailyTotals(transactions = []) {
+  const totals = {};
+  normalizeBudgetTransactions(transactions).forEach(transaction => {
+    if (!totals[transaction.date]) totals[transaction.date] = { income: 0, expense: 0, transfer: 0, balance: 0 };
+    const amount = Math.abs(toNumber(transaction.amount, 0));
+    if (transaction.type === "income") totals[transaction.date].income += amount;
+    if (transaction.type === "expense") totals[transaction.date].expense += amount;
+    if (transaction.type === "transfer") totals[transaction.date].transfer += amount;
+    totals[transaction.date].balance += budgetTransactionSignedAmount(transaction);
+  });
+  return totals;
+}
+
 export function calculateBudgetSummary({ profile, accounts = [], ledgers = [], buckets = [], transactions = [] } = {}) {
   const safeProfile = normalizeBudgetProfile(profile);
   const safeAccounts = normalizeBudgetAccounts(accounts);
   const safeBuckets = normalizeBudgetBuckets(buckets);
   const safeTransactions = normalizeBudgetTransactions(transactions);
+  const adjustedAccounts = calculateBudgetAccountBalances(safeAccounts, safeTransactions);
   const monthlyIncome = toNumber(safeProfile.monthlyIncome, 0);
   const allocated = safeBuckets.reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
   const protectedMonthly = safeBuckets.filter(bucket => bucket.isProtected).reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
   const sinkingFundsMonthly = safeBuckets.filter(bucket => bucket.type === "sinking_fund").reduce((sum, bucket) => sum + toNumber(bucket.monthlyAmount, 0), 0);
-  const netWorth = safeAccounts.filter(account => account.includeInNetWorth).reduce((sum, account) => sum + toNumber(account.balance, 0), 0);
-  const australiaReadyFunds = safeAccounts.filter(account => account.includeInAustraliaReady).reduce((sum, account) => sum + toNumber(account.balance, 0), 0);
-  const monthSpend = safeTransactions.filter(t => t.direction === "expense").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
+  const incomeTotal = safeTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
+  const expenseTotal = safeTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
+  const transferTotal = safeTransactions.filter(t => t.type === "transfer").reduce((sum, t) => sum + Math.abs(toNumber(t.amount, 0)), 0);
+  const bucketSpendById = calculateBudgetBucketSpending(safeBuckets, safeTransactions);
   return {
     monthlyIncome,
     allocated,
@@ -148,9 +251,16 @@ export function calculateBudgetSummary({ profile, accounts = [], ledgers = [], b
     ledgerCount: normalizeBudgetLedgers(ledgers).length,
     bucketCount: safeBuckets.length,
     transactionCount: safeTransactions.length,
-    monthSpend,
-    netWorth,
-    australiaReadyFunds,
+    monthSpend: expenseTotal,
+    incomeTotal,
+    expenseTotal,
+    transferTotal,
+    monthlyBalance: incomeTotal - expenseTotal,
+    netWorth: adjustedAccounts.filter(account => account.includeInNetWorth).reduce((sum, account) => sum + toNumber(account.currentBalance, 0), 0),
+    australiaReadyFunds: adjustedAccounts.filter(account => account.includeInAustraliaReady).reduce((sum, account) => sum + toNumber(account.currentBalance, 0), 0),
+    adjustedAccounts,
+    bucketSpendById,
+    dailyTotals: calculateBudgetDailyTotals(safeTransactions),
   };
 }
 
