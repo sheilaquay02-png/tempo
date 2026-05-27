@@ -4201,4 +4201,41 @@ body.tempo-modal-locked{
 @media(max-width:1100px){.budget-plan-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.budget-plan-toolbar{grid-template-columns:minmax(170px,220px) minmax(0,1fr);}.budget-plan-month-progress{grid-column:1/-1;justify-self:center;}}
 @media(max-width:768px){.budget-plan-toolbar{grid-template-columns:1fr;}.budget-plan-toolbar .budget-ledger-home-select{justify-self:stretch;max-width:none;}.budget-plan-month-progress{justify-self:start;}.budget-plan-summary-grid,.budget-plan-ledger-stats{grid-template-columns:1fr;}.budget-plan-card-grid{grid-template-columns:1fr;}.budget-plan-bucket-card{min-height:200px;}.budget-plan-bucket-money strong{font-size:24px;}}
 
+/* ── Phase 145 account card grid consistency patch ───────────────────── */
+.budget-account-card-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:stretch;
+}
+.budget-account-card{
+  width:100%;
+  height:154px;
+  min-height:154px;
+  overflow:hidden;
+}
+.budget-account-card strong,
+.budget-account-card small,
+.budget-account-card em{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.budget-account-card strong,
+.budget-account-card small{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+.budget-account-card em{
+  display:block;
+  white-space:nowrap;
+}
+@media(max-width:768px){
+  .budget-account-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px;}
+  .budget-account-card{height:132px;min-height:132px;padding:12px;border-radius:18px;}
+  .budget-account-logo{width:30px;height:30px;border-radius:11px;font-size:18px;}
+  .budget-account-card strong{font-size:12px;line-height:1.12;}
+  .budget-account-card small{font-size:10px;line-height:1.1;margin-top:-2px;}
+  .budget-account-card em{font-size:18px;letter-spacing:-.05em;}
+}
+
 `; }
