@@ -47,7 +47,7 @@ test("Budget/Schedule/Overall shell is wired into TempoApp", () => {
 });
 
 test("Budget UI exposes editable accounts, ledgers, and bucket rows", () => {
-  assert.match(budgetApp, /AccountsPanel/);
+  assert.match(budgetApp, /BudgetAccountPage/);
   assert.match(budgetApp, /LedgersPanel/);
   assert.match(budgetApp, /BucketsPanel/);
   assert.match(budgetApp, /onProfileChange/);

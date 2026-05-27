@@ -210,6 +210,6 @@ export const DEFAULT_BONUS_ALLOCATION_RULES = [
   { bucketId: "entertainment-travel-photography", label: "Entertainment / Travel / Photography", percentage: 10 },
 ];
 
-export const BUDGET_ACCOUNT_TYPES = ["debit", "savings", "credit", "cash", "investment", "business", "cpf", "other"];
+export const BUDGET_ACCOUNT_TYPES = ["debit", "savings", "cash", "wallet", "business", "credit", "other_credit", "borrowed", "loan", "investment", "stock", "fund", "crypto", "real_estate", "cpf", "other"];
 export const BUDGET_LEDGER_TYPES = ["personal", "goal", "investment", "sinking_fund", "business", "shared", "other"];
 export const BUDGET_BUCKET_TYPES = ["protected_goal", "sinking_fund", "fixed_commitment", "flexible_spending", "business", "investment", "other"];

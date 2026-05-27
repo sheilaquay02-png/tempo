@@ -16,6 +16,7 @@ import {
   normalizeBudgetBucket,
   normalizeBudgetLedger,
   normalizeBudgetTransaction,
+  normalizeBudgetTransactions,
   patchBudgetItem,
   todayBudgetDateKey,
 } from "../../utils/budgetPlanUtils";
@@ -252,60 +253,312 @@ function EditableProfileCard({ profile, onChange }) {
   );
 }
 
-function AccountsPanel({ accounts, ledgers, currency, transactions, onChange }) {
-  const adjustedAccounts = calculateBudgetAccountBalances(accounts, transactions);
-  const balanceById = Object.fromEntries(adjustedAccounts.map(account => [account.id, account]));
-  const patchAccount = (id, patch) => onChange(patchBudgetItem(accounts, id, patch).map(normalizeBudgetAccount));
-  const addAccount = () => onChange([
-    ...accounts,
-    normalizeBudgetAccount({
+const accountGroupMeta = {
+  debit: { label: "Debit", icon: "💳", tone: "pink" },
+  credit: { label: "Credit", icon: "💜", tone: "violet" },
+  borrowed: { label: "Borrowed", icon: "🤝", tone: "cream" },
+  invest: { label: "Invest", icon: "📈", tone: "mint" },
+  other: { label: "Other", icon: "🧾", tone: "soft" },
+};
+
+const accountTypeMeta = {
+  debit: { label: "Debit card", group: "debit", icon: "💳" },
+  savings: { label: "Savings", group: "debit", icon: "🏦" },
+  cash: { label: "Cash", group: "debit", icon: "💵" },
+  wallet: { label: "Wallet", group: "debit", icon: "👛" },
+  business: { label: "Business", group: "debit", icon: "🧰" },
+  credit: { label: "Credit card", group: "credit", icon: "💳" },
+  other_credit: { label: "Other credit", group: "credit", icon: "💜" },
+  borrowed: { label: "Borrowed", group: "borrowed", icon: "🤝" },
+  loan: { label: "Loan", group: "borrowed", icon: "📄" },
+  investment: { label: "Investment", group: "invest", icon: "📈" },
+  stock: { label: "Stock", group: "invest", icon: "📊" },
+  fund: { label: "Fund", group: "invest", icon: "📉" },
+  crypto: { label: "Crypto", group: "invest", icon: "🪙" },
+  real_estate: { label: "Real estate", group: "invest", icon: "🏠" },
+  cpf: { label: "CPF", group: "invest", icon: "🧾" },
+  other: { label: "Other account", group: "other", icon: "🧾" },
+};
+
+const addAccountGroups = [
+  { label: "Debit", options: [["debit", "Debit Cards"], ["cash", "Cash"], ["wallet", "Wallet / PayPal"], ["savings", "Other Debit Account"]] },
+  { label: "Credit", options: [["credit", "Credit Cards"], ["other_credit", "Other Credit Account"]] },
+  { label: "Borrow/Lend", options: [["borrowed", "Borrowed"], ["loan", "Loan"]] },
+  { label: "Invest", options: [["stock", "Stock"], ["fund", "Fund"], ["crypto", "Crypto"], ["real_estate", "Real Estate"], ["investment", "Other Investment"]] },
+];
+
+function accountMeta(account) {
+  return accountTypeMeta[account?.type] || accountTypeMeta.other;
+}
+
+function accountGroupKey(account) {
+  return accountMeta(account).group || "other";
+}
+
+function accountDisplayIcon(account) {
+  return account.icon || accountMeta(account).icon || "💳";
+}
+
+function accountSignedTransactionAmount(transaction, accountId) {
+  const amount = Math.abs(Number(transaction.amount || 0));
+  if (transaction.type === "income" && transaction.accountId === accountId) return amount;
+  if (transaction.type === "expense" && transaction.accountId === accountId) return -amount;
+  if (transaction.type === "transfer") {
+    if (transaction.accountId === accountId) return -amount;
+    if (transaction.toAccountId === accountId) return amount;
+  }
+  return 0;
+}
+
+function accountTransactionDisplayAmount(transaction, accountId, currency) {
+  const amount = accountSignedTransactionAmount(transaction, accountId);
+  if (!amount) return `⇄ ${formatBudgetMoney(Math.abs(Number(transaction.amount || 0)), currency)}`;
+  return `${amount > 0 ? "+" : "−"}${formatBudgetMoney(Math.abs(amount), currency)}`;
+}
+
+function AccountAddSheet({ open, currency, ledgers, onAdd, onClose }) {
+  const [query, setQuery] = useState("");
+  if (!open) return null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredGroups = addAccountGroups
+    .map(group => ({
+      ...group,
+      options: group.options.filter(([, label]) => label.toLowerCase().includes(normalizedQuery)),
+    }))
+    .filter(group => group.options.length);
+  const addTypedAccount = (type, label) => {
+    const meta = accountTypeMeta[type] || accountTypeMeta.other;
+    onAdd(normalizeBudgetAccount({
       id: budgetUid("account"),
-      name: "New account",
-      type: "debit",
+      name: label,
+      type,
       currency,
       balance: 0,
+      institution: meta.label,
       ledgerId: ledgers[0]?.id || "personal-ledger",
       includeInNetWorth: true,
-    }),
-  ]);
-  const removeAccount = id => {
+      includeInAustraliaReady: false,
+      icon: meta.icon,
+    }));
+    onClose();
+  };
+  return (
+    <div className="budget-account-sheet-overlay" role="dialog" aria-modal="true" aria-label="Add budget account">
+      <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close add account" />
+      <div className="budget-account-sheet">
+        <div className="budget-popup-header">
+          <button type="button" onClick={onClose} aria-label="Close add account">×</button>
+          <strong>Add Account</strong>
+          <span aria-hidden="true">＋</span>
+        </div>
+        <input className="budget-input budget-account-search" value={query} placeholder="Search account type" onChange={event => setQuery(event.target.value)} aria-label="Search account type" />
+        <div className="budget-account-type-list">
+          {filteredGroups.map(group => (
+            <div className="budget-account-type-group" key={group.label}>
+              <p>{group.label}</p>
+              {group.options.map(([type, label]) => (
+                <button key={type} type="button" onClick={() => addTypedAccount(type, label)}>
+                  <span>{accountTypeMeta[type]?.icon || "💳"}</span>
+                  <strong>{label}</strong>
+                  <em>›</em>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountEditPopup({ account, ledgers, currency, canDelete, onSave, onDelete, onClose }) {
+  const [draft, setDraft] = useState(() => account ? { ...account } : null);
+  if (!account || !draft) return null;
+  const update = patch => setDraft(current => ({ ...current, ...patch }));
+  const save = () => onSave(normalizeBudgetAccount({ ...draft, updatedAt: new Date().toISOString() }));
+  return (
+    <div className="budget-account-sheet-overlay" role="dialog" aria-modal="true" aria-label={`Edit ${account.name}`}>
+      <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close account editor" />
+      <div className="budget-account-edit-sheet">
+        <div className="budget-popup-header">
+          <button type="button" onClick={onClose} aria-label="Close account editor">×</button>
+          <strong>Edit Account</strong>
+          <span aria-hidden="true">☷</span>
+        </div>
+        <div className="budget-account-edit-grid">
+          <label><FieldLabel>Icon</FieldLabel><input className="budget-input" value={draft.icon || accountDisplayIcon(draft)} onChange={event => update({ icon: event.target.value })} /></label>
+          <label><FieldLabel>Name</FieldLabel><input className="budget-input" value={draft.name || ""} onChange={event => update({ name: event.target.value })} /></label>
+          <label><FieldLabel>Note / institution</FieldLabel><input className="budget-input" value={draft.institution || ""} onChange={event => update({ institution: event.target.value })} /></label>
+          <label><FieldLabel>Currency</FieldLabel><input className="budget-input" value={draft.currency || currency} onChange={event => update({ currency: event.target.value.toUpperCase() })} /></label>
+          <label><FieldLabel>Starting balance</FieldLabel><MoneyInput value={draft.balance} onChange={balance => update({ balance })} ariaLabel={`${draft.name} balance`} /></label>
+          <label><FieldLabel>Type</FieldLabel><SelectInput value={draft.type} options={BUDGET_ACCOUNT_TYPES} onChange={type => update({ type, icon: draft.icon || accountTypeMeta[type]?.icon })} ariaLabel="Account type" /></label>
+          <label><FieldLabel>Ledger</FieldLabel><select className="budget-input" value={draft.ledgerId} onChange={event => update({ ledgerId: event.target.value })}>{ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}</select></label>
+        </div>
+        <div className="budget-account-toggle-list">
+          <label className="budget-switch-row"><span>Count in net worth</span><input type="checkbox" checked={Boolean(draft.includeInNetWorth)} onChange={event => update({ includeInNetWorth: event.target.checked })} /></label>
+          <label className="budget-switch-row"><span>Australia-ready funds</span><input type="checkbox" checked={Boolean(draft.includeInAustraliaReady)} onChange={event => update({ includeInAustraliaReady: event.target.checked })} /></label>
+          <label className="budget-switch-row"><span>Hide balance on cards</span><input type="checkbox" checked={Boolean(draft.hideBalance)} onChange={event => update({ hideBalance: event.target.checked })} /></label>
+        </div>
+        <div className="budget-account-edit-actions">
+          <button className="tf-save" type="button" onClick={save}>Confirm</button>
+          {canDelete && <button className="tf-cancel danger" type="button" onClick={() => onDelete(account.id)}>Delete</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountCard({ account, currency, onOpen }) {
+  const meta = accountMeta(account);
+  const amount = account.hideBalance ? "••••" : formatBudgetMoney(account.currentBalance ?? account.balance, currency);
+  return (
+    <button className={`budget-account-card budget-account-card-${meta.group}`} type="button" onClick={() => onOpen(account.id)} aria-label={`Open ${account.name}`}>
+      <span className="budget-account-logo">{accountDisplayIcon(account)}</span>
+      <strong>{account.name}</strong>
+      <small>{account.institution || meta.label}</small>
+      <em>{amount}</em>
+    </button>
+  );
+}
+
+function AccountDetailView({ account, transactions, accounts, ledgers, buckets, currency, onClose, onEdit, onOpenTransfer, onOpenExpense }) {
+  const entries = normalizeBudgetTransactions(transactions)
+    .filter(transaction => transaction.accountId === account.id || transaction.toAccountId === account.id)
+    .sort((a, b) => `${b.date}-${b.createdAt}`.localeCompare(`${a.date}-${a.createdAt}`));
+  const bucketById = Object.fromEntries(buckets.map(bucket => [bucket.id, bucket]));
+  const accountById = Object.fromEntries(accounts.map(item => [item.id, item]));
+  const meta = accountMeta(account);
+  return (
+    <section className="budget-account-detail-view">
+      <div className="budget-account-detail-topbar">
+        <button type="button" onClick={onClose} aria-label="Back to accounts">×</button>
+        <strong>{account.name}</strong>
+        <button type="button" onClick={() => onEdit(account)} aria-label={`Edit ${account.name}`}>Edit</button>
+      </div>
+      <div className={`budget-account-detail-card budget-account-card-${meta.group}`}>
+        <span className="budget-account-logo large">{accountDisplayIcon(account)}</span>
+        <div>
+          <p>{account.institution || meta.label}</p>
+          <h2>{account.hideBalance ? "••••" : formatBudgetMoney(account.currentBalance ?? account.balance, currency)}</h2>
+          <small>{account.includeInAustraliaReady ? "Australia-ready" : account.includeInNetWorth ? "Counted in net worth" : "Hidden from net worth"}</small>
+        </div>
+        <div className="budget-account-detail-actions">
+          <button type="button" onClick={() => onOpenExpense(account.id)}>＋</button>
+          <button type="button" onClick={() => onOpenTransfer(account.id)}>⇄</button>
+        </div>
+      </div>
+      <div className="budget-account-detail-segment"><button className="active" type="button">Day</button><button type="button">Month</button></div>
+      <section className="budget-card budget-account-transactions-card">
+        <div className="budget-card-head"><div><p className="budget-kicker">Transactions</p><h2>{entries.length ? `${entries.length} account entries` : "No entries yet"}</h2></div></div>
+        {entries.length ? (
+          <div className="budget-transaction-list budget-account-entry-list">
+            {entries.map(transaction => (
+              <div className={`budget-transaction-row ${accountSignedTransactionAmount(transaction, account.id) >= 0 ? "good" : "danger"}`} key={transaction.id}>
+                <span className="budget-transaction-icon">{transaction.type === "transfer" ? "⇄" : transaction.type === "income" ? "+" : "−"}</span>
+                <div>
+                  <strong>{transaction.description || transactionTypeCopy[transaction.type]?.label}</strong>
+                  <small>{transaction.type === "transfer" ? `${accountById[transaction.accountId]?.name || "Account"} → ${accountById[transaction.toAccountId]?.name || "Account"}` : bucketById[transaction.bucketId]?.name || "No bucket"}</small>
+                </div>
+                <strong>{accountTransactionDisplayAmount(transaction, account.id, currency)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : <p className="budget-helper-copy">Use the + button to record activity for this account, or ⇄ to move money between accounts.</p>}
+      </section>
+    </section>
+  );
+}
+
+function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions, summary, onAccountsChange, onLedgersChange, onTransactionsChange }) {
+  const adjustedAccounts = calculateBudgetAccountBalances(accounts, transactions);
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(null);
+  const [addingAccount, setAddingAccount] = useState(false);
+  const [transferForm, setTransferForm] = useState(null);
+  const selectedAccount = adjustedAccounts.find(account => account.id === selectedAccountId) || null;
+
+  const groupedAccounts = adjustedAccounts.reduce((groups, account) => {
+    const key = accountGroupKey(account);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(account);
+    return groups;
+  }, {});
+
+  const addAccount = account => onAccountsChange([...accounts, account].map(normalizeBudgetAccount));
+  const saveAccount = account => {
+    onAccountsChange(patchBudgetItem(accounts, account.id, account).map(normalizeBudgetAccount));
+    setEditingAccount(null);
+  };
+  const deleteAccount = id => {
     if (accounts.length <= 1) return;
-    onChange(accounts.filter(account => account.id !== id));
+    onAccountsChange(accounts.filter(account => account.id !== id).map(normalizeBudgetAccount));
+    if (selectedAccountId === id) setSelectedAccountId(null);
+    setEditingAccount(null);
+  };
+  const openTransfer = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "transfer" }), accountId, description: "Transfer" });
+  const openAccountExpense = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "expense" }), accountId, description: "Expense" });
+  const saveTransferTransaction = () => {
+    if (!transferForm) return;
+    const amount = Math.abs(Number(transferForm.amount || 0));
+    if (!amount) return;
+    const timestamp = new Date().toISOString();
+    const next = normalizeBudgetTransaction({
+      ...transferForm,
+      amount,
+      description: transferForm.description || transactionTypeCopy[transferForm.type]?.label,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    onTransactionsChange([...transactions, next]);
+    setTransferForm(null);
   };
 
+  if (selectedAccount) {
+    return (
+      <>
+        <AccountDetailView account={selectedAccount} transactions={transactions} accounts={adjustedAccounts} ledgers={ledgers} buckets={buckets} currency={currency} onClose={() => setSelectedAccountId(null)} onEdit={setEditingAccount} onOpenTransfer={openTransfer} onOpenExpense={openAccountExpense} />
+        <AccountEditPopup account={editingAccount} ledgers={ledgers} currency={currency} canDelete={accounts.length > 1} onSave={saveAccount} onDelete={deleteAccount} onClose={() => setEditingAccount(null)} />
+        <BudgetTransactionPopup form={transferForm} setForm={setTransferForm} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} summary={summary} onSave={saveTransferTransaction} onClose={() => setTransferForm(null)} />
+      </>
+    );
+  }
+
+  const groupOrder = ["debit", "credit", "borrowed", "invest", "other"];
   return (
-    <section className="budget-card">
-      <div className="budget-card-head">
-        <div>
-          <p className="budget-kicker">Accounts</p>
-          <h2>Bank accounts & balances</h2>
-        </div>
-        <button className="tf-save" type="button" onClick={addAccount}>＋ Account</button>
-      </div>
-      <div className="budget-account-list">
-        {accounts.map(account => {
-          const adjusted = balanceById[account.id];
+    <>
+      <section className="budget-account-overview-head">
+        <button className="budget-account-filter" type="button">All⌄</button>
+        <button className="budget-round-icon" type="button" onClick={() => setAddingAccount(true)} aria-label="Add account">＋</button>
+      </section>
+      <section className="budget-card budget-account-networth-card">
+        <div className="budget-networth-eye">◉</div>
+        <div className="budget-account-chart-icon">⌁</div>
+        <p>Net Worth</p>
+        <strong>{formatBudgetMoney(summary.netWorth, currency)}</strong>
+        <div className="budget-account-networth-split"><span>Assets<br /><b>{formatBudgetMoney(Math.max(summary.netWorth, 0), currency)}</b></span><span>Australia-ready<br /><b>{formatBudgetMoney(summary.australiaReadyFunds, currency)}</b></span></div>
+        <div className="budget-networth-wave" aria-hidden="true" />
+      </section>
+      <div className="budget-account-groups">
+        {groupOrder.map(groupKey => {
+          const groupAccounts = groupedAccounts[groupKey] || [];
+          if (!groupAccounts.length) return null;
+          const meta = accountGroupMeta[groupKey] || accountGroupMeta.other;
+          const total = groupAccounts.reduce((sum, account) => sum + Number(account.currentBalance || 0), 0);
           return (
-            <div className="budget-account-row" key={account.id}>
-              <input className="budget-input" value={account.name} onChange={event => patchAccount(account.id, { name: event.target.value })} aria-label={`${account.name} name`} />
-              <SelectInput value={account.type} options={BUDGET_ACCOUNT_TYPES} onChange={type => patchAccount(account.id, { type })} ariaLabel={`${account.name} type`} />
-              <MoneyInput value={account.balance} onChange={balance => patchAccount(account.id, { balance })} ariaLabel={`${account.name} balance`} />
-              <select className="budget-input" value={account.ledgerId} onChange={event => patchAccount(account.id, { ledgerId: event.target.value })} aria-label={`${account.name} ledger`}>
-                {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
-              </select>
-              <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInNetWorth)} onChange={event => patchAccount(account.id, { includeInNetWorth: event.target.checked })} /> Net worth</label>
-              <label className="budget-check"><input type="checkbox" checked={Boolean(account.includeInAustraliaReady)} onChange={event => patchAccount(account.id, { includeInAustraliaReady: event.target.checked })} /> Australia-ready</label>
-              <button className="tf-cancel" type="button" onClick={() => removeAccount(account.id)} disabled={accounts.length <= 1}>Remove</button>
-              <div className="budget-account-impact">
-                <span>After transactions</span>
-                <strong>{formatBudgetMoney(adjusted?.currentBalance ?? account.balance, currency)}</strong>
-                <small>{adjusted?.transactionDelta ? `${adjusted.transactionDelta > 0 ? "+" : ""}${formatBudgetMoney(adjusted.transactionDelta, currency)} from entries` : "No entries yet"}</small>
+            <section className="budget-account-group" key={groupKey}>
+              <div className="budget-account-group-head"><h2>{meta.label}</h2><span>{groupKey === "credit" || groupKey === "borrowed" ? "Owed" : "Bal."} {formatBudgetMoney(Math.abs(total), currency)}⌄</span></div>
+              <div className="budget-account-card-grid">
+                {groupAccounts.map(account => <AccountCard key={account.id} account={account} currency={currency} onOpen={setSelectedAccountId} />)}
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
-    </section>
+      <button className="budget-account-transfer-fab" type="button" onClick={() => openTransfer()} aria-label="Transfer between accounts">⇄</button>
+      <AccountAddSheet open={addingAccount} currency={currency} ledgers={ledgers} onAdd={addAccount} onClose={() => setAddingAccount(false)} />
+      <BudgetTransactionPopup form={transferForm} setForm={setTransferForm} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} summary={summary} onSave={saveTransferTransaction} onClose={() => setTransferForm(null)} />
+      <LedgersPanel ledgers={ledgers} accounts={accounts} onChange={onLedgersChange} compact />
+    </>
   );
 }
 
@@ -878,16 +1131,10 @@ export function BudgetApp({
 
   return (
     <main className={`budget-page budget-page-${safePage} phase-page`}>
-      <BudgetHero activePage={safePage} />
+      {safePage !== "account" && <BudgetHero activePage={safePage} />}
 
       {safePage === "home" && <BudgetHomePage summary={summary} currency={currency} buckets={buckets} accounts={accounts} ledgers={ledgers} transactions={transactions} onTransactionsChange={onTransactionsChange} />}
-      {safePage === "account" && (
-        <>
-          <BudgetMetrics summary={summary} currency={currency} />
-          <AccountsPanel accounts={accounts} ledgers={ledgers} currency={currency} transactions={transactions} onChange={onAccountsChange} />
-          <LedgersPanel ledgers={ledgers} accounts={accounts} onChange={onLedgersChange} />
-        </>
-      )}
+      {safePage === "account" && <BudgetAccountPage accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} transactions={transactions} summary={summary} onAccountsChange={onAccountsChange} onLedgersChange={onLedgersChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onTransactionsChange={onTransactionsChange} />}
       {safePage === "budget" && (
         <>
