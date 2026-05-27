@@ -133,6 +133,92 @@ function formFromTransaction(transaction, fallback) {
   };
 }
 
+function selectedBudgetBucket(form, buckets) {
+  if (!form || form.type === "transfer") return null;
+  return buckets.find(bucket => bucket.id === form.bucketId) || null;
+}
+
+function quickTransactionChips(bucket, type) {
+  if (type === "income") return ["Salary", "Side income", "Returned money", "Interest"];
+  if (!bucket) return ["Lunch", "Grab", "Shopping", "Activity"];
+  const name = String(bucket.name || "").toLowerCase();
+  if (name.includes("food")) return ["Lunch", "Dinner", "Groceries", "Coffee"];
+  if (name.includes("transport")) return ["Grab", "Taxi", "Parking", "Public Trans"];
+  if (name.includes("travel") || name.includes("photo")) return ["Flight", "Trip", "Lens", "Hotel"];
+  if (name.includes("business")) return ["Ads", "Tools", "Stock", "Software"];
+  if (name.includes("mother")) return ["Mother", "Family", "Transfer", "Gift"];
+  if (name.includes("australia")) return ["Australia Fund", "Move fund", "Deposit", "Buffer"];
+  if (name.includes("investment")) return ["Investment", "ETF", "Top up", "Dividend"];
+  return ["Shopping", "Activity", "Planned", "Misc"];
+}
+
+function updateKeypadAmount(value, key) {
+  const current = String(value || "");
+  if (key === "backspace") return current.slice(0, -1);
+  if (key === "clear") return "";
+  if (key === ".") return current.includes(".") ? current : `${current || "0"}.`;
+  const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
+  const [, cents = ""] = next.split(".");
+  return cents.length > 2 ? current : next;
+}
+
+function BudgetAmountKeypad({ value, onChange, onSave, currency }) {
+  const keys = ["7", "8", "9", "backspace", "4", "5", "6", "clear", "1", "2", "3", ".", currency, "0", "00", "save"];
+  const handleKey = key => {
+    if (key === currency) return;
+    if (key === "save") return onSave();
+    if (key === "00") return onChange(updateKeypadAmount(updateKeypadAmount(value, "0"), "0"));
+    return onChange(updateKeypadAmount(value, key));
+  };
+  return (
+    <div className="budget-popup-keypad" aria-label="Transaction amount keypad">
+      {keys.map(key => (
+        <button
+          key={key}
+          className={key === "save" ? "confirm" : key === currency ? "currency" : ""}
+          type="button"
+          onClick={() => handleKey(key)}
+          disabled={key === currency}
+          aria-label={key === "backspace" ? "Delete digit" : key === "clear" ? "Clear amount" : key === "save" ? "Record transaction" : key}
+        >
+          {key === "backspace" ? "⌫" : key === "clear" ? "C" : key === "save" ? "✓" : key}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, currency, summary, onSave, onClose }) {
+  if (!form) return null;
+  const contextBucket = selectedBudgetBucket(form, buckets);
+  const title = contextBucket?.name || form.description || transactionTypeCopy[form.type]?.label || "Transaction";
+  return (
+    <div className="budget-transaction-popup-overlay" role="dialog" aria-modal="true" aria-label={`Record ${title}`}>
+      <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close transaction recorder" />
+      <div className="budget-transaction-popup-sheet">
+        <div className="budget-popup-header">
+          <button type="button" onClick={onClose} aria-label="Close transaction recorder">×</button>
+          <strong>{title}</strong>
+          <span aria-hidden="true">☷</span>
+        </div>
+        <BudgetTransactionForm
+          form={form}
+          setForm={setForm}
+          accounts={accounts}
+          ledgers={ledgers}
+          buckets={buckets}
+          currency={currency}
+          onSave={onSave}
+          onCancelEdit={onClose}
+          popup
+          contextBucket={contextBucket}
+          summary={summary}
+        />
+      </div>
+    </div>
+  );
+}
+
 function EditableProfileCard({ profile, onChange }) {
   return (
     <section className="budget-card budget-profile-card">
@@ -449,19 +535,17 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
         </div>
         <p className="budget-helper-copy budget-home-record-hint">Tap an Expense or Income card to record a transaction from Home.</p>
       </section>
-      {homeForm && (
-        <BudgetTransactionForm
-          form={homeForm}
-          setForm={setHomeForm}
-          accounts={accounts}
-          ledgers={ledgers}
-          buckets={buckets}
-          currency={currency}
-          onSave={saveHomeTransaction}
-          onCancelEdit={closeHomeTransaction}
-          showCancel
-        />
-      )}
+      <BudgetTransactionPopup
+        form={homeForm}
+        setForm={setHomeForm}
+        accounts={accounts}
+        ledgers={ledgers}
+        buckets={buckets}
+        currency={currency}
+        summary={summary}
+        onSave={saveHomeTransaction}
+        onClose={closeHomeTransaction}
+      />
       <section className="budget-card budget-networth-card">
         <div className="budget-networth-inner">
           <p className="budget-kicker">Net worth</p>
@@ -498,18 +582,24 @@ function BudgetHomePage({ summary, currency, buckets, accounts, ledgers, transac
   );
 }
 
-function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, currency, onSave, onCancelEdit, showCancel = false }) {
+function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, currency, onSave, onCancelEdit, showCancel = false, popup = false, contextBucket = null, summary = null }) {
   const update = patch => setForm(current => ({ ...current, ...patch }));
   const typeMeta = transactionTypeCopy[form.type] || transactionTypeCopy.expense;
+  const chips = quickTransactionChips(contextBucket, form.type);
+  const spent = contextBucket ? Number(summary?.bucketSpendById?.[contextBucket.id] || 0) : 0;
+  const budgeted = contextBucket ? Number(contextBucket.monthlyAmount || 0) : 0;
+  const remaining = budgeted - spent;
   return (
-    <section className="budget-card budget-transaction-entry-card">
-      <div className="budget-card-head">
-        <div>
-          <p className="budget-kicker">Quick record</p>
-          <h2>{form.id ? "Edit transaction" : "Add transaction"}</h2>
+    <section className={`budget-card budget-transaction-entry-card ${popup ? "budget-transaction-popup-card" : ""}`}>
+      {!popup && (
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Quick record</p>
+            <h2>{form.id ? "Edit transaction" : "Add transaction"}</h2>
+          </div>
+          {form.id ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Cancel edit</button> : showCancel ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Close</button> : null}
         </div>
-        {form.id ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Cancel edit</button> : showCancel ? <button className="tf-cancel" type="button" onClick={onCancelEdit}>Close</button> : null}
-      </div>
+      )}
       <div className="budget-transaction-type-tabs" role="tablist" aria-label="Transaction type">
         {BUDGET_TRANSACTION_TYPES.map(type => (
           <button
@@ -525,16 +615,31 @@ function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, curr
       <div className={`budget-amount-stage budget-amount-${typeMeta.tone}`}>
         <span>{typeMeta.label}</span>
         <input
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
           value={form.amount}
-          placeholder="0.00"
+          placeholder="0"
           aria-label="Transaction amount"
-          onChange={event => update({ amount: event.target.value })}
+          onChange={event => update({ amount: event.target.value.replace(/[^0-9.]/g, "") })}
         />
         <small>{currency}</small>
       </div>
+      {popup && contextBucket && (
+        <div className="budget-popup-progress">
+          <div className="spent"><strong>{formatBudgetMoney(spent, currency)}</strong><span>{budgeted ? `${Math.min(100, Math.round((spent / budgeted) * 100))}% Spent` : "Spent"}</span></div>
+          <div className="left"><strong>{formatBudgetMoney(Math.max(0, remaining), currency)}</strong><span>{remaining < 0 ? "Exceeded" : "Left"}</span></div>
+        </div>
+      )}
+      {popup && chips.length ? (
+        <div className="budget-popup-chip-row" aria-label="Quick transaction descriptions">
+          {chips.map(chip => <button key={chip} type="button" onClick={() => update({ description: chip })}>{chip}</button>)}
+        </div>
+      ) : null}
+      {popup && (
+        <div className="budget-popup-tool-row" aria-label="Transaction tools">
+          <span>🏷️ Tag</span><span>📝 Note</span><span>📅 Today</span><span>🔁 Recurring</span><span>⊘ Exclude</span><span>⚙️ More</span>
+        </div>
+      )}
       <div className="budget-form-grid budget-transaction-form-grid">
         <label>
           <FieldLabel>Date</FieldLabel>
@@ -579,10 +684,14 @@ function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, curr
         </label>
       </div>
       <textarea className="budget-input budget-notes" value={form.notes} placeholder="Optional note" onChange={event => update({ notes: event.target.value })} aria-label="Transaction notes" />
-      <div className="budget-transaction-actions">
-        <button className="tf-save" type="button" onClick={onSave}>{form.id ? "Save changes" : "Record transaction"}</button>
-        <span>{formatBudgetMoney(Number(form.amount || 0), currency)} ready to record</span>
-      </div>
+      {popup ? (
+        <BudgetAmountKeypad value={form.amount} onChange={amount => update({ amount })} onSave={onSave} currency={currency} />
+      ) : (
+        <div className="budget-transaction-actions">
+          <button className="tf-save" type="button" onClick={onSave}>{form.id ? "Save changes" : "Record transaction"}</button>
+          <span>{formatBudgetMoney(Number(form.amount || 0), currency)} ready to record</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -590,7 +699,7 @@ function BudgetTransactionForm({ form, setForm, accounts, ledgers, buckets, curr
 function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, currency, onTransactionsChange }) {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const emptyForm = useMemo(() => createEmptyTransactionForm({ accounts, ledgers, buckets }), [accounts, ledgers, buckets]);
-  const [form, setForm] = useState(() => emptyForm);
+  const [form, setForm] = useState(null);
   const calendarDays = buildBudgetCalendarDays(monthDate);
   const dailyTotals = calculateBudgetDailyTotals(transactions);
   const grouped = groupBudgetTransactionsByDate(transactions);
@@ -605,8 +714,10 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
   const monthIncome = monthTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount || 0), 0);
   const monthExpense = monthTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-  const resetForm = (type = form.type || "expense") => setForm(createEmptyTransactionForm({ accounts, ledgers, buckets, type }));
+  const openTransaction = (type = "expense") => setForm(createEmptyTransactionForm({ accounts, ledgers, buckets, type }));
+  const closeTransaction = () => setForm(null);
   const saveTransaction = () => {
+    if (!form) return;
     const amount = Math.abs(Number(form.amount || 0));
     if (!amount) return;
     const timestamp = new Date().toISOString();
@@ -619,7 +730,7 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
     });
     const others = transactions.filter(transaction => transaction.id !== next.id);
     onTransactionsChange([...others, next]);
-    resetForm(next.type);
+    setForm(null);
   };
   const editTransaction = transaction => setForm(formFromTransaction(transaction, emptyForm));
   const deleteTransaction = id => onTransactionsChange(transactions.filter(transaction => transaction.id !== id));
@@ -627,7 +738,21 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
 
   return (
     <>
-      <BudgetTransactionForm form={form} setForm={setForm} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onSave={saveTransaction} onCancelEdit={() => resetForm()} />
+      <section className="budget-card budget-transaction-launch-card">
+        <div className="budget-card-head">
+          <div>
+            <p className="budget-kicker">Quick record</p>
+            <h2>Add transaction</h2>
+          </div>
+          <span className="budget-editable-pill">Popup</span>
+        </div>
+        <div className="budget-launch-actions">
+          <button type="button" onClick={() => openTransaction("expense")}>− Expense</button>
+          <button type="button" onClick={() => openTransaction("income")}>＋ Income</button>
+          <button type="button" onClick={() => openTransaction("transfer")}>⇄ Transfer</button>
+        </div>
+      </section>
+      <BudgetTransactionPopup form={form} setForm={setForm} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} summary={null} onSave={saveTransaction} onClose={closeTransaction} />
       <section className="budget-card budget-calendar-card">
         <div className="budget-card-head budget-month-head">
           <button className="budget-round-icon" type="button" aria-label="Previous month" onClick={() => moveMonth(-1)}>‹</button>

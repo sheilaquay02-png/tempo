@@ -3512,6 +3512,231 @@ body.tempo-modal-locked{
   .budget-home-record-hint{font-size:11px;}
 }
 
+
+/* ── Phase 143 Budget popup recorder hotfix ─────────────────────────────── */
+.budget-transaction-popup-overlay{
+  position:fixed;
+  inset:0;
+  z-index:12000;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:18px;
+  pointer-events:auto;
+}
+.budget-transaction-popup-backdrop{
+  position:absolute;
+  inset:0;
+  border:0;
+  background:rgba(25,20,35,.28);
+  backdrop-filter:blur(2px);
+  cursor:pointer;
+}
+.budget-transaction-popup-sheet{
+  position:relative;
+  z-index:1;
+  width:min(620px,100%);
+  max-height:min(92vh,980px);
+  overflow:auto;
+  border-radius:34px 34px 24px 24px;
+  background:var(--surface);
+  box-shadow:0 -18px 60px rgba(42,31,64,.22);
+  padding:18px;
+  animation:budgetPopupRise .18s ease-out;
+}
+@keyframes budgetPopupRise{from{transform:translateY(18px);opacity:.6;}to{transform:translateY(0);opacity:1;}}
+.budget-popup-header{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) 44px;
+  align-items:center;
+  gap:8px;
+  margin:-2px -2px 10px;
+  padding:2px 2px 10px;
+  background:linear-gradient(180deg,var(--surface) 78%,rgba(255,255,255,0));
+}
+.budget-popup-header strong{
+  text-align:center;
+  color:var(--text);
+  font-size:21px;
+  font-weight:950;
+  letter-spacing:-.04em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.budget-popup-header button,.budget-popup-header span{
+  width:40px;
+  height:40px;
+  border:0;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(var(--accent-rgb),.08);
+  color:var(--text);
+  font-size:24px;
+  font-weight:750;
+}
+.budget-popup-header button{cursor:pointer;background:transparent;}
+.budget-popup-header span{color:var(--accent);font-size:18px;}
+.budget-transaction-popup-card{
+  border:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+  background:transparent!important;
+  gap:10px!important;
+}
+.budget-transaction-popup-card .budget-transaction-type-tabs{
+  width:min(440px,100%);
+  margin:0 auto 2px;
+}
+.budget-transaction-popup-card .budget-amount-stage{
+  min-height:210px;
+  border:0;
+  background:transparent;
+}
+.budget-transaction-popup-card .budget-amount-stage span{
+  font-size:11px;
+  color:var(--text3);
+}
+.budget-transaction-popup-card .budget-amount-stage input{
+  font-size:72px;
+  font-weight:250;
+  color:var(--text);
+}
+.budget-popup-progress{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  overflow:hidden;
+  border-radius:0;
+  margin:0 -18px;
+}
+.budget-popup-progress > div{
+  min-height:58px;
+  padding:12px 18px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
+  color:white;
+}
+.budget-popup-progress .spent{background:#41C98A;}
+.budget-popup-progress .left{background:rgba(65,201,138,.22);color:#2F7F62;align-items:flex-end;text-align:right;}
+.budget-popup-progress strong{font-size:18px;font-weight:950;letter-spacing:-.04em;}
+.budget-popup-progress span{font-size:13px;font-weight:850;}
+.budget-popup-chip-row{
+  display:flex;
+  gap:8px;
+  overflow:auto;
+  padding:6px 0 2px;
+  scrollbar-width:none;
+}
+.budget-popup-chip-row::-webkit-scrollbar{display:none;}
+.budget-popup-chip-row button{
+  flex:0 0 auto;
+  border:0;
+  border-radius:999px;
+  padding:9px 17px;
+  background:var(--surface-soft);
+  color:var(--text2);
+  font-size:13px;
+  font-weight:850;
+  cursor:pointer;
+}
+.budget-popup-tool-row{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:0;
+  margin:2px -18px 4px;
+  padding:9px 10px;
+  background:rgba(255,223,117,.18);
+  border-top:1px solid rgba(var(--accent-rgb),.08);
+  border-bottom:1px solid rgba(var(--accent-rgb),.08);
+}
+.budget-popup-tool-row span{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  min-height:42px;
+  border-right:1px solid rgba(var(--accent-rgb),.12);
+  color:var(--accent);
+  font-size:10px;
+  font-weight:850;
+  text-align:center;
+}
+.budget-popup-tool-row span:last-child{border-right:0;}
+.budget-transaction-popup-card .budget-transaction-form-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.budget-transaction-popup-card .budget-notes{
+  min-height:58px;
+}
+.budget-popup-keypad{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  margin-top:4px;
+}
+.budget-popup-keypad button{
+  min-height:58px;
+  border:0;
+  border-radius:8px;
+  background:var(--surface-soft);
+  color:var(--text);
+  font-size:25px;
+  font-weight:850;
+  cursor:pointer;
+}
+.budget-popup-keypad button.currency{
+  color:var(--accent);
+  font-size:15px;
+  line-height:1.1;
+  cursor:default;
+  opacity:.9;
+}
+.budget-popup-keypad button.confirm{
+  background:#F7D94D;
+  color:#4C4078;
+  font-size:36px;
+  grid-row:span 1;
+}
+.budget-transaction-launch-card{display:flex;flex-direction:column;gap:12px;}
+.budget-launch-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.budget-launch-actions button{
+  border:0;
+  border-radius:18px;
+  min-height:54px;
+  background:var(--surface-soft);
+  color:var(--text);
+  font-size:14px;
+  font-weight:950;
+  cursor:pointer;
+}
+.budget-launch-actions button:first-child{background:rgba(208,90,123,.10);color:#D05A7B;}
+.budget-launch-actions button:nth-child(2){background:rgba(47,155,114,.12);color:#2F9B72;}
+.dark .budget-transaction-popup-sheet{background:var(--dark-surface);}
+.dark .budget-popup-header{background:linear-gradient(180deg,var(--dark-surface) 78%,rgba(0,0,0,0));}
+.dark .budget-transaction-popup-backdrop{background:rgba(0,0,0,.48);}
+@media(max-width:768px){
+  .budget-transaction-popup-overlay{padding:0;align-items:flex-end;}
+  .budget-transaction-popup-sheet{width:100%;max-height:95vh;border-radius:32px 32px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));}
+  .budget-popup-header strong{font-size:20px;}
+  .budget-transaction-popup-card .budget-amount-stage{min-height:190px;}
+  .budget-transaction-popup-card .budget-amount-stage input{font-size:62px;}
+  .budget-popup-progress{margin:0 -16px;}
+  .budget-popup-tool-row{margin-inline:-16px;grid-template-columns:repeat(6,minmax(0,1fr));padding:8px 4px;}
+  .budget-popup-tool-row span{font-size:9px;}
+  .budget-transaction-popup-card .budget-transaction-form-grid{grid-template-columns:1fr 1fr!important;}
+  .budget-popup-keypad button{min-height:54px;font-size:23px;border-radius:7px;}
+  .budget-launch-actions{grid-template-columns:1fr;}
+}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }
