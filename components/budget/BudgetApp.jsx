@@ -773,6 +773,241 @@ function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, ...a
   );
 }
 
+
+function selectedBudgetMonthKey(monthDate) {
+  return `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function filterBudgetTransactionsByMonth(transactions, monthDate) {
+  const monthKey = selectedBudgetMonthKey(monthDate);
+  return normalizeBudgetTransactions(transactions).filter(transaction => String(transaction.date || "").startsWith(monthKey));
+}
+
+function budgetMonthProgress(monthDate) {
+  const now = new Date();
+  const firstOfTarget = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const firstOfCurrent = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (firstOfTarget < firstOfCurrent) return 100;
+  if (firstOfTarget > firstOfCurrent) return 0;
+  const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.min(100, Math.max(1, Math.round((now.getDate() / totalDays) * 100)));
+}
+
+function budgetPaceMeta({ bucket, actual, monthProgress }) {
+  const planned = Number(bucket.monthlyAmount || 0);
+  if (bucket.cashFlowType === "income") {
+    if (planned <= 0) return { label: actual > 0 ? "Extra income" : "No plan", tone: actual > 0 ? "good" : "neutral", percent: actual > 0 ? 100 : 0 };
+    const percent = Math.round((actual / planned) * 100);
+    if (percent >= 100) return { label: "Received", tone: "good", percent: 100 };
+    if (monthProgress >= 70 && percent < 50) return { label: "Behind", tone: "warning", percent };
+    return { label: "Expected", tone: "neutral", percent };
+  }
+  if (planned <= 0) return { label: actual > 0 ? "Unplanned spend" : "No monthly plan", tone: actual > 0 ? "warning" : "neutral", percent: actual > 0 ? 100 : 0 };
+  const percent = Math.round((actual / planned) * 100);
+  if (percent > 100) return { label: "Exceeded", tone: "danger", percent: 100 };
+  if (monthProgress > 0 && percent > monthProgress + 15) return { label: "Too fast", tone: "warning", percent };
+  if (monthProgress > 0 && monthProgress - percent > 25) return { label: "Under pace", tone: "good", percent };
+  return { label: "On track", tone: "neutral", percent };
+}
+
+function BudgetPlanBucketCard({ bucket, actual, currency, monthProgress, onEdit }) {
+  const planned = Number(bucket.monthlyAmount || 0);
+  const isIncome = bucket.cashFlowType === "income";
+  const remaining = planned - actual;
+  const pace = budgetPaceMeta({ bucket, actual, monthProgress });
+  const progressPercent = Math.min(100, Math.max(0, pace.percent || 0));
+  const typeCopy = String(bucket.type || "other").replaceAll("_", " ");
+  return (
+    <article className={`budget-plan-bucket-card budget-plan-bucket-${pace.tone} ${bucket.isProtected ? "protected" : ""}`}>
+      <div className="budget-plan-bucket-top">
+        <div>
+          <p className="budget-kicker">{isIncome ? "Income card" : typeCopy}</p>
+          <h3>{bucket.name}</h3>
+        </div>
+        <button className="budget-home-card-edit" type="button" onClick={onEdit} aria-label={`Edit ${bucket.name}`}>✎</button>
+      </div>
+      <div className="budget-plan-bucket-money">
+        <span>{isIncome ? "Received" : "Spent"}</span>
+        <strong>{formatBudgetMoney(actual, currency)}</strong>
+      </div>
+      <div className="budget-plan-bucket-split">
+        <span>Monthly<br /><b>{formatBudgetMoney(planned, currency)}</b></span>
+        <span>{isIncome ? "Still expected" : remaining < 0 ? "Exceeded" : "Left"}<br /><b className={remaining < 0 ? "danger" : ""}>{formatBudgetMoney(Math.abs(remaining), currency)}</b></span>
+      </div>
+      <div className="budget-plan-progress" aria-label={`${bucket.name} progress ${progressPercent}%`}>
+        <span style={{ width: `${progressPercent}%` }} />
+      </div>
+      <div className="budget-plan-bucket-footer">
+        <em className={`pace-${pace.tone}`}>{pace.label}</em>
+        {bucket.isProtected ? <em className="protected-pill">Protected</em> : null}
+        {bucket.damageControlPriority ? <em>Repair #{bucket.damageControlPriority}</em> : null}
+      </div>
+    </article>
+  );
+}
+
+function BudgetPlanPage({ profile, accounts, ledgers, buckets, transactions, currency, onProfileChange, onBucketsChange }) {
+  const [planMonthDate, setPlanMonthDate] = useState(() => new Date());
+  const [selectedLedgerId, setSelectedLedgerId] = useState(() => ledgers[0]?.id || "daily-ledger");
+  const [cardDraft, setCardDraft] = useState(null);
+  const selectedLedger = ledgers.find(ledger => ledger.id === selectedLedgerId) || ledgers[0] || { id: "daily-ledger", name: "Daily" };
+  const monthTransactions = useMemo(
+    () => filterBudgetTransactionsByMonth(transactions, planMonthDate),
+    [transactions, planMonthDate],
+  );
+  const planSummary = useMemo(
+    () => calculateBudgetSummary({ profile, accounts, ledgers, buckets, transactions: monthTransactions }),
+    [profile, accounts, ledgers, buckets, monthTransactions],
+  );
+  const monthProgress = budgetMonthProgress(planMonthDate);
+  const ledgerBuckets = buckets.filter(bucket => bucket.ledgerId === selectedLedger.id);
+  const expenseBuckets = ledgerBuckets.filter(bucket => bucket.cashFlowType !== "income");
+  const incomeBuckets = ledgerBuckets.filter(bucket => bucket.cashFlowType === "income");
+  const ledgerAllocated = expenseBuckets.reduce((sum, bucket) => sum + Number(bucket.monthlyAmount || 0), 0);
+  const ledgerPlannedIncome = incomeBuckets.reduce((sum, bucket) => sum + Number(bucket.monthlyAmount || 0), 0);
+  const ledgerSpent = expenseBuckets.reduce((sum, bucket) => sum + Number(planSummary.bucketSpendById?.[bucket.id] || 0), 0);
+  const ledgerReceived = incomeBuckets.reduce((sum, bucket) => sum + Number(planSummary.bucketIncomeById?.[bucket.id] || 0), 0);
+  const unallocatedTone = planSummary.remaining < 0 ? "danger" : planSummary.remaining > 0 ? "good" : "neutral";
+  const changePlanMonth = delta => setPlanMonthDate(current => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  const openCardEditor = (cashFlowType, bucket = null) => {
+    const defaultAccount = accounts.find(account => account.ledgerId === selectedLedger.id) || accounts[0];
+    setCardDraft(bucket ? { ...normalizeBudgetBucket(bucket), isNew: false } : {
+      id: "",
+      name: cashFlowType === "income" ? "New income card" : "New expense card",
+      monthlyAmount: 0,
+      type: cashFlowType === "income" ? "income" : "flexible_spending",
+      cashFlowType,
+      group: cashFlowType === "income" ? "Income" : "Flexible spending",
+      accountId: defaultAccount?.id || "main-bank",
+      ledgerId: selectedLedger.id,
+      isProtected: false,
+      rolloverEnabled: cashFlowType === "expense",
+      damageControlPriority: null,
+      notes: "",
+      isNew: true,
+    });
+  };
+  const closeCardEditor = () => setCardDraft(null);
+  const saveCardDraft = () => {
+    if (!cardDraft) return;
+    const timestamp = new Date().toISOString();
+    const normalized = normalizeBudgetBucket({
+      ...cardDraft,
+      id: cardDraft.id || budgetUid("card"),
+      updatedAt: timestamp,
+    });
+    const nextBuckets = cardDraft.isNew
+      ? [...buckets, normalized]
+      : patchBudgetItem(buckets, normalized.id, normalized).map(normalizeBudgetBucket);
+    onBucketsChange(nextBuckets);
+    setCardDraft(null);
+  };
+  const removeCardDraft = () => {
+    if (!cardDraft?.id || buckets.length <= 1) return;
+    if (cardDraft.isProtected) {
+      const confirmed = window.confirm("This is a protected card. Removing it may affect your Australia or investment plan. Continue?");
+      if (!confirmed) return;
+    }
+    onBucketsChange(buckets.filter(bucket => bucket.id !== cardDraft.id).map(normalizeBudgetBucket));
+    setCardDraft(null);
+  };
+
+  return (
+    <>
+      <section className="budget-card budget-plan-header-card">
+        <div className="budget-plan-toolbar">
+          <select className="budget-ledger-home-select" value={selectedLedger.id} onChange={event => setSelectedLedgerId(event.target.value)} aria-label="Choose budget plan ledger">
+            {ledgers.map(ledger => <option key={ledger.id} value={ledger.id}>{ledger.name}</option>)}
+          </select>
+          <div className="budget-home-month-switcher" aria-label="Budget plan month selector">
+            <button type="button" onClick={() => changePlanMonth(-1)} aria-label="Previous budget plan month">‹</button>
+            <strong>{monthTitle(planMonthDate)}</strong>
+            <button type="button" onClick={() => changePlanMonth(1)} aria-label="Next budget plan month">›</button>
+          </div>
+          <span className="budget-plan-month-progress">{monthProgress}% of month</span>
+        </div>
+        <div className="budget-plan-summary-grid">
+          <BudgetMetric label="Monthly income" value={formatBudgetMoney(planSummary.monthlyIncome, currency)} detail="Editable below" />
+          <BudgetMetric label="Allocated" value={formatBudgetMoney(planSummary.allocated, currency)} detail={`${buckets.filter(bucket => bucket.cashFlowType !== "income").length} expense cards`} />
+          <BudgetMetric label={planSummary.remaining < 0 ? "Overallocated" : "Unallocated"} value={formatBudgetMoney(Math.abs(planSummary.remaining), currency)} tone={unallocatedTone} detail={planSummary.remaining === 0 ? "Budget balances exactly" : planSummary.remaining < 0 ? "Reduce cards or raise income" : "Available to assign"} />
+          <BudgetMetric label="Protected" value={formatBudgetMoney(planSummary.protectedMonthly, currency)} detail="Australia + investments" />
+        </div>
+        {planSummary.remaining < 0 && <p className="budget-plan-warning">Your plan is overallocated. The safest fix is to reduce flexible cards before protected Australia or investment cards.</p>}
+      </section>
+
+      <div className="budget-layout-grid budget-plan-editor-grid">
+        <EditableProfileCard profile={profile} onChange={onProfileChange} />
+        <section className="budget-card budget-plan-ledger-snapshot">
+          <p className="budget-kicker">{selectedLedger.name} ledger</p>
+          <h2>{selectedLedger.name} plan</h2>
+          <div className="budget-plan-ledger-stats">
+            <span>Planned income <b>{formatBudgetMoney(ledgerPlannedIncome, currency)}</b></span>
+            <span>Received <b>{formatBudgetMoney(ledgerReceived, currency)}</b></span>
+            <span>Allocated spend <b>{formatBudgetMoney(ledgerAllocated, currency)}</b></span>
+            <span>Spent <b>{formatBudgetMoney(ledgerSpent, currency)}</b></span>
+          </div>
+        </section>
+      </div>
+
+      <section className="budget-card budget-plan-section-card">
+        <div className="budget-card-flow-head">
+          <div>
+            <p className="budget-kicker">Expense cards</p>
+            <h2>{selectedLedger.name} spending pace</h2>
+          </div>
+          <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("expense")}>＋ Card</button>
+        </div>
+        <div className="budget-plan-card-grid">
+          {expenseBuckets.length ? expenseBuckets.map(bucket => (
+            <BudgetPlanBucketCard
+              key={bucket.id}
+              bucket={bucket}
+              actual={planSummary.bucketSpendById?.[bucket.id] || 0}
+              currency={currency}
+              monthProgress={monthProgress}
+              onEdit={() => openCardEditor("expense", bucket)}
+            />
+          )) : <p className="budget-helper-copy">No expense cards in {selectedLedger.name} yet.</p>}
+        </div>
+      </section>
+
+      <section className="budget-card budget-plan-section-card">
+        <div className="budget-card-flow-head">
+          <div>
+            <p className="budget-kicker">Income cards</p>
+            <h2>{selectedLedger.name} income plan</h2>
+          </div>
+          <button className="budget-card-add-button" type="button" onClick={() => openCardEditor("income")}>＋ Card</button>
+        </div>
+        <div className="budget-plan-card-grid income">
+          {incomeBuckets.length ? incomeBuckets.map(bucket => (
+            <BudgetPlanBucketCard
+              key={bucket.id}
+              bucket={bucket}
+              actual={planSummary.bucketIncomeById?.[bucket.id] || 0}
+              currency={currency}
+              monthProgress={monthProgress}
+              onEdit={() => openCardEditor("income", bucket)}
+            />
+          )) : <p className="budget-helper-copy">No income cards in {selectedLedger.name} yet.</p>}
+        </div>
+      </section>
+
+      <BudgetCardEditorPopup
+        draft={cardDraft}
+        setDraft={setCardDraft}
+        accounts={accounts}
+        ledgers={ledgers}
+        currency={currency}
+        canDelete={Boolean(cardDraft?.id && buckets.length > 1)}
+        onSave={saveCardDraft}
+        onDelete={removeCardDraft}
+        onClose={closeCardEditor}
+      />
+    </>
+  );
+}
+
 function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, onBucketsChange, onTransactionsChange }) {
   const [homeForm, setHomeForm] = useState(null);
   const [cardDraft, setCardDraft] = useState(null);
@@ -1323,14 +1558,16 @@ export function BudgetApp({
       {safePage === "account" && <BudgetAccountPage accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} transactions={transactions} summary={summary} onAccountsChange={onAccountsChange} onTransactionsChange={onTransactionsChange} />}
       {safePage === "transactions" && <BudgetTransactionsPage transactions={transactions} accounts={accounts} ledgers={ledgers} buckets={buckets} currency={currency} onTransactionsChange={onTransactionsChange} />}
       {safePage === "budget" && (
-        <>
-          <BudgetMetrics summary={summary} currency={currency} />
-          <div className="budget-layout-grid">
-            <EditableProfileCard profile={profile} onChange={onProfileChange} />
-            <BudgetRoadmapCard />
-          </div>
-          <BucketsPanel buckets={buckets} accounts={accounts} ledgers={ledgers} currency={currency} transactions={transactions} onChange={onBucketsChange} />
-        </>
+        <BudgetPlanPage
+          profile={profile}
+          accounts={accounts}
+          ledgers={ledgers}
+          buckets={buckets}
+          transactions={transactions}
+          currency={currency}
+          onProfileChange={onProfileChange}
+          onBucketsChange={onBucketsChange}
+        />
       )}
       {safePage === "settings" && <BudgetSettingsPage profile={profile} accounts={accounts} ledgers={ledgers} buckets={buckets} transactions={transactions} />}
     </main>
