@@ -9,6 +9,9 @@ test('Budget Home and Transactions use popup transaction recorder', () => {
   assert.match(budgetApp, /BudgetAmountKeypad/);
   assert.match(budgetApp, /budget-collapse-toggle/);
   assert.match(budgetApp, /openHomeTransaction\("expense", bucket\.id\)/);
+  const popupSource = budgetApp.slice(budgetApp.indexOf('function BudgetTransactionPopup'), budgetApp.indexOf('function EditableProfileCard'));
+  assert.match(popupSource, /summary=\{summary\}/);
+  assert.doesNotMatch(popupSource, /summary=\{monthSummary\}/);
   assert.match(budgetApp, /onClick=\{\(\) => openTransaction\("income"\)\}/);
   assert.doesNotMatch(budgetApp, /<BudgetTransactionForm form=\{form\} setForm=\{setForm\} accounts=\{accounts\} ledgers=\{ledgers\} buckets=\{buckets\} currency=\{currency\} onSave=\{saveTransaction\}/);
 });

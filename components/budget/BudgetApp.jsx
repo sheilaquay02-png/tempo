@@ -214,7 +214,7 @@ function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, cur
           onCancelEdit={onClose}
           popup
           contextBucket={contextBucket}
-          summary={monthSummary}
+          summary={summary}
         />
       </div>
     </div>
@@ -885,6 +885,7 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
             <strong>{monthTitle(homeMonthDate)}</strong>
             <button type="button" onClick={() => changeHomeMonth(1)} aria-label="Next budget month">›</button>
           </div>
+          <span className="budget-home-toolbar-spacer" aria-hidden="true" />
         </div>
 
         <div className="budget-month-total-row budget-section-control-row">

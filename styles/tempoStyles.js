@@ -4050,8 +4050,9 @@ body.tempo-modal-locked{
 
 /* ── Phase 144 Home visual/month correction patch ─────────────────────── */
 .budget-home-month-toolbar{
-  grid-template-columns:minmax(150px,220px) minmax(0,1fr);
+  grid-template-columns:minmax(190px,240px) minmax(0,1fr) minmax(190px,240px);
   gap:14px;
+  align-items:center;
 }
 .budget-home-month-switcher{
   display:flex;
@@ -4076,9 +4077,14 @@ body.tempo-modal-locked{
   min-width:160px;
 }
 .budget-ledger-home-select{
-  min-width:170px;
+  min-width:190px;
   max-width:240px;
-  padding:8px 8px;
+  width:100%;
+  padding:8px 10px;
+}
+.budget-home-toolbar-spacer{
+  display:block;
+  width:100%;
 }
 .budget-home-combined-card .budget-home-category-grid,
 .budget-home-combined-card .budget-home-category-grid.compact{
@@ -4111,12 +4117,14 @@ body.tempo-modal-locked{
 }
 @media(max-width:768px){
   .budget-home-month-toolbar{
-    grid-template-columns:minmax(132px,160px) minmax(0,1fr);
+    grid-template-columns:minmax(132px,170px) minmax(0,1fr);
     gap:8px;
   }
+  .budget-home-toolbar-spacer{display:none;}
   .budget-ledger-home-select{
     min-width:132px;
-    max-width:160px;
+    max-width:170px;
+    width:100%;
     font-size:14px;
   }
   .budget-home-month-switcher{gap:4px;}
