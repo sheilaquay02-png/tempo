@@ -4381,4 +4381,121 @@ body.tempo-modal-locked{
   }
 }
 
+
+/* ── Phase 145 mobile scroll + popup clipping correction ──────────────── */
+@media(max-width:768px){
+  .budget-page.budget-page-home{
+    height:100%!important;
+    max-height:100%!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding-bottom:calc(var(--mobile-nav-h,78px) + 28px)!important;
+    scroll-padding-bottom:calc(var(--mobile-nav-h,78px) + 28px)!important;
+    overscroll-behavior-y:contain!important;
+  }
+  .budget-page.budget-page-home::after{
+    content:none!important;
+    display:none!important;
+    min-height:0!important;
+    flex-basis:0!important;
+  }
+  .budget-page.budget-page-home > *:last-child{
+    margin-bottom:0!important;
+  }
+  .budget-transaction-popup-overlay{
+    inset:0!important;
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 0 0!important;
+    align-items:flex-end!important;
+    overflow:hidden!important;
+  }
+  .budget-transaction-popup-sheet{
+    width:100%!important;
+    max-height:calc(100dvh - env(safe-area-inset-top,0px) - 8px)!important;
+    height:auto!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    border-radius:28px 28px 0 0!important;
+    padding:12px 12px calc(14px + env(safe-area-inset-bottom,0px))!important;
+  }
+  .budget-popup-header{
+    margin:0 0 6px!important;
+    padding:0 0 8px!important;
+  }
+  .budget-transaction-popup-card{
+    gap:7px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-type-tabs{
+    gap:5px!important;
+    padding:4px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-type-tabs button{
+    min-height:34px!important;
+    font-size:10px!important;
+  }
+  .budget-transaction-popup-card .budget-amount-stage{
+    min-height:116px!important;
+  }
+  .budget-transaction-popup-card .budget-amount-stage input{
+    font-size:50px!important;
+  }
+  .budget-popup-progress > div{
+    min-height:46px!important;
+    padding:8px 12px!important;
+  }
+  .budget-popup-chip-row{
+    padding:4px 0 0!important;
+  }
+  .budget-popup-chip-row button{
+    padding:7px 12px!important;
+    font-size:12px!important;
+  }
+  .budget-popup-tool-row{
+    margin:0 -12px 2px!important;
+    padding:6px 3px!important;
+  }
+  .budget-popup-tool-row button{
+    min-height:36px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-form-grid{
+    grid-template-columns:1fr 1fr!important;
+    gap:6px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-form-grid label{
+    gap:3px!important;
+  }
+  .budget-transaction-popup-card .budget-input{
+    min-height:34px!important;
+    padding:7px 9px!important;
+    border-radius:12px!important;
+    font-size:11px!important;
+  }
+  .budget-popup-editor-panel{
+    padding:8px!important;
+    gap:6px!important;
+  }
+  .budget-popup-keypad{
+    gap:4px!important;
+    margin-top:2px!important;
+  }
+  .budget-popup-keypad button{
+    min-height:44px!important;
+    font-size:20px!important;
+  }
+  .budget-popup-keypad button.confirm{
+    font-size:30px!important;
+  }
+}
+
+
+/* ── Phase 145 sidebar switch spacing correction ─────────────────────── */
+.app-mode-switch{
+  margin:12px 12px 12px!important;
+}
+@media(max-width:768px){
+  .app-mode-switch{
+    margin:12px 10px 12px!important;
+  }
+}
+
 `; }
