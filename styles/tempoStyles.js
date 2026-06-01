@@ -3076,7 +3076,7 @@ body.tempo-modal-locked{
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:5px;
   padding:6px;
-  margin:0 12px 12px;
+  margin:12px 12px 12px;
   border:1px solid rgba(var(--accent-rgb),.15);
   background:var(--surface-soft);
   border-radius:18px;
@@ -3283,8 +3283,8 @@ body.tempo-modal-locked{
 .dark .budget-input,.dark .budget-account-row,.dark .budget-bucket-row,.dark .budget-ledger-card{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.24)!important;}
 @media(max-width:1100px){.budget-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.budget-layout-grid{grid-template-columns:1fr}.budget-account-row,.budget-bucket-row{grid-template-columns:1fr 1fr}.budget-bucket-row .bucket-notes{grid-column:1/-1;}}
 @media(max-width:768px){
-  .app-mode-switch{margin:0 10px 10px;}
-  .budget-page{padding:12px 12px calc(var(--mobile-nav-h) + 20px)!important;}
+  .app-mode-switch{margin:12px 10px 12px;}
+  .budget-page{padding:12px 12px calc(var(--mobile-nav-h) + 96px)!important;scroll-padding-bottom:calc(var(--mobile-nav-h) + 96px)!important;}
   .budget-metrics-grid,.budget-form-grid{grid-template-columns:1fr!important;}
   .budget-account-row,.budget-bucket-row{grid-template-columns:1fr!important;}
   .budget-card-head{flex-direction:column;}
@@ -4354,6 +4354,19 @@ body.tempo-modal-locked{
   .budget-account-card.budget-edit-mode-card .budget-account-card-main,
   .budget-home-card-shell.budget-edit-mode-card .budget-home-card-record{
     padding-bottom:38px;
+  }
+}
+
+
+/* ── Phase 145 mobile scroll/menu spacing patch ───────────────────────── */
+@media(max-width:768px){
+  .app-mode-switch{
+    margin:12px 10px 12px!important;
+  }
+  .budget-page,
+  .budget-page-home{
+    padding-bottom:calc(var(--mobile-nav-h,78px) + 128px)!important;
+    scroll-padding-bottom:calc(var(--mobile-nav-h,78px) + 128px)!important;
   }
 }
 
