@@ -4488,65 +4488,6 @@ body.tempo-modal-locked{
 }
 
 
-
-
-/* ── Phase 145 transaction popup footer overlay fix ───────────────────── */
-.budget-transaction-popup-overlay{
-  isolation:isolate;
-}
-@media(max-width:768px){
-  .budget-transaction-popup-overlay{
-    z-index:40000!important;
-    inset:0 0 var(--mobile-nav-h,78px) 0!important;
-    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
-    min-height:0!important;
-    padding:calc(env(safe-area-inset-top,0px) + 6px) 0 0!important;
-    align-items:flex-end!important;
-    overflow:hidden!important;
-  }
-  .budget-transaction-popup-backdrop{
-    z-index:0!important;
-  }
-  .budget-transaction-popup-sheet{
-    z-index:1!important;
-    width:100%!important;
-    height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 6px)!important;
-    max-height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 6px)!important;
-    min-height:0!important;
-    display:flex!important;
-    flex-direction:column!important;
-    overflow:hidden!important;
-    border-radius:28px 28px 0 0!important;
-    padding:10px 12px 0!important;
-  }
-  .budget-transaction-popup-card{
-    flex:1 1 auto!important;
-    min-height:0!important;
-    overflow-y:auto!important;
-    -webkit-overflow-scrolling:touch!important;
-    overscroll-behavior:contain!important;
-    padding-bottom:calc(184px + env(safe-area-inset-bottom,0px))!important;
-  }
-  .budget-popup-header{
-    flex:0 0 auto!important;
-  }
-  .budget-popup-keypad{
-    position:sticky!important;
-    bottom:0!important;
-    z-index:5!important;
-    margin:2px -12px 0!important;
-    padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px))!important;
-    background:linear-gradient(180deg,rgba(255,255,255,.78),var(--surface) 24%)!important;
-    box-shadow:0 -12px 26px rgba(var(--accent-rgb),.10)!important;
-  }
-  .dark .budget-popup-keypad{
-    background:linear-gradient(180deg,rgba(35,19,41,.78),var(--dark-surface) 24%)!important;
-  }
-  .budget-popup-keypad button{
-    min-height:42px!important;
-  }
-}
-
 /* ── Phase 145 sidebar switch spacing correction ─────────────────────── */
 .app-mode-switch{
   margin:12px 12px 12px!important;
@@ -4555,6 +4496,249 @@ body.tempo-modal-locked{
   .app-mode-switch{
     margin:12px 10px 12px!important;
   }
+}
+
+
+/* ── Phase 145B hard mobile footer boundary + popup layout fix ─────────── */
+@media(max-width:768px){
+  .budget-page.budget-page-home{
+    height:100%!important;
+    max-height:100%!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding-bottom:calc(var(--mobile-nav-h,78px) + 92px)!important;
+    scroll-padding-bottom:calc(var(--mobile-nav-h,78px) + 92px)!important;
+    overscroll-behavior-y:contain!important;
+  }
+  .budget-page.budget-page-home::after{
+    content:""!important;
+    display:block!important;
+    flex:0 0 24px!important;
+    min-height:24px!important;
+    pointer-events:none!important;
+  }
+  .budget-page.budget-page-home > *:last-child{
+    margin-bottom:0!important;
+  }
+  .budget-transaction-popup-overlay,
+  .budget-card-editor-overlay{
+    z-index:50000!important;
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    min-height:0!important;
+    padding:calc(env(safe-area-inset-top,0px) + 6px) 0 0!important;
+    align-items:flex-end!important;
+    justify-content:center!important;
+    overflow:hidden!important;
+    isolation:isolate!important;
+  }
+  .budget-transaction-popup-backdrop{
+    z-index:0!important;
+  }
+  .budget-transaction-popup-sheet{
+    z-index:1!important;
+    width:100%!important;
+    height:auto!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 6px)!important;
+    min-height:0!important;
+    display:block!important;
+    overflow:hidden!important;
+    border-radius:28px 28px 0 0!important;
+    padding:10px 12px 10px!important;
+  }
+  .budget-transaction-popup-card{
+    display:flex!important;
+    flex:0 1 auto!important;
+    flex-direction:column!important;
+    min-height:0!important;
+    overflow:visible!important;
+    gap:6px!important;
+    padding:0!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-type-tabs{
+    width:100%!important;
+    margin:0!important;
+    gap:4px!important;
+    padding:4px!important;
+    border-radius:18px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-type-tabs button{
+    min-height:32px!important;
+    padding:3px 4px!important;
+    font-size:10px!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-type-tabs button span{
+    width:20px!important;
+    height:20px!important;
+  }
+  .budget-transaction-popup-card .budget-amount-stage{
+    min-height:86px!important;
+    gap:1px!important;
+  }
+  .budget-transaction-popup-card .budget-amount-stage input{
+    font-size:44px!important;
+    line-height:.95!important;
+  }
+  .budget-popup-header{
+    position:relative!important;
+    top:auto!important;
+    flex:0 0 auto!important;
+    margin:0 0 5px!important;
+    padding:0 0 6px!important;
+  }
+  .budget-popup-header button,
+  .budget-popup-header span{
+    width:36px!important;
+    height:36px!important;
+  }
+  .budget-popup-header strong{
+    font-size:20px!important;
+  }
+  .budget-popup-progress{
+    margin:0 -12px!important;
+  }
+  .budget-popup-progress > div{
+    min-height:38px!important;
+    padding:6px 12px!important;
+  }
+  .budget-popup-progress strong{
+    font-size:14px!important;
+  }
+  .budget-popup-progress span{
+    font-size:10px!important;
+  }
+  .budget-popup-chip-row{
+    padding:2px 0 0!important;
+    gap:5px!important;
+  }
+  .budget-popup-chip-row button{
+    padding:5px 9px!important;
+    font-size:10px!important;
+  }
+  .budget-popup-tool-row{
+    margin:0 -12px 1px!important;
+    padding:4px 2px!important;
+  }
+  .budget-popup-tool-row button{
+    min-height:32px!important;
+    font-size:13px!important;
+  }
+  .budget-popup-tool-row button > span{
+    font-size:8px!important;
+    line-height:1.05!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-form-grid{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:5px!important;
+    align-items:end!important;
+    order:20!important;
+  }
+  .budget-transaction-popup-card .budget-transaction-form-grid label{
+    gap:2px!important;
+    min-width:0!important;
+  }
+  .budget-transaction-popup-card .budget-field-label{
+    font-size:9px!important;
+    letter-spacing:.07em!important;
+  }
+  .budget-transaction-popup-card .budget-input{
+    min-height:32px!important;
+    height:32px!important;
+    padding:5px 8px!important;
+    border-radius:12px!important;
+    font-size:10px!important;
+    line-height:1.15!important;
+  }
+  .budget-popup-editor-panel{
+    padding:7px!important;
+    gap:5px!important;
+  }
+  .budget-popup-editor-panel .budget-notes{
+    min-height:46px!important;
+  }
+  .budget-popup-keypad{
+    position:static!important;
+    order:21!important;
+    z-index:1!important;
+    margin:3px 0 0!important;
+    padding:0!important;
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:4px!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  .budget-popup-keypad button{
+    min-height:41px!important;
+    border-radius:8px!important;
+    font-size:20px!important;
+  }
+  .budget-popup-keypad button.currency{
+    font-size:16px!important;
+  }
+  .budget-popup-keypad button.confirm{
+    font-size:30px!important;
+  }
+  .budget-card-editor-overlay{
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 0 0!important;
+  }
+  .budget-card-editor-sheet{
+    z-index:1!important;
+    width:100%!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 8px)!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    border-radius:28px 28px 0 0!important;
+    padding:12px 14px 14px!important;
+  }
+  .budget-card-editor-grid{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  .budget-card-editor-grid label{
+    gap:3px!important;
+  }
+  .budget-card-editor-sheet .budget-input{
+    min-height:40px!important;
+    padding:8px 10px!important;
+  }
+  .budget-card-editor-sheet .budget-notes{
+    min-height:58px!important;
+    margin-top:8px!important;
+  }
+  .budget-card-editor-sheet .budget-account-toggle-list{
+    gap:6px!important;
+    margin-top:8px!important;
+  }
+  .budget-card-editor-sheet .budget-switch-row{
+    min-height:42px!important;
+    padding:8px 10px!important;
+  }
+  .budget-card-editor-actions{
+    position:sticky!important;
+    bottom:0!important;
+    z-index:2!important;
+    margin:10px -14px -14px!important;
+    padding:10px 14px 14px!important;
+    background:linear-gradient(180deg,rgba(255,255,255,.78),var(--surface) 35%)!important;
+    box-shadow:0 -10px 26px rgba(var(--accent-rgb),.08)!important;
+  }
+  .dark .budget-card-editor-actions{
+    background:linear-gradient(180deg,rgba(35,19,41,.78),var(--dark-surface) 35%)!important;
+  }
+}
+@media(max-width:768px) and (max-height:760px){
+  .budget-transaction-popup-card{gap:5px!important;}
+  .budget-popup-header{margin-bottom:3px!important;padding-bottom:4px!important;}
+  .budget-transaction-popup-card .budget-amount-stage{min-height:70px!important;}
+  .budget-transaction-popup-card .budget-amount-stage input{font-size:38px!important;}
+  .budget-popup-progress{display:none!important;}
+  .budget-popup-chip-row{display:none!important;}
+  .budget-popup-tool-row button{min-height:29px!important;}
+  .budget-popup-keypad button{min-height:38px!important;}
 }
 
 `; }

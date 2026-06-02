@@ -817,7 +817,7 @@ function BudgetCardEditorPopup({ draft, setDraft, accounts, ledgers, currency, c
   if (!draft) return null;
   const update = patch => setDraft(current => ({ ...current, ...patch }));
   const title = draft.id ? `Edit ${draft.name || "card"}` : `Add ${draft.cashFlowType === "income" ? "income" : "expense"} card`;
-  return (
+  const popup = (
     <div className="budget-card-editor-overlay" role="dialog" aria-modal="true" aria-label={title}>
       <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close card editor" />
       <div className="budget-card-editor-sheet">
@@ -868,6 +868,7 @@ function BudgetCardEditorPopup({ draft, setDraft, accounts, ledgers, currency, c
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(popup, document.body) : popup;
 }
 
 function BudgetCardTile({ bucket, amount, currency, icon, onRecord, onEdit, editMode = false, onEnterEditMode, onDelete, onMoveLeft, onMoveRight, canMoveLeft = false, canMoveRight = false, ...ariaProps }) {
