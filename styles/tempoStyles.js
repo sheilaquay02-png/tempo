@@ -4488,6 +4488,65 @@ body.tempo-modal-locked{
 }
 
 
+
+
+/* ── Phase 145 transaction popup footer overlay fix ───────────────────── */
+.budget-transaction-popup-overlay{
+  isolation:isolate;
+}
+@media(max-width:768px){
+  .budget-transaction-popup-overlay{
+    z-index:40000!important;
+    inset:0 0 var(--mobile-nav-h,78px) 0!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px))!important;
+    min-height:0!important;
+    padding:calc(env(safe-area-inset-top,0px) + 6px) 0 0!important;
+    align-items:flex-end!important;
+    overflow:hidden!important;
+  }
+  .budget-transaction-popup-backdrop{
+    z-index:0!important;
+  }
+  .budget-transaction-popup-sheet{
+    z-index:1!important;
+    width:100%!important;
+    height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 6px)!important;
+    max-height:calc(100dvh - var(--mobile-nav-h,78px) - env(safe-area-inset-top,0px) - 6px)!important;
+    min-height:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+    border-radius:28px 28px 0 0!important;
+    padding:10px 12px 0!important;
+  }
+  .budget-transaction-popup-card{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    padding-bottom:calc(184px + env(safe-area-inset-bottom,0px))!important;
+  }
+  .budget-popup-header{
+    flex:0 0 auto!important;
+  }
+  .budget-popup-keypad{
+    position:sticky!important;
+    bottom:0!important;
+    z-index:5!important;
+    margin:2px -12px 0!important;
+    padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px))!important;
+    background:linear-gradient(180deg,rgba(255,255,255,.78),var(--surface) 24%)!important;
+    box-shadow:0 -12px 26px rgba(var(--accent-rgb),.10)!important;
+  }
+  .dark .budget-popup-keypad{
+    background:linear-gradient(180deg,rgba(35,19,41,.78),var(--dark-surface) 24%)!important;
+  }
+  .budget-popup-keypad button{
+    min-height:42px!important;
+  }
+}
+
 /* ── Phase 145 sidebar switch spacing correction ─────────────────────── */
 .app-mode-switch{
   margin:12px 12px 12px!important;

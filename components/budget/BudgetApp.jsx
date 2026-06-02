@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BUDGET_ACCOUNT_TYPES,
   BUDGET_BUCKET_TYPES,
@@ -247,7 +248,7 @@ function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, cur
   if (!form) return null;
   const contextBucket = selectedBudgetBucket(form, buckets);
   const title = contextBucket?.name || form.description || transactionTypeCopy[form.type]?.label || "Transaction";
-  return (
+  const popup = (
     <div className="budget-transaction-popup-overlay" role="dialog" aria-modal="true" aria-label={`Record ${title}`}>
       <button className="budget-transaction-popup-backdrop" type="button" onClick={onClose} aria-label="Close transaction recorder" />
       <div className="budget-transaction-popup-sheet">
@@ -272,6 +273,7 @@ function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, cur
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(popup, document.body) : popup;
 }
 
 function EditableProfileCard({ profile, onChange }) {
