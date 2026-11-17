@@ -43,9 +43,11 @@ See `docs/tempo_budget_phase2_staging_checklist.md` and `.github/workflows/budge
 - **If the desktop web application cannot load from a cold start, it displays a bundled static "Retry connection" page. This page contains no user financial records and cannot record an expense.**
 - If Mini is **already loaded and the account has completed an initial financial sync**, losing connectivity uses the existing Budget popup inside Mini so an expense can be stored in the local offline queue. It synchronises when connectivity returns.
 - **A full offline cold start and guaranteed offline reopening after quitting are NOT supported in V1 as currently implemented**. The web app is still served by an external/local Next.js server; no bundled offline Next.js server or static application distribution has been built.
-- No installer, signing or actual Windows display/keyboard/screen-scaling test has been completed.
+- A **local-only portable Windows QA packaging command** is prepared: `cd desktop; npm install; npm run package:windows:qa`. It copies only the Electron shell, test-only entrypoint, offline recovery page and public tray icon into a temporary staging directory, and prepares a `win32/x64` QA folder on a developer's Windows computer.
+- The QA executable **forces localhost**, requires the `/api/tempo-qa-status` endpoint to confirm development mode and localhost Supabase, blocks non-local network requests and external-link launches, and uses its own isolated profile. It cannot be redirected to production through `TEMPO_DESKTOP_URL`.
+- **It has NOT been built or executed on a real Windows machine.** This is an unsigned QA folder, not a self-contained offline app or distributable installer. Do not upload, publish or share the QA executable until final acceptance and separate owner approval.
 
-See `desktop/TESTING.md` and `desktop/start-local-test.ps1` for guarded, fake-data manual testing steps.
+See `desktop/TESTING.md`, `desktop/start-local-test.ps1` and `desktop/scripts/package-windows-qa.cjs` for the guarded, fake-data test procedure.
 
 ## Outstanding acceptance gates before owner approval
 
