@@ -17,7 +17,10 @@ test('Today dashboard stays presentational and does not own persistence or sync 
   for (const forbidden of ['useState(', 'useEffect(', 'localStorage', 'saveToCloud', 'loadFromCloud', 'registerTempoPushNotifications']) {
     assert.equal(todaySource.includes(forbidden), false, `Today dashboard should not contain side-effect marker: ${forbidden}`);
   }
-  for (const marker of ['Top 3 Tasks', 'Today’s Habits', 'Journal Prompt', 'DailyAffirmationCard', 'HabitCard']) {
+  for (const marker of ['Top 3 Tasks', 'Today’s Calendar', 'DailyAffirmationCard', 'Plan Today']) {
     assert.ok(todaySource.includes(marker), `missing Today dashboard UI marker: ${marker}`);
+  }
+  for (const retired of ['Today’s Habits', 'Journal Prompt', 'Tomorrow Reset', 'HabitCard', 'onOpenJournal', 'onOpenHabits']) {
+    assert.equal(todaySource.includes(retired), false, `retired dashboard element remains: ${retired}`);
   }
 });
