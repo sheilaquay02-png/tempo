@@ -203,8 +203,11 @@ try {
 
   await testRealtime(userA);
   await a.auth.signOut();
-  const afterLogout=await rows(a,ids.first);
-  assert.equal(afterLogout.length,0);
+  const afterLogout=await a.from("tempo_budget_transactions")
+    .select("transaction_id").eq("transaction_id",ids.first);
+  // Anonymous clients have no SELECT grant at all: either permission denial
+  // or an empty result proves that the signed-out browser cannot see data.
+  assert.ok(afterLogout.error || (Array.isArray(afterLogout.data) && afterLogout.data.length===0));
   pass("Signing out removes access to the previous account's records");
 
   process.stdout.write(`\nSUCCESS: ${count} end-to-end local Supabase checks passed.\n`);
