@@ -90,10 +90,11 @@ function openFull(route="/") {
   if (!full || full.isDestroyed()) {
     full=makeWindow({width:1180,height:790,minWidth:720,minHeight:560,title:"Tempo"},route);
     full.on("closed",()=>{full=null;});
+  } else if (route!=="/") {
+    full.loadURL(appPath(route));
   }
   if (full.isMinimized()) full.restore();
   full.show();full.focus();
-  else if(route!=="/")full.loadURL(appPath(route));
   return full;
 }
 function openExpense() {
