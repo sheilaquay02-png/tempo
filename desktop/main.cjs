@@ -1,0 +1,203 @@
+const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session } = require("electron");
+const fs = require("node:fs");
+const path = require("node:path");
+const {pathToFileURL} = require("node:url");
+
+let mini = null;
+let full = null;
+let tray = null;
+let quitting = false;
+
+const qaLocalOnly = process.env.TEMPO_QA_LOCAL_ONLY === "1";
+const devMode = process.env.TEMPO_DEV === "1" || qaLocalOnly;
+// QA executable cannot be redirected to an approved/live production origin by env.
+// Use the same hostname as Next.js local dev to keep HMR/WebSocket origin consistent.
+const rawOrigin = qaLocalOnly ? "http://localhost:3000"
+  : process.env.TEMPO_DESKTOP_URL || (devMode ? "http://localhost:3000" : "");
+if (!rawOrigin) throw new Error("Set TEMPO_DESKTOP_URL to the HTTPS URL of your approved Tempo deployment. No deployment is bundled with the shell.");
+const url = new URL(rawOrigin);
+if (url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("TEMPO_DESKTOP_URL must be an origin only.");
+if (url.protocol !== "https:" && !(devMode && url.protocol === "http:" && ["localhost","127.0.0.1"].includes(url.hostname))) {
+  throw new Error("Tempo desktop requires HTTPS, except localhost development.");
+}
+const base = url.origin;
+const stateFile = () => path.join(app.getPath("userData"), "tempo-mini-window.json");
+function readState() {
+  try { return JSON.parse(fs.readFileSync(stateFile(),"utf8")); } catch { return {}; }
+}
+function writeState(data) {
+  try { fs.mkdirSync(path.dirname(stateFile()),{recursive:true}); fs.writeFileSync(stateFile(),JSON.stringify(data)); } catch {}
+}
+function safeBounds(bounds, fallback) {
+  if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return fallback;
+  const wanted = {x:bounds.x,y:bounds.y,width:Math.max(330,Math.min(900,bounds.width)),height:Math.max(420,Math.min(1100,bounds.height))};
+  const displays = screen.getAllDisplays();
+  const inside = displays.some(({workArea}) => wanted.x+80 >= workArea.x && wanted.y+60 >= workArea.y && wanted.x < workArea.x+workArea.width && wanted.y < workArea.y+workArea.height);
+  return inside ? wanted : fallback;
+}
+function appPath(route) {
+  // Internal navigation only; callers cannot navigate windows to another origin.
+  if (typeof route !== "string" || !route.startsWith("/") || route.startsWith("//") || route.includes("\\") || route.includes("#")) return base+"/";
+  const target = new URL(route,base);
+  return target.origin === base ? target.href : base+"/";
+}
+function allowedNavigation(target) {
+  try { const next = new URL(target); return next.origin === base; } catch { return false; }
+}
+function secureWindow(win) {
+  win.webContents.setWindowOpenHandler(({url: destination}) => {
+    // External links open in the user's default browser, not a privileged app window.
+    if (!qaLocalOnly && destination.startsWith("https://") && !allowedNavigation(destination)) shell.openExternal(destination).catch(()=>{});
+    return {action:"deny"};
+  });
+  win.webContents.on("will-navigate",(event,destination)=>{
+    if (!allowedNavigation(destination)) {event.preventDefault(); if(!qaLocalOnly && destination.startsWith("https://")) shell.openExternal(destination).catch(()=>{});}
+  });
+}
+function showOfflineStartup(win) {
+  if(win.isDestroyed() || win.tempoOfflineShown)return;
+  win.tempoOfflineShown=true;
+  // Show a safe recovery screen when the hosted interface is unavailable.
+  void win.loadFile(path.join(__dirname,"offline.html")).catch(()=>{});
+  win.show();
+}
+async function qaServerReady() {
+  if(!qaLocalOnly)return true;
+  // Local-only Next.js server proves its Supabase URL is a disposable loopback.
+  // Do not render web app content until both checks are satisfied.
+  try {
+    const response=await fetch(base+"/api/tempo-qa-status",{
+      cache:"no-store",redirect:"error",signal:AbortSignal.timeout(3500)
+    });
+    return response.ok && (await response.json()).localQa===true;
+  }catch{return false;}
+}
+function loadAppRoute(win,route) {
+  win.tempoRoute=route;
+  win.tempoOfflineShown=false;
+  if(qaLocalOnly){
+    void qaServerReady().then(ready=>{
+      if(win.isDestroyed())return;
+      if(!ready) {showOfflineStartup(win);return;}
+      void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+    });
+  }else{
+    void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+  }
+}
+function makeWindow(options, route) {
+  const win = new BrowserWindow({
+    ...options,
+    show:false,
+    backgroundColor:"#fffaf7",
+    webPreferences:{
+      preload:path.join(__dirname,"preload.cjs"),
+      partition:"persist:tempo",
+      nodeIntegration:false,
+      contextIsolation:true,
+      sandbox:true,
+      webSecurity:true,
+    }
+  });
+  secureWindow(win);
+  win.webContents.on("did-fail-load",(_event,_code,_description,failedUrl,isMainFrame)=>{
+    if(isMainFrame===false || (failedUrl && !allowedNavigation(failedUrl)))return;
+    showOfflineStartup(win);
+  });
+  win.once("ready-to-show",()=>{if(!win.isDestroyed())win.show();});
+  loadAppRoute(win,route);
+  return win;
+}
+function openMini() {
+  if (mini && !mini.isDestroyed()) { mini.show(); mini.focus(); return mini; }
+  const last=readState();
+  mini=makeWindow({
+    ...safeBounds(last.bounds,{width:360,height:520}),
+    minWidth:330,minHeight:420,frame:false,transparent:false,resizable:true,
+    title:"Mini Tempo",alwaysOnTop:Boolean(last.alwaysOnTop),
+  },"/mini");
+  mini.on("close",e=>{if(!quitting){e.preventDefault();mini.hide();}});
+  const savePosition=()=>{
+    if(!mini || mini.isDestroyed() || mini.isMinimized()) return;
+    writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});
+  };
+  mini.on("move",savePosition);mini.on("resize",savePosition);
+  return mini;
+}
+function openFull(route="/") {
+  if (!full || full.isDestroyed()) {
+    full=makeWindow({width:1180,height:790,minWidth:720,minHeight:560,title:"Tempo"},route);
+    full.on("closed",()=>{full=null;});
+  } else if (route!=="/") {
+    loadAppRoute(full,route);
+  }
+  if (full.isMinimized()) full.restore();
+  full.show();full.focus();
+  return full;
+}
+function senderRole(event) {
+  if (mini && !mini.isDestroyed() && event.sender===mini.webContents) return "mini";
+  if (full && !full.isDestroyed() && event.sender===full.webContents) return "full";
+  return "unknown";
+}
+function requireRole(event,allowed) { if(!allowed.includes(senderRole(event)))throw new Error("Window action not permitted."); }
+ipcMain.handle("tempo:open-full",(event,route)=>{requireRole(event,["mini","full"]);openFull(route);return true;});
+ipcMain.handle("tempo:hide-mini",event=>{requireRole(event,["mini"]);mini.hide();return true;});
+ipcMain.handle("tempo:minimize-mini",event=>{requireRole(event,["mini"]);mini.minimize();return true;});
+ipcMain.handle("tempo:pin-mini",(event,pinned)=>{
+  requireRole(event,["mini"]);
+  mini.setAlwaysOnTop(Boolean(pinned));
+  writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});
+  return mini.isAlwaysOnTop();
+});
+ipcMain.handle("tempo:mini-state",event=>{requireRole(event,["mini"]);return {alwaysOnTop:mini.isAlwaysOnTop()};});
+ipcMain.handle("tempo:retry-window",event=>{
+  const role=senderRole(event);
+  requireRole(event,["mini","full"]);
+  const win=role==="mini"?mini:full;
+  loadAppRoute(win,win.tempoRoute||"/");
+  return true;
+});
+ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["full","mini"]);openMini();return true;});
+if(!app.requestSingleInstanceLock()){app.quit();}else{
+  app.on("second-instance",()=>openMini());
+  app.whenReady().then(()=>{
+    if(qaLocalOnly) {
+      const partition=session.fromPartition("persist:tempo");
+      // QA mode cannot send traffic to production even if the local web server
+      // accidentally embeds a production Supabase URL.
+      partition.webRequest.onBeforeRequest({urls:["<all_urls>"]},(details,callback)=>{
+        try {
+          const target=new URL(details.url);
+          const loopback=["localhost","127.0.0.1"].includes(target.hostname);
+          const permitted=loopback &&
+            ((target.port==="3000" && ["http:","ws:"].includes(target.protocol))
+             || (target.port==="54321" && ["http:","ws:"].includes(target.protocol)));
+          const staticOffline=target.href===pathToFileURL(path.join(__dirname,"offline.html")).href;
+          const inlineAsset=["data:","about:"].includes(target.protocol);
+          const localBlob=target.protocol==="blob:" &&
+            (details.url.startsWith("blob:http://127.0.0.1:3000/") ||
+             details.url.startsWith("blob:http://localhost:3000/"));
+          callback({cancel:!(permitted||staticOffline||inlineAsset||localBlob)});
+        }catch{callback({cancel:true});}
+      });
+    }
+    const bundledIcon=path.join(__dirname,"public","icon-192.png");
+    const trayIconPath=typeof fs.existsSync==="function" && fs.existsSync(bundledIcon)
+      ? bundledIcon : path.join(__dirname,"..","public","icon-192.png");
+    tray=new Tray(trayIconPath);
+    tray.setToolTip("Tempo");
+    tray.setContextMenu(Menu.buildFromTemplate([
+      {label:"Open Mini Tempo",click:()=>openMini()},
+      {label:"Open Full Tempo",click:()=>openFull()},
+      {type:"separator"},
+      {label:"Launch at login",type:"checkbox",checked:app.getLoginItemSettings().openAtLogin,click:item=>{app.setLoginItemSettings({openAtLogin:item.checked});}},
+      {label:"Quit Tempo",click:()=>{quitting=true;app.quit();}}
+    ]));
+    tray.on("double-click",()=>openMini());
+    openMini();
+  });
+  app.on("activate",()=>openMini());
+  app.on("before-quit",()=>{quitting=true;});
+  app.on("window-all-closed",()=>{ /* Keep tray app running on Windows */ });
+}
