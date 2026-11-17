@@ -37,7 +37,7 @@ The branch now contains a record-level financial design:
 - [ ] Verify local/offline queue survives close/restart and every supported phone/browser provides Web Locks, or implement an equivalent atomic journal fallback.
 - [ ] Verify Google/Apple OAuth and sign-out across Windows Mini, Full and recorder.
 - [ ] Test offline/online, two-device simultaneous creates, overlapping edits, rapid repeated saves and insufficient local storage.
-- [ ] Add a conflict-review/resolution screen: the current branch preserves pending conflicting transactions and displays an error but does not yet provide a full side-by-side resolution UI.
+- [x] Implement a side-by-side Budget conflict review screen with explicit **Use cloud**, **Keep my version**, and **Save as separate transaction** choices, including durable conflict state and independent syncing of unrelated records.\n- [ ] Validate that conflict resolution, mobile layouts, and focus handling work correctly against a real Supabase staging project.
 - [ ] Apply the schema migration in production *before* deploying any new client; verify Supabase Realtime table publication.
 - [ ] Stage all new clients together to avoid an outdated client treating the old JSON snapshot as authoritative.
 - [ ] Have a rollback/export plan that copies authoritative record rows back into a compatible snapshot before returning to legacy clients.
@@ -69,7 +69,7 @@ The legacy `settings.budgetTransactions` field remains as a backup/migration bri
 - Desktop auto-update, installer signing and distribution are intentionally out of scope until explicit release approval.
 - Improve window-to-window same-device immediacy beyond the current local snapshot/reload and cloud reconciliation.
 
-## Manual local validation (after installing dependencies)
+## Phase 2 additional validation artifacts\n\n- `tests/budget-record-sync-phase2.test.mjs`: simulated independent writes, stale same-record edits, retries, tombstones, and all explicit conflict decisions.\n- `scripts/verify-budget-phase2-staging.mjs`: **opt-in only** integration harness requiring two test accounts in a disposable Supabase project. Never run in production.\n- `docs/tempo_budget_phase2_staging_checklist.md`: database migration, RLS, rollback and staging acceptance checklist.\n\n**No live Supabase test has been performed yet; GitHub CI only runs simulations and build checks.**\n\n## Manual local validation (after installing dependencies)
 
 ```bash
 npm ci
