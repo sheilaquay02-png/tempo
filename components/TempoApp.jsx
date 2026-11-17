@@ -500,6 +500,9 @@ export default function App({ windowMode = "full" }) {
   useEffect(() => {
     const userId = auth.user?.id;
     if (!userId) {
+      setBudgetConflicts([]);
+      setBudgetPendingCount(0);
+      setBudgetSyncError("");
       setDataReady(false);
       setLoadedUserId(null);
       setEvRaw([]);
@@ -535,6 +538,9 @@ export default function App({ windowMode = "full" }) {
     // user from briefly seeing the previous user's calendar/tasks/journal.
     setDataReady(false);
     setLoadedUserId(null);
+    setBudgetConflicts([]);
+    setBudgetPendingCount(0);
+    setBudgetSyncError("");
     setEvRaw([]);
     setTkRaw([]);
     setJournalRaw({});
@@ -1222,6 +1228,7 @@ export default function App({ windowMode = "full" }) {
       try{
         const journal=readBudgetJournal(window.localStorage,userId);
         setBudgetPendingCount(journal.operations.length);
+        setBudgetConflicts(listBudgetConflicts(journal));
       }catch(error){setBudgetSyncError(error?.message||"Budget journal could not be read.");}
     };
     const onStorage=event=>{
@@ -1233,7 +1240,7 @@ export default function App({ windowMode = "full" }) {
         void flushBudgetJournalNow();
       }
     };
-    const onFocus=()=>void flushBudgetJournalNow();
+    const onFocus=()=>{refreshPending();void flushBudgetJournalNow();};
     const onOnline=()=>void flushBudgetJournalNow();
     refreshPending();
     void flushBudgetJournalNow();
@@ -1582,6 +1589,7 @@ export default function App({ windowMode = "full" }) {
     if(eventId){const ev=events.find(e=>e.id===eventId) || expandRecurring(events,addDaysSafe(TODAY,-40),addDaysSafe(TODAY,90)).find(e=>e.id===eventId);if(ev)setSelectedEvent(ev);}
     if(params.get("create")==="event")setQuickAddDate(new Date());
     if(params.get("page")==="budget-transactions"){setAppModeRaw("budget");setBudgetPage("transactions");}
+    if(params.get("resolveBudget")==="1")setBudgetConflictReviewOpen(true);
   },[windowMode,dataReady,loadedUserId,auth.user?.id]);
 
 
@@ -3454,7 +3462,7 @@ export default function App({ windowMode = "full" }) {
       <style>{memoAppCSS}</style>
 
       {windowMode === "mini" ? (
-        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={budgetSyncError?"failed":syncStatus?.status} pendingChanges={pendingLocalChanges+budgetPendingCount} onSync={forceSyncNow} />
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={budgetSyncError?"failed":syncStatus?.status} pendingChanges={pendingLocalChanges+budgetPendingCount} onSync={forceSyncNow} conflictCount={budgetConflicts.length} onReviewConflicts={()=>openFullTempo("/?page=budget-transactions&resolveBudget=1")} />
       ) : windowMode === "recorder" ? (
         <div className="mini-recorder-shell"><p className="mini-recorder-hint">Record your expense with your existing Budget keypad.</p></div>
       ) : (
@@ -3647,6 +3655,8 @@ export default function App({ windowMode = "full" }) {
       {!expenseForm && !selectedEvent && !quickAddDate && !selectedTask && !settingsOpen && <QuickAddMenu onExpense={()=>openExpenseRecorder()} onTask={()=>setSelectedTask({_isNew:true,id:"t"+uid(),title:"",duration:30,category:"light",scope:"day",priority:"medium",done:false})} onEvent={()=>setQuickAddDate(new Date())}/>}
       </>
       )}
+      {windowMode==="full" && budgetConflicts.length>0 && !budgetConflictReviewOpen && <button type="button" className="tempo-conflict-banner" onClick={()=>setBudgetConflictReviewOpen(true)}>⚠️ Review {budgetConflicts.length} Budget {budgetConflicts.length===1?"conflict":"conflicts"}</button>}
+      {windowMode==="full" && budgetConflictReviewOpen && <BudgetConflictReview conflicts={budgetConflicts} currency={budgetProfile.currency||"SGD"} resolving={budgetResolving} onResolve={resolvePendingBudgetConflict} onClose={()=>setBudgetConflictReviewOpen(false)} />}
       {expenseForm && <BudgetTransactionPopup form={expenseForm} setForm={setExpenseForm} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} currency={budgetProfile.currency || "SGD"} summary={budgetSummary} onSave={()=>saveQuickExpense(false)} onSaveAndAddAnother={windowMode==="recorder" ? ()=>saveQuickExpense(true) : null} saving={expenseSaving} onClose={closeQuickExpense} />}
       {(expenseError || budgetSyncError) && <div className="tempo-mini-error" role="alert">{expenseError || budgetSyncError}{budgetPendingCount>0 ? ` (${budgetPendingCount} pending)` : ""}</div>}
     </>
