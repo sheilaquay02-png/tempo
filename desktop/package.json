@@ -6,7 +6,8 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "package:windows:qa": "node scripts/package-windows-qa.cjs"
+    "package:windows:qa": "node scripts/package-windows-qa.cjs",
+    "package:windows:personal": "node scripts/package-windows-personal.cjs"
   },
   "devDependencies": {
     "electron": "45.3.3",
