@@ -25,14 +25,17 @@ test("schedule and budget navigation render separate menu sets", () => {
   assert.match(appShell, /<span className="cal-label">My Calendars<\/span>/);
 });
 
-test("mobile footer changes between schedule and budget menus", () => {
-  assert.match(appShell, /appMode === "budget" \? \(/);
-  assert.match(appShell, /budget-mobile-nav/);
-  assert.match(appShell, />☰<span>Menu<\/span><\/button>/);
+test("V1 mobile footer keeps four primary tabs and accessible Budget subpages", () => {
+  assert.match(appShell, /tempo-primary-mobile-nav/);
+  assert.match(appShell, /aria-label="Tempo primary navigation"/);
+  assert.match(appShell, /tempo-budget-subnav/);
+  assert.match(appShell, /aria-label="Budget sections"/);
+  assert.match(appShell, /tempo-mobile-menu-trigger/);
+  for (const name of ["Today", "Calendar", "Tasks", "Budget"]) {
+    assert.match(appShell, new RegExp(`<span>${name}<\\/span>`));
+  }
   assert.match(appShell, /onNavigateBudgetPage/);
-  assert.match(appShell, /<span>Tasks<\/span>/);
   assert.doesNotMatch(appShell, /<span>Journal<\/span>|<span>Habits<\/span>/);
-  assert.doesNotMatch(appShell, /onNavigateBudget\s*=|onNavigateOverall\s*=/);
 });
 
 test("BudgetApp supports skeleton pages without implementing extra roadmap pages", () => {
