@@ -291,7 +291,7 @@ export default function App({ windowMode = "full" }) {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "rhythm"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
