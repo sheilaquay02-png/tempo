@@ -48,7 +48,7 @@ export function MiniTempoPanel({
         <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ☀️</h1>
         <p className="mini-tempo-subtitle">A little progress every day.</p>
         <section className="mini-section" aria-label="Today's tasks">
-          <div className="mini-section-head"><strong>Today's tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
+          <div className="mini-section-head"><strong>Today&apos;s tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
           {tasks.length ? tasks.slice(0,3).map(t => <div className="mini-task" key={t.id}>
             <input type="checkbox" checked={Boolean(t.done)} onChange={() => onToggleTask?.(t.id)} aria-label={`Complete ${t.title}`} />
             <button className={t.done ? "mini-task-done" : ""} onClick={() => onOpenTask?.(t)}>{t.title}</button>
