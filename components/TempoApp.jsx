@@ -9,6 +9,9 @@ import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopu
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
 import { BudgetApp, OverallPage } from "./budget/BudgetApp";
+import { MiniTempoPanel } from "./mini/MiniTempoPanel";
+import { nextUpcomingEvent } from "../utils/miniTempoDaily";
+import { miniTempoCSS } from "../styles/miniTempoReleaseStyles";
 import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
@@ -280,7 +283,7 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19 }) {
 // ─── Removed legacy local helper panel from product UI. ─────────────────────
 
 
-export default function App() {
+export default function App({ windowMode = "full" }) {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a persistent anonymous key so
   // unsigned-in users do not lose their local Tempo data after closing the browser.
@@ -415,13 +418,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const key = `${uk}_startup_seen_${dateKey(TODAY)}`;
     if (!load(key, false)) setShowStartup(true);
   }, [dataReady, auth.user?.id, uk]);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const completed = load(`${uk}_onboarding_completed`, false);
     const skipped = load(`${uk}_onboarding_skipped`, false);
     const prompted = load(`${uk}_onboarding_prompted`, false);
@@ -3011,6 +3014,39 @@ export default function App() {
   function handleCarryWeek(ids) { moveRolloverTasks(ids, "week", TODAY, "this week"); }
   function handleDrop(ids)      { pushUndo(); setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); setToast({ text: `Dropped ${ids.length} task${ids.length === 1 ? "" : "s"} ✓`, ts: Date.now() }); }
 
+  // The desktop companion uses the existing authenticated task/event state.
+  // It intentionally never opens or writes Budget records.
+  function addQuickTodayTask(title) {
+    const clean=String(title||"").trim();
+    if(!clean)return;
+    pushUndo();
+    setTasks(current=>[...current,touchRecord(withTaskPeriod({
+      id:"t"+uid(),title:clean,scope:"day",duration:30,category:"light",
+      priority:"medium",done:false,reminder:{type:"none"},recurrence:null
+    },TODAY),{createdAt:new Date().toISOString()})]);
+  }
+  function openFullTempo(route="/") {
+    if(typeof window==="undefined")return;
+    if(window.tempoDesktop?.openFull)window.tempoDesktop.openFull(route);
+    else window.location.assign(route);
+  }
+  useEffect(()=>{
+    if(windowMode!=="full" || !dataReady || !auth.user?.id ||
+       loadedUserId!==auth.user.id || typeof window==="undefined")return;
+    const params=new URLSearchParams(window.location.search);
+    const taskId=params.get("taskId"),eventId=params.get("eventId");
+    if(taskId){
+      const task=tasks.find(t=>t.id===taskId);
+      if(task){setSelectedTask(task);setPage("tasks");}
+    }
+    if(eventId){
+      const ev=events.find(e=>e.id===eventId) ||
+        expandRecurring(events,addDaysSafe(TODAY,-40),addDaysSafe(TODAY,90)).find(e=>e.id===eventId);
+      if(ev){setSelectedEvent(ev);setPage("calendar");}
+    }
+    if(params.get("create")==="event")setQuickAddDate(new Date());
+  },[windowMode,dataReady,loadedUserId,auth.user?.id]);
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e) {
@@ -3103,7 +3139,11 @@ export default function App() {
     syncConflictLog: normalizeSyncConflictLog(syncSettingsSnapshot.syncConflictLog),
     datasetCounts: syncDatasetCounts(events, tasks, syncSettingsSnapshot),
   };
-  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS;
+  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS + miniTempoCSS;
+  const miniUpcomingEvents = expandRecurring(events.filter(eventSourceVisible),dayStart(TODAY),addDaysSafe(dayStart(TODAY),31))
+    .filter(e=>!hiddenCals.includes(e.calendar));
+  const miniUpcomingEvent = nextUpcomingEvent(miniUpcomingEvents);
+  const miniTodayTasks = tasks.filter(t=>taskBelongsToPeriod(t,"day",TODAY));
   const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
   const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
   const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
@@ -3165,6 +3205,14 @@ export default function App() {
     <>
       <style>{memoAppCSS}</style>
 
+      {windowMode === "mini" ? (
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent}
+          onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
+          onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
+          onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
+          onFull={openFullTempo} />
+      ) : (
+      <>
       <div className="app">
         <AppSidebar
           sidebarOpen={sidebarOpen}
@@ -3350,6 +3398,8 @@ export default function App() {
       />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
+      </>
+      )}
     </>
   );
 }
