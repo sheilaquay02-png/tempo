@@ -4,18 +4,14 @@ import { useEffect, useState } from "react";
 import { miniTaskRows } from "../../utils/miniTempoDaily";
 
 export function MiniTempoPanel({
-  tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
-  onToggleTask, onAddTask, onOpenTask, onOpenEvent, onExpense, onFull,
-  syncStatus = "saved", pendingChanges = 0, onSync,
-  conflictCount = 0, onReviewConflicts, offlineReady = false,
+  tasks = [], upcomingEvent,
+  onToggleTask, onAddTask, onOpenTask, onOpenEvent, onFull,
 }) {
   const [draft, setDraft] = useState("");
-  const [masked, setMasked] = useState(false);
   const [online, setOnline] = useState(true);
   const [pinned, setPinned] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState("");
-  const [notice] = useState("");
   useEffect(() => {
     if(typeof navigator==="undefined")return;
     const update=()=>setOnline(navigator.onLine!==false);
@@ -68,7 +64,7 @@ export function MiniTempoPanel({
       <div className="mini-tempo-body">
         <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ☀️</h1>
         <p className="mini-tempo-subtitle">A little progress every day.</p>
-        {!online && <p className="mini-offline-banner" role="status">{offlineReady ? "Offline. You can record expenses in this open Mini window; entries queue locally until reconnect." : "Offline. Financial recording needs an initial secure sync before it is available."} Do not quit until your entries are saved.</p>}
+        {!online && <p className="mini-offline-banner" role="status">You are offline. Your tasks and calendar may be out of date until you reconnect.</p>}
         <section className="mini-section" aria-label="Today's tasks">
           <div className="mini-section-head"><strong>Today&apos;s tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
           {visibleTasks.length ? visibleTasks.map(t => <div className="mini-task" key={t.id}>
@@ -86,21 +82,12 @@ export function MiniTempoPanel({
             <span>Open event details</span>
           </button> : <p className="mini-empty">Nothing else scheduled soon.</p>}
         </section>
-        <section className="mini-section" aria-label="Today's spending">
-          <div className="mini-section-head"><strong>💳 Spent today</strong><button aria-label={masked ? "Show spending" : "Hide spending"} onClick={() => setMasked(x=>!x)}>{masked?"Show":"Hide"}</button></div>
-          <button className="mini-spent" onClick={() => openFull("/?page=budget-transactions")}>{masked ? "••••" : new Intl.NumberFormat("en-SG",{style:"currency",currency}).format(spentToday)}</button>
-        </section>
-        <button className="mini-expense-action" onClick={onExpense}>＋ Record expense</button>
         <button className="mini-quick-toggle" onClick={() => setQuickOpen(x=>!x)} aria-expanded={quickOpen}>＋ Quick Add {quickOpen?"⌃":"⌄"}</button>
         {quickOpen && <div className="mini-quick-menu">
-          <button onClick={() => {setQuickOpen(false);onExpense?.()}}>💳 Expense</button>
           <button onClick={() => {setQuickOpen(false);document.querySelector(".mini-task-add input")?.focus()}}>✓ Task</button>
           <button onClick={() => {setQuickOpen(false);openFull("/?create=event")}}>🗓 Event</button>
         </div>}
-        {conflictCount>0 && <button type="button" className="mini-conflict-review" onClick={onReviewConflicts}>⚠️ Review {conflictCount} Budget {conflictCount===1?"conflict":"conflicts"}</button>}
-        {notice && <p className="mini-notice">{notice}</p>}
         <footer className="mini-footer">
-          <button className={syncStatus==="saved" && !pendingChanges?"mini-sync-saved":"mini-sync-pending"} onClick={onSync}>☁ {pendingChanges ? `${pendingChanges} pending` : syncStatus==="saving"?"Syncing…":syncStatus==="saved"?"Synced":"Retry sync"}</button>
           <button onClick={() => openFull("/")}>Open Full Tempo ↗</button>
         </footer>
       </div>
