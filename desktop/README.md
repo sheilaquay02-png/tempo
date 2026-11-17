@@ -6,7 +6,7 @@ Mini Tempo is an Electron desktop shell that displays the same hosted Tempo web 
 - Mini Tempo: `/mini`
 - Expense: `/recorder`
 
-The shell uses a shared Electron partition for auth, locked navigation, sandboxed renderers, no Node integration, and an allowlisted IPC bridge. It does **not** embed credentials or deploy the web app.
+The shell uses a shared Electron partition for auth, locked navigation, sandboxed renderers, no Node integration, and an allowlisted IPC bridge. It does **not** embed credentials or deploy the web app. When cold-start web loading fails, the desktop displays a bundled non-financial **Retry connection** screen instead of a blank window.
 
 ## Free Windows acceptance testing
 
@@ -45,3 +45,7 @@ On production the `TEMPO_DESKTOP_URL` value must be an approved HTTPS Tempo orig
 - The existing Budget form/keypad is rendered by the web app in recorder mode.
 - Expense submission must commit to Tempo's real transaction store; this desktop wrapper alone does not guarantee multi-device conflict safety.
 - Sign-out, offline sync, OAuth redirects, display scaling and Windows installer signing require manual acceptance testing.
+
+## Offline boundary
+
+An already-running authenticated Mini window can queue expense edits in its own existing renderer when the network goes offline, if the account's financial sync was previously initialised. The new recorder window requires a network response to load; in offline mode Mini uses the existing Budget popup inline. A **full offline cold start is not yet supported**. The static recovery page does not read or modify financial data.
