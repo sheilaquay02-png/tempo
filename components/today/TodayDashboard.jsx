@@ -30,6 +30,13 @@ export function TodayLitePage({
   onPlanToday,
   onToggleTask,
   onEditTask,
+  spentToday = 0,
+  currency = "SGD",
+  onRecordExpense,
+  onOpenBudget,
+  onAddTask,
+  onAddEvent,
+  onEventClick,
 }) {
   const todayKey = dateKey(TODAY);
   const nowHour = new Date().getHours();
@@ -62,6 +69,8 @@ export function TodayLitePage({
           <p>Your day, simply organized.</p>
           <div className="today-hero-actions">
             <button className="tf-save phase-primary" onClick={onPlanToday}>✨ Plan Today</button>
+            <button className="tf-cancel" onClick={onAddTask}>＋ Task</button>
+            <button className="tf-cancel" onClick={onAddEvent}>＋ Event</button>
           </div>
         </div>
 
@@ -88,10 +97,17 @@ export function TodayLitePage({
         {summaryItems.map(item => <button key={item.label} onClick={item.action}><span>{item.emoji}</span><strong>{item.value}</strong><small>{item.label}</small></button>)}
       </div>
 
+      <section className="phase-card tempo-today-money" aria-label="Money today">
+        <div className="phase-card-head"><span>💳 Money today</span><button onClick={onOpenBudget}>Open Budget</button></div>
+        <button className="tempo-today-money-value" onClick={onOpenBudget} aria-label="View today’s transactions">
+          <small>Spent today</small><strong>{new Intl.NumberFormat("en-SG",{style:"currency",currency}).format(spentToday)}</strong>
+        </button>
+        <button className="tf-save tempo-today-record" onClick={onRecordExpense}>＋ Record Expense</button>
+      </section>
       <div className="today-dashboard-grid" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
         <section className="phase-card today-wide-card">
           <div className="phase-card-head"><span>Today’s Calendar</span><button onClick={onOpenCalendar}>Open calendar</button></div>
-          {todayEvents.length ? <div className="today-event-list">{todayEvents.map(e => <div key={e.id} className="today-event-row"><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong><small>{e.allDay ? "" : `${fmt(e.start)} – ${fmt(e.end)}`}</small></div></div>)}</div> : <div className="phase-empty">Nothing scheduled yet. Enjoy the open space.</div>}
+          {todayEvents.length ? <div className="today-event-list">{todayEvents.map(e => <button type="button" key={e.id} className="today-event-row tempo-today-event-open" onClick={() => onEventClick?.(e)}><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong><small>{e.allDay ? "" : `${fmt(e.start)} – ${fmt(e.end)}`}</small></div></button>)}</div> : <div className="phase-empty">Nothing scheduled yet. Enjoy the open space.</div>}
         </section>
       </div>
     </div>
