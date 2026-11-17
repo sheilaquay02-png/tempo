@@ -51,6 +51,19 @@ function secureWindow(win) {
     if (!allowedNavigation(destination)) {event.preventDefault(); if(destination.startsWith("https://")) shell.openExternal(destination).catch(()=>{});}
   });
 }
+function showOfflineStartup(win) {
+  if(win.isDestroyed() || win.tempoOfflineShown)return;
+  win.tempoOfflineShown=true;
+  // This bundled, standalone HTML has no Budget/auth access. It is an honest
+  // recovery screen, not a claim that cold-start expense recording works offline.
+  void win.loadFile(path.join(__dirname,"offline.html")).catch(()=>{});
+  win.show();
+}
+function loadAppRoute(win,route) {
+  win.tempoRoute=route;
+  win.tempoOfflineShown=false;
+  void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+}
 function makeWindow(options, route) {
   const win = new BrowserWindow({
     ...options,
@@ -66,8 +79,12 @@ function makeWindow(options, route) {
     }
   });
   secureWindow(win);
-  win.loadURL(appPath(route));
+  win.webContents.on("did-fail-load",(_event,_code,_description,failedUrl,isMainFrame)=>{
+    if(isMainFrame===false || (failedUrl && !allowedNavigation(failedUrl)))return;
+    showOfflineStartup(win);
+  });
   win.once("ready-to-show",()=>{if(!win.isDestroyed())win.show();});
+  loadAppRoute(win,route);
   return win;
 }
 function openMini() {
@@ -91,7 +108,7 @@ function openFull(route="/") {
     full=makeWindow({width:1180,height:790,minWidth:720,minHeight:560,title:"Tempo"},route);
     full.on("closed",()=>{full=null;});
   } else if (route!=="/") {
-    full.loadURL(appPath(route));
+    loadAppRoute(full,route);
   }
   if (full.isMinimized()) full.restore();
   full.show();full.focus();
@@ -131,6 +148,13 @@ ipcMain.handle("tempo:pin-mini",(event,pinned)=>{
   return mini.isAlwaysOnTop();
 });
 ipcMain.handle("tempo:mini-state",event=>{requireRole(event,["mini"]);return {alwaysOnTop:mini.isAlwaysOnTop()};});
+ipcMain.handle("tempo:retry-window",event=>{
+  const role=senderRole(event);
+  requireRole(event,["mini","full","expense"]);
+  const win=role==="mini"?mini:role==="full"?full:expense;
+  loadAppRoute(win,win.tempoRoute||"/");
+  return true;
+});
 ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
 ipcMain.handle("tempo:close-expense",(event,quit)=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(quit){quitting=true;app.quit();}return true;});
 ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","mini"]);openMini();return true;});
