@@ -28,7 +28,7 @@ fs.writeFileSync(path.join(stage,"package.json"),JSON.stringify({
   description:"Temporary local-only Windows QA; NOT a production release",
   main:"qa-entry.cjs"
 },null,2));
-const packager=require("@electron/packager");
+const {packager}=require("@electron/packager");
 (async()=>{
   try {
     const outputs=await packager({
