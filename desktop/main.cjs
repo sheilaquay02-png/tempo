@@ -5,10 +5,8 @@ const {pathToFileURL} = require("node:url");
 
 let mini = null;
 let full = null;
-let expense = null;
 let tray = null;
 let quitting = false;
-let expenseCanClose = false;
 
 const qaLocalOnly = process.env.TEMPO_QA_LOCAL_ONLY === "1";
 const devMode = process.env.TEMPO_DEV === "1" || qaLocalOnly;
@@ -59,11 +57,7 @@ function secureWindow(win) {
 function showOfflineStartup(win) {
   if(win.isDestroyed() || win.tempoOfflineShown)return;
   win.tempoOfflineShown=true;
-  // A recorder which never loaded has no unsaved Budget form to discard.
-  // Do not trap its window, system tray Quit, or the app behind a blank page.
-  if(win===expense)expenseCanClose=true;
-  // This bundled, standalone HTML has no Budget/auth access. It is an honest
-  // recovery screen, not a claim that cold-start expense recording works offline.
+  // Show a safe recovery screen when the hosted interface is unavailable.
   void win.loadFile(path.join(__dirname,"offline.html")).catch(()=>{});
   win.show();
 }
@@ -81,8 +75,6 @@ async function qaServerReady() {
 function loadAppRoute(win,route) {
   win.tempoRoute=route;
   win.tempoOfflineShown=false;
-  // After Retry, restore draft-close protection before loading the recorder.
-  if(win===expense)expenseCanClose=false;
   if(qaLocalOnly){
     void qaServerReady().then(ready=>{
       if(win.isDestroyed())return;
@@ -143,50 +135,30 @@ function openFull(route="/") {
   full.show();full.focus();
   return full;
 }
-function openExpense() {
-  if (expense && !expense.isDestroyed()) {expense.show();expense.focus();return expense;}
-  // The recorder must remain usable when Mini is hidden to tray. Never make it
-  // a child of a hidden Mini; match pin level only when Mini is pinned.
-  const miniPinned=Boolean(mini && !mini.isDestroyed() && mini.isAlwaysOnTop());
-  expenseCanClose=false;
-  expense=makeWindow({
-    width:480,height:760,minWidth:420,minHeight:620,maxWidth:800,
-    title:"Record expense",alwaysOnTop:miniPinned
-  },"/recorder");
-  expense.on("close",e=>{if(!quitting&&!expenseCanClose && !expense.tempoOfflineShown){e.preventDefault();expense.webContents.send("tempo:request-close",false);}});
-  expense.on("closed",()=>{expense=null;expenseCanClose=false;});
-  return expense;
-}
 function senderRole(event) {
   if (mini && !mini.isDestroyed() && event.sender===mini.webContents) return "mini";
   if (full && !full.isDestroyed() && event.sender===full.webContents) return "full";
-  if (expense && !expense.isDestroyed() && event.sender===expense.webContents) return "expense";
   return "unknown";
 }
 function requireRole(event,allowed) { if(!allowed.includes(senderRole(event)))throw new Error("Window action not permitted."); }
-ipcMain.handle("tempo:open-full",(event,route)=>{requireRole(event,["mini","full","expense"]);openFull(route);return true;});
-ipcMain.handle("tempo:open-expense",event=>{requireRole(event,["mini","full"]);openExpense();return true;});
+ipcMain.handle("tempo:open-full",(event,route)=>{requireRole(event,["mini","full"]);openFull(route);return true;});
 ipcMain.handle("tempo:hide-mini",event=>{requireRole(event,["mini"]);mini.hide();return true;});
 ipcMain.handle("tempo:minimize-mini",event=>{requireRole(event,["mini"]);mini.minimize();return true;});
 ipcMain.handle("tempo:pin-mini",(event,pinned)=>{
   requireRole(event,["mini"]);
   mini.setAlwaysOnTop(Boolean(pinned));
-  // Keep the active recorder in front of Mini even if the user toggles pin.
-  if(expense && !expense.isDestroyed())expense.setAlwaysOnTop(mini.isAlwaysOnTop());
   writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});
   return mini.isAlwaysOnTop();
 });
 ipcMain.handle("tempo:mini-state",event=>{requireRole(event,["mini"]);return {alwaysOnTop:mini.isAlwaysOnTop()};});
 ipcMain.handle("tempo:retry-window",event=>{
   const role=senderRole(event);
-  requireRole(event,["mini","full","expense"]);
-  const win=role==="mini"?mini:role==="full"?full:expense;
+  requireRole(event,["mini","full"]);
+  const win=role==="mini"?mini:full;
   loadAppRoute(win,win.tempoRoute||"/");
   return true;
 });
-ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
-ipcMain.handle("tempo:close-expense",(event,quit)=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(quit){quitting=true;app.quit();}return true;});
-ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","mini"]);openMini();return true;});
+ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["full","mini"]);openMini();return true;});
 if(!app.requestSingleInstanceLock()){app.quit();}else{
   app.on("second-instance",()=>openMini());
   app.whenReady().then(()=>{
@@ -218,25 +190,14 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     tray.setContextMenu(Menu.buildFromTemplate([
       {label:"Open Mini Tempo",click:()=>openMini()},
       {label:"Open Full Tempo",click:()=>openFull()},
-      {label:"Record Expense",click:()=>openExpense()},
       {type:"separator"},
       {label:"Launch at login",type:"checkbox",checked:app.getLoginItemSettings().openAtLogin,click:item=>{app.setLoginItemSettings({openAtLogin:item.checked});}},
-      {label:"Quit Tempo",click:()=>{if(expense&&!expense.isDestroyed()){expense.show();expense.focus();expense.webContents.send("tempo:request-close",true);}else{quitting=true;app.quit();}}}
+      {label:"Quit Tempo",click:()=>{quitting=true;app.quit();}}
     ]));
     tray.on("double-click",()=>openMini());
     openMini();
   });
   app.on("activate",()=>openMini());
-  app.on("before-quit",event=>{
-    if(expense && !expense.isDestroyed() && !expenseCanClose && !expense.tempoOfflineShown) {
-      // Windows shutdown / Alt+F4 / Quit must not bypass an unsaved recorder.
-      event.preventDefault();
-      expense.show();
-      expense.focus();
-      expense.webContents.send("tempo:request-close",true);
-      return;
-    }
-    quitting=true;
-  });
+  app.on("before-quit",()=>{quitting=true;});
   app.on("window-all-closed",()=>{ /* Keep tray app running on Windows */ });
 }
