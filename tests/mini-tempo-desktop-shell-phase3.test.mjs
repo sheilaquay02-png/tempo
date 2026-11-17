@@ -122,6 +122,11 @@ test("Portable QA executable ignores a production URL override and requires loca
   assert.equal(denied("http://127.0.0.1:54321/auth/v1/health"),false);
   assert.equal(denied("ws://127.0.0.1:54321/realtime/v1/websocket"),false);
   assert.equal(denied("http://127.0.0.1:54322/"),true);
+  assert.equal(denied("file:///untrusted/offline.html"),true);
+  assert.equal(denied("file:///repo/desktop/offline.html"),false);
+  assert.equal(denied("data:image/png;base64,AAAA"),false);
+  assert.equal(mini.webContents.openHandler({url:"https://example.com"}).action,"deny");
+  assert.deepEqual(env.openedExternal,[],"Local QA must never launch a hosted website");
 });
 test("Portable QA refuses to display an app without the disposable Supabase sentinel",async()=>{
   const env=await mockDesktop({qaMode:true,qaReady:false});
