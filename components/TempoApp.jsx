@@ -3116,7 +3116,7 @@ export default function App({ windowMode = "full" }) {
           onAppModeChange={setAppMode}
           onNavigate={navigateFromSidebar}
           onNavigateBudgetPage={navigateBudgetPage}
-          onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
+
           onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
           calendars={displayCalendars}
           hiddenCals={hiddenCals}
