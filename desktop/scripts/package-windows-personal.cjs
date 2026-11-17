@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const { writeWindowsIcoFromPng } = require("./windows-icon.cjs");
 if (process.platform !== "win32") throw new Error("Package on the intended Windows PC.");
 if (process.env.TEMPO_PERSONAL_PACKAGE_APPROVED !== "YES") {
   throw new Error("Set TEMPO_PERSONAL_PACKAGE_APPROVED=YES only after verifying the approved Tempo HTTPS site and /mini route.");
@@ -34,6 +35,7 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error("Electron version must be pinn
     const icon = path.join(root,"public","icon-192.png");
     if(!fs.existsSync(icon)) throw Error("Missing icon-192.png");
     fs.copyFileSync(icon,path.join(stage,"public","icon-192.png"));
+    const executableIcon = writeWindowsIcoFromPng(icon, path.join(stageRoot, "tempo-windows.ico"));
     fs.writeFileSync(path.join(stage,"desktop-origin.json"),JSON.stringify({origin:origin.origin}));
     fs.writeFileSync(path.join(stage,"package.json"),JSON.stringify({
       name:"mini-tempo-personal",version:"0.1.0",private:true,
@@ -43,13 +45,14 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error("Electron version must be pinn
     const outputs=await packager({
       dir:stage,name:"MiniTempo-Personal",executableName:"MiniTempo-Personal",
       platform:"win32",arch:"x64",electronVersion:version,out:destination,
-      overwrite:true,prune:true,asar:true
+      icon:executableIcon,overwrite:true,prune:true,asar:true
     });
     for (const folder of outputs){
       if(!fs.existsSync(path.join(folder,"MiniTempo-Personal.exe")))throw Error("Executable missing: "+folder);
       fs.writeFileSync(path.join(folder,"READ_ME.txt"),[
         "MINI TEMPO - PERSONAL PORTABLE BUILD",
         "Approved interface origin: "+origin.origin,
+        "Windows executable icon: Tempo branding (from public/icon-192.png).",
         "This is an unsigned portable app, NOT an installer or offline-bundled app.",
         "The web-hosted /mini page must already be published and verified.",
         "This build does not include production API keys or a local database.",
