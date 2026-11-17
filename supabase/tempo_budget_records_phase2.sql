@@ -32,13 +32,16 @@ create policy tempo_budget_op_owner on public.tempo_budget_operations
   with check (user_id = (select auth.uid()));
 revoke all on public.tempo_budget_transactions from public, anon;
 revoke all on public.tempo_budget_operations from public, anon;
-grant select, insert, update on public.tempo_budget_transactions to authenticated;
-grant select, insert on public.tempo_budget_operations to authenticated;
+-- All edits must go through idempotent, revision-checked RPCs. Clients can read
+-- their own records but cannot directly bypass the compare-and-swap procedure.
+revoke all on public.tempo_budget_transactions from authenticated;
+revoke all on public.tempo_budget_operations from authenticated;
+grant select on public.tempo_budget_transactions to authenticated;
 
 -- Import historical snapshot entries once per unique transaction ID. Re-running is
 -- safe, including after a transaction was tombstoned in the new table.
 create or replace function public.tempo_budget_seed_legacy()
-returns integer language plpgsql security invoker set search_path = ''
+returns integer language plpgsql security definer set search_path = ''
 as $$
 declare
   v_user uuid := auth.uid();
@@ -72,7 +75,7 @@ create or replace function public.tempo_budget_apply(
   p_expected_revision bigint,
   p_payload jsonb,
   p_delete boolean default false
-) returns jsonb language plpgsql security invoker set search_path = ''
+) returns jsonb language plpgsql security definer set search_path = ''
 as $$
 declare
   v_user uuid := auth.uid();
