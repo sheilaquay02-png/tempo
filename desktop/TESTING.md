@@ -28,7 +28,7 @@ npm run package:windows:qa
 
 This creates `desktop/out/MiniTempo-LocalQA-win32-x64/MiniTempo-LocalQA.exe` along with the Electron runtime. Keep the **entire folder together**; the executable is not a standalone, signed installer.
 
-- The QA executable forces `http://127.0.0.1:3000` regardless of any existing `TEMPO_DESKTOP_URL` variable.
+- The QA executable forces `http://localhost:3000` regardless of any existing `TEMPO_DESKTOP_URL` variable. This matches the working Next.js development hostname and avoids a browser HMR/WebSocket origin mismatch.
 - It refuses to open Tempo until the server confirms `TEMPO_QA_LOCAL_ONLY=1` and a localhost Supabase URL.
 - Its Electron network policy blocks requests to hosted databases and other non-local services.
 - The server and local Supabase Docker stack must be running on that **same computer**.
