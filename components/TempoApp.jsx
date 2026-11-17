@@ -61,7 +61,7 @@ import { TodayLitePage } from "./today/TodayDashboard";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
-import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleCalendarRequest as requestGoogleCalendar, googleDisconnectWarning } from "../lib/tempo/client/googleCalendarClient";
+import { activeTempoCalendars, activeTempoEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
 import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
@@ -384,7 +384,6 @@ export default function App({ windowMode = "full" }) {
     queueCloudSave,
   } = useTempoCloudSync({ authUser: auth.user, userKey: uk, dataReady });
   const [loadedUserId, setLoadedUserId] = useState(null);
-  const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null, googleCalendarSync: null });
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
   const [memoryPhotoCleanupQueue, setMemoryPhotoCleanupQueueRaw] = useState(() => load(`${uk}_memory_photo_cleanup_queue`, []));
@@ -407,13 +406,6 @@ export default function App({ windowMode = "full" }) {
       setPage("rhythm");
     } else if (requestedPage === "affirmations") {
       setPage("today");
-    }
-    if (params.get("google") === "connected") {
-      setSettingsOpen(true);
-      setToast({ text: "Google Calendar connected ✓", ts: Date.now() });
-    } else if (params.get("google") === "error") {
-      setSettingsOpen(true);
-      setToast({ text: `Google Calendar setup failed: ${params.get("reason") || "unknown error"}`, ts: Date.now() });
     }
   }, []);
 
@@ -1470,12 +1462,6 @@ export default function App({ windowMode = "full" }) {
     setDisplayTimezoneCtx(timezone);
   }, [timezone]);
 
-  useEffect(() => {
-    if (!auth.user?.id || !dataReady) return;
-    refreshGoogleCalendarStatus({ silent: true });
-    // Google status should refresh only after auth/data readiness changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.user?.id, dataReady]);
 
 
   const setNotifs = v => {
@@ -1508,108 +1494,6 @@ export default function App({ windowMode = "full" }) {
       showToast,
       logger: console,
     });
-  }
-
-  function applyGoogleCalendarPayload(payload = {}) {
-    const derived = deriveGoogleCalendarPayloadState(payload, { calendars, prevGoogleSync: googleSync });
-    if (derived.shouldUpdateCalendars) {
-      setCalendarsRaw(derived.nextCalendars);
-      save(`${uk}_calendars`, derived.nextCalendars);
-    }
-    if (derived.hiddenCals) {
-      setHiddenCals(derived.hiddenCals);
-      save(`${uk}_hidden_cals`, derived.hiddenCals);
-    }
-    if (derived.events) {
-      setEvRaw(derived.events);
-      save(`${uk}_ev`, derived.events);
-      markUpdated();
-    }
-    setGoogleSync(derived.googleSync);
-  }
-
-  const googleCalendarRequest = (path, options = {}) => requestGoogleCalendar(getSupabase, path, options);
-
-  async function refreshGoogleCalendarStatus({ silent = false } = {}) {
-    if (!auth.user?.id) return;
-    if (!silent) setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
-    try {
-      const data = await googleCalendarRequest("status");
-      applyGoogleCalendarPayload(data);
-      setGoogleSync(prev => ({ ...prev, connected: Boolean(data.connected), loading: false, message: data.connected ? "Google Calendar is ready." : "Connect Google Calendar to import events.", error: "" }));
-    } catch (err) {
-      console.warn("Google Calendar status failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not check Google Calendar status" }));
-    }
-  }
-
-  async function connectGoogleCalendar() {
-    if (!auth.user?.id) {
-      showToast("Sign in before connecting Google Calendar.");
-      return;
-    }
-    try {
-      const returnTo = `${window.location.pathname || "/"}?page=calendar`;
-      const data = await googleCalendarRequest(`auth/start?returnTo=${encodeURIComponent(returnTo)}`, { method: "POST" });
-      if (!data?.url) throw new Error("Could not start Google Calendar connection.");
-      window.location.href = data.url;
-    } catch (err) {
-      console.warn("Google Calendar connect failed", err);
-      showToast(err.message || "Could not start Google Calendar connection.");
-    }
-  }
-
-  async function importGoogleCalendarNow() {
-    if (!auth.user?.id) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Importing Google Calendar…" }));
-    try {
-      const data = await googleCalendarRequest("sync", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      applyGoogleCalendarPayload(data);
-      setToast({ text: formatGoogleImportToast(data), ts: Date.now() });
-    } catch (err) {
-      console.warn("Google Calendar import failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
-      showToast(err.message || "Google import failed");
-    }
-  }
-
-  async function disconnectGoogleCalendar() {
-    if (!auth.user?.id) return;
-    const importedCount = countImportedGoogleEvents(events);
-    const warning = googleDisconnectWarning(importedCount);
-    if (!window.confirm(warning)) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Disconnecting Google Calendar…" }));
-    try {
-      const data = await googleCalendarRequest("disconnect", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
-      setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null, googleCalendarSync: null });
-      showToast("Google Calendar disconnected ✓");
-    } catch (err) {
-      console.warn("Google Calendar disconnect failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Disconnect failed", message: "" }));
-    }
-  }
-
-  async function updateGoogleCalendarPreference(calendarId, patch) {
-    if (!auth.user?.id) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
-    try {
-      const data = await googleCalendarRequest("calendars", {
-        method: "POST",
-        body: JSON.stringify({ calendarId, patch }),
-      });
-      applyGoogleCalendarPayload(data);
-      setGoogleSync(prev => ({ ...prev, loading: false, message: "Google calendar preference updated.", error: "" }));
-    } catch (err) {
-      console.warn("Google calendar preference failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not update Google calendar preference" }));
-    }
   }
 
   const setTimezone = v => {
@@ -2043,7 +1927,7 @@ export default function App({ windowMode = "full" }) {
     persistCalendarConfig(calendars, n);
   };
 
-  const calendarSourceVisible = source => !hiddenCalendarSources.includes(source);
+  const calendarSourceVisible = source => source !== "google" && !hiddenCalendarSources.includes(source);
   const toggleCalendarSource = source => {
     const next = hiddenCalendarSources.includes(source)
       ? hiddenCalendarSources.filter(item => item !== source)
@@ -2128,10 +2012,10 @@ export default function App({ windowMode = "full" }) {
 
   const removeCalendar = cal => {
     if (cal.source === "google") { setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() }); return; }
-    if (calendars.length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
+    if (activeTempoCalendars(calendars).length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
     const timestamp = new Date().toISOString();
     const remaining = calendars.filter(c => c.id !== cal.id);
-    const fallback = remaining[0]?.id || "personal";
+    const fallback = activeTempoCalendars(remaining)[0]?.id || "personal";
     const nextEvents = events.map(e => e.calendar === cal.id ? touchRecord(e, { calendar: fallback }) : e);
     const nextHidden = hiddenCals.filter(id => id !== cal.id);
     const nextDeletedRecords = addDeletedRecords(deletedRecords, "calendars", cal.id, timestamp);
@@ -2480,7 +2364,7 @@ export default function App({ windowMode = "full" }) {
       })
       .filter(b => b.end > b.start);
     const lifestyleBlocks = lifestylePlanningBlocksForDate(date);
-    const rawBooked = expandRecurring([...events, ...safeExtraEvents, ...mealBlocks, ...lifestyleBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
+    const rawBooked = expandRecurring([...activeTempoEvents(events, calendars), ...safeExtraEvents, ...mealBlocks, ...lifestyleBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
       .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e) && !e.deletedAt);
     const bufferMs = Math.max(0, Number(rules.bufferMinutes || 0)) * 60000;
     const booked = rawBooked.map(e => e.planningProtected ? e : ({
@@ -3101,7 +2985,8 @@ export default function App({ windowMode = "full" }) {
   const rangeStart = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth(), 1) : view === "week" ? weekStart(viewDate) : viewDate;
   const rangeEnd = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0) : view === "week" ? addDaysSafe(weekStart(viewDate), 6) : viewDate;
   const sourceForEvent = event => calendarEventSource(event, calendars.find(c => c.id === event.calendar));
-  const eventSourceVisible = event => calendarSourceVisible(sourceForEvent(event));
+  const eventSourceVisible = event => !isGoogleEventReference(event, calendars) && calendarSourceVisible(sourceForEvent(event));
+  const displayCalendars = activeTempoCalendars(calendars);
   const calendarDisplayEvents = events.filter(eventSourceVisible);
   const expandedEvents  = expandRecurring(calendarDisplayEvents, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
@@ -3110,7 +2995,7 @@ export default function App({ windowMode = "full" }) {
   // calendar view. Otherwise XP/levels can change when switching Day/Week/Month
   // because recurring events are expanded differently per view. Hidden
   // calendar filters should also not affect earned XP.
-  const gameEvents      = expandRecurring(events, addDaysSafe(TODAY, -120), addDaysSafe(TODAY, 30));
+  const gameEvents      = expandRecurring(activeTempoEvents(events, calendars), addDaysSafe(TODAY, -120), addDaysSafe(TODAY, 30));
   const gameStats      = calculateGameStats(tasks, journal, gameEvents);
   const openToday     = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
@@ -3233,7 +3118,7 @@ export default function App({ windowMode = "full" }) {
           onNavigateBudgetPage={navigateBudgetPage}
           onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
           onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
-          calendars={calendars}
+          calendars={displayCalendars}
           hiddenCals={hiddenCals}
           hiddenCalendarSources={hiddenCalendarSources}
           onAddCalendar={addCalendar}
@@ -3286,8 +3171,8 @@ export default function App({ windowMode = "full" }) {
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
-              {view === "day" && <DayView events={viewDayEvents} calendars={calendars} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
-              {view === "week" && <WeekView events={visibleEvents} calendars={calendars} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
+              {view === "day" && <DayView events={viewDayEvents} calendars={displayCalendars} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
+              {view === "week" && <WeekView events={visibleEvents} calendars={displayCalendars} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const days = monthDays(viewDate);
 
@@ -3314,7 +3199,7 @@ export default function App({ windowMode = "full" }) {
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
                             {de.slice(0, 4).map(e => {
-                              const cal = calendars.find(c => c.id === e.calendar);
+                              const cal = displayCalendars.find(c => c.id === e.calendar);
                               const color = e.color || cal?.color || "#FF7BAC";
                               return (
                                 <MonthEventRow key={e.id} event={e} color={color} onOpen={setSelectedEvent} onReschedule={reschedule} />
@@ -3346,10 +3231,10 @@ export default function App({ windowMode = "full" }) {
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
-      {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={calendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
-      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
-      {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={calendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
+      {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={displayCalendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={displayCalendars} categories={categories} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={displayCalendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
+      {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={displayCalendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       <EventConflictModal />
       <RecurringTaskScopeModal />
@@ -3358,7 +3243,7 @@ export default function App({ windowMode = "full" }) {
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
-            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
