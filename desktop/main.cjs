@@ -88,12 +88,12 @@ function openMini() {
 }
 function openFull(route="/") {
   if (!full || full.isDestroyed()) {
-    full=makeWindow({width:1180,height:790,minWidth:720,minHeight:560,title:"Tempo"},"/");
+    full=makeWindow({width:1180,height:790,minWidth:720,minHeight:560,title:"Tempo"},route);
     full.on("closed",()=>{full=null;});
   }
   if (full.isMinimized()) full.restore();
   full.show();full.focus();
-  if(route!=="/")full.loadURL(appPath(route));
+  else if(route!=="/")full.loadURL(appPath(route));
   return full;
 }
 function openExpense() {
@@ -117,6 +117,7 @@ ipcMain.handle("tempo:open-expense",event=>{requireRole(event,["mini","full"]);o
 ipcMain.handle("tempo:hide-mini",event=>{requireRole(event,["mini"]);mini.hide();return true;});
 ipcMain.handle("tempo:minimize-mini",event=>{requireRole(event,["mini"]);mini.minimize();return true;});
 ipcMain.handle("tempo:pin-mini",(event,pinned)=>{requireRole(event,["mini"]);mini.setAlwaysOnTop(Boolean(pinned));writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});return mini.isAlwaysOnTop();});
+ipcMain.handle("tempo:mini-state",event=>{requireRole(event,["mini"]);return {alwaysOnTop:mini.isAlwaysOnTop()};});
 ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
 ipcMain.handle("tempo:close-expense",(event,quit)=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(quit){quitting=true;app.quit();}return true;});
 ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","mini"]);openMini();return true;});
@@ -137,6 +138,16 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     openMini();
   });
   app.on("activate",()=>openMini());
-  app.on("before-quit",()=>{quitting=true;});
+  app.on("before-quit",event=>{
+    if(expense && !expense.isDestroyed() && !expenseCanClose) {
+      // Windows shutdown / Alt+F4 / Quit must not bypass an unsaved recorder.
+      event.preventDefault();
+      expense.show();
+      expense.focus();
+      expense.webContents.send("tempo:request-close",true);
+      return;
+    }
+    quitting=true;
+  });
   app.on("window-all-closed",()=>{ /* Keep tray app running on Windows */ });
 }
