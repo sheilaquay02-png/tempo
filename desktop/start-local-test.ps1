@@ -21,10 +21,12 @@ try {
   throw "Local Supabase Auth is not running at 127.0.0.1:54321. Start the disposable stack first."
 }
 try {
-  $App = Invoke-WebRequest -Uri "http://127.0.0.1:3000/mini" -TimeoutSec 5 -UseBasicParsing
+  $Probe = Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/tempo-qa-status" -TimeoutSec 5
+  if ($Probe.localQa -ne $true) { throw "The local Tempo test-only endpoint was not verified." }
 } catch {
-  throw "Start the local Tempo Next.js app first: cd <Tempo root>; npm ci; npm run dev"
+  throw "Local Next.js must be running in QA mode with a disposable Supabase. In a separate terminal: `$env:TEMPO_QA_LOCAL_ONLY='1'; npm run dev`."
 }
+$env:TEMPO_QA_LOCAL_ONLY = "1"
 $env:TEMPO_DEV = "1"
 $env:TEMPO_DESKTOP_URL = "http://127.0.0.1:3000"
 Write-Host "Opening Mini Tempo against local-only servers." -ForegroundColor Green
