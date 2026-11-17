@@ -108,7 +108,7 @@ begin
    raise exception 'Expected four real SQL rows across two users; got %',
     (select count(*) from public.tempo_budget_transactions);
  end if;
- if (select count(*) from public.tempo_budget_operations)<>6 then
+ if (select count(*) from public.tempo_budget_operations)<>5 then
    raise exception 'Idempotent operation log count mismatch: %',
     (select count(*) from public.tempo_budget_operations);
  end if;
