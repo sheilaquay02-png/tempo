@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { miniTaskRows } from "../../utils/miniTempoDaily";
+import { TempoLogoMark } from "../shared/DisplayComponents";
 
 export function MiniTempoPanel({
   tasks = [], upcomingEvent,
@@ -50,8 +51,11 @@ export function MiniTempoPanel({
     <main className="mini-tempo" aria-label="Mini Tempo daily companion">
       <header className="mini-tempo-header">
         <div className="mini-tempo-drag">
-          <strong>✿ mini tempo</strong>
-          <small>Your daily companion</small>
+          <span className="mini-tempo-brand-mark" aria-hidden="true"><TempoLogoMark /></span>
+          <span className="mini-tempo-brand">
+            <strong>Mini Tempo</strong>
+            <small>Your daily companion</small>
+          </span>
         </div>
         <div className="mini-tempo-title-actions">
           {typeof window !== "undefined" && window.tempoDesktop && <>
