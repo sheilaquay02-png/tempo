@@ -208,6 +208,41 @@ test("Hidden Mini never hides the independent expense recorder, even when pinned
   assert.equal(expense.pinned,true);
 });
 
+test("Offline recorder has no draft and can close without asking an absent renderer",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-expense",mini);
+  const recorder=env.windowsOf("Record expense")[0];
+  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
+    "http://localhost:3000/recorder",true);
+  assert.equal(recorder.tempoOfflineShown,true);
+  assert.equal(recorder.fileCalls.length,1);
+  assert.equal(recorder.close(),true);
+  assert.equal(recorder.destroyed,true);
+  assert.equal(recorder.webContents.sent.filter(item=>item[0]==="tempo:request-close").length,0);
+});
+
+test("Recorder retry restores confirmation guard before a draft can appear",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-expense",mini);
+  const recorder=env.windowsOf("Record expense")[0];
+  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
+    "http://localhost:3000/recorder",true);
+  env.ipc("tempo:retry-window",recorder);
+  assert.equal(recorder.tempoOfflineShown,false);
+  assert.equal(recorder.close(),false);
+  assert.ok(recorder.webContents.sent.some(item=>item[0]==="tempo:request-close"));
+});
+
+test("App quit does not deadlock when Recorder never loaded from offline startup",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-expense",mini);
+  const recorder=env.windowsOf("Record expense")[0];
+  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
+    "http://localhost:3000/recorder",true);
+  env.app.quit();
+  assert.equal(env.app.exited,true);
+});
+
 test("Successful expense save closes only Recorder, restores Mini and refreshes the total",async()=>{
   const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
   env.ipc("tempo:open-expense",mini);
