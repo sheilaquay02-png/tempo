@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const {pathToFileURL} = require("node:url");
 
 let mini = null;
 let full = null;
@@ -47,11 +48,11 @@ function allowedNavigation(target) {
 function secureWindow(win) {
   win.webContents.setWindowOpenHandler(({url: destination}) => {
     // External links open in the user's default browser, not a privileged app window.
-    if (destination.startsWith("https://") && !allowedNavigation(destination)) shell.openExternal(destination).catch(()=>{});
+    if (!qaLocalOnly && destination.startsWith("https://") && !allowedNavigation(destination)) shell.openExternal(destination).catch(()=>{});
     return {action:"deny"};
   });
   win.webContents.on("will-navigate",(event,destination)=>{
-    if (!allowedNavigation(destination)) {event.preventDefault(); if(destination.startsWith("https://")) shell.openExternal(destination).catch(()=>{});}
+    if (!allowedNavigation(destination)) {event.preventDefault(); if(!qaLocalOnly && destination.startsWith("https://")) shell.openExternal(destination).catch(()=>{});}
   });
 }
 function showOfflineStartup(win) {
@@ -199,9 +200,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
           const permitted=loopback &&
             ((target.port==="3000" && ["http:","ws:"].includes(target.protocol))
              || (target.port==="54321" && ["http:","ws:"].includes(target.protocol)));
-          const staticOffline=target.protocol==="file:" &&
-            target.pathname.endsWith("/offline.html");
-          callback({cancel:!(permitted||staticOffline)});
+          const staticOffline=target.href===pathToFileURL(path.join(__dirname,"offline.html")).href;
+          const inlineAsset=["data:","about:"].includes(target.protocol);
+          const localBlob=target.protocol==="blob:" &&
+            (details.url.startsWith("blob:http://127.0.0.1:3000/") ||
+             details.url.startsWith("blob:http://localhost:3000/"));
+          callback({cancel:!(permitted||staticOffline||inlineAsset||localBlob)});
         }catch{callback({cancel:true});}
       });
     }
