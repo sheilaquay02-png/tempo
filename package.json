@@ -12,6 +12,7 @@
     "native:sync": "npx cap sync",
     "lint": "eslint .",
     "test": "node --test tests/*.test.mjs",
+    "test:budget:staging": "node scripts/verify-budget-phase2-staging.mjs",
     "clean:legacy": "node scripts/clean-legacy-release-files.mjs",
     "check": "npm run validate:release && npm run test && npm run lint",
     "validate:release": "node scripts/validate-release.mjs",
