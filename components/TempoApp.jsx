@@ -760,6 +760,14 @@ export default function App({ windowMode = "full" }) {
       const localHasData = hasStoredUserData(userKey);
       const localUpdatedAt = load(`${userKey}_updated_at`, null);
       const cloudUpdatedAt = cloud?.updated_at ?? null;
+      // Server rows override the legacy snapshot; only explicitly queued offline
+      // operations may be overlaid, so older snapshots cannot erase expenses.
+      const hydratedBudget = cloud?.budgetRows ? await hydrateBudgetJournal(
+        userId,cloud.budgetRows,normalizeBudgetTransactions(load(`${userKey}_budget_transactions`,[]))
+      ) : null;
+      if (cloud?.budgetRows) {
+        setBudgetPendingCount(readBudgetJournal(window.localStorage,userId).operations.length);
+      }
       const localIsNewer =
         localHasData &&
         (!cloudUpdatedAt || (localUpdatedAt && new Date(localUpdatedAt) >= new Date(cloudUpdatedAt)));
@@ -815,6 +823,7 @@ export default function App({ windowMode = "full" }) {
           updated_at: localUpdatedAt,
         };
         const merged = mergeTempoData(cloud, localSnapshot);
+        if(hydratedBudget)merged.settings.budgetTransactions=hydratedBudget;
         setSyncStatus({ status: "saved", message: "Merged & saved to cloud", lastError: "" });
         await applyLoadedData({ loadedEvents: merged.events, loadedTasks: merged.tasks, settings: merged.settings, updatedAt: new Date().toISOString() });
         queueCloudSave(merged.events, merged.tasks, merged.settings);
@@ -824,7 +833,7 @@ export default function App({ windowMode = "full" }) {
         await applyLoadedData({
           loadedEvents: Array.isArray(cloud.events) ? cloud.events : [],
           loadedTasks: Array.isArray(cloud.tasks) ? cloud.tasks : [],
-          settings: cloud.settings || {},
+          settings: {...(cloud.settings||{}),budgetTransactions: hydratedBudget??cloud.settings?.budgetTransactions??[]},
           updatedAt: cloud.updated_at,
         });
       } else if (localHasData) {
@@ -1040,13 +1049,18 @@ export default function App({ windowMode = "full" }) {
     setSyncStatus({ status: "saving", message: "Force syncing…", lastError: "" });
     try {
       await cloudQueueRef.current.catch(() => {});
+      const budgetOk=await flushBudgetJournalNow();
+      if(!budgetOk)throw new Error("Budget sync has pending changes or a conflict; no financial data was overwritten.");
       const cloud = await loadFromCloud(auth.user.id);
+      if(!cloud?.budgetRows)throw new Error("Authoritative Budget records could not be fetched. Local financial data was preserved.");
       const localUpdatedAt = load(`${uk}_updated_at`, null);
       const cloudUpdatedAt = cloud?.updated_at ?? null;
       const localSnapshot = { events, tasks, settings: currentSettings(), updated_at: localUpdatedAt };
       // Always run the conflict-safe merge so delete tombstones and field-level settings timestamps
       // are respected across desktop, browser, and PWA sessions.
       const merged = cloud ? mergeTempoData(cloud, localSnapshot) : localSnapshot;
+      const restoredBudget=await hydrateBudgetJournal(auth.user.id,cloud.budgetRows,normalizeBudgetTransactions(load(`${uk}_budget_transactions`,[])));
+      merged.settings.budgetTransactions=restoredBudget;
       const nextSettings = merged.settings;
       const nextEvents = reviveEvents(merged.events || []);
       const nextTasks = normalizeTasks(merged.tasks || []);
