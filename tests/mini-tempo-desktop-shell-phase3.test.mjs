@@ -109,7 +109,7 @@ async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
 test("Portable QA executable ignores a production URL override and requires local readiness",async()=>{
   const env=await mockDesktop({qaMode:true,qaReady:true});
   const mini=env.windowsOf("Mini Tempo")[0];
-  assert.deepEqual(mini.loadCalls,["http://127.0.0.1:3000/mini"]);
+  assert.deepEqual(mini.loadCalls,["http://localhost:3000/mini"]);
   assert.equal(typeof env.networkPolicy,"function");
   function denied(url) {
     let answer;
