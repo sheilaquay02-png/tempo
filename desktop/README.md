@@ -1,28 +1,17 @@
-# Tempo Windows companion (implementation branch)
+# Mini Tempo Windows companion (feature branch)
 
-Mini Tempo is an Electron desktop shell that displays the same hosted Tempo web app in three window modes:
+Mini Tempo is an Electron shell displaying Tempo's task and calendar interface. It shares an authenticated web session with the Full Tempo window.
 
-- Full Tempo: `/`
-- Mini Tempo: `/mini`
-- Expense: `/recorder`
+- Mini Tempo: `/mini` (tasks, next event, task quick add, completion)
+- Full Tempo: `/` (all existing Tempo features, including Budget)
 
-The shell uses a shared Electron partition for auth, locked navigation, sandboxed renderers, no Node integration, and an allowlisted IPC bridge. It does **not** embed credentials or deploy the web app. When cold-start web loading fails, the desktop displays a bundled non-financial **Retry connection** screen instead of a blank window.
+The former separate expense recorder window and tray action have been removed **from the desktop companion only**. Full Tempo retains its Budget features and transaction storage.
 
-## Free Windows acceptance testing
+The shell does not bundle a Next.js server or Supabase database. It uses context isolation, sandboxing, disabled Node integration, restricted navigation and narrowly scoped IPC. Cold offline startup displays an explanatory Retry screen.
 
-Start with [TESTING.md](TESTING.md) for the manual Windows checklist. The included
-PowerShell launcher (`./desktop/start-local-test.ps1`) requires a disposable
-local Supabase configuration and refuses to connect to hosted Supabase domains.
-Start local Next.js in disposable-only mode on Windows with `$env:TEMPO_QA_LOCAL_ONLY="1"; npm run dev` after confirming the root `.env.local` points to localhost Supabase. Then run the launcher in another PowerShell terminal. The launcher verifies the actual running server before opening any account data.
+## Local-only QA (safe disposable test environment)
 
-Phase 3 automated Node tests verify mock Electron window/IPC lifecycles, the
-saved Mini pin preference, OS quit confirmation, independent expense popout
-and Save & Add Another draft rules. **No actual Windows GUI or installer has yet
-been verified**. All fake finance data remains isolated from production.
-
-## Portable Windows QA folder (not a release)
-
-On a **Windows computer**, after setting up the disposable local Supabase and Next.js servers as described in [TESTING.md](TESTING.md), run:
+Use `start-local-test.ps1` with disposable Supabase and a localhost Next.js server using `TEMPO_QA_LOCAL_ONLY=1`. The QA wrapper explicitly refuses hosted resources. To build the QA folder on Windows:
 
 ```powershell
 cd desktop
@@ -30,33 +19,36 @@ npm install --no-audit --no-fund
 npm run package:windows:qa
 ```
 
-This prepares an **unsigned, local-only test folder** under `desktop/out/MiniTempo-LocalQA-win32-x64`, not an installer. No GitHub Windows runner is used. The packaged QA entrypoint always connects to localhost, verifies the disposable local server and blocks all non-local network requests. Do not distribute it, connect it to production, or mistake it for a finished app. **Actual packaging and real Windows GUI checks remain unverified**.
+Output: `desktop/out/MiniTempo-LocalQA-win32-x64/`. This **requires localhost and the disposable test stack**; it is not a personal release. Do not use real accounts with QA.
 
-## Local development
+## Personal portable package (pre-release, gated)
 
-Install the root app separately using `npm ci` and start it using `npm run dev`.
+The personal build is a separate, **unsigned and portable**, Windows executable. It reads an HTTPS origin pinned into the packaged entrypoint. It does not upload anything to Vercel, change Supabase settings, or include production credentials.
 
-In another terminal:
+**Do not build or use with your real account yet.** First confirm the updated `/mini` route is on an approved HTTPS deployment, production authentication and the task/calendar sync are tested, and the release is approved. Packaging alone does not publish the updated web interface.
+
+After those release checks, on Windows:
 
 ```powershell
-cd desktop
-npm install
-$env:TEMPO_DEV="1"
-$env:TEMPO_DESKTOP_URL="http://localhost:3000"
-npm start
+cd Z:\Documents\GitHub\tempo\desktop
+npm install --no-audit --no-fund
+$env:TEMPO_PERSONAL_ORIGIN = "https://YOUR_APPROVED_TEMPO_DOMAIN"
+$env:TEMPO_PERSONAL_PACKAGE_APPROVED = "YES"
+npm run package:windows:personal
 ```
 
-On production the `TEMPO_DESKTOP_URL` value must be an approved HTTPS Tempo origin. A release package and signing process are **not** configured yet; don't distribute a Windows installer or merge the feature branch until tested and explicitly approved.
+Output: `desktop/out/MiniTempo-Personal-win32-x64/MiniTempo-Personal.exe`. Keep the whole output directory together. It is **not a signed installer**; Windows may display SmartScreen warnings. The app still needs an internet connection on cold start, although already-loaded web sessions may have browser caching. Do not assume task edits can be queued offline without separately verifying that behavior.
 
-## Safeguards
+## App behavior and safeguards
 
-- Only one Mini/Full/Recorder window per process.
-- Mini close hides to system tray, Quit exits.
-- Window bounds and pin preference are stored on the Windows device, never in the cloud.
-- The existing Budget form/keypad is rendered by the web app in recorder mode.
-- Expense submission must commit to Tempo's real transaction store; this desktop wrapper alone does not guarantee multi-device conflict safety.
-- Sign-out, offline sync, OAuth redirects, display scaling and Windows installer signing require manual acceptance testing.
+- Single Mini instance, plus an optional Full Tempo window
+- Close hides Mini to tray; tray Quit exits
+- Optional launch at Windows login
+- Local window position and pin setting
+- No Mini budgeting surface or expense recorder IPC
+- No production release should occur without explicit approval and verification of HTTPS route, auth, and syncing
+- Existing Full Tempo Budget and Supabase transaction data are not removed by desktop packaging
 
-## Offline boundary
+## Remaining release work
 
-An already-running authenticated Mini window can queue expense edits in its own existing renderer when the network goes offline, if the account's financial sync was previously initialised. The new recorder window requires a network response to load; in offline mode Mini uses the existing Budget popup inline. A **full offline cold start is not yet supported**. The static recovery page does not read or modify financial data.
+Verify the Windows executable on the target PC, account login/sign-out, two-window task sync, compact layout, task quick-add and undo, offline recovery, and controlled promotion of the updated web interface. Configure code signing if distributing to other users.
