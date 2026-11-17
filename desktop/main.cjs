@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session } = requ
 const fs = require("node:fs");
 const path = require("node:path");
 const {pathToFileURL} = require("node:url");
+const TASKBAR_APP_ID = "com.tempo.mini.personal";
+if (process.platform === "win32") {
+  app.setAppUserModelId(TASKBAR_APP_ID);
+}
 
 let mini = null;
 let full = null;
@@ -21,6 +25,12 @@ if (url.protocol !== "https:" && !(devMode && url.protocol === "http:" && ["loca
   throw new Error("Tempo desktop requires HTTPS, except localhost development.");
 }
 const base = url.origin;
+const desktopIconPath = (() => {
+  const bundled = path.join(__dirname, "public", "icon-192.png");
+  return fs.existsSync(bundled)
+    ? bundled
+    : path.join(__dirname, "..", "public", "icon-192.png");
+})();
 const stateFile = () => path.join(app.getPath("userData"), "tempo-mini-window.json");
 function readState() {
   try { return JSON.parse(fs.readFileSync(stateFile(),"utf8")); } catch { return {}; }
@@ -90,6 +100,7 @@ function makeWindow(options, route) {
     ...options,
     show:false,
     backgroundColor:"#fffaf7",
+    icon:desktopIconPath,
     webPreferences:{
       preload:path.join(__dirname,"preload.cjs"),
       partition:"persist:tempo",
@@ -99,6 +110,13 @@ function makeWindow(options, route) {
       webSecurity:true,
     }
   });
+  if (process.platform === "win32" && app.isPackaged) {
+    win.setAppDetails({
+      appId:TASKBAR_APP_ID,
+      appIconPath:process.execPath,
+      appIconIndex:0
+    });
+  }
   secureWindow(win);
   win.webContents.on("did-fail-load",(_event,_code,_description,failedUrl,isMainFrame)=>{
     if(isMainFrame===false || (failedUrl && !allowedNavigation(failedUrl)))return;
