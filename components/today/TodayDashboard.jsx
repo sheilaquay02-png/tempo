@@ -5,28 +5,23 @@ const {
   DEFAULT_AFFIRMATIONS,
   CATEGORIES,
   TODAY,
-  DAILY_CHECKIN_MOODS,
-  DAILY_CHECKIN_ENERGIES,
   dateKey,
   taskBelongsToPeriod,
   getEventsOnDay,
-  dailyCheckInForDate,
   fmtDate,
   fmt,
 } = Core;
 
-// The Today view focuses on the tools people use each day: tasks, calendar, and a quick check-in.
-// Legacy habits, journal entries, and resets are deliberately not surfaced here.
+// The Today view focuses on the tools people use each day: tasks, calendar and affirmations.
+// Legacy check-ins and productivity history remain stored but are no longer surfaced here.
 export function TodayLitePage({
   summary,
   events = [],
   tasks = [],
-  dailyCheckIns = [],
   affirmations = DEFAULT_AFFIRMATIONS,
   categories = CATEGORIES,
   onOpenCalendar,
   onOpenTasks,
-  onOpenCheckIn,
   onPlanToday,
   onToggleTask,
   onEditTask,
@@ -43,9 +38,6 @@ export function TodayLitePage({
   };
   const topTasks = [...todayTasks].sort((a, b) => taskRank(a) - taskRank(b)).slice(0, 3);
   const todayEvents = getEventsOnDay(events, TODAY).sort((a, b) => a.start - b.start).slice(0, 5);
-  const checkIn = dailyCheckInForDate(dailyCheckIns, TODAY);
-  const mood = checkIn?.mood ? DAILY_CHECKIN_MOODS.find(m => m.id === checkIn.mood) : null;
-  const energy = checkIn?.energy ? DAILY_CHECKIN_ENERGIES.find(e => e.id === checkIn.energy) : null;
   const catFor = id => categories.find(c => c.id === id) || categories.find(c => Core.categoryIs?.(id, c.id)) || { label: "Task", icon: "□", color: "var(--accent)" };
   const summaryItems = [
     { label: "Events", value: summary?.events ?? todayEvents.length, action: onOpenCalendar, emoji: "🗓️" },
@@ -75,12 +67,6 @@ export function TodayLitePage({
 
         <div className="today-hero-stack">
           <DailyAffirmationCard compact affirmations={affirmations} />
-          <div className="today-checkin-card">
-            <div className="today-checkin-top"><span>Check-in</span><button onClick={onOpenCheckIn}>{checkIn ? "Update" : "Add"}</button></div>
-            <div className="today-mood-display">{mood ? <><span>{mood.emoji}</span><strong>Feeling {mood.label}</strong></> : <><span>🌿</span><strong>No check-in yet</strong></>}</div>
-            <div className="today-energy-row"><span>Energy</span><strong>{energy ? `${energy.emoji} ${energy.label}` : "Not set"}</strong></div>
-            <p>{checkIn?.note ? checkIn.note.slice(0, 90) : "A quick check-in can help you plan your day."}</p>
-          </div>
         </div>
       </div>
 
