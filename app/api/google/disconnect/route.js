@@ -1,6 +1,8 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../lib/tempo/google/retiredRoute";
 import { getSupabaseAdmin, loadUserData, saveUserData, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
 
 export async function POST(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-disconnect", limit: 10, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
