@@ -57,3 +57,14 @@ test("Windows executable icon is a valid ICO derived from Tempo's existing PNG",
   assert.match(packaging, /TEMPO_PERSONAL_PACKAGE_APPROVED/);
   assert.match(packaging, /TEMPO_PERSONAL_ORIGIN/);
 });
+
+test("Windows taskbar uses the branded app icon and stable application identity", () => {
+  const desktop = read("desktop/main.cjs");
+  assert.match(desktop, /const TASKBAR_APP_ID = "com\.tempo\.mini\.personal"/);
+  assert.match(desktop, /if \(process\.platform === "win32"\) \{\s*app\.setAppUserModelId\(TASKBAR_APP_ID\)/);
+  assert.match(desktop, /const bundled = path\.join\(__dirname, "public", "icon-192\.png"\)/);
+  assert.match(desktop, /icon:desktopIconPath,/);
+  assert.match(desktop, /if \(process\.platform === "win32" && app\.isPackaged\)/);
+  assert.match(desktop, /win\.setAppDetails\(\{\s*appId:TASKBAR_APP_ID,\s*appIconPath:process\.execPath,\s*appIconIndex:0/);
+  assert.match(desktop, /tray=new Tray\(trayIconPath\)/);
+});
