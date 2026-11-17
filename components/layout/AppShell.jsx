@@ -52,8 +52,6 @@ export function AppSidebar({
   pendingLocalChanges,
   lastSyncedAt,
   onForceSync,
-  checkInSummary,
-  onOpenCheckIn,
   page,
   appMode = "schedule",
   budgetPage = "home",
@@ -95,11 +93,6 @@ export function AppSidebar({
           <SyncStatusPill syncStatus={syncStatus} onRetry={onForceSync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
         </div>
       </div>
-      {appMode === "schedule" && checkInSummary && (
-        <div className="mood-bar" onClick={onOpenCheckIn} style={{ cursor: "pointer" }}>
-          {checkInSummary.emoji} Feeling {checkInSummary.label}{checkInSummary.energyLabel ? ` · ${checkInSummary.energyLabel} energy` : ""}
-        </div>
-      )}
       <nav className="sidebar-nav">
         {appMode === "budget" ? (
           <>
@@ -117,12 +110,9 @@ export function AppSidebar({
           </>
         ) : (
           <>
-            <div className="nav-section-label">Main</div>
             <div className={`nav-item ${page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
             <div className={`nav-item ${page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
             <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
-            <div className={`nav-item ${page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
           </>
         )}
