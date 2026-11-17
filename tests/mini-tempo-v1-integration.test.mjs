@@ -38,14 +38,15 @@ test("planned money is private to event detail modals, not Calendar cells", () =
   assert.doesNotMatch(file("components/calendar/CalendarViews.jsx"), /spendingPlan|linkedEventId|eventRecordedSpending/);
 });
 
-test("Mini and Recorder are distinct authenticated Tempo routes sharing the root app", () => {
+test("Mini is focused on tasks and calendar while Full Tempo retains budgeting", () => {
   assert.match(file("app/mini/page.js"), /windowMode="mini"/);
-  assert.match(file("app/recorder/page.js"), /windowMode="recorder"/);
   assert.match(app, /windowMode === "mini"/);
-  assert.match(app, /windowMode === "recorder"/);
-  assert.match(mini, /Today's tasks|Today&apos;s tasks/);
-  assert.match(mini, /Spent today/);
+  assert.match(mini, /Today&apos;s tasks/);
   assert.match(mini, /Next event/);
+  assert.doesNotMatch(mini, /Spent today|Record expense|onExpense/);
+  assert.doesNotMatch(desktop, /tempo:open-expense|Record Expense/);
+  assert.doesNotMatch(preload, /openExpense|expenseSaved|closeExpense/);
+  assert.match(budget, /BudgetTransactionPopup/);
 });
 
 test("desktop entrypoints parse, sandbox all windows and restrict navigation", () => {
