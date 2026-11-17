@@ -1,3 +1,4 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../lib/tempo/google/retiredRoute";
 import {
   findGoogleSyncStateByChannel,
   jsonResponse,
@@ -7,6 +8,7 @@ import {
 } from "../../../../lib/tempo/google/server";
 
 export async function POST(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-webhook", limit: 120, windowMs: 60_000 });
     const expectedToken = process.env.GOOGLE_WEBHOOK_TOKEN || process.env.TEMPO_GOOGLE_WEBHOOK_TOKEN || "";
