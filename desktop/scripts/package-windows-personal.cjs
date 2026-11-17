@@ -39,7 +39,7 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error("Electron version must be pinn
       name:"mini-tempo-personal",version:"0.1.0",private:true,
       description:"Personal portable Mini Tempo desktop companion",main:"personal-entry.cjs"
     },null,2));
-    const packager=require("@electron/packager");
+    const {packager}=require("@electron/packager");
     const outputs=await packager({
       dir:stage,name:"MiniTempo-Personal",executableName:"MiniTempo-Personal",
       platform:"win32",arch:"x64",electronVersion:version,out:destination,
