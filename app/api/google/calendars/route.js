@@ -1,7 +1,9 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../lib/tempo/google/retiredRoute";
 import { listGoogleCalendars, loadUserData, saveUserData, googleCalendarSettingsFromList, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser } from "../../../../lib/tempo/google/server";
 import { readJsonBody, sanitizeCalendarPreferencePayload } from "../../../../lib/tempo/validation.js";
 
 export async function GET(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-calendars", limit: 60, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
@@ -17,6 +19,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-calendar-prefs", limit: 40, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
