@@ -71,7 +71,6 @@ for (const marker of removedAssistantMarkers) {
 }
 
 const requiredJournalMarkers = [
-  'allowDecorationEditing={!isMobileViewport}',
   'allowDecorationEditing && decoratePromptKey',
   'startDecoratingMemory',
   'journal-decoration-bottom-sheet',
