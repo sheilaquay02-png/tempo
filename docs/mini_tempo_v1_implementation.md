@@ -15,9 +15,35 @@
 
 ## Important release gates — NOT YET COMPLETE
 
-### Cross-device financial integrity
+### Phase 2 financial synchronisation — code implemented, migration NOT applied
 
-The current application stores `budgetTransactions` as an array inside the user's Supabase `user_data.settings` JSON snapshot. This inherited persistence model is not guaranteed to resolve concurrent edits from Full, Mini, phone and browser. The new flow still uses that model in this draft. **Do not deploy or use for real expense entry until a record-level, conflict-safe backend write and offline reconciliation strategy is implemented and tested.**
+The branch now contains a record-level financial design:
+
+1. `supabase/tempo_budget_records_phase2.sql` creates per-user transaction rows, row-level security policies, an idempotent operation log, a historical snapshot seed function, and a compare-and-swap RPC with per-record revisions.
+2. `lib/tempo/client/budgetRecordSync.js` adds a durable, user-scoped operation journal. Record creation, editing, linking and deletion are represented as explicit operations; deletions are tombstones. Changes are stored in the journal before an optimistic UI update.
+3. Duplicate retries reuse the operation ID; stale same-record revisions produce a conflict response while keeping the offline operation for review. Different transaction IDs are independent.
+4. Cloud hydration reads the new table rather than trusting a timestamp-selected `settings.budgetTransactions` snapshot. Pending offline operations overlay the server rows, and old local-only records are conservatively imported.
+5. Budget edits fail closed when the backend has not been initialised or secure same-origin journal locking is unavailable. Existing Budget popup save actions retain drafts if their journal commit fails.
+6. Startup, focus and online events retry queued writes; Supabase Realtime can trigger refetches of updated records.
+
+**Do NOT merge or deploy this branch yet.** The SQL migration is only in GitHub, and has **not** been run on the live Supabase database. The Next.js CI tests use an in-memory RPC simulation, not a live Supabase environment.
+
+#### Controlled rollout checklist
+
+- [ ] Back up the full `public.user_data` table, particularly `settings.budgetTransactions`; take a DB snapshot.
+- [ ] Test the SQL migration on a disposable Supabase project with realistic Budget data and authenticated users.
+- [ ] Verify two users cannot select, edit, seed or query one another's transactions (RLS).
+- [ ] Verify duplicate operation IDs are idempotent, stale revisions conflict, deleted rows stay tombstoned and 1,000+ records paginate completely.
+- [ ] Verify local/offline queue survives close/restart and every supported phone/browser provides Web Locks, or implement an equivalent atomic journal fallback.
+- [ ] Verify Google/Apple OAuth and sign-out across Windows Mini, Full and recorder.
+- [ ] Test offline/online, two-device simultaneous creates, overlapping edits, rapid repeated saves and insufficient local storage.
+- [ ] Add a conflict-review/resolution screen: the current branch preserves pending conflicting transactions and displays an error but does not yet provide a full side-by-side resolution UI.
+- [ ] Apply the schema migration in production *before* deploying any new client; verify Supabase Realtime table publication.
+- [ ] Stage all new clients together to avoid an outdated client treating the old JSON snapshot as authoritative.
+- [ ] Have a rollback/export plan that copies authoritative record rows back into a compatible snapshot before returning to legacy clients.
+
+The legacy `settings.budgetTransactions` field remains as a backup/migration bridge. New clients must treat the record table as the single financial source of truth. The rest of Tempo's settings still uses the pre-existing snapshot storage system, which is outside this Phase 2 migration.
+
 
 ### Windows packaging
 
