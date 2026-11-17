@@ -13,6 +13,7 @@ import { MiniTempoPanel } from "./mini/MiniTempoPanel";
 import { QuickAddMenu } from "./mini/QuickAddMenu";
 import { miniTempoCSS } from "../styles/miniTempoStyles";
 import { activeBudgetDefaults, appendTransactionOnce, todayRecordedSpending, eventSpendingKey, linkTransactionToEvent, unlinkTransactionFromEvent, normalizeSpendingPlan } from "../utils/miniTempoFinance";
+import { readBudgetJournal, writeBudgetJournal, diffBudgetTransactions, rebaseBudgetChanges, appendBudgetOperations, hydrateBudgetJournal, flushBudgetOperations, withBudgetJournalLock, isBudgetRecordSyncReady, BudgetSyncConflict, budgetRecordStorageKey } from "../lib/tempo/client/budgetRecordSync";
 import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
@@ -362,6 +363,9 @@ export default function App({ windowMode = "full" }) {
   const [expenseForm, setExpenseForm] = useState(null);
   const [expenseError, setExpenseError] = useState("");
   const [expenseSaving, setExpenseSaving] = useState(false);
+  const [budgetSyncError, setBudgetSyncError] = useState("");
+  const [budgetPendingCount, setBudgetPendingCount] = useState(0);
+  const budgetFlushInFlight = useRef(null);
   const expenseSaveLock = useRef(false);
   const recorderInitialized = useRef(false);
   const [bonusAllocationRules, setBonusAllocationRulesRaw] = useState(() => normalizeBonusAllocationRules(load(`${uk}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
@@ -1310,7 +1314,69 @@ export default function App({ windowMode = "full" }) {
   const setBudgetAccounts = value => { const next = normalizeBudgetAccounts(typeof value === "function" ? value(budgetAccounts) : value); setBudgetAccountsRaw(next); persistBudgetSettings({ budgetAccounts: next }); };
   const setBudgetLedgers = value => { const next = normalizeBudgetLedgers(typeof value === "function" ? value(budgetLedgers) : value); setBudgetLedgersRaw(next); persistBudgetSettings({ budgetLedgers: next }); };
   const setBudgetBuckets = value => { const next = normalizeBudgetBuckets(typeof value === "function" ? value(budgetBuckets) : value); setBudgetBucketsRaw(next); persistBudgetSettings({ budgetBuckets: next }); };
-  const setBudgetTransactions = value => { const next = normalizeBudgetTransactions(typeof value === "function" ? value(budgetTransactions) : value); setBudgetTransactionsRaw(next); persistBudgetSettings({ budgetTransactions: next }); };
+  // Route every existing Budget UI edit (including link/unlink, deletion, income,
+  // transfers, quick recorder) through a durable per-record operation journal.
+  async function setBudgetTransactions(value) {
+    if (!auth.user?.id || !isBudgetRecordSyncReady(auth.user.id)) {
+      setBudgetSyncError("Financial sync is not initialised. Your transaction was NOT saved.");
+      return false;
+    }
+    try {
+      const userId=auth.user.id;
+      await withBudgetJournalLock(userId,async()=>{
+        const original=normalizeBudgetTransactions(budgetTransactions);
+        const desired=normalizeBudgetTransactions(typeof value==="function"?value(original):value);
+        // Read again after acquiring the cross-window Web Lock. An older open Mini
+        // window must not accidentally delete records added by Full Tempo.
+        const latest=normalizeBudgetTransactions(load(`${uk}_budget_transactions`,[]));
+        const rebased=rebaseBudgetChanges(original,desired,latest);
+        if(!rebased.changes.length)return;
+        const journal=readBudgetJournal(window.localStorage,userId);
+        const queued=appendBudgetOperations(journal,rebased.changes);
+        // Commit journal first. Quota errors abort before the UI claims success.
+        writeBudgetJournal(window.localStorage,userId,queued);
+        setBudgetPendingCount(queued.operations.length);
+        persistBudgetSettings({budgetTransactions:rebased.transactions});
+        setBudgetTransactionsRaw(rebased.transactions);
+      });
+      setBudgetSyncError("");
+      // Do not block local expense recording on network. Pending writes survive restart.
+      void flushBudgetJournalNow();
+      return true;
+    }catch(error){
+      const message=error instanceof BudgetSyncConflict
+        ? "This expense changed in another Tempo window. Your new edit was not applied."
+        : (error?.message||"Could not save transaction safely.");
+      setBudgetSyncError(message);
+      setSyncStatus({status:"failed",message:"Budget edit not saved",lastError:message});
+      return false;
+    }
+  }
+
+  async function flushBudgetJournalNow() {
+    if (!auth.user?.id || !dataReady || !isBudgetRecordSyncReady(auth.user.id)) return false;
+    if (budgetFlushInFlight.current) return budgetFlushInFlight.current;
+    const userId=auth.user.id;
+    const attempt=withBudgetJournalLock(userId,async()=>{
+      const sb=await getSupabase();
+      await flushBudgetOperations(sb,window.localStorage,userId,journal=>{
+        setBudgetPendingCount(journal.operations.length);
+      });
+      setBudgetPendingCount(0);
+      setBudgetSyncError("");
+      return true;
+    }).catch(error=>{
+      const message=error instanceof BudgetSyncConflict
+        ? "Budget conflict: another device edited this transaction. Your local change is preserved for review."
+        : "Budget changes are saved locally, but cloud sync is pending.";
+      setBudgetSyncError(message);
+      setSyncStatus({status:"failed",message:"Budget cloud sync pending",lastError:error?.message||message});
+      return false;
+    }).finally(()=>{budgetFlushInFlight.current=null;});
+    budgetFlushInFlight.current=attempt;
+    return attempt;
+  }
+
 
   function createExpenseDraft(event = null) {
     const base = createEmptyTransactionForm({accounts:budgetAccounts,ledgers:budgetLedgers,buckets:budgetBuckets,type:"expense"});
@@ -1344,7 +1410,8 @@ export default function App({ windowMode = "full" }) {
     try {
       const entry=normalizeBudgetTransaction({...expenseForm,amount,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
       // Stable IDs protect against duplicate clicks and repeated submissions.
-      setBudgetTransactions(previous=>appendTransactionOnce(previous,entry));
+      const committed=await setBudgetTransactions(previous=>appendTransactionOnce(previous,entry));
+      if(!committed)throw new Error("Transaction could not be stored safely. Your draft is intact.");
       if(addAnother) {
         setExpenseForm(current=>({...current,id:budgetUid("txn"),amount:"",description:"",notes:"",tags:"",excludedFromBudget:false}));
       } else {
