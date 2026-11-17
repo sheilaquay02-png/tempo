@@ -12,7 +12,7 @@ const {
   normalizeSyncConflictLog,
 } = Core;
 
-export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, googleSync, onGoogleConnect, onGoogleDisconnect, onGoogleSyncNow, onGoogleCalendarPatch }) {
+export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
@@ -21,12 +21,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
   const notificationSupported = typeof window !== "undefined" && "Notification" in window;
   const pushSupported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && notificationSupported;
   const notificationPermission = notificationSupported ? Notification.permission : "unsupported";
-  const googleLastImportMs = googleSync?.lastImportAt ? new Date(googleSync.lastImportAt).getTime() : 0;
-  const googleIsStale = Boolean(googleSync?.connected && googleLastImportMs && Date.now() - googleLastImportMs > 24 * 60 * 60 * 1000);
-  const googleOffline = typeof navigator !== "undefined" && navigator.onLine === false;
-  const googleNeedsReconnect = Boolean(googleSync?.error && /unauthorized|expired|revoked|invalid_grant|not connected/i.test(String(googleSync.error)));
-  const googleStatusTone = googleOffline ? "offline" : googleSync?.loading ? "loading" : googleSync?.error ? "failed" : googleNeedsReconnect ? "failed" : googleIsStale ? "stale" : googleSync?.connected ? "connected" : "disconnected";
-  const googleStatusLabel = googleOffline ? "Offline" : googleSync?.loading ? "Syncing" : googleSync?.error ? "Needs attention" : googleIsStale ? "Stale" : googleSync?.connected ? "Connected" : "Not connected";
   const debug = syncDebug || {};
   const datasetCounts = debug.datasetCounts || {};
   const recentConflicts = normalizeSyncConflictLog(debug.syncConflictLog || []).slice(0, 5);
@@ -205,53 +199,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
               {tzList.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
             </select>
           </div>
-
-          <div className="settings-section google-calendar-settings">
-            <div className="settings-section-label">Google Calendar Sync</div>
-            <div className="settings-section-desc">Read-only import: Tempo shows Google events for planning context only. Tempo will not edit, delete, or write events back to Google Calendar.</div>
-            <div className={`google-sync-status-row ${googleStatusTone}`}>
-              <span className={`google-sync-dot ${googleStatusTone}`} />
-              <strong>{googleStatusLabel}</strong>
-              {googleSync?.lastImportAt && <small>Last import {new Date(googleSync.lastImportAt).toLocaleString()}</small>}
-              {!googleSync?.lastImportAt && googleSync?.connected && <small>No import yet</small>}
-              {googleSync?.googleCalendarSync?.importedCount !== undefined && <small>{googleSync.googleCalendarSync.importedCount} events in last import</small>}
-              {googleOffline && <small className="google-sync-error">Reconnect to the internet, then retry import.</small>}
-              {googleSync?.error && <small className="google-sync-error">{googleSync.error}</small>}
-            </div>
-            {googleNeedsReconnect && <div className="google-sync-warning">Google access may have expired or been revoked. Reconnect Google Calendar to refresh Tempo’s read-only import.</div>}
-            {googleIsStale && !googleSync?.error && <div className="google-sync-warning">Google events may be stale. Retry import to refresh your reference calendar.</div>}
-            <div className="settings-action-row google-sync-actions">
-              {!googleSync?.connected
-                ? <button className="tf-save" onClick={onGoogleConnect} disabled={googleSync?.loading || googleOffline}>Connect Google Calendar</button>
-                : <>
-                    <button className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading || googleOffline}>{googleSync?.loading ? "Syncing…" : googleSync?.error ? "Retry import" : "Import Google events"}</button>
-                    <button className="tf-cancel" onClick={onGoogleDisconnect} disabled={googleSync?.loading}>Disconnect</button>
-                  </>}
-            </div>
-            {googleSync?.message && <div className="settings-section-desc">{googleSync.message}</div>}
-            {googleSync?.connected && (
-              <div className="google-calendar-list">
-                {(googleSync.calendars || []).length ? googleSync.calendars.map(cal => (
-                  <div key={cal.id} className="google-calendar-row">
-                    <span className="google-calendar-color" style={{ background: cal.color || "var(--accent)" }} />
-                    <div className="google-calendar-meta">
-                      <strong>{cal.name || "Untitled Google calendar"}</strong>
-                      <small>Read-only reference · {cal.googleCalendarId || "Google calendar"}</small>
-                    </div>
-                    <label><input type="checkbox" checked={cal.visible !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { visible: e.target.checked })} /> Show</label>
-                    <label><input type="checkbox" checked={cal.syncEnabled !== false} onChange={e => onGoogleCalendarPatch?.(cal.id, { syncEnabled: e.target.checked })} /> Sync</label>
-                  </div>
-                )) : (
-                  <div className="google-calendar-empty-state">
-                    <strong>No Google calendars loaded yet</strong>
-                    <span>Use Import Google events to fetch your readable calendars. If this stays empty, reconnect Google Calendar.</span>
-                    <button type="button" className="tf-save" onClick={onGoogleSyncNow} disabled={googleSync?.loading || googleOffline}>Retry import</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
 
           {/* Categories */}
           <div className="settings-section">
