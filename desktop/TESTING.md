@@ -8,8 +8,33 @@ This is a **manual Windows acceptance plan**, not an installer or a production r
 2. Check out `feature/mini-tempo-v1-desktop-companion`, not `main`. In the repository root, run `npm ci`.
 3. Start the disposable Supabase stack using `npx supabase@2.122.1 start`. See `docs/tempo_budget_phase2_staging_checklist.md` for test schema setup and fixtures. Do **not** run `supabase link` or `db push`.
 4. Populate the repository-root `.env.local` using **local** Supabase credentials from `npx supabase@2.122.1 status -o json`. Use `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321` and your local API key. Never paste production API keys in chat or a committed file.
-5. In PowerShell terminal 1 run `npm run dev` from the repository root. In PowerShell terminal 2 run `./desktop/start-local-test.ps1`.
-6. The launcher refuses to run if your `.env.local` contains the live Supabase domain. All test expenses must use synthetic data.
+5. In PowerShell terminal 1, from the repository root, explicitly enable the disposable-only check **before** starting the Next.js server:
+   ```powershell
+   $env:TEMPO_QA_LOCAL_ONLY = "1"
+   npm run dev
+   ```
+6. In PowerShell terminal 2, from the repository root, run `./desktop/start-local-test.ps1`. The launcher checks both the `.env.local` Supabase address and the running web server's `/api/tempo-qa-status` endpoint. If either does not point to the disposable local project, it refuses to launch.
+7. All test expenses must use synthetic data. Do not start or reuse a Next.js development process connected to your live project.
+
+## Optional portable Windows QA folder (no installer)
+
+To validate the Windows packaging layout without deploying or uploading a build, use a **Windows computer** with Node.js 24. In another PowerShell terminal:
+
+```powershell
+cd desktop
+npm install --no-audit --no-fund
+npm run package:windows:qa
+```
+
+This creates `desktop/out/MiniTempo-LocalQA-win32-x64/MiniTempo-LocalQA.exe` along with the Electron runtime. Keep the **entire folder together**; the executable is not a standalone, signed installer.
+
+- The QA executable forces `http://127.0.0.1:3000` regardless of any existing `TEMPO_DESKTOP_URL` variable.
+- It refuses to open Tempo until the server confirms `TEMPO_QA_LOCAL_ONLY=1` and a localhost Supabase URL.
+- Its Electron network policy blocks requests to hosted databases and other non-local services.
+- The server and local Supabase Docker stack must be running on that **same computer**.
+- Do not distribute the QA folder, upload it to Releases, or bypass security warnings. Delete it after testing. No Windows runner or paid GitHub Actions job is started by this process.
+
+**Packaging has not yet been executed on a real Windows machine.** This is a prepared local test procedure, not a verified application release.
 
 ### Test cases
 
