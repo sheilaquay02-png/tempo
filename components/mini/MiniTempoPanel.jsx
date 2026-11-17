@@ -1,0 +1,85 @@
+"use client";
+
+import { useState } from "react";
+
+export function MiniTempoPanel({
+  tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
+  onToggleTask, onAddTask, onOpenTask, onOpenEvent, onExpense, onFull,
+  syncStatus = "saved", pendingChanges = 0, onSync,
+}) {
+  const [draft, setDraft] = useState("");
+  const [masked, setMasked] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const openFull = route => {
+    if (typeof window !== "undefined" && window.tempoDesktop?.openFull) window.tempoDesktop.openFull(route || "/");
+    else onFull?.(route);
+  };
+  const addTask = event => {
+    event.preventDefault();
+    const name = draft.trim();
+    if (!name) return;
+    onAddTask?.(name);
+    setDraft("");
+  };
+  const togglePinned = async () => {
+    if (!window.tempoDesktop?.setAlwaysOnTop) return;
+    const value = await window.tempoDesktop.setAlwaysOnTop(!pinned);
+    setPinned(Boolean(value));
+  };
+  const next = upcomingEvent;
+  return (
+    <main className="mini-tempo" aria-label="Mini Tempo daily companion">
+      <header className="mini-tempo-header">
+        <div className="mini-tempo-drag">
+          <strong>✿ mini tempo</strong>
+          <small>Your daily companion</small>
+        </div>
+        <div className="mini-tempo-title-actions">
+          {typeof window !== "undefined" && window.tempoDesktop && <>
+            <button type="button" onClick={togglePinned} title={pinned ? "Unpin Mini" : "Always on top"} aria-label="Pin Mini">{pinned ? "📌" : "♧"}</button>
+            <button type="button" onClick={() => window.tempoDesktop.minimizeMini?.()} aria-label="Minimise Mini">−</button>
+            <button type="button" onClick={() => window.tempoDesktop.hideMini?.()} aria-label="Hide Mini">×</button>
+          </>}
+        </div>
+      </header>
+      <div className="mini-tempo-body">
+        <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ☀️</h1>
+        <p className="mini-tempo-subtitle">A little progress every day.</p>
+        <section className="mini-section" aria-label="Today's tasks">
+          <div className="mini-section-head"><strong>Today's tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
+          {tasks.length ? tasks.slice(0,3).map(t => <div className="mini-task" key={t.id}>
+            <input type="checkbox" checked={Boolean(t.done)} onChange={() => onToggleTask?.(t.id)} aria-label={`Complete ${t.title}`} />
+            <button className={t.done ? "mini-task-done" : ""} onClick={() => onOpenTask?.(t)}>{t.title}</button>
+          </div>) : <p className="mini-empty">All clear for now 🌸</p>}
+          <form className="mini-task-add" onSubmit={addTask}><input aria-label="New task title" placeholder="+ Add a task" value={draft} onChange={e => setDraft(e.target.value)} /><button type="submit" disabled={!draft.trim()}>Add</button></form>
+        </section>
+        <section className="mini-section" aria-label="Next event">
+          <div className="mini-section-head"><strong>🗓 Next event</strong></div>
+          {next ? <button className="mini-event" onClick={() => onOpenEvent?.(next)}>
+            <small>{new Date(next.start).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</small>
+            <strong>{next.title}</strong>
+            <span>Open event details</span>
+          </button> : <p className="mini-empty">Nothing else scheduled today.</p>}
+        </section>
+        <section className="mini-section" aria-label="Today's spending">
+          <div className="mini-section-head"><strong>💳 Spent today</strong><button aria-label={masked ? "Show spending" : "Hide spending"} onClick={() => setMasked(x=>!x)}>{masked?"Show":"Hide"}</button></div>
+          <button className="mini-spent" onClick={() => openFull("/?page=budget-transactions")}>{masked ? "••••" : new Intl.NumberFormat("en-SG",{style:"currency",currency}).format(spentToday)}</button>
+        </section>
+        <button className="mini-expense-action" onClick={onExpense}>＋ Record expense</button>
+        <button className="mini-quick-toggle" onClick={() => setQuickOpen(x=>!x)} aria-expanded={quickOpen}>＋ Quick Add {quickOpen?"⌃":"⌄"}</button>
+        {quickOpen && <div className="mini-quick-menu">
+          <button onClick={() => {setQuickOpen(false);onExpense?.()}}>💳 Expense</button>
+          <button onClick={() => {setQuickOpen(false);document.querySelector(".mini-task-add input")?.focus()}}>✓ Task</button>
+          <button onClick={() => {setQuickOpen(false);openFull("/?create=event")}}>🗓 Event</button>
+        </div>}
+        {notice && <p className="mini-notice">{notice}</p>}
+        <footer className="mini-footer">
+          <button className={syncStatus==="saved" && !pendingChanges?"mini-sync-saved":"mini-sync-pending"} onClick={onSync}>☁ {pendingChanges ? `${pendingChanges} pending` : syncStatus==="saving"?"Syncing…":syncStatus==="saved"?"Synced":"Retry sync"}</button>
+          <button onClick={() => openFull("/")}>Open Full Tempo ↗</button>
+        </footer>
+      </div>
+    </main>
+  );
+}
