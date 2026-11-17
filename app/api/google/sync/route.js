@@ -1,3 +1,4 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../lib/tempo/google/retiredRoute";
 import {
   handleRouteError,
   jsonResponse,
@@ -8,6 +9,7 @@ import {
 import { readJsonBody } from "../../../../lib/tempo/validation.js";
 
 export async function POST(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-sync", limit: 12, windowMs: 60_000 });
     const user = await requireAuthenticatedUser(request);
