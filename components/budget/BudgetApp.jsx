@@ -599,9 +599,9 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
   const openAccountExpense = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "expense" }), accountId, description: "Expense" });
   const saveTransferTransaction = async () => {
     if (!transferForm || savingTransferRef.current) return;
-    savingTransferRef.current = true;
     const amount = Math.abs(Number(transferForm.amount || 0));
     if (!amount) return;
+    savingTransferRef.current = true;
     const timestamp = new Date().toISOString();
     const next = normalizeBudgetTransaction({
       ...transferForm,
@@ -1187,9 +1187,9 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
   const savingHomeRef = useRef(false);
   const saveHomeTransaction = async () => {
     if (!homeForm || savingHomeRef.current) return;
-    savingHomeRef.current = true;
     const amount = Math.abs(Number(homeForm.amount || 0));
     if (!amount) return;
+    savingHomeRef.current = true;
     const timestamp = new Date().toISOString();
     const selectedBucket = buckets.find(bucket => bucket.id === homeForm.bucketId);
     const firstTag = String(homeForm.tags || "").split(",").map(tag => tag.trim()).filter(Boolean)[0];
@@ -1587,9 +1587,9 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
   const savingTransactionRef = useRef(false);
   const saveTransaction = async () => {
     if (!form || savingTransactionRef.current) return;
-    savingTransactionRef.current = true;
     const amount = Math.abs(Number(form.amount || 0));
     if (!amount) return;
+    savingTransactionRef.current = true;
     const timestamp = new Date().toISOString();
     const next = normalizeBudgetTransaction({
       ...form,
