@@ -5,7 +5,8 @@
   "git": {
     "deploymentEnabled": {
       "release/mini-tempo-tasks-calendar-only": false,
-      "main": true
+      "main": true,
+      "feature/retire-google-calendar-integration": false
     }
   }
 }
