@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function MiniTempoPanel({
   tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
@@ -12,7 +12,11 @@ export function MiniTempoPanel({
   const [masked, setMasked] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [notice] = useState("");
+  useEffect(() => {
+    if(typeof window==="undefined" || !window.tempoDesktop?.getMiniState)return;
+    window.tempoDesktop.getMiniState().then(state=>setPinned(Boolean(state?.alwaysOnTop))).catch(()=>{});
+  },[]);
   const openFull = route => {
     if (typeof window !== "undefined" && window.tempoDesktop?.openFull) window.tempoDesktop.openFull(route || "/");
     else onFull?.(route);
