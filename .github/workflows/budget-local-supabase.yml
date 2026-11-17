@@ -1,7 +1,9 @@
 name: Tempo Budget local Supabase checks (disposable)
 
 on:
-  pull_request:
+  push:
+    branches:
+      - 'feature/mini-tempo-v1-desktop-companion'
     paths:
       - 'supabase/config.toml'
       - 'supabase/tempo_budget_records_phase2.sql'
