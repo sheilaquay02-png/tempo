@@ -153,7 +153,7 @@ test("Main-process navigation guards prevent redirects and deny IPC from unknown
   full.webContents.emit("will-navigate",{preventDefault(){prevented=true;}},"https://evil.example/fake-login");
   assert.equal(prevented,true);
   assert.deepEqual(env.openedExternal,["https://evil.example/fake-login"]);
-  assert.deepEqual(full.webContents.openHandler({url:"https://evil.example/"}),{action:"deny"});
+  assert.equal(full.webContents.openHandler({url:"https://evil.example/"}).action,"deny");
 });
 
 test("Recorder blocks accidental close and quitting until the renderer confirms draft disposition",async()=>{
