@@ -8,6 +8,19 @@ Mini Tempo is an Electron desktop shell that displays the same hosted Tempo web 
 
 The shell uses a shared Electron partition for auth, locked navigation, sandboxed renderers, no Node integration, and an allowlisted IPC bridge. It does **not** embed credentials or deploy the web app.
 
+## Free Windows acceptance testing
+
+Start with [TESTING.md](TESTING.md) for the manual Windows checklist. The included
+PowerShell launcher (`./desktop/start-local-test.ps1`) requires a disposable
+local Supabase configuration and refuses to connect to hosted Supabase domains.
+Start the local Next.js server first with `npm run dev`, then run the launcher
+in another PowerShell terminal from the repository root.
+
+Phase 3 automated Node tests verify mock Electron window/IPC lifecycles, the
+saved Mini pin preference, OS quit confirmation, independent expense popout
+and Save & Add Another draft rules. **No actual Windows GUI or installer has yet
+been verified**. All fake finance data remains isolated from production.
+
 ## Local development
 
 Install the root app separately using `npm ci` and start it using `npm run dev`.
