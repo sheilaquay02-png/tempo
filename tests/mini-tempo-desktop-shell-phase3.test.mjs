@@ -1,0 +1,196 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {EventEmitter} from "node:events";
+import {createRequire} from "node:module";
+import vm from "node:vm";
+import path from "node:path";
+
+// Electron main-process integration test using fake BrowserWindow/WebContents.
+// No Electron install, production deployment, network calls or Windows runner.
+// Behaves as an actual app process in the Window/IPC lifecycle.
+const nativeRequire=createRequire(import.meta.url);
+const mainSource=readFileSync("desktop/main.cjs","utf8");
+
+async function mockDesktop({savedState=null}={}) {
+  const windows=[],openedExternal=[];
+  const handlers=new Map();
+  let tray;
+  let persisted=savedState?JSON.stringify(savedState):null;
+  class FakeWebContents extends EventEmitter {
+    constructor() {super();this.openHandler=null;this.sent=[];this.reloadCalls=0;}
+    setWindowOpenHandler(fn){this.openHandler=fn;}
+    send(...params){this.sent.push(params);}
+    reloadIgnoringCache(){this.reloadCalls++;}
+  }
+  class FakeWindow extends EventEmitter {
+    constructor(options){
+      super();this.options=options;this.bounds={x:100,y:100,width:options.width||360,height:options.height||520};
+      this.pinned=Boolean(options.alwaysOnTop);this.visible=false;this.destroyed=false;this.minimized=false;
+      this.loadCalls=[];this.focusCount=0;this.webContents=new FakeWebContents();
+      windows.push(this);
+    }
+    loadURL(url){this.loadCalls.push(url);return Promise.resolve();}
+    show(){this.visible=true;}
+    hide(){this.visible=false;}
+    focus(){this.focusCount++;}
+    minimize(){this.minimized=true;}
+    isMinimized(){return this.minimized;}
+    restore(){this.minimized=false;}
+    setAlwaysOnTop(value){this.pinned=Boolean(value);}
+    isAlwaysOnTop(){return this.pinned;}
+    getBounds(){return {...this.bounds};}
+    isDestroyed(){return this.destroyed;}
+    close(){
+      let prevented=false;
+      this.emit("close",{preventDefault(){prevented=true;}});
+      if(prevented)return false;
+      this.destroyed=true;this.emit("closed");return true;
+    }
+  }
+  class FakeTray extends EventEmitter{
+    constructor(icon){super();this.icon=icon;tray=this;}
+    setToolTip(value){this.tooltip=value;}
+    setContextMenu(items){this.menu=items;}
+  }
+  class FakeApp extends EventEmitter {
+    constructor(){super();this.exited=false;this.autoStart=false;this.quitAttempts=0;}
+    requestSingleInstanceLock(){return true;}
+    whenReady(){return Promise.resolve();}
+    getPath(name){assert.equal(name,"userData");return "/tmp/tempo-phase3-mock";}
+    getLoginItemSettings(){return {openAtLogin:this.autoStart};}
+    setLoginItemSettings({openAtLogin}){this.autoStart=Boolean(openAtLogin);}
+    quit(){
+      this.quitAttempts++;
+      let prevented=false;
+      this.emit("before-quit",{preventDefault(){prevented=true;}});
+      if(!prevented){this.exited=true;}
+    }
+  }
+  const app=new FakeApp();
+  const ipcMain={handle:(name,callback)=>{if(handlers.has(name))throw Error("duplicate IPC handler");handlers.set(name,callback);}};
+  const fsMock={
+    readFileSync:()=>{if(!persisted)throw Error("ENOENT");return persisted;},
+    mkdirSync:()=>{},
+    writeFileSync:(_file,content)=>{persisted=String(content);}
+  };
+  const electron={app,BrowserWindow:FakeWindow,ipcMain,Tray:FakeTray,Menu:{buildFromTemplate:items=>items},
+    screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},
+    shell:{openExternal:url=>{openedExternal.push(url);return Promise.resolve();}}};
+  const localRequire=name=>name==="electron"?electron:name==="node:fs"?fsMock:nativeRequire(name);
+  const context={require:localRequire,process:{env:{TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"http://localhost:3000"}},URL,__dirname:"/repo/desktop"};
+  vm.runInNewContext(mainSource,context,{filename:"desktop/main.cjs"});
+  await Promise.resolve();
+  function ipc(name,sender,...args){
+    const callback=handlers.get(name);
+    assert.ok(callback,`Missing IPC handler: ${name}`);
+    return callback({sender:sender.webContents},...args);
+  }
+  const windowsOf=title=>windows.filter(x=>x.options.title===title);
+  return {app,windows,windowsOf,ipc,handlers,openedExternal,get tray(){return tray;},get saved(){return persisted?JSON.parse(persisted):null;}};
+}
+
+test("Mini opens once, supports tray hide/reopen and never duplicates on second instance",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  assert.equal(env.windowsOf("Mini Tempo").length,1);
+  assert.deepEqual(mini.loadCalls,["http://localhost:3000/mini"]);
+  assert.equal(mini.options.minWidth,330);
+  assert.equal(mini.options.minHeight,420);
+  mini.close();
+  assert.equal(mini.destroyed,false);
+  assert.equal(mini.visible,false);
+  env.app.emit("second-instance");
+  assert.equal(env.windowsOf("Mini Tempo").length,1);
+  assert.equal(mini.visible,true);
+  assert.ok(mini.focusCount>=1);
+  assert.ok(env.tray.menu.some(x=>x.label==="Quit Tempo"));
+});
+
+test("Pin preference is persisted and accessible to Mini only",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  assert.equal(env.ipc("tempo:mini-state",mini).alwaysOnTop,false);
+  assert.equal(env.ipc("tempo:pin-mini",mini,true),true);
+  assert.equal(env.saved.alwaysOnTop,true);
+  assert.equal(env.ipc("tempo:mini-state",mini).alwaysOnTop,true);
+  assert.ok(env.saved.bounds.width>=330);
+});
+
+test("Restores off-screen Mini bounds to a usable current-screen fallback",async()=>{
+  const env=await mockDesktop({savedState:{bounds:{x:98000,y:44000,width:360,height:520},alwaysOnTop:true}});
+  const mini=env.windowsOf("Mini Tempo")[0];
+  assert.equal(mini.pinned,true);
+  assert.equal(mini.options.width,360);
+  assert.equal(mini.options.height,520);
+  assert.equal(mini.options.x,undefined);
+});
+
+test("Mini, Full and Recorder have identical isolated auth partitions and distinct routes",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-full",mini,"/?page=tasks");
+  env.ipc("tempo:open-full",mini,"/?page=calendar");
+  env.ipc("tempo:open-expense",mini);
+  env.ipc("tempo:open-expense",mini);
+  assert.equal(env.windowsOf("Tempo").length,1);
+  assert.equal(env.windowsOf("Record expense").length,1);
+  const full=env.windowsOf("Tempo")[0],expense=env.windowsOf("Record expense")[0];
+  assert.ok(full.loadCalls.at(-1).includes("/?page=calendar"));
+  assert.deepEqual(expense.loadCalls,["http://localhost:3000/recorder"]);
+  for(const win of [mini,full,expense]){
+    assert.equal(win.options.webPreferences.partition,"persist:tempo");
+    assert.equal(win.options.webPreferences.nodeIntegration,false);
+    assert.equal(win.options.webPreferences.sandbox,true);
+    assert.equal(win.options.webPreferences.contextIsolation,true);
+  }
+});
+
+test("Main-process navigation guards prevent redirects and deny IPC from unknown windows",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-full",mini,"//evil.example");
+  const full=env.windowsOf("Tempo")[0];
+  assert.equal(full.loadCalls.at(-1),"http://localhost:3000/");
+  assert.throws(()=>env.ipc("tempo:hide-mini",full),/not permitted/);
+  let prevented=false;
+  full.webContents.emit("will-navigate",{preventDefault(){prevented=true;}},"https://evil.example/fake-login");
+  assert.equal(prevented,true);
+  assert.deepEqual(env.openedExternal,["https://evil.example/fake-login"]);
+  assert.deepEqual(full.webContents.openHandler({url:"https://evil.example/"}),{action:"deny"});
+});
+
+test("Recorder blocks accidental close and quitting until the renderer confirms draft disposition",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-expense",mini);
+  const expense=env.windowsOf("Record expense")[0];
+  assert.equal(expense.close(),false);
+  assert.equal(expense.destroyed,false);
+  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===false));
+  env.app.quit(); // emulate Windows/application quit attempt with active recorder
+  assert.equal(env.app.exited,false);
+  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===true));
+  env.ipc("tempo:close-expense",expense,true);
+  assert.equal(expense.destroyed,true);
+  assert.equal(env.app.exited,true);
+});
+
+test("Successful expense save closes only Recorder, restores Mini and refreshes the total",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:open-expense",mini);
+  const recorder=env.windowsOf("Record expense")[0];
+  env.ipc("tempo:expense-saved",recorder);
+  assert.equal(recorder.destroyed,true);
+  assert.equal(env.windowsOf("Mini Tempo").length,1);
+  assert.equal(mini.webContents.reloadCalls,1);
+  assert.equal(mini.visible,true);
+});
+
+test("Tray quit invokes draft review, and launch-at-login remains opt-in",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  const launch=env.tray.menu.find(x=>x.label==="Launch at login");
+  assert.equal(launch.checked,false);
+  launch.click({checked:true});
+  assert.equal(env.app.autoStart,true);
+  env.ipc("tempo:open-expense",mini);
+  const expense=env.windowsOf("Record expense")[0];
+  env.tray.menu.find(x=>x.label==="Quit Tempo").click();
+  assert.equal(env.app.exited,false);
+  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===true));
+});
