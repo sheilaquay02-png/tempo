@@ -45,7 +45,7 @@ test("Portable QA forces localhost, never packages production secrets or deploys
   assert.match(qa,/TEMPO_DESKTOP_URL="http:\/\/127\.0\.0\.1:3000"/);
   assert.match(main,/qaServerReady\(\)/);
   assert.match(main,/webRequest\.onBeforeRequest/);
-  assert.match(main,/cancel:!\(permitted\|\|staticOffline\)/);
+  assert.match(main,/cancel:!\(permitted\|\|staticOffline\|\|inlineAsset\|\|localBlob\)/);
   assert.match(pkg.scripts["package:windows:qa"],/package-windows-qa/);
   assert.equal(pkg.devDependencies["@electron/packager"],"20.3.0");
   assert.equal(pkg.devDependencies.electron,"45.3.3");
