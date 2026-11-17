@@ -84,4 +84,29 @@ export const miniTempoCSS = `
 .mini-tempo button:focus-visible,.mini-tempo input:focus-visible{
   outline:2px solid var(--accent);outline-offset:2px;
 }
+.mini-collapse-toggle{
+  display:flex!important;flex:1;align-items:center;justify-content:space-between;gap:8px;
+  min-width:0;padding:0!important;text-align:left!important;border:0!important;
+  color:var(--text)!important;background:transparent!important;cursor:pointer;
+}
+.mini-collapse-toggle strong{font-size:13px;font-weight:900}
+.mini-collapse-toggle>span{color:var(--accent);font-size:15px;flex-shrink:0}
+.mini-card-content{display:flex;flex-direction:column;gap:10px;min-width:0}
+.mini-card-content .mini-task{min-width:0}
+.mini-task-count{font-size:11px;color:var(--text2);font-weight:700}
+.mini-affirmation-quote{margin:0;font-size:12px;line-height:1.55;font-weight:800;color:var(--text)}
+.mini-affirmation-quote span{white-space:nowrap}
+.tempo-weather-line{display:flex;flex-direction:column;gap:5px;min-width:0;margin-top:5px;color:var(--text2);font-family:var(--font)}
+.tempo-weather-summary{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;font-size:11px;font-weight:750;line-height:1.45}
+.tempo-weather-summary>span{flex:1;min-width:135px}
+.tempo-weather-line button{font:inherit;font-size:10px;font-weight:850;cursor:pointer;
+  color:var(--accent);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:4px 7px}
+.tempo-weather-city-form{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tempo-weather-city-form input{flex:1;min-width:130px;max-width:100%;
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  font:inherit;font-size:11px;padding:6px 8px;color:var(--text)}
+.tempo-weather-error{color:var(--text2);font-size:10px}
+.tempo-weather-credit{font-size:9px;color:var(--text3)}
+.mini-tempo .tempo-weather-line{border-top:1px solid var(--border);padding-top:7px;margin-top:0}
+.affirmation-daily-card .tempo-weather-line{border-top:1px solid var(--border);padding-top:9px}
 `;
