@@ -17,26 +17,27 @@ export function TempoLoadingScreen({ message = null }) {
 }
 
 
-export function AppModeSwitch({ appMode = "schedule", onChange }) {
+export function AppModeSwitch({ appMode = "schedule", page = "today", onChange, onNavigate }) {
   const modes = [
-    { id: "schedule", label: "Schedule", emoji: "🗓️" },
-    { id: "budget", label: "Budget", emoji: "💰" },
-    { id: "overall", label: "Overall", emoji: "🌿" },
+    { id: "today", label: "Today", emoji: "🌤️" },
+    { id: "calendar", label: "Calendar", emoji: "🗓️" },
+    { id: "tasks", label: "Tasks", emoji: "✅" },
+    { id: "budget", label: "Budget", emoji: "💳" },
   ];
   return (
-    <div className="app-mode-switch" role="tablist" aria-label="Tempo app mode">
+    <div className="app-mode-switch" role="tablist" aria-label="Tempo primary navigation">
       {modes.map(mode => (
         <button
           key={mode.id}
           type="button"
           role="tab"
-          aria-selected={appMode === mode.id}
+          aria-selected={mode.id === "budget" ? appMode === "budget" : appMode === "schedule" && page === mode.id}
           aria-label={mode.label}
           title={mode.label}
-          className={`app-mode-btn ${appMode === mode.id ? "active" : ""}`}
-          onClick={() => onChange?.(mode.id)}
+          className={`app-mode-btn ${(mode.id === "budget" ? appMode === "budget" : appMode === "schedule" && page === mode.id) ? "active" : ""}`}
+          onClick={() => mode.id === "budget" ? onChange?.("budget") : onNavigate?.(mode.id)}
         >
-          <span aria-hidden="true">{mode.emoji}</span>
+          <span aria-hidden="true">{mode.emoji}</span><span className="tempo-primary-label">{mode.label}</span>
         </button>
       ))}
     </div>
@@ -86,7 +87,7 @@ export function AppSidebar({
   return (
     <div className={`sidebar ${sidebarOpen ? "" : "closed"}`}>
       <div className="sidebar-logo"><div className="logo-icon"><TempoLogoMark /></div><span>Tempo</span></div>
-      <AppModeSwitch appMode={appMode} onChange={onAppModeChange} />
+      <AppModeSwitch appMode={appMode} page={page} onChange={onAppModeChange} onNavigate={onNavigate} />
       <div className="sidebar-date">
         <div className="date-big">{todayDate.getDate()}</div>
         {sidebarDateLabel}
@@ -118,15 +119,12 @@ export function AppSidebar({
           </>
         ) : (
           <>
-            <div className="nav-section-label">Main</div>
-            <div className={`nav-item ${page === "today" ? "active" : ""}`} onClick={() => onNavigate("today")}><span className="nav-icon">🌤️</span>Today</div>
-            <div className={`nav-item ${page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
-            <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
-            <div className="nav-section-label" style={{ marginTop: 8 }}>Planning</div>
+            <div className="nav-section-label">Planning</div>
             <div className="nav-item desktop-hidden-menu-item" onClick={onPlanToday}><span className="nav-icon">✨</span>Plan Today</div>
             <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
             <div className={`nav-item ${page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
+            <div className="nav-item" onClick={() => onAppModeChange?.("overall")}><span className="nav-icon">🌿</span>Overall (more)</div>
           </>
         )}
       </nav>
@@ -227,35 +225,30 @@ export function MobileBottomNav({
     { id: "budget", label: "Budget", icon: "🪣" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
-
   return (
     <>
       {showSync && (
-        <div className="mobile-sync-strip"><SyncStatusPill syncStatus={syncStatus} onRetry={onRetrySync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} /></div>
+        <div className="mobile-sync-strip">
+          <SyncStatusPill syncStatus={syncStatus} onRetry={onRetrySync} pendingLocalChanges={pendingLocalChanges} lastSyncedAt={lastSyncedAt} />
+        </div>
       )}
-
-      <div className={`mobile-nav ${appMode === "budget" ? "budget-mobile-nav" : ""}`} role="navigation" aria-label="Mobile primary navigation">
-        {appMode === "budget" ? (
-          <>
-            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
-            {budgetItems.map(item => (
-              <button key={item.id} className={`mobile-nav-btn ${budgetPage === item.id ? "active" : ""}`} onClick={() => onNavigateBudgetPage?.(item.id)}>{item.icon}<span>{item.label}</span></button>
-            ))}
-          </>
-        ) : appMode === "overall" ? (
-          <>
-            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
-            <button className="mobile-nav-btn active">🌿<span>Overall</span></button>
-          </>
-        ) : (
-          <>
-            <button className={`mobile-nav-btn ${sidebarOpen ? "active" : ""}`} onClick={onToggleMenu}>☰<span>Menu</span></button>
-            <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
-            <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
-            <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
-          </>
-        )}
-      </div>
+      <button type="button" className="tempo-mobile-menu-trigger" aria-label={sidebarOpen ? "Close menu" : "Open menu"} aria-expanded={sidebarOpen} onClick={onToggleMenu}>☰ Menu</button>
+      {appMode === "budget" && (
+        <nav className="tempo-budget-subnav" aria-label="Budget sections">
+          {budgetItems.map(item => (
+            <button type="button" key={item.id} className={`tempo-budget-subnav-btn ${budgetPage===item.id?"active":""}`}
+              aria-current={budgetPage===item.id?"page":undefined} onClick={() => onNavigateBudgetPage?.(item.id)}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+        </nav>
+      )}
+      <nav className="mobile-nav tempo-primary-mobile-nav" aria-label="Tempo primary navigation">
+        <button type="button" aria-current={appMode==="schedule"&&page==="today"?"page":undefined} className={`mobile-nav-btn ${appMode==="schedule"&&page==="today"?"active":""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
+        <button type="button" aria-current={appMode==="schedule"&&page==="calendar"?"page":undefined} className={`mobile-nav-btn ${appMode==="schedule"&&page==="calendar"?"active":""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
+        <button type="button" aria-current={appMode==="schedule"&&page==="tasks"?"page":undefined} className={`mobile-nav-btn ${appMode==="schedule"&&page==="tasks"?"active":""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
+        <button type="button" aria-current={appMode==="budget"?"page":undefined} className={`mobile-nav-btn ${appMode==="budget"?"active":""}`} onClick={() => onNavigateBudgetPage?.("home")}>💳<span>Budget</span></button>
+      </nav>
     </>
   );
 }
