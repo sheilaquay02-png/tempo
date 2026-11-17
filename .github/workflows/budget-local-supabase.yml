@@ -1,0 +1,72 @@
+name: Tempo Budget local Supabase checks (disposable)
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/config.toml'
+      - 'supabase/tempo_budget_records_phase2.sql'
+      - 'scripts/sql/phase2-supabase-local-bootstrap.sql'
+      - 'scripts/verify-budget-phase2-local.mjs'
+      - '.github/workflows/budget-local-supabase.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      TEMPO_LOCAL_TEST_CONFIRM: DISPOSABLE_LOCAL_ONLY
+      # The script will reject every hostname except localhost / 127.0.0.1.
+      TEMPO_LOCAL_SUPABASE_URL: http://127.0.0.1:54321
+    steps:
+      - name: Checkout only this PR branch
+        uses: actions/checkout@v5
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
+      - name: Install locked project dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Docker and pinned local-only CLI commands
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          npx --yes supabase@2.122.1 --help >/dev/null
+          npx --yes supabase@2.122.1 start --help >/dev/null
+          npx --yes supabase@2.122.1 status --help >/dev/null
+      - name: Start local Supabase Auth, REST and PostgreSQL
+        run: |
+          set -euo pipefail
+          # This starts a local Docker stack only. No 'link', 'db push', or hosted API calls.
+          npx --yes supabase@2.122.1 start
+      - name: Capture local publishable credentials without showing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(npx --yes supabase@2.122.1 status -o json)"
+          key="$(printf '%s' "$status" | jq -r '.ANON_KEY // .anon_key // empty')"
+          origin="$(printf '%s' "$status" | jq -r '.API_URL // .api_url // empty')"
+          if [ "$origin" != "http://127.0.0.1:54321" ] && [ "$origin" != "http://localhost:54321" ]; then
+            echo "::error::Local Supabase URL was not the expected loopback address"; exit 1
+          fi
+          if [ -z "$key" ]; then echo "::error::Local anon API key was not available"; exit 1; fi
+          echo "TEMPO_LOCAL_ANON_KEY=$key" >> "$GITHUB_ENV"
+      - name: Set up local-only fake Tempo schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
+            -f scripts/sql/phase2-supabase-local-bootstrap.sql
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
+            -f supabase/tempo_budget_records_phase2.sql
+      - name: Verify fake-account Auth, RLS, concurrent expense writes and Realtime
+        run: npm run test:budget:local
+      - name: Always stop ephemeral local Supabase containers
+        if: always()
+        run: npx --yes supabase@2.122.1 stop --no-backup || true
