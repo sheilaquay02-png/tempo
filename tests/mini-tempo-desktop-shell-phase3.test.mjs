@@ -28,9 +28,10 @@ async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
     constructor(options){
       super();this.options=options;this.bounds={x:100,y:100,width:options.width||360,height:options.height||520};
       this.pinned=Boolean(options.alwaysOnTop);this.visible=false;this.destroyed=false;this.minimized=false;
-      this.loadCalls=[];this.fileCalls=[];this.focusCount=0;this.webContents=new FakeWebContents();
+      this.loadCalls=[];this.fileCalls=[];this.focusCount=0;this.webContents=new FakeWebContents();this.appDetails=null;
       windows.push(this);
     }
+    setAppDetails(details){this.appDetails=details;}
     loadURL(url){this.loadCalls.push(url);return Promise.resolve();}
     loadFile(path){this.fileCalls.push(path);return Promise.resolve();}
     show(){this.visible=true;}
@@ -56,7 +57,8 @@ async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
     setContextMenu(items){this.menu=items;}
   }
   class FakeApp extends EventEmitter {
-    constructor(){super();this.exited=false;this.autoStart=false;this.quitAttempts=0;}
+    constructor(){super();this.exited=false;this.autoStart=false;this.quitAttempts=0;this.isPackaged=true;this.appUserModelId=null;}
+    setAppUserModelId(value){this.appUserModelId=value;}
     requestSingleInstanceLock(){return true;}
     whenReady(){return Promise.resolve();}
     getPath(name){assert.equal(name,"userData");return "/tmp/tempo-phase3-mock";}
@@ -72,6 +74,7 @@ async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
   const app=new FakeApp();
   const ipcMain={handle:(name,callback)=>{if(handlers.has(name))throw Error("duplicate IPC handler");handlers.set(name,callback);}};
   const fsMock={
+    existsSync:file=>String(file).endsWith("icon-192.png"),
     readFileSync:()=>{if(!persisted)throw Error("ENOENT");return persisted;},
     mkdirSync:()=>{},
     writeFileSync:(_file,content)=>{persisted=String(content);}
@@ -90,7 +93,7 @@ async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
     ? {TEMPO_QA_LOCAL_ONLY:"1",TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"https://live.invalid"}
     : {TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"http://localhost:3000"};
   const context={
-    require:localRequire,process:{env:mockEnv},URL,AbortSignal,
+    require:localRequire,process:{env:mockEnv,platform:"win32",execPath:"C:\\Tempo\\MiniTempo-Personal.exe"},URL,AbortSignal,
     fetch:async (_url,_options)=>({ok:qaReady,json:async()=>({localQa:qaReady})}),
     __dirname:"/repo/desktop"
   };
@@ -142,6 +145,11 @@ test("Mini opens once, supports tray hide/reopen and never duplicates on second 
   assert.deepEqual(mini.loadCalls,["http://localhost:3000/mini"]);
   assert.equal(mini.options.minWidth,330);
   assert.equal(mini.options.minHeight,420);
+  assert.equal(env.app.appUserModelId,"com.tempo.mini.personal");
+  assert.ok(mini.options.icon.endsWith("icon-192.png"));
+  assert.equal(mini.appDetails.appId,"com.tempo.mini.personal");
+  assert.equal(mini.appDetails.appIconPath,"C:\\Tempo\\MiniTempo-Personal.exe");
+  assert.equal(mini.appDetails.appIconIndex,0);
   mini.close();
   assert.equal(mini.destroyed,false);
   assert.equal(mini.visible,false);
