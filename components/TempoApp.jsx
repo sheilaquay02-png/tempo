@@ -1501,7 +1501,10 @@ export default function App({ windowMode = "full" }) {
 
   function openExpenseRecorder(event = null, { inline = false } = {}) {
     setExpenseError("");
-    if (!inline && !event && typeof window!=="undefined" && window.tempoDesktop?.openExpense && windowMode !== "recorder") {
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    // A newly opened web recorder cannot load offline. If Mini/Full is already
+    // running, reuse the exact Budget popup in the still-loaded renderer.
+    if (!offline && !inline && !event && typeof window!=="undefined" && window.tempoDesktop?.openExpense && windowMode !== "recorder") {
       window.tempoDesktop.openExpense();
       return;
     }
@@ -1588,7 +1591,7 @@ export default function App({ windowMode = "full" }) {
     });
   },[windowMode,expenseForm]);
   useEffect(()=>{
-    if(windowMode!=="recorder" || typeof window==="undefined")return;
+    if((windowMode!=="recorder" && !(windowMode==="mini" && expenseForm)) || typeof window==="undefined")return;
     const onKey=event=>{
       if(event.ctrlKey && event.key==="Enter"){event.preventDefault();if(!expenseSaveLock.current)void saveQuickExpense(false);}
       if(event.key==="Escape"){event.preventDefault();closeQuickExpense();}
@@ -3482,7 +3485,7 @@ export default function App({ windowMode = "full" }) {
       <style>{memoAppCSS}</style>
 
       {windowMode === "mini" ? (
-        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={budgetSyncError?"failed":syncStatus?.status} pendingChanges={pendingLocalChanges+budgetPendingCount} onSync={forceSyncNow} conflictCount={budgetConflicts.length} onReviewConflicts={()=>openFullTempo("/?page=budget-transactions&resolveBudget=1")} />
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={budgetSyncError?"failed":syncStatus?.status} pendingChanges={pendingLocalChanges+budgetPendingCount} onSync={forceSyncNow} offlineReady={Boolean(auth.user?.id && isBudgetRecordSyncReady(auth.user.id))} conflictCount={budgetConflicts.length} onReviewConflicts={()=>openFullTempo("/?page=budget-transactions&resolveBudget=1")} />
       ) : windowMode === "recorder" ? (
         <div className="mini-recorder-shell"><p className="mini-recorder-hint">Record your expense with your existing Budget keypad.</p></div>
       ) : (
@@ -3677,7 +3680,7 @@ export default function App({ windowMode = "full" }) {
       )}
       {windowMode==="full" && budgetConflicts.length>0 && !budgetConflictReviewOpen && <button type="button" className="tempo-conflict-banner" onClick={()=>setBudgetConflictReviewOpen(true)}>⚠️ Review {budgetConflicts.length} Budget {budgetConflicts.length===1?"conflict":"conflicts"}</button>}
       {windowMode==="full" && budgetConflictReviewOpen && <BudgetConflictReview conflicts={budgetConflicts} currency={budgetProfile.currency||"SGD"} resolving={budgetResolving} onResolve={resolvePendingBudgetConflict} onClose={()=>setBudgetConflictReviewOpen(false)} />}
-      {expenseForm && <BudgetTransactionPopup form={expenseForm} setForm={setExpenseForm} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} currency={budgetProfile.currency || "SGD"} summary={budgetSummary} onSave={()=>saveQuickExpense(false)} onSaveAndAddAnother={windowMode==="recorder" ? ()=>saveQuickExpense(true) : null} saving={expenseSaving} onClose={closeQuickExpense} />}
+      {expenseForm && <BudgetTransactionPopup form={expenseForm} setForm={setExpenseForm} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} currency={budgetProfile.currency || "SGD"} summary={budgetSummary} onSave={()=>saveQuickExpense(false)} onSaveAndAddAnother={windowMode==="recorder" || windowMode==="mini" ? ()=>saveQuickExpense(true) : null} saving={expenseSaving} onClose={closeQuickExpense} />}
       {(expenseError || budgetSyncError) && <div className="tempo-mini-error" role="alert">{expenseError || budgetSyncError}{budgetPendingCount>0 ? ` (${budgetPendingCount} pending)` : ""}</div>}
     </>
   );
