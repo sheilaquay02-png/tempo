@@ -140,7 +140,7 @@ grant execute on function public.tempo_budget_apply(text,uuid,bigint,jsonb,boole
 
 -- Enable immediate remote updates when the project's publication is available.
 -- RLS still limits row visibility to its owning authenticated user.
-do $
+do $tempo_sync$
 begin
   if exists (select 1 from pg_publication where pubname='supabase_realtime') and
      not exists (select 1 from pg_publication_tables
@@ -148,7 +148,7 @@ begin
   then
     execute 'alter publication supabase_realtime add table public.tempo_budget_transactions';
   end if;
-end; $;
+end; $tempo_sync$;
 
 comment on table public.tempo_budget_transactions is
   'Phase 2 authoritative financial records; legacy settings snapshot retained for backup.';
