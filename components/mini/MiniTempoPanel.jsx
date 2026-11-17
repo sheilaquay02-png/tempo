@@ -7,14 +7,23 @@ export function MiniTempoPanel({
   tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
   onToggleTask, onAddTask, onOpenTask, onOpenEvent, onExpense, onFull,
   syncStatus = "saved", pendingChanges = 0, onSync,
-  conflictCount = 0, onReviewConflicts,
+  conflictCount = 0, onReviewConflicts, offlineReady = false,
 }) {
   const [draft, setDraft] = useState("");
   const [masked, setMasked] = useState(false);
+  const [online, setOnline] = useState(true);
   const [pinned, setPinned] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState("");
   const [notice] = useState("");
+  useEffect(() => {
+    if(typeof navigator==="undefined")return;
+    const update=()=>setOnline(navigator.onLine!==false);
+    update();
+    window.addEventListener("online",update);
+    window.addEventListener("offline",update);
+    return ()=>{window.removeEventListener("online",update);window.removeEventListener("offline",update);};
+  },[]);
   useEffect(() => {
     if(typeof window==="undefined" || !window.tempoDesktop?.getMiniState)return;
     window.tempoDesktop.getMiniState().then(state=>setPinned(Boolean(state?.alwaysOnTop))).catch(()=>{});
@@ -59,6 +68,7 @@ export function MiniTempoPanel({
       <div className="mini-tempo-body">
         <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ☀️</h1>
         <p className="mini-tempo-subtitle">A little progress every day.</p>
+        {!online && <p className="mini-offline-banner" role="status">{offlineReady ? "Offline. You can record expenses in this open Mini window; entries queue locally until reconnect." : "Offline. Financial recording needs an initial secure sync before it is available."} Do not quit until your entries are saved.</p>
         <section className="mini-section" aria-label="Today's tasks">
           <div className="mini-section-head"><strong>Today&apos;s tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
           {visibleTasks.length ? visibleTasks.map(t => <div className="mini-task" key={t.id}>
