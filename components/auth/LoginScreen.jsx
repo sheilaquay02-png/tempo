@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { loadBudgetRows, budgetRecordsToTransactions, markBudgetRecordSyncReady } from "../../lib/tempo/client/budgetRecordSync";
 import * as Core from "../../lib/tempo/core";
 const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_UPLOAD_IMAGE_QUALITY, MEMORY_THUMB_IMAGE_QUALITY, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
@@ -245,6 +246,10 @@ export async function saveToCloudStrict(userId, events, tasks, settings) {
 export async function loadFromCloud(userId) {
   try {
     const sb = await getSupabase();
+    // Phase 2: seed legacy Budget snapshots into the per-record ledger before hydrating.
+    // If the migration is absent, do not silently claim financial sync is ready.
+    const budgetRows = await loadBudgetRows(sb);
+    markBudgetRecordSyncReady(userId);
     const { data, error } = await sb
       .from("user_data")
       .select("user_id, events, tasks, settings, updated_at")
@@ -263,8 +268,10 @@ export async function loadFromCloud(userId) {
       tasks: JSON.parse(JSON.stringify(data.tasks ?? []), DES),
       settings: {
         ...rawSettings,
+        budgetTransactions: budgetRecordsToTransactions(budgetRows),
         journal: await decryptMemoryJournalFromStorage(userId, rawSettings.journal ?? {}),
       },
+      budgetRows,
       updated_at: data.updated_at ?? null,
     };
   } catch (e) { console.warn("Cloud load failed, using local:", e); return null; }
