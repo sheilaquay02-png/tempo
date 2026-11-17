@@ -31,7 +31,7 @@ function mockServer(initial=[]) {
     },
     from(table){
       assert.equal(table,"tempo_budget_transactions");
-      return {select(){return this;},order(){return this;},async range(start,end){const data=[...records.values()].sort((a,b)=>a.transaction_id.localeCompare(b.transaction_id)).slice(start,end+1);return {data,error:null};}};
+      return {select(){return this;},eq(field,id){assert.equal(field,"user_id");assert.equal(id,"u");return this;},order(){return this;},async range(start,end){const data=[...records.values()].sort((a,b)=>a.transaction_id.localeCompare(b.transaction_id)).slice(start,end+1);return {data,error:null};}};
     }
   };
 }
@@ -47,7 +47,7 @@ test("two devices create different expenses without overwriting either",async()=
   await flushBudgetOperations(server,a,"u");
   await flushBudgetOperations(server,b,"u");
   assert.deepEqual(new Set([...server.records.keys()]),new Set(["a","b"]));
-  assert.equal((await loadBudgetRows(server)).length,2);
+  assert.equal((await loadBudgetRows(server,"u")).length,2);
 });
 
 test("retry of acknowledged operation is idempotent after acknowledgement loss",async()=>{
