@@ -81,6 +81,7 @@ declare
   v_user uuid := auth.uid();
   v_record public.tempo_budget_transactions%rowtype;
   v_previous jsonb;
+  v_previous_transaction_id text;
   v_response jsonb;
 begin
   if v_user is null then raise exception 'Authentication required'; end if;
@@ -99,9 +100,15 @@ begin
 
   -- Serialises records + dedupe operations for this user in a SQL transaction.
   perform pg_advisory_xact_lock(hashtextextended(v_user::text, 12821));
-  select response into v_previous from public.tempo_budget_operations
+  select response,transaction_id into v_previous,v_previous_transaction_id
+    from public.tempo_budget_operations
     where user_id=v_user and operation_id=p_operation_id;
-  if v_previous is not null then return v_previous; end if;
+  if v_previous is not null then
+    if v_previous_transaction_id is distinct from p_transaction_id then
+      raise exception 'Operation ID is already assigned to a different transaction';
+    end if;
+    return v_previous;
+  end if;
 
   select * into v_record from public.tempo_budget_transactions
     where user_id=v_user and transaction_id=p_transaction_id for update;
