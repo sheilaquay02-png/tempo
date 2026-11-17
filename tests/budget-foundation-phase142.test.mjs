@@ -37,7 +37,7 @@ test("Budget/Schedule/Overall shell is wired into TempoApp", () => {
   assert.match(appShell, /schedule/);
   assert.match(appShell, /budget/);
   assert.match(appShell, /overall/);
-  assert.match(tempoApp, /import \{ BudgetApp, OverallPage \}/);
+  assert.match(tempoApp, /import \{ BudgetApp, OverallPage, BudgetTransactionPopup, createEmptyTransactionForm \}/);
   assert.match(tempoApp, /appMode === "budget"/);
   assert.match(tempoApp, /appMode === "overall"/);
   assert.match(tempoApp, /_budget_profile/);
