@@ -129,7 +129,7 @@ export function EventModal({ event, calendars, categories, onClose, onSave, onDe
     if (isReferenceEvent) return;
     if (!form.title.trim()) return;
     if (form.end <= form.start) return;
-    const saved = await onSave({ ...form, title: form.title.trim() });
+    const saved = await onSave({ ...form, title: form.title.trim(), spendingPlan: normalizeSpendingPlan(form.spendingPlan) });
     if (saved !== false) onClose();
   }
   return (
@@ -152,7 +152,7 @@ export function EventModal({ event, calendars, categories, onClose, onSave, onDe
           <div className="modal-row"><label>Fixed</label><input type="checkbox" disabled={isReferenceEvent} checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} disabled={isReferenceEvent} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" disabled={isReferenceEvent} onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" disabled={isReferenceEvent} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
-          {!isReferenceEvent && <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:normalizeSpendingPlan(plan)}))} />}
+          {!isReferenceEvent && <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:plan}))} />}
           <EventSpendingDetails event={form} transactions={budgetTransactions} ledgers={budgetLedgers} buckets={budgetBuckets} onRecordExpense={()=>onRecordExpense?.(event)} onLink={onLinkTransaction} onUnlink={onUnlinkTransaction}/>
         </div>
         <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{!isReferenceEvent && <button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button>}<button className="tf-cancel" onClick={() => { onDuplicate?.(form); onClose(); }}>⧉ Duplicate</button>{!isReferenceEvent && <button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Copy to paste</button>}</div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>{isReferenceEvent ? "Close" : "Cancel"}</button>{!isReferenceEvent && <button className="tf-save" onClick={saveForm}>Save changes</button>}</div></div>
@@ -221,7 +221,7 @@ export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALEND
           <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e=>setForm(f=>({...f,fixed:e.target.checked}))}/><span style={{fontSize:11,color:"var(--text2)",marginLeft:6}}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c=><button key={c} className={`color-dot ${form.color===c?"selected":""}`} style={{background:c}} onClick={()=>setForm(f=>({...f,color:c}))}/> )}<button className="color-dot color-reset" onClick={()=>setForm(f=>({...f,color:null}))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
-          <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:normalizeSpendingPlan(plan)}))} />
+          <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:plan}))} />
           {err && <div style={{color:"#C04040",fontSize:12,fontWeight:700}}>⚠️ {err}</div>}
         </div>
         <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
