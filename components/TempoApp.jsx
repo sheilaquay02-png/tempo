@@ -11,6 +11,7 @@ import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from 
 import { BudgetApp, OverallPage, BudgetTransactionPopup, createEmptyTransactionForm } from "./budget/BudgetApp";
 import { BudgetConflictReview } from "./budget/BudgetConflictReview";
 import { MiniTempoPanel } from "./mini/MiniTempoPanel";
+import { nextUpcomingEvent } from "../utils/miniTempoDaily";
 import { isExpenseDraftDirty, nextExpenseDraft } from "../utils/miniTempoRecorder";
 import { QuickAddMenu } from "./mini/QuickAddMenu";
 import { miniTempoCSS } from "../styles/miniTempoStyles";
@@ -3415,8 +3416,10 @@ export default function App({ windowMode = "full" }) {
   };
   const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS + miniTempoCSS;
   const spentToday = todayRecordedSpending(budgetTransactions, todayBudgetDateKey());
-  const miniUpcomingEvent = [...todayDashboardEvents].filter(e => new Date(e.end).getTime() >= Date.now()).sort((a,b) => new Date(a.start) - new Date(b.start))[0] || null;
-  const miniTodayTasks = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1));
+  const miniUpcomingEvents = expandRecurring(events.filter(eventSourceVisible), dayStart(TODAY), addDaysSafe(dayStart(TODAY),31))
+    .filter(e => !hiddenCals.includes(e.calendar));
+  const miniUpcomingEvent = nextUpcomingEvent(miniUpcomingEvents);
+  const miniTodayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY));
   const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
   const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
   const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
