@@ -11,6 +11,7 @@ import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from 
 import { BudgetApp, OverallPage, BudgetTransactionPopup, createEmptyTransactionForm } from "./budget/BudgetApp";
 import { BudgetConflictReview } from "./budget/BudgetConflictReview";
 import { MiniTempoPanel } from "./mini/MiniTempoPanel";
+import { isExpenseDraftDirty, nextExpenseDraft } from "../utils/miniTempoRecorder";
 import { QuickAddMenu } from "./mini/QuickAddMenu";
 import { miniTempoCSS } from "../styles/miniTempoStyles";
 import { activeBudgetDefaults, appendTransactionOnce, todayRecordedSpending, eventSpendingKey, linkTransactionToEvent, unlinkTransactionFromEvent, normalizeSpendingPlan } from "../utils/miniTempoFinance";
@@ -372,6 +373,7 @@ export default function App({ windowMode = "full" }) {
   const budgetFlushInFlight = useRef(null);
   const budgetFlushRequestedRef = useRef(false);
   const expenseSaveLock = useRef(false);
+  const expenseDraftBaseline = useRef(null);
   const recorderInitialized = useRef(false);
   const [bonusAllocationRules, setBonusAllocationRulesRaw] = useState(() => normalizeBonusAllocationRules(load(`${uk}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
   const [showStats,    setShowStats]    = useState(false);
@@ -1502,7 +1504,9 @@ export default function App({ windowMode = "full" }) {
       window.tempoDesktop.openExpense();
       return;
     }
-    setExpenseForm(createExpenseDraft(event));
+    const freshDraft=createExpenseDraft(event);
+    expenseDraftBaseline.current=freshDraft;
+    setExpenseForm(freshDraft);
   }
 
   async function saveQuickExpense(addAnother = false) {
@@ -1520,10 +1524,17 @@ export default function App({ windowMode = "full" }) {
       const committed=await setBudgetTransactions(previous=>appendTransactionOnce(previous,entry));
       if(!committed)throw new Error("Transaction could not be stored safely. Your draft is intact.");
       if(addAnother) {
-        setExpenseForm(current=>({...current,id:budgetUid("txn"),amount:"",description:"",notes:"",tags:"",excludedFromBudget:false}));
+        const next=nextExpenseDraft(expenseForm,budgetUid("txn"));
+        expenseDraftBaseline.current=next;
+        setExpenseForm(next);
+        // Give the user an immediate next-entry focus without touching the keypad.
+        if(typeof window!=="undefined")window.requestAnimationFrame?.(()=>{
+          document.querySelector('.budget-transaction-popup-sheet input[aria-label="Transaction amount"]')?.focus();
+        });
       } else {
+        expenseDraftBaseline.current=null;
         setExpenseForm(null);
-        if(windowMode==="recorder" && typeof window!=="undefined")window.tempoDesktop?.expenseSaved?.();
+        if(windowMode==="recorder" && typeof window!=="undefined")void window.tempoDesktop?.expenseSaved?.();
       }
     } catch(error) {
       setExpenseError(error?.message||"Could not save expense. Your draft was kept.");
@@ -1531,9 +1542,12 @@ export default function App({ windowMode = "full" }) {
   }
 
   function closeQuickExpense() {
-    if(expenseForm?.amount && !window.confirm("Discard the unfinished transaction?"))return;
+    if(expenseSaveLock.current)return;
+    if(isExpenseDraftDirty(expenseForm,expenseDraftBaseline.current) &&
+        !window.confirm("Discard this unsaved transaction?"))return;
+    expenseDraftBaseline.current=null;
     setExpenseForm(null);
-    if(windowMode==="recorder")window.tempoDesktop?.closeExpense?.();
+    if(windowMode==="recorder")void window.tempoDesktop?.closeExpense?.();
   }
 
   function addQuickTodayTask(title) {
@@ -1563,16 +1577,19 @@ export default function App({ windowMode = "full" }) {
   useEffect(()=>{
     if(windowMode!=="recorder" || typeof window==="undefined" || !window.tempoDesktop?.onRequestClose)return;
     return window.tempoDesktop.onRequestClose(quit=>{
-      const dirty=Boolean(expenseForm?.amount || expenseForm?.description || expenseForm?.notes || expenseForm?.tags);
-      if(dirty && !window.confirm("Discard this unsaved transaction?"))return;
+      // Do not dismiss or discard while a transaction is being persisted locally.
+      if(expenseSaveLock.current)return;
+      if(isExpenseDraftDirty(expenseForm,expenseDraftBaseline.current) &&
+          !window.confirm("Discard this unsaved transaction?"))return;
+      expenseDraftBaseline.current=null;
       setExpenseForm(null);
-      window.tempoDesktop.closeExpense(quit);
+      void window.tempoDesktop.closeExpense(quit);
     });
   },[windowMode,expenseForm]);
   useEffect(()=>{
     if(windowMode!=="recorder" || typeof window==="undefined")return;
     const onKey=event=>{
-      if(event.ctrlKey && event.key==="Enter"){event.preventDefault();saveQuickExpense(false);}
+      if(event.ctrlKey && event.key==="Enter"){event.preventDefault();if(!expenseSaveLock.current)void saveQuickExpense(false);}
       if(event.key==="Escape"){event.preventDefault();closeQuickExpense();}
     };
     window.addEventListener("keydown",onKey);
