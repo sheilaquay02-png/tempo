@@ -42,7 +42,7 @@ test("Portable QA forces localhost, never packages production secrets or deploys
   const main=read("desktop/main.cjs");
   const pkg=JSON.parse(read("desktop/package.json"));
   assert.match(qa,/TEMPO_QA_LOCAL_ONLY="1"/);
-  assert.match(qa,/TEMPO_DESKTOP_URL="http:\/\/127\.0\.0\.1:3000"/);
+  assert.match(qa,/TEMPO_DESKTOP_URL="http:\/\/localhost:3000"/);
   assert.match(main,/qaServerReady\(\)/);
   assert.match(main,/webRequest\.onBeforeRequest/);
   assert.match(main,/cancel:!\(permitted\|\|staticOffline\|\|inlineAsset\|\|localBlob\)/);
