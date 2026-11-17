@@ -223,6 +223,6 @@ test("RPC schema disables direct authenticated DML and uses a safe SQL code bloc
   assert.match(sql,/revoke all on public\.tempo_budget_transactions from authenticated/);
   assert.match(sql,/grant select on public\.tempo_budget_transactions to authenticated/);
   assert.match(sql,/security definer set search_path = ''/);
-  assert.match(sql,/do \$\$\s*begin/);
-  assert.match(sql,/end; \$\$;/);
+  assert.match(sql,/do \$tempo_sync\$\s*begin/);
+  assert.match(sql,/end; \$tempo_sync\$;/);
 });
