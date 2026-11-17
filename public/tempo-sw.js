@@ -1,5 +1,5 @@
-const TEMPO_SW_VERSION = 'phase-51-70-v1';
-const SAFE_PATHS = new Set(['/', '/?page=today', '/?page=calendar', '/?page=tasks', '/?page=journal', '/?page=reset', '/?page=weekly', '/?page=affirmations']);
+const TEMPO_SW_VERSION = 'retired-lifestyle-v2';
+const SAFE_PATHS = new Set(['/', '/?page=today', '/?page=calendar', '/?page=tasks', '/?page=affirmations']);
 
 self.addEventListener('install', event => {
   // Do not force-claim immediately. New service workers activate after the page naturally reloads,
@@ -27,7 +27,7 @@ function safeTempoUrl(input) {
     const url = new URL(raw, self.location.origin);
     if (url.origin !== self.location.origin) return '/';
     const page = url.searchParams.get('page');
-    if (page && !['today','calendar','tasks','journal','reset','weekly','affirmations'].includes(page)) {
+    if (page && !['today','calendar','tasks','affirmations'].includes(page)) {
       url.searchParams.set('page', 'today');
     }
     // Removed/legacy routes should simply open Tempo instead of a blank/old page.
@@ -116,17 +116,6 @@ self.addEventListener('notificationclick', event => {
       const result = await postReminderAction(data, { action: 'complete_task' });
       await self.registration.showNotification(result?.ok ? 'Task marked done ✅' : 'Could not mark task done', {
         body: result?.ok ? 'Tempo updated this task.' : 'Open Tempo to check the task.',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        data: { url },
-      });
-      return;
-    }
-
-    if (action === 'complete_habit') {
-      const result = await postReminderAction(data, { action: 'complete_habit' });
-      await self.registration.showNotification(result?.ok ? 'Habit checked off 🌱' : 'Could not complete habit', {
-        body: result?.ok ? 'Tempo updated this habit.' : 'Open Tempo to check the habit.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         data: { url },

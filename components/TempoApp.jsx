@@ -9,8 +9,7 @@ import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopu
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
 import { BudgetApp, OverallPage } from "./budget/BudgetApp";
-import { HabitsPage } from "./habits/Habits";
-import { DailyCheckInModal, TomorrowResetPage, WeeklyResetPage, taskFallsOnDateForReset } from "./checkins/CheckInReset";
+import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
   DEFAULT_PLANNING_RULES,
@@ -55,7 +54,6 @@ import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./calendar/CalendarModals";
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
 import { SettingsPanel } from "./settings/SettingsPanel";
-import { JournalPage } from "./journal/Journal";
 import { TodayLitePage } from "./today/TodayDashboard";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
@@ -197,80 +195,35 @@ function RhythmMeter({ label, value, detail }) {
   );
 }
 
-function RhythmStatsPage({ events, tasks, habits = [], habitCompletions = [], journal = {}, dailyCheckIns = [], tomorrowResets = [], weeklyResets = [], categories = CATEGORIES, gameStats }) {
-  const stats = buildRhythmStatsSnapshot({ tasks, habits, habitCompletions, journal, dailyCheckIns, tomorrowResets, weeklyResets, categories });
+function RhythmStatsPage({ tasks = [], categories = CATEGORIES }) {
+  const stats = buildRhythmStatsSnapshot({ tasks, categories });
   return (
     <div className="rhythm-stats-page phase-page">
       <div className="phase-hero rhythm-stats-hero">
         <div>
           <div className="phase-kicker">Rhythm Stats</div>
-          <h1>📊 Your rhythm at a glance</h1>
-          <p>Here’s how your rhythm is building — gently, without judgement.</p>
+          <h1>📊 Your tasks at a glance</h1>
+          <p>A simple look at your task completion, without extra tracking.</p>
         </div>
       </div>
-
       <div className="stats-card rhythm-stats-card rhythm-stats-card-page">
-        <div className="rhythm-insight-card">{stats.rhythmMessage}</div>
-
         <div className="stats-row rhythm-stat-grid">
-          <div className="stat-big"><div className="stat-num">{stats.habitRate7}%</div><div className="stat-lbl">Habit consistency</div></div>
-          <div className="stat-big"><div className="stat-num">{stats.taskCompletionRate30}%</div><div className="stat-lbl">Task completion</div></div>
-          <div className="stat-big"><div className="stat-num">{stats.journalEntries30}</div><div className="stat-lbl">Journal entries</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.taskCompletionRate30}%</div><div className="stat-lbl">Task completion (30 days)</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.completedTasks30}</div><div className="stat-lbl">Completed tasks (30 days)</div></div>
+          <div className="stat-big"><div className="stat-num">{stats.plannedTasks30}</div><div className="stat-lbl">Planned tasks (30 days)</div></div>
         </div>
-
-        <div className="rhythm-stats-split">
-          <div className="rhythm-mini-panel">
-            <div className="rhythm-section-title">Mood & energy</div>
-            <div className="rhythm-chip-row"><span>{stats.topMood.emoji}</span><strong>{stats.topMood.label}</strong><small>Most common mood, 14 days</small></div>
-            <div className="rhythm-chip-row"><span>{stats.topEnergy.emoji}</span><strong>{stats.topEnergy.label}</strong><small>Most common energy, 14 days</small></div>
-            <p>{stats.checkIns30} check-in{stats.checkIns30 === 1 ? "" : "s"} in the last 30 days.</p>
-          </div>
-          <div className="rhythm-mini-panel">
-            <div className="rhythm-section-title">Resets</div>
-            <div className="rhythm-chip-row"><span>{stats.currentWeeklyReset ? "🧺" : "🌱"}</span><strong>{stats.currentWeeklyReset ? "Weekly reset done" : "Weekly reset ready"}</strong><small>This week</small></div>
-            <div className="rhythm-chip-row"><span>🌙</span><strong>{stats.tomorrowResetCount30}</strong><small>Tomorrow resets, 30 days</small></div>
-            <p>{stats.weeklyResetCount30} weekly reset{stats.weeklyResetCount30 === 1 ? "" : "s"} saved in the last 30 days.</p>
-          </div>
+        <div className="rhythm-stats-section rhythm-category-panel">
+          <div className="rhythm-section-title">Completion by category</div>
+          {stats.categoryRows.length ? <div className="rhythm-category-list">
+            {stats.categoryRows.map(row => (
+              <div key={row.id} className="rhythm-category-row">
+                <span>{row.icon} {row.label}</span>
+                <div className="rhythm-category-track"><i style={{ width: `${row.rate}%` }} /></div>
+                <strong>{row.done}/{row.total || row.done}</strong>
+              </div>
+            ))}
+          </div> : <p className="stats-mini-note">Your task statistics will appear as you complete tasks.</p>}
         </div>
-
-        <div className="rhythm-stats-split">
-          <div className="rhythm-mini-panel">
-            <div className="rhythm-section-title">Best habit streak</div>
-            {stats.bestHabit ? <div className="rhythm-chip-row"><span>{stats.bestHabit.habit.emoji}</span><strong>{stats.bestHabit.habit.name}</strong><small>{stats.bestHabit.streak} day streak</small></div> : <p>No habit streak yet. Start with one small habit.</p>}
-          </div>
-          <div className="rhythm-mini-panel">
-            <div className="rhythm-section-title">Most consistent day</div>
-            {stats.mostConsistentDay ? <div className="rhythm-chip-row"><span>🗓️</span><strong>{stats.mostConsistentDay.label}</strong><small>{stats.mostConsistentDay.score} gentle check-ins</small></div> : <p>Not enough rhythm data yet.</p>}
-          </div>
-        </div>
-
-        <div className="rhythm-stats-split rhythm-type-stats-row">
-          <SkillStatsCard gameStats={gameStats} />
-          <PersonalityCard gameStats={gameStats} />
-        </div>
-
-        <div className="rhythm-stats-split rhythm-stats-game-grid">
-          <WeeklyRecapCard gameStats={gameStats} />
-          <StreaksCard gameStats={gameStats} />
-        </div>
-
-        <div className="rhythm-stats-split rhythm-life-category-row">
-          <LifeGardenCard gameStats={gameStats} />
-          <div className="rhythm-stats-section rhythm-category-panel">
-            <div className="rhythm-section-title">Completion by category</div>
-            {stats.categoryRows.length ? <div className="rhythm-category-list">
-              {stats.categoryRows.map(row => (
-                <div key={row.id} className="rhythm-category-row">
-                  <span>{row.icon} {row.label}</span>
-                  <div className="rhythm-category-track"><i style={{ width: `${row.rate}%` }} /></div>
-                  <strong>{row.done}/{row.total || row.done}</strong>
-                </div>
-              ))}
-            </div> : <p className="stats-mini-note">No completed task categories yet. This will fill in as you use Tempo.</p>}
-          </div>
-        </div>
-
-        <div className="stats-mini-note">No judgement here — these numbers are only here to help you understand what rhythm supports you best.</div>
       </div>
     </div>
   );
@@ -280,7 +233,7 @@ function RhythmStatsPage({ events, tasks, habits = [], habitCompletions = [], jo
 
 // ─── Shortcuts Modal ──────────────────────────────────────────────────────────
 function ShortcutsModal({ onClose }) {
-  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["J","Journal"],["C","Create event"],["T","Create task"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
+  const sc = [["D","Day view"],["W","Week view"],["M","Month view"],["C","Create event"],["T","Create task"],["S","Settings"],["/ or ⌘K","Search"],["?","Shortcuts"],["Cmd+Z","Undo"],["Esc","Close / Back"]];
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
@@ -300,65 +253,23 @@ function ShortcutsModal({ onClose }) {
 
 // Ritual UI was removed from visible product surfaces; legacy ritual data normalizers remain for sync compatibility.
 
-function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19, notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES }) {
-  const [goals, setGoals] = useState(() => new Set(["organized", "plan", "habits"]));
+function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19 }) {
   const [startTime, setStartTime] = useState(`${String(Math.max(0, Math.min(23, Number(workStart) || 9))).padStart(2, "0")}:00`);
-  const [windDownTime, setWindDownTime] = useState("21:30");
-  const [selectedHabits, setSelectedHabits] = useState(() => new Set(["drink-water", "journal", "plan-tomorrow", "gratitude"]));
-  const [reminders, setReminders] = useState(() => ({
-    journal: Boolean(notificationPreferences?.journal?.enabled ?? true),
-    tomorrowReset: Boolean(notificationPreferences?.tomorrowReset?.enabled ?? true),
-    weeklyReset: Boolean(notificationPreferences?.weeklyReset?.enabled ?? true),
-  }));
-
-  const goalOptions = [
-    ["organized", "Feel more organized", "Bring the day into one calm view."],
-    ["routines", "Build better routines", "Use habits and resets to keep your rhythm simple."],
-    ["plan", "Plan my day", "Protect calendar time and priorities."],
-    ["habits", "Track habits", "Return to small daily check-ins."],
-    ["journal", "Journal consistently", "Reflect without overthinking it."],
-  ];
-  const habitOptions = ["drink-water", "journal", "stretch", "read-10", "plan-tomorrow", "tidy-room", "gratitude"].map(id => HABIT_TEMPLATES.find(t => t.id === id)).filter(Boolean);
-  const toggleSet = (setter, value) => setter(prev => { const next = new Set(prev); next.has(value) ? next.delete(value) : next.add(value); return next; });
-  const finish = () => onComplete({ goals: [...goals], startTime, windDownTime, habitIds: [...selectedHabits], reminders });
-
+  const [windDownTime, setWindDownTime] = useState(`${String(Math.max(0, Math.min(23, Number(workEnd) || 19))).padStart(2, "0")}:00`);
   return (
     <div className="modal-overlay onboarding-overlay" role="dialog" aria-modal="true" aria-label="Tempo onboarding" onClick={onClose}>
       <div className="onboarding-modal" onClick={e => e.stopPropagation()}>
         <div className="onboarding-hero">
-          <div><div className="phase-kicker">Onboarding</div><h2>🌿 Set up your daily rhythm</h2><p>Pick a few starting points. Tempo will create a gentle setup you can edit anytime.</p></div>
+          <div><div className="phase-kicker">Onboarding</div><h2>🌸 Set up your day</h2><p>Choose your preferred planning hours. You can change these in Settings.</p></div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-
-        <section className="onboarding-section">
-          <div className="onboarding-section-title">What should Tempo help with?</div>
-          <div className="onboarding-choice-grid">
-            {goalOptions.map(([id, label, desc]) => <button key={id} className={`onboarding-choice ${goals.has(id) ? "selected" : ""}`} onClick={() => toggleSet(setGoals, id)}><strong>{label}</strong><small>{desc}</small></button>)}
-          </div>
-        </section>
-
         <section className="onboarding-section onboarding-time-grid">
           <label><span>Start my day around</span><input className="modal-select" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
-          <label><span>Wind down around</span><input className="modal-select" type="time" value={windDownTime} onChange={e => setWindDownTime(e.target.value)} /></label>
+          <label><span>Finish my day around</span><input className="modal-select" type="time" value={windDownTime} onChange={e => setWindDownTime(e.target.value)} /></label>
         </section>
-
-        <section className="onboarding-section">
-          <div className="onboarding-section-title">Pick starter habits</div>
-          <div className="onboarding-template-grid">
-            {habitOptions.map(t => <button key={t.id} className={`onboarding-template ${selectedHabits.has(t.id) ? "selected" : ""}`} onClick={() => toggleSet(setSelectedHabits, t.id)}><span>{t.emoji}</span><strong>{t.name}</strong><small>{t.frequency === "daily" ? "Daily" : t.frequency}</small></button>)}
-          </div>
-        </section>
-
-        <section className="onboarding-section">
-          <div className="onboarding-section-title">Gentle reminders</div>
-          <div className="onboarding-reminder-row">
-            {[ ["journal", "📓", "Journal"], ["tomorrowReset", "🌙", "Tomorrow Reset"], ["weeklyReset", "🧺", "Weekly Reset"] ].map(([key, emoji, label]) => <label key={key}><input type="checkbox" checked={Boolean(reminders[key])} onChange={e => setReminders(r => ({ ...r, [key]: e.target.checked }))} /><span>{emoji} {label}</span></label>)}
-          </div>
-        </section>
-
         <div className="onboarding-actions">
           <button className="tf-cancel" onClick={() => onComplete(null, { skipped: true })}>Skip for now</button>
-          <button className="tf-save" onClick={finish}>Create my rhythm →</button>
+          <button className="tf-save" onClick={() => onComplete({ startTime, windDownTime, habitIds: [], reminders: {} })}>Save preferences →</button>
         </div>
       </div>
     </div>
@@ -377,7 +288,7 @@ export default function App() {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "journal" | "tasks" | "habits" | "rhythm"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "rhythm"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
@@ -485,8 +396,10 @@ export default function App() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const requestedPage = params.get("page");
-    if (["today", "calendar", "tasks", "journal", "habits", "rhythm", "tomorrow-reset", "weekly-reset"].includes(requestedPage)) {
+    if (["today", "calendar", "tasks", "rhythm"].includes(requestedPage)) {
       setPage(requestedPage);
+    } else if (requestedPage && !["affirmations", "bloom"].includes(requestedPage)) {
+      setPage("today");
     } else if (requestedPage === "bloom") {
       setPage("rhythm");
     } else if (requestedPage === "affirmations") {
@@ -3115,8 +3028,7 @@ export default function App() {
       if (k === "d" && !e.metaKey && !e.ctrlKey) { setPage("calendar"); setView("day"); }
       else if (k === "w" && !e.metaKey) { setPage("calendar"); setView("week"); }
       else if (k === "m" && !e.metaKey) { setPage("calendar"); setView("month"); }
-      else if (k === "j") setPage(p => p === "journal" ? "calendar" : "journal");
-      else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
+        else if (k === "c") { setPage("calendar"); setQuickAddDate(new Date(viewDate)); }
       else if (k === "t") setSelectedTask({ _isNew: true, id: "t" + uid(), title: "", duration: 30, category: "important", scope: taskScope, deadline: "", priority: "medium", notes: "", recurrence: null, reminder: { type: "none", time: "" }, done: false });
       else if (k === "s") setSettingsOpen(v => !v);
     }
@@ -3154,8 +3066,7 @@ export default function App() {
   const rangeEnd = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0) : view === "week" ? addDaysSafe(weekStart(viewDate), 6) : viewDate;
   const sourceForEvent = event => calendarEventSource(event, calendars.find(c => c.id === event.calendar));
   const eventSourceVisible = event => calendarSourceVisible(sourceForEvent(event));
-  const habitReminderEvents = habitReminderEventsForRange(rangeStart, rangeEnd);
-  const calendarDisplayEvents = [...events.filter(eventSourceVisible), ...habitReminderEvents];
+  const calendarDisplayEvents = events.filter(eventSourceVisible);
   const expandedEvents  = expandRecurring(calendarDisplayEvents, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
   const visibleEvents   = expandedEvents.filter(e => !hiddenCals.includes(e.calendar));
@@ -3171,7 +3082,7 @@ export default function App() {
   const cvars         = (darkMode ? activeTheme.dark : activeTheme.light) + activeTheme.accent;
   const todayFreeSlots = freeSlotsForDate(TODAY, [], null, { clampToNow: false });
   const dayFreeMinutes = todayFreeSlots.reduce((sum, slot) => sum + slot.minutes, 0);
-  const todayDashboardEvents = expandRecurring([...events.filter(eventSourceVisible), ...habitReminderEventsForRange(TODAY, TODAY)], dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
+  const todayDashboardEvents = expandRecurring(events.filter(eventSourceVisible), dayStart(TODAY), addDaysSafe(dayStart(TODAY), 1))
     .filter(e => !hiddenCals.includes(e.calendar) && eventOccursOnDay(e, TODAY));
   const firstScheduledEvent = todayDashboardEvents
     .filter(e => e.start instanceof Date)
@@ -3219,13 +3130,13 @@ export default function App() {
 
   function navigateFromSidebar(nextPage) {
     setAppMode("schedule");
-    setPage(nextPage);
+    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
     closeSidebarOnMobile();
   }
 
   function navigateFromMobileNav(nextPage) {
     setAppMode("schedule");
-    setPage(nextPage);
+    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
     setSidebarOpen(false);
   }
 
@@ -3291,19 +3202,11 @@ export default function App() {
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} journal={journal} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} habits={habits} habitCompletions={habitCompletions} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenJournal={() => setPage("journal")} onOpenCheckIn={() => setShowCheckIn(true)} onOpenHabits={() => setPage("habits")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onTomorrowReset={() => setPage("tomorrow-reset")} onToggleHabit={toggleHabitToday} onIncrementHabit={incrementHabitToday} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
-          ) : page === "journal" ? (
-            <JournalPage journal={journal} setJournal={setJournal} onSaveMemoryEntry={saveMemoryEntry} events={gameEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} onOpenCheckIn={() => setShowCheckIn(true)} activitiesCatalog={journalActivities} memoryTagsCatalog={memoryTags} onAddActivity={addJournalActivity} onUpdateActivity={updateJournalActivity} onDeleteActivity={deleteJournalActivity} onAddMemoryTag={addMemoryTag} onUpdateMemoryTag={updateMemoryTag} onDeleteMemoryTag={deleteMemoryTag} onReorderActivities={reorderJournalActivities} userId={auth.user?.id} onMemoryStorageMigrated={markMemoryStorageMigrated} quickEditDate={quickMemoryDate} onQuickEditHandled={() => setQuickMemoryDate(null)} onQueuePhotoCleanup={enqueueMemoryPhotoCleanup} allowDecorationEditing={!isMobileViewport} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
-          ) : page === "habits" ? (
-            <HabitsPage habits={habits} completions={habitCompletions} onAdd={addHabit} onEdit={editHabit} onDelete={deleteHabit} onArchive={archiveHabit} onToggle={toggleHabitToday} onIncrement={incrementHabitToday} />
           ) : page === "rhythm" ? (
-            <RhythmStatsPage events={visibleEvents} tasks={tasks} habits={habits} habitCompletions={habitCompletions} journal={journal} dailyCheckIns={dailyCheckIns} tomorrowResets={tomorrowResets} weeklyResets={weeklyResets} categories={categories} gameStats={gameStats} />
-          ) : page === "tomorrow-reset" ? (
-            <TomorrowResetPage tasks={tasks.filter(t => taskFallsOnDateForReset(t, TODAY))} latestReset={tomorrowResetForDate(tomorrowResets, TODAY)} gameStats={gameStats} onCompleteReset={saveTomorrowReset} onBack={() => setPage("today")} />
-          ) : page === "weekly-reset" ? (
-            <WeeklyResetPage tasks={tasks} events={visibleEvents} habits={habits} dailyCheckIns={dailyCheckIns} latestReset={weeklyResetForDate(weeklyResets, TODAY)} onCompleteReset={saveWeeklyReset} />
+            <RhythmStatsPage tasks={tasks} categories={categories} />
           ) : (<>
           <CalendarTopbar
             view={view}
@@ -3405,7 +3308,6 @@ export default function App() {
       <TaskRescheduleDateModal />
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
-      {/* Tomorrow Reset now lives as a full Planning page instead of a popup. */}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
             {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
@@ -3444,8 +3346,6 @@ export default function App() {
         onNavigateToday={() => navigateFromMobileNav("today")}
         onNavigateCalendar={() => { navigateFromMobileNav("calendar"); setView("day"); }}
         onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
-        onNavigateJournal={() => navigateFromMobileNav("journal")}
-        onNavigateHabits={() => navigateFromMobileNav("habits")}
         onNavigateBudgetPage={navigateBudgetPage}
       />
 

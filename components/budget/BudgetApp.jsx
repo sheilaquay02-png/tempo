@@ -772,7 +772,7 @@ function BudgetRoadmapCard() {
     <section className="budget-card budget-roadmap-card">
       <p className="budget-kicker">Foundation now, intelligence later</p>
       <h2>How Budget connects to Schedule</h2>
-      <p>Budget data stays separate from schedule data for privacy and clarity. Overall mode will later compare spending with tasks, events, habits, and journal signals to find lifestyle patterns.</p>
+      <p>Budget data stays separate from schedule data for privacy and clarity. Overall mode may later compare spending with scheduling and task patterns.</p>
       <ul>
         {nextItems.map(item => <li key={item}>{item}</li>)}
       </ul>
@@ -1769,13 +1769,13 @@ export function OverallPage({ budgetSummary, rhythmSummary }) {
       <section className="budget-metrics-grid">
         <BudgetMetric label="Budget buckets" value={budgetSummary.bucketCount} detail="Editable Budget V1 buckets" />
         <BudgetMetric label="Accounts" value={budgetSummary.accountCount} detail="Bank/account skeleton ready" />
-        <BudgetMetric label="Habit rhythm" value={`${rhythmSummary?.habitRate7 ?? 0}%`} detail="From Schedule data" />
+        <BudgetMetric label="Task completion" value={`${rhythmSummary?.taskCompletionRate30 ?? 0}%`} detail="Last 30 days" />
         <BudgetMetric label="Australia-ready" value={formatBudgetMoney(budgetSummary.australiaReadyFunds, "SGD")} detail="Budget data only for now" />
       </section>
       <section className="budget-card">
         <p className="budget-kicker">Coming after Budget core</p>
         <h2>Pattern comparison</h2>
-        <p>Later, Overall will compare spending data with your events, tasks, habits, check-ins, and journal entries to surface practical rhythm advice, not generic finance judgement.</p>
+        <p>Later, Overall may compare spending with your calendar and tasks to help you plan more clearly.</p>
       </section>
     </main>
   );

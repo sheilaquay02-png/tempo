@@ -30,8 +30,8 @@ test("mobile footer changes between schedule and budget menus", () => {
   assert.match(appShell, /budget-mobile-nav/);
   assert.match(appShell, />☰<span>Menu<\/span><\/button>/);
   assert.match(appShell, /onNavigateBudgetPage/);
-  assert.match(appShell, /<span>Journal<\/span>/);
-  assert.match(appShell, /<span>Habits<\/span>/);
+  assert.match(appShell, /<span>Tasks<\/span>/);
+  assert.doesNotMatch(appShell, /<span>Journal<\/span>|<span>Habits<\/span>/);
   assert.doesNotMatch(appShell, /onNavigateBudget\s*=|onNavigateOverall\s*=/);
 });
 

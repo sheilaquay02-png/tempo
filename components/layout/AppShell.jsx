@@ -74,7 +74,6 @@ export function AppSidebar({
   const calendarSources = [
     { id: "tempo", label: "Tempo", icon: "T" },
     ...(calendars.some(c => c.source === "google") ? [{ id: "google", label: "Google", icon: "G" }] : []),
-    { id: "habit", label: "Habits", icon: "🌱" },
   ];
   const budgetNavItems = [
     { id: "home", label: "Home", icon: "🏠" },
@@ -125,11 +124,7 @@ export function AppSidebar({
             <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
             <div className="nav-section-label" style={{ marginTop: 8 }}>Planning</div>
             <div className="nav-item desktop-hidden-menu-item" onClick={onPlanToday}><span className="nav-icon">✨</span>Plan Today</div>
-            <div className={`nav-item ${page === "tomorrow-reset" ? "active" : ""}`} onClick={() => onNavigate("tomorrow-reset")}><span className="nav-icon">🌙</span>Tomorrow Reset</div>
-            <div className={`nav-item ${page === "weekly-reset" ? "active" : ""}`} onClick={() => onNavigate("weekly-reset")}><span className="nav-icon">🧺</span>Weekly Reset</div>
             <div className="nav-section-label" style={{ marginTop: 8 }}>Personal</div>
-            <div className={`nav-item ${page === "habits" ? "active" : ""}`} onClick={() => onNavigate("habits")}><span className="nav-icon">🌱</span>Habits</div>
-            <div className={`nav-item ${page === "journal" ? "active" : ""}`} onClick={() => onNavigate("journal")}><span className="nav-icon">📔</span>Journal</div>
             <div className={`nav-item ${page === "rhythm" ? "active" : ""}`} onClick={() => onNavigate("rhythm")}><span className="nav-icon">📊</span>Rhythm Stats</div>
             <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
           </>
@@ -222,8 +217,6 @@ export function MobileBottomNav({
   onNavigateToday,
   onNavigateCalendar,
   onNavigateTasks,
-  onNavigateJournal,
-  onNavigateHabits,
   onNavigateBudgetPage,
 }) {
   const showSync = (syncStatus?.status && syncStatus.status !== "saved") || pendingLocalChanges > 0;
@@ -260,8 +253,6 @@ export function MobileBottomNav({
             <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
             <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
             <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
-            <button className={`mobile-nav-btn ${page === "journal" ? "active" : ""}`} onClick={onNavigateJournal}>📔<span>Journal</span></button>
-            <button className={`mobile-nav-btn ${page === "habits" ? "active" : ""}`} onClick={onNavigateHabits}>🌱<span>Habits</span></button>
           </>
         )}
       </div>
