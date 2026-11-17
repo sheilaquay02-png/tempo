@@ -99,9 +99,14 @@ function openFull(route="/") {
 }
 function openExpense() {
   if (expense && !expense.isDestroyed()) {expense.show();expense.focus();return expense;}
-  const parent=mini && !mini.isDestroyed() ? mini : full;
+  // The recorder must remain usable when Mini is hidden to tray. Never make it
+  // a child of a hidden Mini; match pin level only when Mini is pinned.
+  const miniPinned=Boolean(mini && !mini.isDestroyed() && mini.isAlwaysOnTop());
   expenseCanClose=false;
-  expense=makeWindow({width:480,height:760,minWidth:420,minHeight:620,maxWidth:800,title:"Record expense",parent:parent||undefined},"/recorder");
+  expense=makeWindow({
+    width:480,height:760,minWidth:420,minHeight:620,maxWidth:800,
+    title:"Record expense",alwaysOnTop:miniPinned
+  },"/recorder");
   expense.on("close",e=>{if(!quitting&&!expenseCanClose){e.preventDefault();expense.webContents.send("tempo:request-close",false);}});
   expense.on("closed",()=>{expense=null;expenseCanClose=false;});
   return expense;
@@ -117,7 +122,14 @@ ipcMain.handle("tempo:open-full",(event,route)=>{requireRole(event,["mini","full
 ipcMain.handle("tempo:open-expense",event=>{requireRole(event,["mini","full"]);openExpense();return true;});
 ipcMain.handle("tempo:hide-mini",event=>{requireRole(event,["mini"]);mini.hide();return true;});
 ipcMain.handle("tempo:minimize-mini",event=>{requireRole(event,["mini"]);mini.minimize();return true;});
-ipcMain.handle("tempo:pin-mini",(event,pinned)=>{requireRole(event,["mini"]);mini.setAlwaysOnTop(Boolean(pinned));writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});return mini.isAlwaysOnTop();});
+ipcMain.handle("tempo:pin-mini",(event,pinned)=>{
+  requireRole(event,["mini"]);
+  mini.setAlwaysOnTop(Boolean(pinned));
+  // Keep the active recorder in front of Mini even if the user toggles pin.
+  if(expense && !expense.isDestroyed())expense.setAlwaysOnTop(mini.isAlwaysOnTop());
+  writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});
+  return mini.isAlwaysOnTop();
+});
 ipcMain.handle("tempo:mini-state",event=>{requireRole(event,["mini"]);return {alwaysOnTop:mini.isAlwaysOnTop()};});
 ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
 ipcMain.handle("tempo:close-expense",(event,quit)=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(quit){quitting=true;app.quit();}return true;});
