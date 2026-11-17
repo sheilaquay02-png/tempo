@@ -47,5 +47,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/sql/phase2-postgres-fixture.sql
       - name: Execute real Phase 2 database migration
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/tempo_budget_records_phase2.sql
+      - name: Reapply migration to verify safe reruns
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tempo_budget_records_phase2.sql
       - name: Verify RLS, idempotent writes, conflicts and tombstones
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/sql/phase2-postgres-assert.sql
