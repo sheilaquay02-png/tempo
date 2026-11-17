@@ -7,6 +7,7 @@ let full = null;
 let expense = null;
 let tray = null;
 let quitting = false;
+let expenseCanClose = false;
 
 const devMode = process.env.TEMPO_DEV === "1";
 const rawOrigin = process.env.TEMPO_DESKTOP_URL || (devMode ? "http://localhost:3000" : "");
@@ -98,8 +99,10 @@ function openFull(route="/") {
 function openExpense() {
   if (expense && !expense.isDestroyed()) {expense.show();expense.focus();return expense;}
   const parent=mini && !mini.isDestroyed() ? mini : full;
+  expenseCanClose=false;
   expense=makeWindow({width:480,height:760,minWidth:420,minHeight:620,maxWidth:800,title:"Record expense",parent:parent||undefined},"/recorder");
-  expense.on("closed",()=>{expense=null;});
+  expense.on("close",e=>{if(!quitting&&!expenseCanClose){e.preventDefault();expense.webContents.send("tempo:request-close",false);}});
+  expense.on("closed",()=>{expense=null;expenseCanClose=false;});
   return expense;
 }
 function senderRole(event) {
@@ -114,8 +117,8 @@ ipcMain.handle("tempo:open-expense",event=>{requireRole(event,["mini","full"]);o
 ipcMain.handle("tempo:hide-mini",event=>{requireRole(event,["mini"]);mini.hide();return true;});
 ipcMain.handle("tempo:minimize-mini",event=>{requireRole(event,["mini"]);mini.minimize();return true;});
 ipcMain.handle("tempo:pin-mini",(event,pinned)=>{requireRole(event,["mini"]);mini.setAlwaysOnTop(Boolean(pinned));writeState({bounds:mini.getBounds(),alwaysOnTop:mini.isAlwaysOnTop()});return mini.isAlwaysOnTop();});
-ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
-ipcMain.handle("tempo:close-expense",event=>{requireRole(event,["expense"]);if(expense&&!expense.isDestroyed())expense.close();return true;});
+ipcMain.handle("tempo:expense-saved",event=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(mini&&!mini.isDestroyed()){mini.show();mini.focus();mini.webContents.reloadIgnoringCache();}return true;});
+ipcMain.handle("tempo:close-expense",(event,quit)=>{requireRole(event,["expense"]);expenseCanClose=true;if(expense&&!expense.isDestroyed())expense.close();if(quit){quitting=true;app.quit();}return true;});
 ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","mini"]);openMini();return true;});
 if(!app.requestSingleInstanceLock()){app.quit();}else{
   app.on("second-instance",()=>openMini());
@@ -127,7 +130,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
       {label:"Open Full Tempo",click:()=>openFull()},
       {label:"Record Expense",click:()=>openExpense()},
       {type:"separator"},
-      {label:"Quit Tempo",click:()=>{quitting=true;app.quit();}}
+      {label:"Launch at login",type:"checkbox",checked:app.getLoginItemSettings().openAtLogin,click:item=>{app.setLoginItemSettings({openAtLogin:item.checked});}},
+      {label:"Quit Tempo",click:()=>{if(expense&&!expense.isDestroyed()){expense.show();expense.focus();expense.webContents.send("tempo:request-close",true);}else{quitting=true;app.quit();}}}
     ]));
     tray.on("double-click",()=>openMini());
     openMini();
