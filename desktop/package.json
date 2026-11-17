@@ -5,9 +5,11 @@
   "description": "Windows desktop shell for Tempo V1",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "package:windows:qa": "node scripts/package-windows-qa.cjs"
   },
   "devDependencies": {
-    "electron": "45.3.3"
+    "electron": "45.3.3",
+    "@electron/packager": "20.3.0"
   }
 }
