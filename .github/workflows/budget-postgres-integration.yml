@@ -1,7 +1,9 @@
 name: Tempo Budget PostgreSQL migration checks
 
 on:
-  pull_request:
+  push:
+    branches:
+      - 'feature/mini-tempo-v1-desktop-companion'
     paths:
       - 'supabase/tempo_budget_records_phase2.sql'
       - 'scripts/sql/phase2-postgres-fixture.sql'
