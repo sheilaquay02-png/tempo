@@ -41,12 +41,10 @@ test("Offline cold start is an explicit recovery screen, not a false promise of 
   assert.doesNotMatch(fallback,/NEXT_PUBLIC_SUPABASE|supabase\.co/);
 });
 
-test("Offline in a running Mini uses the existing Budget popup and local journal",()=>{
-  assert.match(app,/navigator\.onLine === false/);
-  assert.match(app,/if \(!offline && !inline/);
-  assert.match(app,/onSaveAndAddAnother=\{windowMode==="recorder" \|\| windowMode==="mini"/);
+test("Mini offline messaging is non-financial, while Full Tempo retains its Budget journal",()=>{
   assert.match(mini,/mini-offline-banner/);
-  assert.match(mini,/offlineReady/);
+  assert.match(mini,/tasks and calendar may be out of date/);
+  assert.doesNotMatch(mini,/offlineReady|onExpense|Record expense|Spent today|Review .*Budget/);
   assert.match(app,/async function setBudgetTransactions/);
   assert.match(app,/writeBudgetJournal\(window\.localStorage,userId,queued\)/);
 });
