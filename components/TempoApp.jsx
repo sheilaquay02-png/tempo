@@ -1386,6 +1386,16 @@ export default function App({ windowMode = "full" }) {
     document.body.classList.add("tempo-recorder");
     return ()=>document.body.classList.remove("tempo-recorder");
   },[windowMode]);
+  useEffect(()=>{
+    if(windowMode!=="recorder" || typeof window==="undefined" || !window.tempoDesktop?.onRequestClose)return;
+    return window.tempoDesktop.onRequestClose(quit=>{
+      const dirty=Boolean(expenseForm?.amount || expenseForm?.description || expenseForm?.notes || expenseForm?.tags);
+      if(dirty && !window.confirm("Discard this unsaved transaction?"))return;
+      setExpenseForm(null);
+      window.tempoDesktop.closeExpense(quit);
+    });
+  },[windowMode,expenseForm]);
+
 
   useEffect(()=>{
     if(windowMode!=="full" || !dataReady || !auth.user?.id || loadedUserId!==auth.user.id || typeof window==="undefined")return;
