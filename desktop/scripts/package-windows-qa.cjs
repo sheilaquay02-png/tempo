@@ -50,7 +50,7 @@ const packager=require("@electron/packager");
       fs.writeFileSync(file,[
         "MINI TEMPO - LOCAL-ONLY TEST BUILD",
         "This is NOT an installer or production release.",
-        "It only connects to http://127.0.0.1:3000.",
+        "It only connects to http://localhost:3000.",
         "The test server must return a valid disposable-local Supabase QA check.",
         "Start the local Supabase stack and Next.js with TEMPO_QA_LOCAL_ONLY=1.",
         "Use only fake test accounts and transactions.",
