@@ -30,8 +30,8 @@ drop policy if exists tempo_budget_op_owner on public.tempo_budget_operations;
 create policy tempo_budget_op_owner on public.tempo_budget_operations
   for all to authenticated using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
-revoke all on public.tempo_budget_transactions from anon;
-revoke all on public.tempo_budget_operations from anon;
+revoke all on public.tempo_budget_transactions from public, anon;
+revoke all on public.tempo_budget_operations from public, anon;
 grant select, insert, update on public.tempo_budget_transactions to authenticated;
 grant select, insert on public.tempo_budget_operations to authenticated;
 
@@ -51,7 +51,7 @@ begin
     from public.user_data where user_id = v_user for update;
   if jsonb_typeof(v_snapshot) is distinct from 'array' then return 0; end if;
   with legacy as (
-    select item from jsonb_array_elements(v_snapshot) item
+    select item from jsonb_array_elements(v_snapshot) as t(item)
     where jsonb_typeof(item) = 'object'
       and length(coalesce(item->>'id','')) between 1 and 256
   )
