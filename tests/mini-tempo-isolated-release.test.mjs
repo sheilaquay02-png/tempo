@@ -11,7 +11,7 @@ test("Isolated Mini route keeps tasks/calendar and no finance action",()=>{
   assert.match(app,/windowMode === "mini"/);
   assert.match(app,/function addQuickTodayTask/);
   assert.match(app,/onToggleTask=\{toggleTask\}/);
-  assert.match(mini,/Today&apos;s tasks/);
+  assert.match(mini,/Today's tasks/);
   assert.match(mini,/Next event/);
   assert.doesNotMatch(mini,/Record expense|Spent today|onExpense|offlineReady|Budget conflict/);
   assert.doesNotMatch(app,/budgetRecordSync|BudgetConflictReview|openExpenseRecorder/);
