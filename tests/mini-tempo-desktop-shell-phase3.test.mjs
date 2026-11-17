@@ -123,7 +123,7 @@ test("Portable QA executable ignores a production URL override and requires loca
   assert.equal(denied("ws://127.0.0.1:54321/realtime/v1/websocket"),false);
   assert.equal(denied("http://127.0.0.1:54322/"),true);
   assert.equal(denied("file:///untrusted/offline.html"),true);
-  assert.equal(denied("file:///repo/desktop/offline.html"),false);
+  assert.equal(denied(new URL("file://" + path.join("/repo/desktop","offline.html").replaceAll("\\","/")).href),false);
   assert.equal(denied("data:image/png;base64,AAAA"),false);
   assert.equal(mini.webContents.openHandler({url:"https://example.com"}).action,"deny");
   assert.deepEqual(env.openedExternal,[],"Local QA must never launch a hosted website");
@@ -169,18 +169,17 @@ test("Restores off-screen Mini bounds to a usable current-screen fallback",async
   assert.equal(mini.options.x,undefined);
 });
 
-test("Mini, Full and Recorder have identical isolated auth partitions and distinct routes",async()=>{
+test("Mini and Full share a secure auth partition without an expense window",async()=>{
   const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
   env.ipc("tempo:open-full",mini,"/?page=tasks");
   env.ipc("tempo:open-full",mini,"/?page=calendar");
-  env.ipc("tempo:open-expense",mini);
-  env.ipc("tempo:open-expense",mini);
   assert.equal(env.windowsOf("Tempo").length,1);
-  assert.equal(env.windowsOf("Record expense").length,1);
-  const full=env.windowsOf("Tempo")[0],expense=env.windowsOf("Record expense")[0];
+  assert.equal(env.windowsOf("Record expense").length,0);
+  assert.equal(env.handlers.has("tempo:open-expense"),false);
+  assert.equal(env.tray.menu.some(x=>x.label==="Record Expense"),false);
+  const full=env.windowsOf("Tempo")[0];
   assert.ok(full.loadCalls.at(-1).includes("/?page=calendar"));
-  assert.deepEqual(expense.loadCalls,["http://localhost:3000/recorder"]);
-  for(const win of [mini,full,expense]){
+  for(const win of [mini,full]){
     assert.equal(win.options.webPreferences.partition,"persist:tempo");
     assert.equal(win.options.webPreferences.nodeIntegration,false);
     assert.equal(win.options.webPreferences.sandbox,true);
@@ -206,7 +205,7 @@ test("Cold offline start shows non-financial recovery and retries the same inter
   mini.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
     "http://localhost:3000/mini",true);
   assert.equal(mini.fileCalls.length,1);
-  assert.ok(mini.fileCalls[0].endsWith("desktop/offline.html"));
+  assert.ok(mini.fileCalls[0].replaceAll("\\","/").endsWith("desktop/offline.html"));
   assert.equal(mini.visible,true);
   assert.equal(mini.tempoOfflineShown,true);
   mini.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
@@ -220,93 +219,13 @@ test("Cold offline start shows non-financial recovery and retries the same inter
   assert.match(html,/retryWindow/);
 });
 
-test("Recorder blocks accidental close and quitting until the renderer confirms draft disposition",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:open-expense",mini);
-  const expense=env.windowsOf("Record expense")[0];
-  assert.equal(expense.close(),false);
-  assert.equal(expense.destroyed,false);
-  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===false));
-  env.app.quit(); // emulate Windows/application quit attempt with active recorder
-  assert.equal(env.app.exited,false);
-  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===true));
-  env.ipc("tempo:close-expense",expense,true);
-  assert.equal(expense.destroyed,true);
-  assert.equal(env.app.exited,true);
-});
-
-test("Hidden Mini never hides the independent expense recorder, even when pinned",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:pin-mini",mini,true);
-  mini.hide();
-  env.tray.menu.find(x=>x.label==="Record Expense").click();
-  const expense=env.windowsOf("Record expense")[0];
-  assert.equal(expense.options.parent,undefined);
-  assert.equal(expense.pinned,true);
-  expense.emit("ready-to-show");
-  assert.equal(expense.visible,true);
-  assert.equal(mini.visible,false);
-  env.ipc("tempo:pin-mini",mini,false);
-  assert.equal(expense.pinned,false);
-  env.ipc("tempo:pin-mini",mini,true);
-  assert.equal(expense.pinned,true);
-});
-
-test("Offline recorder has no draft and can close without asking an absent renderer",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:open-expense",mini);
-  const recorder=env.windowsOf("Record expense")[0];
-  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
-    "http://localhost:3000/recorder",true);
-  assert.equal(recorder.tempoOfflineShown,true);
-  assert.equal(recorder.fileCalls.length,1);
-  assert.equal(recorder.close(),true);
-  assert.equal(recorder.destroyed,true);
-  assert.equal(recorder.webContents.sent.filter(item=>item[0]==="tempo:request-close").length,0);
-});
-
-test("Recorder retry restores confirmation guard before a draft can appear",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:open-expense",mini);
-  const recorder=env.windowsOf("Record expense")[0];
-  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
-    "http://localhost:3000/recorder",true);
-  env.ipc("tempo:retry-window",recorder);
-  assert.equal(recorder.tempoOfflineShown,false);
-  assert.equal(recorder.close(),false);
-  assert.ok(recorder.webContents.sent.some(item=>item[0]==="tempo:request-close"));
-});
-
-test("App quit does not deadlock when Recorder never loaded from offline startup",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:open-expense",mini);
-  const recorder=env.windowsOf("Record expense")[0];
-  recorder.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
-    "http://localhost:3000/recorder",true);
-  env.app.quit();
-  assert.equal(env.app.exited,true);
-});
-
-test("Successful expense save closes only Recorder, restores Mini and refreshes the total",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
-  env.ipc("tempo:open-expense",mini);
-  const recorder=env.windowsOf("Record expense")[0];
-  env.ipc("tempo:expense-saved",recorder);
-  assert.equal(recorder.destroyed,true);
-  assert.equal(env.windowsOf("Mini Tempo").length,1);
-  assert.equal(mini.webContents.reloadCalls,1);
-  assert.equal(mini.visible,true);
-});
-
-test("Tray quit invokes draft review, and launch-at-login remains opt-in",async()=>{
-  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+test("Tray quit exits cleanly without an expense recorder",async()=>{
+  const env=await mockDesktop();
   const launch=env.tray.menu.find(x=>x.label==="Launch at login");
   assert.equal(launch.checked,false);
   launch.click({checked:true});
   assert.equal(env.app.autoStart,true);
-  env.ipc("tempo:open-expense",mini);
-  const expense=env.windowsOf("Record expense")[0];
   env.tray.menu.find(x=>x.label==="Quit Tempo").click();
-  assert.equal(env.app.exited,false);
-  assert.ok(expense.webContents.sent.some(msg=>msg[0]==="tempo:request-close"&&msg[1]===true));
+  assert.equal(env.app.exited,true);
+  assert.equal(env.windowsOf("Record expense").length,0);
 });
