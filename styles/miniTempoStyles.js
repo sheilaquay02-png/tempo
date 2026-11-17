@@ -67,4 +67,24 @@ export const miniTempoCSS = `
 .tempo-recorder .mini-expense-save-next{flex-shrink:0}
 .mini-recorder-hint{padding:16px;color:#997486;text-align:center;font-size:12px}
 
+.mini-conflict-review{border:1px solid #d2a65b;border-radius:10px;padding:10px;color:#74490f;background:#fff4d6;text-align:center;font:inherit;font-size:12px;cursor:pointer}
+.tempo-conflict-banner{position:fixed;bottom:92px;right:18px;z-index:9950;border:1px solid #c89b48;border-radius:12px;padding:12px 16px;background:#fff0c3;color:#7a4a12;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 8px 20px #3c2e2330}
+.tempo-conflict-overlay{z-index:100500!important;display:flex;align-items:center;justify-content:center;padding:18px}
+.tempo-conflict-dialog{width:min(620px,100%);max-height:min(760px,90dvh);overflow:auto;background:var(--bg2,#fffaf7);color:var(--text,#46342d);border-radius:18px;border:1px solid var(--border,#e7d0d6);padding:20px;box-shadow:0 20px 70px #33262c44;display:flex;flex-direction:column;gap:15px}
+.tempo-conflict-header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.tempo-conflict-header h2{font-size:19px;margin:0 0 8px}
+.tempo-conflict-header p,.tempo-conflict-card p{font-size:12px;color:var(--text2,#78636d);line-height:1.5}
+.tempo-conflict-header>button{border:0;background:transparent;padding:8px;cursor:pointer;color:inherit}
+.tempo-conflict-card{border:1px solid var(--border,#ead9dd);border-radius:14px;padding:13px;display:flex;flex-direction:column;gap:12px}
+.tempo-conflict-versions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tempo-conflict-versions>div{border-radius:11px;background:var(--bg3,#fff2f6);padding:12px;min-width:0}
+.tempo-conflict-versions small{display:block;font-size:11px;color:var(--text2,#78636d)}
+.tempo-conflict-tx{display:flex;flex-direction:column;gap:6px;font-size:12px;margin-top:8px;overflow-wrap:anywhere}
+.tempo-conflict-deleted{font-size:12px;color:#ad444e}
+.tempo-conflict-actions{display:flex;flex-wrap:wrap;gap:7px}
+.tempo-conflict-actions button,.tempo-conflict-footer button{border:1px solid var(--border,#d0bbc4);background:var(--bg2,#fff);color:inherit;border-radius:9px;padding:9px 12px;font:inherit;font-size:12px;cursor:pointer}
+.tempo-conflict-actions button:disabled,.tempo-conflict-footer button:disabled{opacity:.55}
+.tempo-conflict-footer{display:flex;align-items:center;justify-content:space-between;font-size:11px}
+@media(max-width:540px){.tempo-conflict-versions{grid-template-columns:1fr}.tempo-conflict-banner{bottom:calc(var(--mobile-nav-h,78px) + 18px);right:12px;left:12px}}
+
 `;
