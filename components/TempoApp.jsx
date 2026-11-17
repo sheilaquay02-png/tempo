@@ -1395,6 +1395,16 @@ export default function App({ windowMode = "full" }) {
       window.tempoDesktop.closeExpense(quit);
     });
   },[windowMode,expenseForm]);
+  useEffect(()=>{
+    if(windowMode!=="recorder" || typeof window==="undefined")return;
+    const onKey=event=>{
+      if(event.ctrlKey && event.key==="Enter"){event.preventDefault();saveQuickExpense(false);}
+      if(event.key==="Escape"){event.preventDefault();closeQuickExpense();}
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[windowMode,expenseForm]);
+
 
 
   useEffect(()=>{
