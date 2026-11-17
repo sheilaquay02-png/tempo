@@ -8,6 +8,11 @@ test("Personal portable package is HTTPS-gated and never replaces localhost QA",
   assert.equal(packageConfig.scripts["package:windows:qa"],"node scripts/package-windows-qa.cjs");
   assert.equal(packageConfig.scripts["package:windows:personal"],"node scripts/package-windows-personal.cjs");
   const script=readFileSync("desktop/scripts/package-windows-personal.cjs","utf8");
+  const qaScript=readFileSync("desktop/scripts/package-windows-qa.cjs","utf8");
+  for (const source of [script,qaScript]) {
+    assert.match(source,/const \\{packager\\}=require\\("@electron\\/packager"\\)/);
+    assert.doesNotMatch(source,/const packager=require\\("@electron\\/packager"\\)/);
+  }
   const entry=readFileSync("desktop/personal-entry.cjs","utf8");
   for(const file of ["desktop/scripts/package-windows-personal.cjs","desktop/personal-entry.cjs"]) {
     execFileSync(process.execPath,["--check",file]);
