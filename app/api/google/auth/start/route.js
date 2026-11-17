@@ -1,3 +1,4 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../../lib/tempo/google/retiredRoute";
 import { googleAuthUrl, handleRouteError, jsonResponse, rateLimit, requireAuthenticatedUser, safeReturnPath } from "../../../../../lib/tempo/google/server";
 
 async function buildAuthResponse(request) {
@@ -9,6 +10,7 @@ async function buildAuthResponse(request) {
 }
 
 export async function GET(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     const authUrl = await buildAuthResponse(request);
     return Response.redirect(authUrl, 302);
@@ -18,6 +20,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     const authUrl = await buildAuthResponse(request);
     return jsonResponse({ ok: true, url: authUrl });
