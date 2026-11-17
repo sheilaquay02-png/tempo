@@ -41,4 +41,30 @@ export const miniTempoCSS = `
 .mini-recorder-shell .budget-transaction-popup-overlay{inset:0!important;height:100dvh!important;z-index:100!important}
 .mini-recorder-shell .budget-transaction-popup-sheet{max-height:100dvh!important;overflow-y:auto!important}
 @media(max-width:768px){.tempo-quick-add{bottom:calc(var(--mobile-nav-h,78px) + 18px);right:18px}.tempo-quick-add-fab{width:48px;height:48px}}
+.tempo-today-money{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.tempo-today-money-value{background:transparent;border:0;text-align:left;color:var(--text,#46342d);display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.tempo-today-money-value small{font-size:12px;color:var(--text2,#7a5f54)}
+.tempo-today-money-value strong{font-size:24px;font-weight:800}
+.tempo-today-record{align-self:flex-start}
+.tempo-today-event-open{width:100%;text-align:left;background:transparent;border:0;color:inherit;cursor:pointer;font:inherit}
+.tempo-event-spending-plan,.tempo-event-spending-details{border:1px solid var(--border,#eeddd2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin:8px 0}
+.tempo-event-spending-toggle{background:transparent;color:var(--text,#46342d);font:inherit;font-weight:800;text-align:left;border:0;cursor:pointer}
+.tempo-event-spending-editor{display:grid;grid-template-columns:1fr;gap:8px}
+.tempo-event-spending-editor label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700}
+.tempo-event-spending-editor input,.tempo-event-spending-editor select,.tempo-event-spending-link select{width:100%;border:1px solid var(--border,#eeddd2);padding:9px;border-radius:9px;background:var(--bg2,#fff);color:var(--text,#46342d)}
+.tempo-event-spending-editor small,.tempo-event-spending-details small{font-size:11px;color:var(--text2,#7a5f54)}
+.tempo-event-spending-numbers{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tempo-event-spending-numbers>div{border-radius:10px;background:var(--bg3,#fff6f9);display:flex;flex-direction:column;gap:5px;padding:10px}
+.tempo-event-spending-numbers strong{font-size:19px}
+.tempo-event-linked-row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.tempo-event-linked-row>div{display:flex;flex-direction:column;gap:4px;flex:1}
+.tempo-event-linked-row button,.tempo-event-spending-actions button,.tempo-event-spending-link button{border:1px solid var(--border,#eeddd2);padding:8px;border-radius:9px;background:var(--bg2,#fff);color:var(--text,#46342d);font:inherit;cursor:pointer}
+.tempo-event-spending-actions{display:flex;gap:8px}
+.tempo-event-spending-link{display:flex;gap:8px}
+.tempo-mini-error{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);max-width:95vw;padding:12px 16px;border-radius:9px;background:#9c3b49;color:white;z-index:101000}
+.tempo-recorder .budget-transaction-popup-overlay{inset:0!important;height:100dvh!important;z-index:100000!important}
+.tempo-recorder .budget-transaction-popup-sheet{height:auto!important;max-height:100dvh!important;overflow-y:auto!important}
+.tempo-recorder .mini-expense-save-next{flex-shrink:0}
+.mini-recorder-hint{padding:16px;color:#997486;text-align:center;font-size:12px}
+
 `;
