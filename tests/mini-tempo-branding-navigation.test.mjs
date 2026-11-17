@@ -23,15 +23,17 @@ test("Mini Tempo uses Full Tempo typography, theme tokens and shared logo mark",
   assert.doesNotMatch(miniPanel, /expense recorder|budget recorder/i);
 });
 
-test("Planning navigation disappears only from the Full Tempo sidebar", () => {
+test("Schedule sidebar keeps essential navigation but hides retired headings and statistics", () => {
   const shell = read("components/layout/AppShell.jsx");
   const navStart = shell.indexOf('<nav className="sidebar-nav">');
   const navEnd = shell.indexOf("</nav>", navStart);
   assert.ok(navStart >= 0 && navEnd > navStart, "Sidebar navigation must exist");
   const nav = shell.slice(navStart, navEnd);
-  assert.doesNotMatch(nav, />Planning</);
+  for (const retired of [">Planning<", ">Main<", ">Personal<", "Rhythm Stats", "onOpenCheckIn"]) {
+    assert.ok(!nav.includes(retired), `Retired navigation label or action remains: ${retired}`);
+  }
   assert.doesNotMatch(nav, /desktop-hidden-menu-item.*Plan Today/);
-  for (const item of ["Today", "Calendar", "Tasks", "Rhythm Stats", "Settings"]) {
+  for (const item of ["Today", "Calendar", "Tasks", "Settings"]) {
     assert.ok(nav.includes(item), `Essential nav item ${item} must remain`);
   }
   assert.match(shell, /className="topbar-btn plan-day-btn"/);
