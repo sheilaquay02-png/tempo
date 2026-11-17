@@ -1,4 +1,4 @@
-﻿{
+{
   "installCommand": "npm install --no-audit --no-fund --prefer-online",
   "buildCommand": "npm run build",
   "framework": "nextjs",
