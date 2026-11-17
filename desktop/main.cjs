@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -9,8 +9,11 @@ let tray = null;
 let quitting = false;
 let expenseCanClose = false;
 
-const devMode = process.env.TEMPO_DEV === "1";
-const rawOrigin = process.env.TEMPO_DESKTOP_URL || (devMode ? "http://localhost:3000" : "");
+const qaLocalOnly = process.env.TEMPO_QA_LOCAL_ONLY === "1";
+const devMode = process.env.TEMPO_DEV === "1" || qaLocalOnly;
+// QA executable cannot be redirected to an approved/live production origin by env.
+const rawOrigin = qaLocalOnly ? "http://127.0.0.1:3000"
+  : process.env.TEMPO_DESKTOP_URL || (devMode ? "http://localhost:3000" : "");
 if (!rawOrigin) throw new Error("Set TEMPO_DESKTOP_URL to the HTTPS URL of your approved Tempo deployment. No deployment is bundled with the shell.");
 const url = new URL(rawOrigin);
 if (url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("TEMPO_DESKTOP_URL must be an origin only.");
@@ -62,12 +65,31 @@ function showOfflineStartup(win) {
   void win.loadFile(path.join(__dirname,"offline.html")).catch(()=>{});
   win.show();
 }
+async function qaServerReady() {
+  if(!qaLocalOnly)return true;
+  // Local-only Next.js server proves its Supabase URL is a disposable loopback.
+  // Do not render web app content until both checks are satisfied.
+  try {
+    const response=await fetch(base+"/api/tempo-qa-status",{
+      cache:"no-store",redirect:"error",signal:AbortSignal.timeout(3500)
+    });
+    return response.ok && (await response.json()).localQa===true;
+  }catch{return false;}
+}
 function loadAppRoute(win,route) {
   win.tempoRoute=route;
   win.tempoOfflineShown=false;
   // After Retry, restore draft-close protection before loading the recorder.
   if(win===expense)expenseCanClose=false;
-  void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+  if(qaLocalOnly){
+    void qaServerReady().then(ready=>{
+      if(win.isDestroyed())return;
+      if(!ready) {showOfflineStartup(win);return;}
+      void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+    });
+  }else{
+    void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
+  }
 }
 function makeWindow(options, route) {
   const win = new BrowserWindow({
@@ -166,6 +188,23 @@ ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","m
 if(!app.requestSingleInstanceLock()){app.quit();}else{
   app.on("second-instance",()=>openMini());
   app.whenReady().then(()=>{
+    if(qaLocalOnly) {
+      const partition=session.fromPartition("persist:tempo");
+      // QA mode cannot send traffic to production even if the local web server
+      // accidentally embeds a production Supabase URL.
+      partition.webRequest.onBeforeRequest({urls:["<all_urls>"]},(details,callback)=>{
+        try {
+          const target=new URL(details.url);
+          const loopback=["localhost","127.0.0.1"].includes(target.hostname);
+          const permitted=loopback &&
+            ((target.port==="3000" && ["http:","ws:"].includes(target.protocol))
+             || (target.port==="54321" && ["http:","ws:"].includes(target.protocol)));
+          const staticOffline=target.protocol==="file:" &&
+            target.pathname.endsWith("/offline.html");
+          callback({cancel:!(permitted||staticOffline)});
+        }catch{callback({cancel:true});}
+      });
+    }
     const bundledIcon=path.join(__dirname,"public","icon-192.png");
     const trayIconPath=typeof fs.existsSync==="function" && fs.existsSync(bundledIcon)
       ? bundledIcon : path.join(__dirname,"..","public","icon-192.png");
