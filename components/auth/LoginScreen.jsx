@@ -246,9 +246,11 @@ export async function saveToCloudStrict(userId, events, tasks, settings) {
 export async function loadFromCloud(userId) {
   try {
     const sb = await getSupabase();
+    const {data: identity, error: identityError}=await sb.auth.getUser();
+    if(identityError || identity?.user?.id !== userId)throw new Error("Budget sync session does not match the requested account.");
     // Phase 2: seed legacy Budget snapshots into the per-record ledger before hydrating.
     // If the migration is absent, do not silently claim financial sync is ready.
-    const budgetRows = await loadBudgetRows(sb);
+    const budgetRows = await loadBudgetRows(sb,userId);
     markBudgetRecordSyncReady(userId);
     const { data, error } = await sb
       .from("user_data")
