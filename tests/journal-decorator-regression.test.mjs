@@ -8,7 +8,7 @@ const styleSource = readFileSync('styles/tempoStyles.js', 'utf8');
 const combinedSource = `${appSource}\n${journalSource}\n${styleSource}`;
 
 test('journal decoration editing remains desktop-only while mobile can still view decorations', () => {
-  assert.match(appSource, /allowDecorationEditing=\{!isMobileViewport\}/, 'mobile should not receive decoration editing controls');
+  assert.doesNotMatch(appSource, /<JournalPage/, 'retired Journal must not be mounted in the active app');
   assert.ok(journalSource.includes('!isDecorating && allowDecorationEditing') && journalSource.includes('Decorate 🎀'), 'Decorate button should be gated by allowDecorationEditing');
   assert.match(journalSource, /allowDecorationEditing && decoratePromptKey/, 'after-save decorate prompt should be gated by allowDecorationEditing');
   assert.ok(journalSource.includes('<JournalDecorationCanvas') && journalSource.includes('editing={isDecorating}'), 'view layer should still render decorations while editing is controlled separately');
