@@ -270,52 +270,6 @@ function scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lo
   const parts = localTimeParts(now, timeZone);
   const candidates = [];
 
-  if (prefs.journal.enabled && isDueLocalClock(parts, prefs.journal.time, lookbackMinutes, lookaheadMinutes) && !journalEntryExists(settings, parts.dateKey)) {
-    candidates.push({
-      type: 'journal',
-      key: `journal:${parts.dateKey}:${prefs.journal.time}`,
-      title: 'Want to do a quick journal check-in?',
-      body: 'A few lines are enough to close the day gently.',
-      url: '/?page=journal',
-      start: dueDateForLocalClock(parts, prefs.journal.time),
-      sourceType: 'journal',
-      sourceId: parts.dateKey,
-      date: parts.dateKey,
-      timeZone,
-    });
-  }
-
-  if (prefs.tomorrowReset.enabled && isDueLocalClock(parts, prefs.tomorrowReset.time, lookbackMinutes, lookaheadMinutes)) {
-    candidates.push({
-      type: 'tomorrow_reset',
-      key: `tomorrow-reset:${parts.dateKey}:${prefs.tomorrowReset.time}`,
-      title: 'A gentle reminder to plan tomorrow',
-      body: 'Move unfinished tasks and choose tomorrow’s main thing.',
-      url: '/?page=tomorrow-reset',
-      start: dueDateForLocalClock(parts, prefs.tomorrowReset.time),
-      sourceType: 'tomorrow_reset',
-      sourceId: parts.dateKey,
-      date: parts.dateKey,
-      timeZone,
-    });
-  }
-
-  const localWeekday = localDateForParts(parts).getUTCDay();
-  if (prefs.weeklyReset.enabled && localWeekday === Number(prefs.weeklyReset.day) && isDueLocalClock(parts, prefs.weeklyReset.time, lookbackMinutes, lookaheadMinutes)) {
-    candidates.push({
-      type: 'weekly_reset',
-      key: `weekly-reset:${parts.dateKey}:${prefs.weeklyReset.time}`,
-      title: 'Your Weekly Reset is ready',
-      body: 'Review the week and set a softer rhythm for the next one.',
-      url: '/?page=weekly-reset',
-      start: dueDateForLocalClock(parts, prefs.weeklyReset.time),
-      sourceType: 'weekly_reset',
-      sourceId: parts.dateKey,
-      date: parts.dateKey,
-      timeZone,
-    });
-  }
-
   if (prefs.affirmations.enabled && isDueLocalClock(parts, prefs.affirmations.time, lookbackMinutes, lookaheadMinutes)) {
     candidates.push({
       type: 'affirmation',
@@ -543,6 +497,7 @@ function snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinu
   return list
     .map(item => ({ ...item, dueAtDate: toDate(item.dueAt) }))
     .filter(item => item.dueAtDate && item.dueAtDate >= windowStart && item.dueAtDate <= windowEnd)
+    .filter(item => !['habit', 'journal', 'tomorrow_reset', 'weekly_reset'].includes(item.type || item.sourceType))
     .map(item => ({
       type: item.type || 'task',
       key: `snooze:${item.id || item.actionToken || item.taskId}:${item.dueAt}`,
@@ -598,10 +553,6 @@ async function markReminderIfNew(admin, userId, reminder) {
 function notificationActionsFor(reminder) {
   const actions = [...SNOOZE_ACTIONS];
   if (reminder.type === 'task' && reminder.taskId) actions.push({ action: 'mark_done', title: 'Mark done' });
-  if (reminder.type === 'habit' && reminder.habitId) actions.push({ action: 'complete_habit', title: 'Complete habit' });
-  if (reminder.type === 'journal') actions.push({ action: 'open_journal', title: 'Open journal' });
-  if (reminder.type === 'tomorrow_reset') actions.push({ action: 'start_reset', title: 'Start reset' });
-  if (reminder.type === 'weekly_reset') actions.push({ action: 'start_reset', title: 'Start reset' });
   actions.push({ action: 'open', title: 'Open' });
   return actions;
 }
@@ -688,7 +639,7 @@ async function runReminderCheck(request) {
         ...snoozedReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
         ...eventReminderCandidates(row.events || [], settings, now, lookbackMinutes, lookaheadMinutes),
         ...taskReminderCandidates(row.tasks || [], settings, now, lookbackMinutes, lookaheadMinutes),
-        ...habitReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
+        // All retired lifestyle reminders are disabled; existing user preferences remain archived.
         ...scheduledLifestyleReminderCandidates(settings, now, lookbackMinutes, lookaheadMinutes),
       ]);
       candidates += allCandidates.length;
