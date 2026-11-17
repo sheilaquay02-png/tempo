@@ -8,7 +8,11 @@ import { tempoLegacyInlineCSS } from "../styles/tempoLegacyInlineStyles";
 import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopupSafety";
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
-import { BudgetApp, OverallPage } from "./budget/BudgetApp";
+import { BudgetApp, OverallPage, BudgetTransactionPopup, createEmptyTransactionForm } from "./budget/BudgetApp";
+import { MiniTempoPanel } from "./mini/MiniTempoPanel";
+import { QuickAddMenu } from "./mini/QuickAddMenu";
+import { miniTempoCSS } from "../styles/miniTempoStyles";
+import { activeBudgetDefaults, appendTransactionOnce, todayRecordedSpending, eventSpendingKey, linkTransactionToEvent, unlinkTransactionFromEvent, normalizeSpendingPlan } from "../utils/miniTempoFinance";
 import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
@@ -72,6 +76,9 @@ import {
 } from "../constants/budgetConstants";
 import {
   calculateBudgetSummary,
+  budgetUid,
+  todayBudgetDateKey,
+  normalizeBudgetTransaction,
   normalizeBonusAllocationRules,
   normalizeBudgetAccounts,
   normalizeBudgetBuckets,
@@ -280,7 +287,7 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19 }) {
 // ─── Removed legacy local helper panel from product UI. ─────────────────────
 
 
-export default function App() {
+export default function App({ windowMode = "full" }) {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a persistent anonymous key so
   // unsigned-in users do not lose their local Tempo data after closing the browser.
@@ -352,6 +359,11 @@ export default function App() {
   const [budgetLedgers, setBudgetLedgersRaw] = useState(() => normalizeBudgetLedgers(load(`${uk}_budget_ledgers`, DEFAULT_BUDGET_LEDGERS)));
   const [budgetBuckets, setBudgetBucketsRaw] = useState(() => normalizeBudgetBuckets(load(`${uk}_budget_buckets`, DEFAULT_BUDGET_BUCKETS)));
   const [budgetTransactions, setBudgetTransactionsRaw] = useState(() => normalizeBudgetTransactions(load(`${uk}_budget_transactions`, DEFAULT_BUDGET_TRANSACTIONS)));
+  const [expenseForm, setExpenseForm] = useState(null);
+  const [expenseError, setExpenseError] = useState("");
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const expenseSaveLock = useRef(false);
+  const recorderInitialized = useRef(false);
   const [bonusAllocationRules, setBonusAllocationRulesRaw] = useState(() => normalizeBonusAllocationRules(load(`${uk}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
   const [showStats,    setShowStats]    = useState(false);
   const [showShortcuts,setShowShortcuts]= useState(false);
@@ -415,13 +427,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const key = `${uk}_startup_seen_${dateKey(TODAY)}`;
     if (!load(key, false)) setShowStartup(true);
   }, [dataReady, auth.user?.id, uk]);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const completed = load(`${uk}_onboarding_completed`, false);
     const skipped = load(`${uk}_onboarding_skipped`, false);
     const prompted = load(`${uk}_onboarding_prompted`, false);
@@ -1299,6 +1311,92 @@ export default function App() {
   const setBudgetLedgers = value => { const next = normalizeBudgetLedgers(typeof value === "function" ? value(budgetLedgers) : value); setBudgetLedgersRaw(next); persistBudgetSettings({ budgetLedgers: next }); };
   const setBudgetBuckets = value => { const next = normalizeBudgetBuckets(typeof value === "function" ? value(budgetBuckets) : value); setBudgetBucketsRaw(next); persistBudgetSettings({ budgetBuckets: next }); };
   const setBudgetTransactions = value => { const next = normalizeBudgetTransactions(typeof value === "function" ? value(budgetTransactions) : value); setBudgetTransactionsRaw(next); persistBudgetSettings({ budgetTransactions: next }); };
+
+  function createExpenseDraft(event = null) {
+    const base = createEmptyTransactionForm({accounts:budgetAccounts,ledgers:budgetLedgers,buckets:budgetBuckets,type:"expense"});
+    const defaults=activeBudgetDefaults({accounts:budgetAccounts,ledgers:budgetLedgers,buckets:budgetBuckets,transactions:budgetTransactions});
+    const plan=normalizeSpendingPlan(event?.spendingPlan);
+    const ledgerId=budgetLedgers.some(l=>l.id===plan?.ledgerId) ? plan.ledgerId : defaults.ledgerId;
+    const card=budgetBuckets.find(b=>b.id===plan?.bucketId && b.cashFlowType==="expense" && b.ledgerId===ledgerId)
+      || budgetBuckets.find(b=>b.id===defaults.bucketId && b.cashFlowType==="expense" && b.ledgerId===ledgerId);
+    const accountId=budgetAccounts.some(a=>a.id===card?.accountId)?card.accountId:defaults.accountId;
+    return {...base,id:budgetUid("txn"),amount:"",date:todayBudgetDateKey(),ledgerId,bucketId:card?.id||"",accountId,linkedEventId:eventSpendingKey(event)};
+  }
+
+  function openExpenseRecorder(event = null, { inline = false } = {}) {
+    setExpenseError("");
+    if (!inline && !event && typeof window!=="undefined" && window.tempoDesktop?.openExpense && windowMode !== "recorder") {
+      window.tempoDesktop.openExpense();
+      return;
+    }
+    setExpenseForm(createExpenseDraft(event));
+  }
+
+  async function saveQuickExpense(addAnother = false) {
+    if (expenseSaveLock.current || !expenseForm) return;
+    const amount=Number(expenseForm.amount);
+    if (!Number.isFinite(amount) || amount<=0) {setExpenseError("Enter an amount greater than zero.");return;}
+    if (!budgetAccounts.some(a=>a.id===expenseForm.accountId)) {setExpenseError("Choose a valid account.");return;}
+    if (expenseForm.type!=="transfer" && expenseForm.bucketId && !budgetBuckets.some(b=>b.id===expenseForm.bucketId)) {setExpenseError("Choose a valid Budget card.");return;}
+    expenseSaveLock.current=true;
+    setExpenseSaving(true);
+    setExpenseError("");
+    try {
+      const entry=normalizeBudgetTransaction({...expenseForm,amount,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      // Stable IDs protect against duplicate clicks and repeated submissions.
+      setBudgetTransactions(previous=>appendTransactionOnce(previous,entry));
+      if(addAnother) {
+        setExpenseForm(current=>({...current,id:budgetUid("txn"),amount:"",description:"",notes:"",tags:"",excludedFromBudget:false}));
+      } else {
+        setExpenseForm(null);
+        if(windowMode==="recorder" && typeof window!=="undefined")window.tempoDesktop?.expenseSaved?.();
+      }
+    } catch(error) {
+      setExpenseError(error?.message||"Could not save expense. Your draft was kept.");
+    } finally {expenseSaveLock.current=false;setExpenseSaving(false);}
+  }
+
+  function closeQuickExpense() {
+    if(expenseForm?.amount && !window.confirm("Discard the unfinished transaction?"))return;
+    setExpenseForm(null);
+    if(windowMode==="recorder")window.tempoDesktop?.closeExpense?.();
+  }
+
+  function addQuickTodayTask(title) {
+    const clean=String(title||"").trim();
+    if(!clean)return;
+    pushUndo();
+    setTasks(current=>[...current,touchRecord(withTaskPeriod({id:"t"+uid(),title:clean,scope:"day",duration:30,category:"light",priority:"medium",done:false,reminder:{type:"none"},recurrence:null},TODAY),{createdAt:new Date().toISOString()})]);
+  }
+
+  function openFullTempo(route="/") {
+    if(typeof window!=="undefined" && window.tempoDesktop?.openFull)window.tempoDesktop.openFull(route);
+    else if(typeof window!=="undefined")window.location.assign(route);
+  }
+
+  // Recorder and Mini use the same authenticated Tempo state as the full app.
+  useEffect(()=>{
+    if(windowMode!=="recorder" || !dataReady || !auth.user?.id || loadedUserId!==auth.user.id || recorderInitialized.current)return;
+    recorderInitialized.current=true;
+    openExpenseRecorder(null,{inline:true});
+  },[windowMode,dataReady,loadedUserId,auth.user?.id]);
+
+  useEffect(()=>{
+    if(windowMode!=="recorder" || typeof document==="undefined")return;
+    document.body.classList.add("tempo-recorder");
+    return ()=>document.body.classList.remove("tempo-recorder");
+  },[windowMode]);
+
+  useEffect(()=>{
+    if(windowMode!=="full" || !dataReady || !auth.user?.id || loadedUserId!==auth.user.id || typeof window==="undefined")return;
+    const params=new URLSearchParams(window.location.search);
+    const taskId=params.get("taskId"),eventId=params.get("eventId");
+    if(taskId){const task=tasks.find(t=>t.id===taskId);if(task)setSelectedTask(task);}
+    if(eventId){const ev=events.find(e=>e.id===eventId) || expandRecurring(events,addDaysSafe(TODAY,-40),addDaysSafe(TODAY,90)).find(e=>e.id===eventId);if(ev)setSelectedEvent(ev);}
+    if(params.get("create")==="event")setQuickAddDate(new Date());
+    if(params.get("page")==="budget-transactions"){setAppModeRaw("budget");setBudgetPage("transactions");}
+  },[windowMode,dataReady,loadedUserId,auth.user?.id]);
+
 
 
   useEffect(() => {
