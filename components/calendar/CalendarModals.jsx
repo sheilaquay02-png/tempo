@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
+import { normalizeSpendingPlan } from "../../utils/miniTempoFinance";
+import { SpendingPlanEditor, EventSpendingDetails } from "./EventSpendingPanel";
 import {
   CALENDAR_COLOR_PRESETS,
   EVENT_TEMPLATES,
@@ -93,7 +95,7 @@ function EventReminderEditor({ value, onChange }) {
   );
 }
 
-export function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy, onDuplicate }) {
+export function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy, onDuplicate, budgetLedgers = [], budgetBuckets = [], budgetTransactions = [], onRecordExpense, onLinkTransaction, onUnlinkTransaction }) {
   const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay), reminder: Core.normalizeEventReminder(event.reminder) });
   const cal = calendars.find(c => c.id === form.calendar);
   const source = calendarEventSource(form, cal);
@@ -150,6 +152,8 @@ export function EventModal({ event, calendars, categories, onClose, onSave, onDe
           <div className="modal-row"><label>Fixed</label><input type="checkbox" disabled={isReferenceEvent} checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} disabled={isReferenceEvent} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" disabled={isReferenceEvent} onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" disabled={isReferenceEvent} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
+          {!isReferenceEvent && <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:normalizeSpendingPlan(plan)}))} />}
+          <EventSpendingDetails event={form} transactions={budgetTransactions} ledgers={budgetLedgers} buckets={budgetBuckets} onRecordExpense={()=>onRecordExpense?.(event)} onLink={onLinkTransaction} onUnlink={onUnlinkTransaction}/>
         </div>
         <div className="modal-footer"><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{!isReferenceEvent && <button className="modal-delete" onClick={() => { onDelete(event.id); onClose(); }}>🗑️ Delete</button>}<button className="tf-cancel" onClick={() => { onDuplicate?.(form); onClose(); }}>⧉ Duplicate</button>{!isReferenceEvent && <button className="tf-cancel" onClick={() => { onCopy?.({ ...form, title: form.title.trim() || event.title }); onClose(); }}>📋 Copy to paste</button>}</div><div style={{ display: "flex", gap: 8 }}><button className="tf-cancel" onClick={onClose}>{isReferenceEvent ? "Close" : "Cancel"}</button>{!isReferenceEvent && <button className="tf-save" onClick={saveForm}>Save changes</button>}</div></div>
       </div>
@@ -160,12 +164,12 @@ export function EventModal({ event, calendars, categories, onClose, onSave, onDe
 
 
 // ─── Add Event Modal ──────────────────────────────────────────────────────────
-export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, categories = CATEGORIES }) {
+export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALENDARS, categories = CATEGORIES, budgetLedgers = [], budgetBuckets = [] }) {
   const now = new Date(defaultDate); now.setMinutes(0,0,0);
   const end = new Date(now); end.setHours(end.getHours()+1);
   const [form, setForm] = useState({
     title: "", startDate: toDateInput(defaultDate), endDate: toDateInput(defaultDate), startTime: toTimeInputValue(now), endTime: toTimeInputValue(end), allDay: false,
-    calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
+    calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, spendingPlan: null, reminder: { type: "minutes", minutesBefore: 10 }
   });
   const [err, setErr] = useState("");
   function applyEventTemplate(template) {
@@ -188,7 +192,7 @@ export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALEND
     const start = form.allDay ? applyDateAndTime(form.startDate, "00:00") : applyDateAndTime(form.startDate, form.startTime);
     const endBase = form.allDay ? endOfDay(applyDateAndTime(form.endDate, "00:00")) : applyDateAndTime(form.endDate, form.endTime);
     if (endBase <= start) { setErr("End must be after start."); return; }
-    const placed = await onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence, reminder:form.reminder });
+    const placed = await onSave({ id:"e"+uid(), title:form.title.trim(), start, end:endBase, allDay: form.allDay, calendar:form.calendar, category:form.category, fixed:form.fixed, notes:form.notes, color:form.color, recurrence:form.recurrence, reminder:form.reminder, spendingPlan:normalizeSpendingPlan(form.spendingPlan) });
     if (placed !== false) onClose();
   }
   const COLORS=["#FF7BAC","#B08AE0","#7CBAFF","#70C8A0","#FFB870","#FF9F9F","#C9A0FF","#7EC8C8"];
@@ -217,6 +221,7 @@ export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALEND
           <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e=>setForm(f=>({...f,fixed:e.target.checked}))}/><span style={{fontSize:11,color:"var(--text2)",marginLeft:6}}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c=><button key={c} className={`color-dot ${form.color===c?"selected":""}`} style={{background:c}} onClick={()=>setForm(f=>({...f,color:c}))}/> )}<button className="color-dot color-reset" onClick={()=>setForm(f=>({...f,color:null}))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
+          <SpendingPlanEditor value={form.spendingPlan} ledgers={budgetLedgers} buckets={budgetBuckets} onChange={plan=>setForm(f=>({...f,spendingPlan:normalizeSpendingPlan(plan)}))} />
           {err && <div style={{color:"#C04040",fontSize:12,fontWeight:700}}>⚠️ {err}</div>}
         </div>
         <div className="modal-footer"><div/><div style={{display:"flex",gap:8}}><button className="tf-cancel" onClick={onClose}>Cancel</button><button className="tf-save" onClick={handleSave}>Save event</button></div></div>
