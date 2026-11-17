@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   readBudgetJournal,writeBudgetJournal,diffBudgetTransactions,appendBudgetOperations,
   overlayPendingBudgetOperations,budgetRevisionMap,seedMissingLocalBudgetRecords,
-  rebaseBudgetChanges,flushBudgetOperations,loadBudgetRows,BudgetSyncConflict
+  rebaseBudgetChanges,flushBudgetOperations,loadBudgetRows,BudgetSyncConflict,
+  listBudgetConflicts,resolveBudgetConflict
 } from "../lib/tempo/client/budgetRecordSync.js";
 
 function memoryStorage() {
@@ -71,8 +72,11 @@ test("editing the same revision causes visible conflict, preserving pending loca
     writeBudgetJournal(storage,"u",appendBudgetOperations(readBudgetJournal(storage,"u"),diffBudgetTransactions([tx("a",10)],[tx("a",value)]),newId));
   }
   await flushBudgetOperations(server,one,"u");
-  await assert.rejects(()=>flushBudgetOperations(server,two,"u"),BudgetSyncConflict);
-  assert.equal(readBudgetJournal(two,"u").operations.length,1);
+  await flushBudgetOperations(server,two,"u");
+  const savedJournal=readBudgetJournal(two,"u");
+  assert.equal(savedJournal.operations.length,1);
+  assert.equal(listBudgetConflicts(savedJournal).length,1);
+  assert.equal(listBudgetConflicts(savedJournal)[0].server.payload.amount,11);
   assert.equal(server.records.get("a").payload.amount,11);
 });
 
@@ -117,4 +121,108 @@ test("migration includes authenticated, RLS-protected seed and CAS operations",(
   assert.match(sql,/p_operation_id/);
   assert.match(sql,/tempo_budget_operations/);
   assert.match(sql,/pg_advisory_xact_lock/);
+});
+
+test("conflicted expense does not block unrelated expenses from another device",async()=>{
+  const server=mockServer([{transaction_id:"shared",payload:tx("shared",70),revision:2,deleted_at:null}]);
+  const store=memoryStorage();
+  writeBudgetJournal(store,"u",{operations:[],revisions:{shared:1},conflicts:{}});
+  const journal=appendBudgetOperations(readBudgetJournal(store,"u"),[
+    {transactionId:"shared",payload:tx("shared",75),deleted:false},
+    {transactionId:"unrelated",payload:tx("unrelated",3),deleted:false},
+  ],newId);
+  writeBudgetJournal(store,"u",journal);
+  const result=await flushBudgetOperations(server,store,"u");
+  assert.equal(result.operations.length,1);
+  assert.equal(listBudgetConflicts(result).length,1);
+  assert.equal(server.records.get("unrelated").payload.amount,3);
+  assert.equal(server.records.get("shared").payload.amount,70);
+});
+
+test("review conflict: use cloud version without deleting unrelated pending edits",async()=>{
+  const server=mockServer([{transaction_id:"shared",payload:tx("shared",12),revision:4,deleted_at:null}]);
+  const storage=memoryStorage();
+  const other=tx("other",5);
+  writeBudgetJournal(storage,"u",appendBudgetOperations({operations:[],revisions:{shared:3},conflicts:{}},[
+    {transactionId:"shared",payload:tx("shared",15),deleted:false},
+    {transactionId:"other",payload:other,deleted:false},
+  ],newId));
+  await flushBudgetOperations(server,storage,"u");
+  const conflict=readBudgetJournal(storage,"u");
+  const {journal:resolved}=resolveBudgetConflict(conflict,"shared","server",newId);
+  writeBudgetJournal(storage,"u",resolved);
+  assert.equal(resolved.operations.some(op=>op.transactionId==="shared"),false);
+  assert.equal(resolved.revisions.shared,4);
+  assert.equal(listBudgetConflicts(readBudgetJournal(storage,"u")).length,0);
+  assert.equal(server.records.get("shared").payload.amount,12);
+  assert.equal(server.records.get("other").payload.amount,5);
+});
+
+test("review conflict: keep my version uses new revision and new operation ID",async()=>{
+  const server=mockServer([{transaction_id:"shared",payload:tx("shared",12),revision:4,deleted_at:null}]);
+  const storage=memoryStorage();
+  const journal=appendBudgetOperations({operations:[],revisions:{shared:3},conflicts:{}},[
+    {transactionId:"shared",payload:tx("shared",15),deleted:false},
+  ],newId);
+  writeBudgetJournal(storage,"u",journal);
+  await flushBudgetOperations(server,storage,"u");
+  const pending=readBudgetJournal(storage,"u");
+  const previousOpId=pending.operations[0].operationId;
+  const {journal:resolved}=resolveBudgetConflict(pending,"shared","local",newId);
+  assert.equal(resolved.operations.length,1);
+  assert.equal(resolved.operations[0].expectedRevision,4);
+  assert.notEqual(resolved.operations[0].operationId,previousOpId);
+  writeBudgetJournal(storage,"u",resolved);
+  await flushBudgetOperations(server,storage,"u");
+  assert.equal(server.records.get("shared").revision,5);
+  assert.equal(server.records.get("shared").payload.amount,15);
+});
+
+test("review conflict: save my version as a new transaction leaves cloud version intact",async()=>{
+  const server=mockServer([{transaction_id:"shared",payload:tx("shared",12),revision:4,deleted_at:null}]);
+  const store=memoryStorage();
+  writeBudgetJournal(store,"u",appendBudgetOperations({operations:[],revisions:{shared:3},conflicts:{}},[
+    {transactionId:"shared",payload:tx("shared",15),deleted:false}
+  ],newId));
+  await flushBudgetOperations(server,store,"u");
+  const {journal:resolved,copiedId}=resolveBudgetConflict(readBudgetJournal(store,"u"),"shared","copy",newId);
+  assert.notEqual(copiedId,"shared");
+  assert.equal(resolved.operations.length,1);
+  assert.equal(resolved.operations[0].payload.id,copiedId);
+  assert.equal(resolved.operations[0].expectedRevision,0);
+  writeBudgetJournal(store,"u",resolved);
+  await flushBudgetOperations(server,store,"u");
+  assert.equal(server.records.get("shared").payload.amount,12);
+  assert.equal(server.records.get(copiedId).payload.amount,15);
+  assert.equal(server.records.size,2);
+});
+
+test("review conflict: refuse to copy a deleted local transaction or erase missing conflict",()=>{
+  const journal={operations:[{transactionId:"x",operationId:newId(),expectedRevision:1,deleted:true,payload:tx("x",3)}],
+    revisions:{x:1},conflicts:{x:{revision:2,payload:tx("x",4),deleted:false}}};
+  assert.throws(()=>resolveBudgetConflict(journal,"x","copy",newId),/cannot be copied/);
+  assert.throws(()=>resolveBudgetConflict(journal,"other","server",newId),/no longer pending/);
+});
+
+test("persisted conflicts are detected again after app restart",async()=>{
+  const server=mockServer([{transaction_id:"x",payload:tx("x",7),revision:4,deleted_at:null}]);
+  const storage=memoryStorage();
+  writeBudgetJournal(storage,"u",appendBudgetOperations({operations:[],revisions:{x:3},conflicts:{}},[
+    {transactionId:"x",payload:tx("x",9),deleted:false}
+  ],newId));
+  await flushBudgetOperations(server,storage,"u");
+  // Simulate another tab reading the saved journal.
+  assert.equal(listBudgetConflicts(readBudgetJournal(storage,"u")).length,1);
+  const before=server.records.get("x").revision;
+  await flushBudgetOperations(server,storage,"u");
+  assert.equal(server.records.get("x").revision,before);
+});
+
+test("RPC schema disables direct authenticated DML and uses a safe SQL code block",()=>{
+  const sql=readFileSync("supabase/tempo_budget_records_phase2.sql","utf8");
+  assert.match(sql,/revoke all on public\.tempo_budget_transactions from authenticated/);
+  assert.match(sql,/grant select on public\.tempo_budget_transactions to authenticated/);
+  assert.match(sql,/security definer set search_path = ''/);
+  assert.match(sql,/do \$\$\s*begin/);
+  assert.match(sql,/end; \$\$;/);
 });
