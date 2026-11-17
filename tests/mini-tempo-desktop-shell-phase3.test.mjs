@@ -27,10 +27,11 @@ async function mockDesktop({savedState=null}={}) {
     constructor(options){
       super();this.options=options;this.bounds={x:100,y:100,width:options.width||360,height:options.height||520};
       this.pinned=Boolean(options.alwaysOnTop);this.visible=false;this.destroyed=false;this.minimized=false;
-      this.loadCalls=[];this.focusCount=0;this.webContents=new FakeWebContents();
+      this.loadCalls=[];this.fileCalls=[];this.focusCount=0;this.webContents=new FakeWebContents();
       windows.push(this);
     }
     loadURL(url){this.loadCalls.push(url);return Promise.resolve();}
+    loadFile(path){this.fileCalls.push(path);return Promise.resolve();}
     show(){this.visible=true;}
     hide(){this.visible=false;}
     focus(){this.focusCount++;}
@@ -154,6 +155,25 @@ test("Main-process navigation guards prevent redirects and deny IPC from unknown
   assert.equal(prevented,true);
   assert.deepEqual(env.openedExternal,["https://evil.example/fake-login"]);
   assert.equal(full.webContents.openHandler({url:"https://evil.example/"}).action,"deny");
+});
+
+test("Cold offline start shows non-financial recovery and retries the same internal route",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  mini.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
+    "http://localhost:3000/mini",true);
+  assert.equal(mini.fileCalls.length,1);
+  assert.ok(mini.fileCalls[0].endsWith("desktop/offline.html"));
+  assert.equal(mini.visible,true);
+  assert.equal(mini.tempoOfflineShown,true);
+  mini.webContents.emit("did-fail-load",{},-105,"ERR_NAME_NOT_RESOLVED",
+    "http://localhost:3000/mini",true);
+  assert.equal(mini.fileCalls.length,1,"Offline page is not recursively loaded");
+  env.ipc("tempo:retry-window",mini);
+  assert.equal(mini.loadCalls.at(-1),"http://localhost:3000/mini");
+  assert.equal(mini.tempoOfflineShown,false);
+  const html=readFileSync("desktop/offline.html","utf8");
+  assert.match(html,/full offline restart is not supported yet/);
+  assert.match(html,/retryWindow/);
 });
 
 test("Recorder blocks accidental close and quitting until the renderer confirms draft disposition",async()=>{
