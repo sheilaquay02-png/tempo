@@ -18,7 +18,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
   const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
   const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
   const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
-  const reminderDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const notificationSupported = typeof window !== "undefined" && "Notification" in window;
   const pushSupported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && notificationSupported;
   const notificationPermission = notificationSupported ? Notification.permission : "unsupported";
@@ -143,7 +142,7 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
           {/* Onboarding */}
           <div className="settings-section">
             <div className="settings-section-label">Onboarding</div>
-            <div className="settings-section-desc">Restart the guided setup to choose your rhythm goals, starter habits, day start, wind-down time, and reminder preferences.</div>
+            <div className="settings-section-desc">Restart the guided setup to choose your preferred planning hours.</div>
             <div className="settings-action-row">
               <button className="tf-save" onClick={onRestartOnboarding}>🌿 Restart onboarding</button>
             </div>
@@ -290,12 +289,11 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
           </div>
           <div className="settings-section">
             <div className="settings-section-label">Reminder categories</div>
-            <div className="settings-section-desc">Choose which gentle reminders Tempo can send. Event, task, and habit reminders still follow the individual reminder times you set on each item.</div>
+            <div className="settings-section-desc">Choose which reminders Tempo can send. Event and task reminders follow the times you set on each item.</div>
             <div className="notification-pref-grid">
               {[
                 ["events", "🗓️", "Events", "Calendar reminders"],
                 ["tasks", "✅", "Tasks", "Task reminders"],
-                ["habits", "🌱", "Habits", "Complete from notification"],
               ].map(([key, emoji, label, desc]) => (
                 <label key={key} className="notification-pref-card">
                   <input type="checkbox" checked={Boolean(reminderPrefs[key])} onChange={e => updateReminderPrefs({ [key]: e.target.checked })} />
@@ -305,9 +303,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
               ))}
             </div>
             <div className="notification-schedule-list">
-              <label className="notification-schedule-row"><span><strong>📔 Journal reminder</strong><small>Want to do a quick journal check-in?</small></span><input type="checkbox" checked={reminderPrefs.journal.enabled} onChange={e => updateReminderNested("journal", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.journal.time} onChange={e => updateReminderNested("journal", { time: e.target.value })} /></label>
-              <label className="notification-schedule-row"><span><strong>🌙 Tomorrow Reset</strong><small>A gentle reminder to plan tomorrow.</small></span><input type="checkbox" checked={reminderPrefs.tomorrowReset.enabled} onChange={e => updateReminderNested("tomorrowReset", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.tomorrowReset.time} onChange={e => updateReminderNested("tomorrowReset", { time: e.target.value })} /></label>
-              <label className="notification-schedule-row"><span><strong>🧺 Weekly Reset</strong><small>Review the week and set your next rhythm.</small></span><input type="checkbox" checked={reminderPrefs.weeklyReset.enabled} onChange={e => updateReminderNested("weeklyReset", { enabled: e.target.checked })} /><select className="tf-select notification-day-select" value={reminderPrefs.weeklyReset.day} onChange={e => updateReminderNested("weeklyReset", { day: Number(e.target.value) })}>{reminderDayLabels.map((day, index) => <option key={day} value={index}>{day}</option>)}</select><input type="time" className="tf-input meal-time" value={reminderPrefs.weeklyReset.time} onChange={e => updateReminderNested("weeklyReset", { time: e.target.value })} /></label>
               <label className="notification-schedule-row"><span><strong>💌 Daily affirmation</strong><small>Time for one grounded thought.</small></span><input type="checkbox" checked={reminderPrefs.affirmations.enabled} onChange={e => updateReminderNested("affirmations", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.affirmations.time} onChange={e => updateReminderNested("affirmations", { time: e.target.value })} /></label>
             </div>
           </div>
