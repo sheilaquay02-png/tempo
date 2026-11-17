@@ -3201,7 +3201,10 @@ export default function App({ windowMode = "full" }) {
     syncConflictLog: normalizeSyncConflictLog(syncSettingsSnapshot.syncConflictLog),
     datasetCounts: syncDatasetCounts(events, tasks, syncSettingsSnapshot),
   };
-  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS;
+  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS + miniTempoCSS;
+  const spentToday = todayRecordedSpending(budgetTransactions, todayBudgetDateKey());
+  const miniUpcomingEvent = [...todayDashboardEvents].filter(e => new Date(e.end).getTime() >= Date.now()).sort((a,b) => new Date(a.start) - new Date(b.start))[0] || null;
+  const miniTodayTasks = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1));
   const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
   const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
   const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
@@ -3263,6 +3266,12 @@ export default function App({ windowMode = "full" }) {
     <>
       <style>{memoAppCSS}</style>
 
+      {windowMode === "mini" ? (
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={syncStatus?.status} pendingChanges={pendingLocalChanges} onSync={forceSyncNow} />
+      ) : windowMode === "recorder" ? (
+        <div className="mini-recorder-shell"><p className="mini-recorder-hint">Record your expense with your existing Budget keypad.</p></div>
+      ) : (
+      <>
       <div className="app">
         <AppSidebar
           sidebarOpen={sidebarOpen}
@@ -3300,7 +3309,7 @@ export default function App({ windowMode = "full" }) {
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onRecordExpense={()=>openExpenseRecorder()} onOpenBudget={()=>navigateBudgetPage("transactions")} onAddTask={()=>setSelectedTask({_isNew:true,id:"t"+uid(),title:"",duration:30,category:"light",scope:"day",priority:"medium",done:false})} onAddEvent={()=>setQuickAddDate(new Date())} onEventClick={setSelectedEvent} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : page === "rhythm" ? (
@@ -3397,8 +3406,8 @@ export default function App({ windowMode = "full" }) {
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
       {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
       {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={calendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
-      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} budgetLedgers={budgetLedgers} budgetBuckets={budgetBuckets} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} budgetLedgers={budgetLedgers} budgetBuckets={budgetBuckets} budgetTransactions={budgetTransactions} onRecordExpense={event=>openExpenseRecorder(event,{inline:true})} onLinkTransaction={(id,event)=>setBudgetTransactions(previous=>linkTransactionToEvent(previous,id,event))} onUnlinkTransaction={(id,event)=>setBudgetTransactions(previous=>unlinkTransactionFromEvent(previous,id,event))} />}
       {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={calendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       <EventConflictModal />
@@ -3448,6 +3457,11 @@ export default function App({ windowMode = "full" }) {
       />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
+      {!expenseForm && !selectedEvent && !quickAddDate && !selectedTask && !settingsOpen && <QuickAddMenu onExpense={()=>openExpenseRecorder()} onTask={()=>setSelectedTask({_isNew:true,id:"t"+uid(),title:"",duration:30,category:"light",scope:"day",priority:"medium",done:false})} onEvent={()=>setQuickAddDate(new Date())}/>}
+      </>
+      )}
+      {expenseForm && <BudgetTransactionPopup form={expenseForm} setForm={setExpenseForm} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} currency={budgetProfile.currency || "SGD"} summary={budgetSummary} onSave={()=>saveQuickExpense(false)} onSaveAndAddAnother={windowMode==="recorder" ? ()=>saveQuickExpense(true) : null} saving={expenseSaving} onClose={closeQuickExpense} />}
+      {expenseError && <div className="tempo-mini-error" role="alert">{expenseError}</div>}
     </>
   );
 }
