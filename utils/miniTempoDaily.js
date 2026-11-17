@@ -1,16 +1,18 @@
 // View selectors for Mini. These do not mutate task/event records.
 const rank = { high: 0, medium: 1, low: 2 };
 
-export function miniTaskRows(todayTasks = [], lastChangedId = "", limit = 3) {
+export function miniTaskRows(todayTasks = [], lastChangedId = "") {
   const rows = [...todayTasks].filter(t => t && t.id);
   const open = rows.filter(t => !t.done).sort((a,b) =>
     (rank[a.priority] ?? 1) - (rank[b.priority] ?? 1));
-  const recentlyCompleted = rows.find(t => t.id === lastChangedId && t.done);
-  if (recentlyCompleted) {
-    // Keep the just-checked item visible so Undo never disappears on click.
-    return [recentlyCompleted, ...open.filter(t => t.id !== recentlyCompleted.id)].slice(0, limit);
-  }
-  return open.slice(0, limit);
+  const completed = rows.filter(t => t.done);
+  const recentlyCompleted = completed.find(t => t.id === lastChangedId);
+  // Show every task assigned to today, not just the first three. Keep a newly
+  // checked task at the top for a convenient Undo, followed by unfinished tasks
+  // (priority order) and the rest of today's completed tasks.
+  return recentlyCompleted
+    ? [recentlyCompleted, ...open, ...completed.filter(t => t.id !== recentlyCompleted.id)]
+    : [...open, ...completed];
 }
 
 export function nextUpcomingEvent(expandedEvents = [], now = new Date()) {
