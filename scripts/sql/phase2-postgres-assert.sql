@@ -30,6 +30,18 @@ begin
   if r->>'status'<>'applied' or (r->>'revision')::integer<>1
   then raise exception 'Idempotent retry failed: %',r; end if;
 
+  -- One operation receipt must never be reused to silently acknowledge another ID.
+  begin
+    perform public.tempo_budget_apply(
+     't-2','10000000-0000-4000-8000-000000000001',0,
+     '{"id":"t-2","type":"expense","amount":12}'::jsonb,false);
+    raise exception 'Reusing an operation ID for another transaction was not rejected';
+  exception when raise_exception then
+    if sqlerrm <> 'Operation ID is already assigned to a different transaction' then
+      raise;
+    end if;
+  end;
+
   r:=public.tempo_budget_apply(
    't-2','10000000-0000-4000-8000-000000000002',0,
    '{"id":"t-2","type":"expense","amount":12}'::jsonb,false);
