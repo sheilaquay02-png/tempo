@@ -24,7 +24,7 @@ test("Personal portable package is HTTPS-gated and never replaces localhost QA",
   assert.doesNotMatch(entry,/https:\/\/[^"\s]+\.vercel\.app/);
 });
 
-test("Personal packaging refuses to run when not explicitly approved",()=>{
+test("Personal packaging refuses to run when not explicitly approved",async()=>{
   const result = await import("node:child_process").then(({spawnSync})=>spawnSync(
     process.execPath,["desktop/scripts/package-windows-personal.cjs"],
     {env:{...process.env,TEMPO_PERSONAL_PACKAGE_APPROVED:"",TEMPO_PERSONAL_ORIGIN:""},encoding:"utf8"}
