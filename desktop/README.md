@@ -13,13 +13,24 @@ The shell uses a shared Electron partition for auth, locked navigation, sandboxe
 Start with [TESTING.md](TESTING.md) for the manual Windows checklist. The included
 PowerShell launcher (`./desktop/start-local-test.ps1`) requires a disposable
 local Supabase configuration and refuses to connect to hosted Supabase domains.
-Start the local Next.js server first with `npm run dev`, then run the launcher
-in another PowerShell terminal from the repository root.
+Start local Next.js in disposable-only mode on Windows with `$env:TEMPO_QA_LOCAL_ONLY="1"; npm run dev` after confirming the root `.env.local` points to localhost Supabase. Then run the launcher in another PowerShell terminal. The launcher verifies the actual running server before opening any account data.
 
 Phase 3 automated Node tests verify mock Electron window/IPC lifecycles, the
 saved Mini pin preference, OS quit confirmation, independent expense popout
 and Save & Add Another draft rules. **No actual Windows GUI or installer has yet
 been verified**. All fake finance data remains isolated from production.
+
+## Portable Windows QA folder (not a release)
+
+On a **Windows computer**, after setting up the disposable local Supabase and Next.js servers as described in [TESTING.md](TESTING.md), run:
+
+```powershell
+cd desktop
+npm install --no-audit --no-fund
+npm run package:windows:qa
+```
+
+This prepares an **unsigned, local-only test folder** under `desktop/out/MiniTempo-LocalQA-win32-x64`, not an installer. No GitHub Windows runner is used. The packaged QA entrypoint always connects to localhost, verifies the disposable local server and blocks all non-local network requests. Do not distribute it, connect it to production, or mistake it for a finished app. **Actual packaging and real Windows GUI checks remain unverified**.
 
 ## Local development
 
