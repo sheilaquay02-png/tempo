@@ -40,9 +40,12 @@ export function weatherCityUrl(city) {
 }
 
 export function parseCurrentWeather(payload) {
-  const temp = Number(payload?.current?.temperature_2m);
-  const code = Number(payload?.current?.weather_code);
-  if (!Number.isFinite(temp) || !Number.isFinite(code) || temp < -100 || temp > 70) {
+  const rawTemperature = payload?.current?.temperature_2m;
+  const rawCode = payload?.current?.weather_code;
+  const temp = Number(rawTemperature);
+  const code = Number(rawCode);
+  if (rawTemperature == null || rawCode == null ||
+      !Number.isFinite(temp) || !Number.isFinite(code) || temp < -100 || temp > 70) {
     throw new Error("Weather temporarily unavailable");
   }
   return { temperature: Math.round(temp), ...weatherDescription(code) };
