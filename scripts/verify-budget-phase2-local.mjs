@@ -80,31 +80,52 @@ function storage() {
   };
 }
 async function testRealtime(userId) {
-  const channel = a.channel(`tempo-local-test-${runId}`);
-  let onEvent;
-  const received = new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>reject(new Error("Local Supabase Realtime did not deliver the transaction insert.")),18000);
-    onEvent=payload=>{
-      if (payload?.new?.transaction_id===ids.realtime) {
-        clearTimeout(timer);
-        resolve(payload);
-      }
-    };
+  const session=requireOk(await a.auth.getSession(),"Read local session");
+  if(!session.session?.access_token)throw new Error("Realtime test has no authenticated access token.");
+  // Realtime RLS must see the same authenticated user as PostgREST.
+  await a.realtime.setAuth(session.session.access_token);
+  const channel=a.channel(`tempo-local-test-${runId}`);
+  let resolveEvent;
+  const received=new Promise(resolve=>{resolveEvent=resolve;});
+  let resolveReady,rejectReady;
+  const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+  let subscriptionStatus="";
+  channel.on("system","*",payload=>{
+    // Supabase sends an extension-ready system message separately from
+    // WebSocket SUBSCRIBED. Do not write before the Postgres listener is ready.
+    if(payload?.status==="ok" && ["postgres_changes","system"].includes(payload.extension)) resolveReady();
+    if(payload?.status==="error") rejectReady(new Error("Realtime backend rejected Postgres changes: "+(payload.message||"unknown")));
   });
   channel.on("postgres_changes",{
     event:"INSERT",schema:"public",table:"tempo_budget_transactions",filter:`user_id=eq.${userId}`
-  },payload=>onEvent?.(payload));
+  },payload=>{
+    if(payload?.new?.transaction_id===ids.realtime) resolveEvent(payload);
+  });
   try {
     await new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>reject(new Error("Local Supabase Realtime subscription timed out.")),18000);
       channel.subscribe(status=>{
+        subscriptionStatus=status;
         if(status==="SUBSCRIBED"){clearTimeout(timer);resolve();}
-        else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){clearTimeout(timer);reject(new Error(`Realtime subscription: ${status}`));}
+        else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){
+          clearTimeout(timer);reject(new Error(`Realtime subscription: ${status}`));
+        }
       });
     });
+    await Promise.race([
+      ready,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error(
+        "Realtime subscribed but Postgres listener did not announce readiness."
+      )),18000))
+    ]);
     const saved=await call(a2,ids.realtime,0,6);
     assert.equal(saved.status,"applied");
-    await received;
+    await Promise.race([
+      received,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error(
+        `Realtime notification not delivered after ${subscriptionStatus}; verify publication and RLS.`
+      )),18000))
+    ]);
     pass("Local Supabase Realtime delivered a per-record update");
   }finally {await a.removeChannel(channel);}
 }
