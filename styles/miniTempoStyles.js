@@ -87,4 +87,22 @@ export const miniTempoCSS = `
 .tempo-conflict-footer{display:flex;align-items:center;justify-content:space-between;font-size:11px}
 @media(max-width:540px){.tempo-conflict-versions{grid-template-columns:1fr}.tempo-conflict-banner{bottom:calc(var(--mobile-nav-h,78px) + 18px);right:12px;left:12px}}
 
+/* V1 global navigation: four primary destinations. Budget's existing pages stay intact. */
+.app-mode-switch{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:3px!important;padding:5px!important}
+.app-mode-btn{flex-direction:column!important;gap:2px!important;font-size:16px!important;padding:7px 2px!important;min-height:49px!important}
+.app-mode-btn .tempo-primary-label{font-size:9px;line-height:1.1;font-weight:800;white-space:nowrap;color:inherit}
+.mini-task-undo{flex:0 0 auto!important;width:auto!important;border:1px solid #e6c8d4!important;background:#fff5f8!important;color:#8b4969!important;border-radius:7px;padding:4px 7px!important;font-weight:800!important;font-size:11px!important;text-decoration:none!important}
+.mini-offline-banner{border:1px solid #e8c98e;border-radius:10px;padding:9px 10px;background:#fff3da;color:#705124;font-size:11px}
+@media(max-width:768px){
+  .mobile-nav.tempo-primary-mobile-nav{display:flex!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .mobile-nav.tempo-primary-mobile-nav .mobile-nav-btn{flex:1 1 25%;min-width:0!important}
+  .mobile-nav.tempo-primary-mobile-nav .mobile-nav-btn.active{color:var(--accent)!important;background:var(--bg3)!important}
+  .mobile-nav.tempo-primary-mobile-nav .mobile-nav-btn.active span{color:var(--accent)!important}
+  .tempo-mobile-menu-trigger{position:fixed;left:10px;bottom:calc(var(--mobile-nav-h,86px) + 9px);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff);color:var(--text);font:inherit;font-size:11px;font-weight:850;padding:10px;min-height:40px;z-index:111;box-shadow:0 3px 10px rgba(40,20,30,.12)}
+  .tempo-budget-subnav{position:fixed;left:89px;right:9px;bottom:calc(var(--mobile-nav-h,86px) + 9px);display:flex;gap:5px;overflow-x:auto;padding:4px;border-radius:12px;background:var(--bg2,#fff);border:1px solid var(--border);z-index:111;scrollbar-width:thin}
+  .tempo-budget-subnav-btn{white-space:nowrap;flex:0 0 auto;border:0;border-radius:8px;padding:8px 9px;background:transparent;color:var(--text2);font-size:11px;font-family:inherit;font-weight:750}
+  .tempo-budget-subnav-btn.active{background:var(--bg3,#fff3f7);color:var(--accent)}
+}
+@media(min-width:769px){.tempo-mobile-menu-trigger,.tempo-budget-subnav{display:none}}
+
 `;
