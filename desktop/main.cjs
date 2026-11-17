@@ -13,7 +13,8 @@ let expenseCanClose = false;
 const qaLocalOnly = process.env.TEMPO_QA_LOCAL_ONLY === "1";
 const devMode = process.env.TEMPO_DEV === "1" || qaLocalOnly;
 // QA executable cannot be redirected to an approved/live production origin by env.
-const rawOrigin = qaLocalOnly ? "http://127.0.0.1:3000"
+// Use the same hostname as Next.js local dev to keep HMR/WebSocket origin consistent.
+const rawOrigin = qaLocalOnly ? "http://localhost:3000"
   : process.env.TEMPO_DESKTOP_URL || (devMode ? "http://localhost:3000" : "");
 if (!rawOrigin) throw new Error("Set TEMPO_DESKTOP_URL to the HTTPS URL of your approved Tempo deployment. No deployment is bundled with the shell.");
 const url = new URL(rawOrigin);
