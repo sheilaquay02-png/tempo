@@ -171,6 +171,23 @@ test("Recorder blocks accidental close and quitting until the renderer confirms 
   assert.equal(env.app.exited,true);
 });
 
+test("Hidden Mini never hides the independent expense recorder, even when pinned",async()=>{
+  const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
+  env.ipc("tempo:pin-mini",mini,true);
+  mini.hide();
+  env.tray.menu.find(x=>x.label==="Record Expense").click();
+  const expense=env.windowsOf("Record expense")[0];
+  assert.equal(expense.options.parent,undefined);
+  assert.equal(expense.pinned,true);
+  expense.emit("ready-to-show");
+  assert.equal(expense.visible,true);
+  assert.equal(mini.visible,false);
+  env.ipc("tempo:pin-mini",mini,false);
+  assert.equal(expense.pinned,false);
+  env.ipc("tempo:pin-mini",mini,true);
+  assert.equal(expense.pinned,true);
+});
+
 test("Successful expense save closes only Recorder, restores Mini and refreshes the total",async()=>{
   const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
   env.ipc("tempo:open-expense",mini);
