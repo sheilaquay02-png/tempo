@@ -156,6 +156,8 @@ export function normalizeBudgetTransaction(transaction = {}) {
     notes: cleanString(transaction.notes ?? transaction.note, ""),
     tags,
     excludedFromBudget: Boolean(transaction.excludedFromBudget),
+    // Optional private Tempo event association; never changes Budget calculations.
+    linkedEventId: cleanString(transaction.linkedEventId, ""),
     createdAt: transaction.createdAt || now,
     updatedAt: transaction.updatedAt || now,
   };
