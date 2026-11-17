@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("tempoDesktop", Object.freeze({
   minimizeMini: () => ipcRenderer.invoke("tempo:minimize-mini"),
   setAlwaysOnTop: value => ipcRenderer.invoke("tempo:pin-mini", Boolean(value)),
   expenseSaved: () => ipcRenderer.invoke("tempo:expense-saved"),
-  closeExpense: () => ipcRenderer.invoke("tempo:close-expense"),
+  closeExpense: quit => ipcRenderer.invoke("tempo:close-expense",Boolean(quit)),
+  onRequestClose: handler => { const listener=(_event,quit)=>handler(Boolean(quit)); ipcRenderer.on("tempo:request-close",listener); return ()=>ipcRenderer.removeListener("tempo:request-close",listener); },
   focusMini: () => ipcRenderer.invoke("tempo:focus-mini"),
 }));
