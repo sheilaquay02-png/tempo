@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as Core from "../../lib/tempo/core";
+import { TempoWeather } from "../weather/TempoWeather";
 
 const {
   TODAY,
@@ -26,6 +27,7 @@ export function DailyAffirmationCard({ affirmations = DEFAULT_AFFIRMATIONS, comp
         </div>
         <span className="affirmation-quote-icon">{category.emoji}</span>
       </div>
+      <TempoWeather />
     </section>
   );
 }
