@@ -9,11 +9,12 @@ import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopu
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
 import { BudgetApp, OverallPage, BudgetTransactionPopup, createEmptyTransactionForm } from "./budget/BudgetApp";
+import { BudgetConflictReview } from "./budget/BudgetConflictReview";
 import { MiniTempoPanel } from "./mini/MiniTempoPanel";
 import { QuickAddMenu } from "./mini/QuickAddMenu";
 import { miniTempoCSS } from "../styles/miniTempoStyles";
 import { activeBudgetDefaults, appendTransactionOnce, todayRecordedSpending, eventSpendingKey, linkTransactionToEvent, unlinkTransactionFromEvent, normalizeSpendingPlan } from "../utils/miniTempoFinance";
-import { readBudgetJournal, writeBudgetJournal, diffBudgetTransactions, rebaseBudgetChanges, appendBudgetOperations, hydrateBudgetJournal, flushBudgetOperations, withBudgetJournalLock, isBudgetRecordSyncReady, BudgetSyncConflict, budgetRecordStorageKey } from "../lib/tempo/client/budgetRecordSync";
+import { readBudgetJournal, writeBudgetJournal, rebaseBudgetChanges, appendBudgetOperations, hydrateBudgetJournal, flushBudgetOperations, withBudgetJournalLock, isBudgetRecordSyncReady, BudgetSyncConflict, budgetRecordStorageKey, listBudgetConflicts, resolveBudgetConflict, loadBudgetRows } from "../lib/tempo/client/budgetRecordSync";
 import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
@@ -365,7 +366,11 @@ export default function App({ windowMode = "full" }) {
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [budgetSyncError, setBudgetSyncError] = useState("");
   const [budgetPendingCount, setBudgetPendingCount] = useState(0);
+  const [budgetConflicts, setBudgetConflicts] = useState([]);
+  const [budgetConflictReviewOpen, setBudgetConflictReviewOpen] = useState(false);
+  const [budgetResolving, setBudgetResolving] = useState(false);
   const budgetFlushInFlight = useRef(null);
+  const budgetFlushRequestedRef = useRef(false);
   const expenseSaveLock = useRef(false);
   const recorderInitialized = useRef(false);
   const [bonusAllocationRules, setBonusAllocationRulesRaw] = useState(() => normalizeBonusAllocationRules(load(`${uk}_bonus_allocation_rules`, DEFAULT_BONUS_ALLOCATION_RULES)));
@@ -1404,26 +1409,72 @@ export default function App({ windowMode = "full" }) {
 
   async function flushBudgetJournalNow() {
     if (!auth.user?.id || !dataReady || !isBudgetRecordSyncReady(auth.user.id)) return false;
-    if (budgetFlushInFlight.current) return budgetFlushInFlight.current;
+    if (budgetFlushInFlight.current) {
+      budgetFlushRequestedRef.current=true;
+      return budgetFlushInFlight.current;
+    }
     const userId=auth.user.id;
     const attempt=withBudgetJournalLock(userId,async()=>{
       const sb=await getSupabase();
-      await flushBudgetOperations(sb,window.localStorage,userId,journal=>{
-        setBudgetPendingCount(journal.operations.length);
+      const journal=await flushBudgetOperations(sb,window.localStorage,userId,progress=>{
+        setBudgetPendingCount(progress.operations.length);
+        setBudgetConflicts(listBudgetConflicts(progress));
       });
-      setBudgetPendingCount(0);
+      const conflicts=listBudgetConflicts(journal);
+      setBudgetConflicts(conflicts);
+      setBudgetPendingCount(journal.operations.length);
+      if(conflicts.length) {
+        const message=`${conflicts.length} Budget transaction ${conflicts.length===1?"needs":"records need"} your review before syncing.`;
+        setBudgetSyncError(message);
+        setSyncStatus({status:"failed",message,lastError:message});
+        return false;
+      }
       setBudgetSyncError("");
       return true;
     }).catch(error=>{
-      const message=error instanceof BudgetSyncConflict
-        ? "Budget conflict: another device edited this transaction. Your local change is preserved for review."
-        : "Budget changes are saved locally, but cloud sync is pending.";
+      const message="Budget changes are saved locally, but cloud sync is pending.";
       setBudgetSyncError(message);
       setSyncStatus({status:"failed",message:"Budget cloud sync pending",lastError:error?.message||message});
       return false;
-    }).finally(()=>{budgetFlushInFlight.current=null;});
+    }).finally(()=>{
+      budgetFlushInFlight.current=null;
+      // If another window wrote while a flush was running, start a second pass
+      // after releasing the lock rather than leaving the latest transaction queued.
+      if(budgetFlushRequestedRef.current) {
+        budgetFlushRequestedRef.current=false;
+        Promise.resolve().then(()=>void flushBudgetJournalNow());
+      }
+    });
     budgetFlushInFlight.current=attempt;
     return attempt;
+  }
+
+  async function resolvePendingBudgetConflict(transactionId,decision) {
+    if(!auth.user?.id || budgetResolving)return;
+    const userId=auth.user.id;
+    setBudgetResolving(true);
+    try {
+      await withBudgetJournalLock(userId,async()=>{
+        const journal=readBudgetJournal(window.localStorage,userId);
+        const resolved=resolveBudgetConflict(journal,transactionId,decision);
+        writeBudgetJournal(window.localStorage,userId,resolved.journal);
+        setBudgetConflicts(listBudgetConflicts(resolved.journal));
+        setBudgetPendingCount(resolved.journal.operations.length);
+      });
+      const sb=await getSupabase();
+      const rows=await loadBudgetRows(sb,userId);
+      const current=normalizeBudgetTransactions(load(`${uk}_budget_transactions`,[]));
+      const next=await hydrateBudgetJournal(userId,rows,current);
+      const normalized=normalizeBudgetTransactions(next);
+      setBudgetTransactionsRaw(normalized);
+      persistBudgetSettings({budgetTransactions:normalized});
+      setBudgetSyncError("");
+      const journal=readBudgetJournal(window.localStorage,userId);
+      if(!listBudgetConflicts(journal).length)setBudgetConflictReviewOpen(false);
+      void flushBudgetJournalNow();
+    } catch(error) {
+      setBudgetSyncError(error?.message||"Could not resolve this transaction. Your local changes are still retained.");
+    } finally {setBudgetResolving(false);}
   }
 
 
