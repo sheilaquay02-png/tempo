@@ -54,6 +54,9 @@ function secureWindow(win) {
 function showOfflineStartup(win) {
   if(win.isDestroyed() || win.tempoOfflineShown)return;
   win.tempoOfflineShown=true;
+  // A recorder which never loaded has no unsaved Budget form to discard.
+  // Do not trap its window, system tray Quit, or the app behind a blank page.
+  if(win===expense)expenseCanClose=true;
   // This bundled, standalone HTML has no Budget/auth access. It is an honest
   // recovery screen, not a claim that cold-start expense recording works offline.
   void win.loadFile(path.join(__dirname,"offline.html")).catch(()=>{});
@@ -62,6 +65,8 @@ function showOfflineStartup(win) {
 function loadAppRoute(win,route) {
   win.tempoRoute=route;
   win.tempoOfflineShown=false;
+  // After Retry, restore draft-close protection before loading the recorder.
+  if(win===expense)expenseCanClose=false;
   void win.loadURL(appPath(route)).catch(()=>showOfflineStartup(win));
 }
 function makeWindow(options, route) {
@@ -124,7 +129,7 @@ function openExpense() {
     width:480,height:760,minWidth:420,minHeight:620,maxWidth:800,
     title:"Record expense",alwaysOnTop:miniPinned
   },"/recorder");
-  expense.on("close",e=>{if(!quitting&&!expenseCanClose){e.preventDefault();expense.webContents.send("tempo:request-close",false);}});
+  expense.on("close",e=>{if(!quitting&&!expenseCanClose && !expense.tempoOfflineShown){e.preventDefault();expense.webContents.send("tempo:request-close",false);}});
   expense.on("closed",()=>{expense=null;expenseCanClose=false;});
   return expense;
 }
@@ -161,7 +166,10 @@ ipcMain.handle("tempo:focus-mini",event=>{requireRole(event,["expense","full","m
 if(!app.requestSingleInstanceLock()){app.quit();}else{
   app.on("second-instance",()=>openMini());
   app.whenReady().then(()=>{
-    tray=new Tray(path.join(__dirname,"..","public","icon-192.png"));
+    const bundledIcon=path.join(__dirname,"public","icon-192.png");
+    const trayIconPath=typeof fs.existsSync==="function" && fs.existsSync(bundledIcon)
+      ? bundledIcon : path.join(__dirname,"..","public","icon-192.png");
+    tray=new Tray(trayIconPath);
     tray.setToolTip("Tempo");
     tray.setContextMenu(Menu.buildFromTemplate([
       {label:"Open Mini Tempo",click:()=>openMini()},
@@ -176,7 +184,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   });
   app.on("activate",()=>openMini());
   app.on("before-quit",event=>{
-    if(expense && !expense.isDestroyed() && !expenseCanClose) {
+    if(expense && !expense.isDestroyed() && !expenseCanClose && !expense.tempoOfflineShown) {
       // Windows shutdown / Alt+F4 / Quit must not bypass an unsaved recorder.
       event.preventDefault();
       expense.show();
