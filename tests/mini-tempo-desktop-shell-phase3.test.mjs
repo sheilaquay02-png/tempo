@@ -5,6 +5,7 @@ import {EventEmitter} from "node:events";
 import {createRequire} from "node:module";
 import vm from "node:vm";
 import path from "node:path";
+import {pathToFileURL} from "node:url";
 
 // Electron main-process integration test using fake BrowserWindow/WebContents.
 // No Electron install, production deployment, network calls or Windows runner.
@@ -123,7 +124,7 @@ test("Portable QA executable ignores a production URL override and requires loca
   assert.equal(denied("ws://127.0.0.1:54321/realtime/v1/websocket"),false);
   assert.equal(denied("http://127.0.0.1:54322/"),true);
   assert.equal(denied("file:///untrusted/offline.html"),true);
-  assert.equal(denied(new URL("file://" + path.join("/repo/desktop","offline.html").replaceAll("\\","/")).href),false);
+  assert.equal(denied(pathToFileURL(path.join("/repo/desktop","offline.html")).href),false);
   assert.equal(denied("data:image/png;base64,AAAA"),false);
   assert.equal(mini.webContents.openHandler({url:"https://example.com"}).action,"deny");
   assert.deepEqual(env.openedExternal,[],"Local QA must never launch a hosted website");
