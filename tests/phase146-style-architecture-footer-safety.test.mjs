@@ -10,7 +10,7 @@ test("Phase 146 removes the giant inline CSS append from TempoApp", () => {
   assert.doesNotMatch(tempoApp, /<style>\{memoAppCSS \+ `/);
   assert.match(tempoApp, /import \{ tempoLegacyInlineCSS \} from "\.\.\/styles\/tempoLegacyInlineStyles";/);
   assert.match(tempoApp, /import \{ tempoMobileFooterPopupSafetyCSS \} from "\.\.\/styles\/tempoMobileFooterPopupSafety";/);
-  assert.match(tempoApp, /const memoAppCSS\s*=\s*appCSS\(cvars, fontScale\) \+ tempoLegacyInlineCSS \+ tempoMobileFooterPopupSafetyCSS;/);
+  assert.match(tempoApp, /const memoAppCSS\s*=\s*appCSS\(cvars, fontScale\) \+ tempoLegacyInlineCSS \+ tempoMobileFooterPopupSafetyCSS \+ miniTempoCSS;/);
   assert.match(tempoApp, /<style>\{memoAppCSS\}<\/style>/);
 });
 
