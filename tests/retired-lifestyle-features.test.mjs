@@ -17,7 +17,7 @@ test('retired feature screens are no longer navigable on desktop or phone', () =
     assert.doesNotMatch(app, new RegExp('page === "'+page+'"'));
   }
   assert.doesNotMatch(shell, /onNavigateJournal|onNavigateHabits/);
-  assert.doesNotMatch(app, /else if \\(k === "j"\\)/);
+  assert.equal(app.includes('else if (k === "j")'), false);
 });
 
 test('Today only shows retained daily features, and old records are still supported', () => {
