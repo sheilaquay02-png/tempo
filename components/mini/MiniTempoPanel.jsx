@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { miniTaskRows } from "../../utils/miniTempoDaily";
 
 export function MiniTempoPanel({
   tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
@@ -12,6 +13,7 @@ export function MiniTempoPanel({
   const [masked, setMasked] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [lastCompletedId, setLastCompletedId] = useState("");
   const [notice] = useState("");
   useEffect(() => {
     if(typeof window==="undefined" || !window.tempoDesktop?.getMiniState)return;
@@ -34,6 +36,11 @@ export function MiniTempoPanel({
     setPinned(Boolean(value));
   };
   const next = upcomingEvent;
+  const visibleTasks = miniTaskRows(tasks,lastCompletedId);
+  const markTask = task => {
+    setLastCompletedId(task.done ? "" : task.id);
+    onToggleTask?.(task.id);
+  };
   return (
     <main className="mini-tempo" aria-label="Mini Tempo daily companion">
       <header className="mini-tempo-header">
@@ -54,19 +61,20 @@ export function MiniTempoPanel({
         <p className="mini-tempo-subtitle">A little progress every day.</p>
         <section className="mini-section" aria-label="Today's tasks">
           <div className="mini-section-head"><strong>Today&apos;s tasks</strong><button onClick={() => openFull("/?page=tasks")}>View all</button></div>
-          {tasks.length ? tasks.slice(0,3).map(t => <div className="mini-task" key={t.id}>
-            <input type="checkbox" checked={Boolean(t.done)} onChange={() => onToggleTask?.(t.id)} aria-label={`Complete ${t.title}`} />
+          {visibleTasks.length ? visibleTasks.map(t => <div className="mini-task" key={t.id}>
+            <input type="checkbox" checked={Boolean(t.done)} onChange={() => markTask(t)} aria-label={t.done ? `Undo ${t.title}` : `Complete ${t.title}`} />
             <button className={t.done ? "mini-task-done" : ""} onClick={() => onOpenTask?.(t)}>{t.title}</button>
-          </div>) : <p className="mini-empty">All clear for now 🌸</p>}
+            {t.done && <button type="button" className="mini-task-undo" onClick={() => markTask(t)} aria-label={`Undo completion of ${t.title}`}>Undo</button>}
+          </div>) : <p className="mini-empty">All clear for now 🌸</p>
           <form className="mini-task-add" onSubmit={addTask}><input aria-label="New task title" placeholder="+ Add a task" value={draft} onChange={e => setDraft(e.target.value)} /><button type="submit" disabled={!draft.trim()}>Add</button></form>
         </section>
         <section className="mini-section" aria-label="Next event">
           <div className="mini-section-head"><strong>🗓 Next event</strong></div>
           {next ? <button className="mini-event" onClick={() => onOpenEvent?.(next)}>
-            <small>{new Date(next.start).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</small>
+            <small>{new Date(next.start).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"})} · {new Date(next.start).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</small>
             <strong>{next.title}</strong>
             <span>Open event details</span>
-          </button> : <p className="mini-empty">Nothing else scheduled today.</p>}
+          </button> : <p className="mini-empty">Nothing else scheduled soon.</p>}
         </section>
         <section className="mini-section" aria-label="Today's spending">
           <div className="mini-section-head"><strong>💳 Spent today</strong><button aria-label={masked ? "Show spending" : "Hide spending"} onClick={() => setMasked(x=>!x)}>{masked?"Show":"Hide"}</button></div>
