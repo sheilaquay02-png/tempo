@@ -12,10 +12,10 @@ import path from "node:path";
 const nativeRequire=createRequire(import.meta.url);
 const mainSource=readFileSync("desktop/main.cjs","utf8");
 
-async function mockDesktop({savedState=null}={}) {
+async function mockDesktop({savedState=null,qaMode=false,qaReady=true}={}) {
   const windows=[],openedExternal=[];
   const handlers=new Map();
-  let tray;
+  let tray, networkPolicy;
   let persisted=savedState?JSON.stringify(savedState):null;
   class FakeWebContents extends EventEmitter {
     constructor() {super();this.openHandler=null;this.sent=[];this.reloadCalls=0;}
@@ -77,20 +77,59 @@ async function mockDesktop({savedState=null}={}) {
   };
   const electron={app,BrowserWindow:FakeWindow,ipcMain,Tray:FakeTray,Menu:{buildFromTemplate:items=>items},
     screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},
-    shell:{openExternal:url=>{openedExternal.push(url);return Promise.resolve();}}};
+    shell:{openExternal:url=>{openedExternal.push(url);return Promise.resolve();}},
+    session:{fromPartition:partition=>({
+      webRequest:{onBeforeRequest:(_filter,policy)=>{
+        assert.equal(partition,"persist:tempo");
+        networkPolicy=policy;
+      }}
+    })}};
   const localRequire=name=>name==="electron"?electron:name==="node:fs"?fsMock:nativeRequire(name);
-  const context={require:localRequire,process:{env:{TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"http://localhost:3000"}},URL,__dirname:"/repo/desktop"};
+  const mockEnv=qaMode
+    ? {TEMPO_QA_LOCAL_ONLY:"1",TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"https://live.invalid"}
+    : {TEMPO_DEV:"1",TEMPO_DESKTOP_URL:"http://localhost:3000"};
+  const context={
+    require:localRequire,process:{env:mockEnv},URL,AbortSignal,
+    fetch:async (_url,_options)=>({ok:qaReady,json:async()=>({localQa:qaReady})}),
+    __dirname:"/repo/desktop"
+  };
   vm.runInNewContext(mainSource,context,{filename:"desktop/main.cjs"});
-  await Promise.resolve();
+  for(let i=0;i<8;i++)await Promise.resolve();
   function ipc(name,sender,...args){
     const callback=handlers.get(name);
     assert.ok(callback,`Missing IPC handler: ${name}`);
     return callback({sender:sender.webContents},...args);
   }
   const windowsOf=title=>windows.filter(x=>x.options.title===title);
-  return {app,windows,windowsOf,ipc,handlers,openedExternal,get tray(){return tray;},get saved(){return persisted?JSON.parse(persisted):null;}};
+  return {app,windows,windowsOf,ipc,handlers,openedExternal,
+    get networkPolicy(){return networkPolicy;},
+    get tray(){return tray;},get saved(){return persisted?JSON.parse(persisted):null;}};
 }
 
+test("Portable QA executable ignores a production URL override and requires local readiness",async()=>{
+  const env=await mockDesktop({qaMode:true,qaReady:true});
+  const mini=env.windowsOf("Mini Tempo")[0];
+  assert.deepEqual(mini.loadCalls,["http://127.0.0.1:3000/mini"]);
+  assert.equal(typeof env.networkPolicy,"function");
+  function denied(url) {
+    let answer;
+    env.networkPolicy({url},result=>{answer=result;});
+    return answer.cancel;
+  }
+  assert.equal(denied("https://zyrxfrmkvqwtxffzgvtj.supabase.co/rest/v1/user_data"),true);
+  assert.equal(denied("https://example.com/tracker"),true);
+  assert.equal(denied("http://127.0.0.1:3000/mini"),false);
+  assert.equal(denied("http://127.0.0.1:54321/auth/v1/health"),false);
+  assert.equal(denied("ws://127.0.0.1:54321/realtime/v1/websocket"),false);
+  assert.equal(denied("http://127.0.0.1:54322/"),true);
+});
+test("Portable QA refuses to display an app without the disposable Supabase sentinel",async()=>{
+  const env=await mockDesktop({qaMode:true,qaReady:false});
+  const mini=env.windowsOf("Mini Tempo")[0];
+  assert.deepEqual(mini.loadCalls,[]);
+  assert.equal(mini.tempoOfflineShown,true);
+  assert.equal(mini.fileCalls.length,1);
+});
 test("Mini opens once, supports tray hide/reopen and never duplicates on second instance",async()=>{
   const env=await mockDesktop(),mini=env.windowsOf("Mini Tempo")[0];
   assert.equal(env.windowsOf("Mini Tempo").length,1);
