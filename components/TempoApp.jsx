@@ -12,7 +12,7 @@ import { BudgetApp, OverallPage } from "./budget/BudgetApp";
 import { MiniTempoPanel } from "./mini/MiniTempoPanel";
 import { nextUpcomingEvent } from "../utils/miniTempoDaily";
 import { miniTempoCSS } from "../styles/miniTempoReleaseStyles";
-import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
+import { taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
   DEFAULT_PLANNING_RULES,
@@ -361,7 +361,6 @@ export default function App({ windowMode = "full" }) {
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
@@ -398,12 +397,12 @@ export default function App({ windowMode = "full" }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const requestedPage = params.get("page");
-    if (["today", "calendar", "tasks", "rhythm"].includes(requestedPage)) {
+    if (["today", "calendar", "tasks"].includes(requestedPage)) {
       setPage(requestedPage);
     } else if (requestedPage && !["affirmations", "bloom"].includes(requestedPage)) {
       setPage("today");
     } else if (requestedPage === "bloom") {
-      setPage("rhythm");
+      setPage("today");
     } else if (requestedPage === "affirmations") {
       setPage("today");
     }
@@ -3029,14 +3028,6 @@ export default function App({ windowMode = "full" }) {
     .filter(e=>!hiddenCals.includes(e.calendar));
   const miniUpcomingEvent = nextUpcomingEvent(miniUpcomingEvents);
   const miniTodayTasks = tasks.filter(t=>taskBelongsToPeriod(t,"day",TODAY));
-  const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
-  const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
-  const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
-  const sidebarCheckInSummary = sidebarMood ? {
-    emoji: sidebarMood.emoji,
-    label: sidebarMood.label,
-    energyLabel: sidebarEnergy?.label || "",
-  } : null;
   const calendarTopbarTitle = view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
     const mon = new Date(viewDate);
     mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
@@ -3055,13 +3046,13 @@ export default function App({ windowMode = "full" }) {
 
   function navigateFromSidebar(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
     closeSidebarOnMobile();
   }
 
   function navigateFromMobileNav(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
     setSidebarOpen(false);
   }
 
@@ -3091,7 +3082,7 @@ export default function App({ windowMode = "full" }) {
       <style>{memoAppCSS}</style>
 
       {windowMode === "mini" ? (
-        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent}
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} affirmations={affirmations}
           onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
           onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
           onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
@@ -3108,8 +3099,6 @@ export default function App({ windowMode = "full" }) {
           pendingLocalChanges={pendingLocalChanges}
           lastSyncedAt={lastSyncedAt}
           onForceSync={forceSyncNow}
-          checkInSummary={sidebarCheckInSummary}
-          onOpenCheckIn={() => { setShowCheckIn(true); closeSidebarOnMobile(); }}
           page={page}
           appMode={appMode}
           budgetPage={budgetPage}
@@ -3135,11 +3124,9 @@ export default function App({ windowMode = "full" }) {
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
-          ) : page === "rhythm" ? (
-            <RhythmStatsPage tasks={tasks} categories={categories} />
           ) : (<>
           <CalendarTopbar
             view={view}
@@ -3230,7 +3217,6 @@ export default function App({ windowMode = "full" }) {
       )}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
-      {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
       {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={displayCalendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
       {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={displayCalendars} categories={categories} />}
       {selectedEvent && <EventModal event={selectedEvent} calendars={displayCalendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
