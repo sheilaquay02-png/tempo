@@ -97,7 +97,7 @@ function monthTitle(date) {
   return new Intl.DateTimeFormat("en-SG", { month: "long", year: "numeric" }).format(date);
 }
 
-function createEmptyTransactionForm({ accounts, ledgers, buckets, type = "expense" }) {
+export function createEmptyTransactionForm({ accounts, ledgers, buckets, type = "expense" }) {
   const firstAccount = accounts[0]?.id || "main-bank";
   const secondAccount = accounts.find(account => account.id !== firstAccount)?.id || firstAccount;
   const firstLedger = ledgers[0]?.id || "daily-ledger";
@@ -244,7 +244,7 @@ function BudgetAmountKeypad({ value, onChange, onSave, currency }) {
   );
 }
 
-function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, currency, summary, onSave, onClose }) {
+export function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, currency, summary, onSave, onClose, onSaveAndAddAnother = null, saving = false }) {
   if (!form) return null;
   const contextBucket = selectedBudgetBucket(form, buckets);
   const title = contextBucket?.name || form.description || transactionTypeCopy[form.type]?.label || "Transaction";
@@ -264,12 +264,13 @@ function BudgetTransactionPopup({ form, setForm, accounts, ledgers, buckets, cur
           ledgers={ledgers}
           buckets={buckets}
           currency={currency}
-          onSave={onSave}
+          onSave={saving ? () => {} : onSave}
           onCancelEdit={onClose}
           popup
           contextBucket={contextBucket}
           summary={summary}
         />
+        {onSaveAndAddAnother && <button className="mini-expense-save-next" type="button" disabled={saving} onClick={onSaveAndAddAnother}>Save & Add Another</button>}
       </div>
     </div>
   );
