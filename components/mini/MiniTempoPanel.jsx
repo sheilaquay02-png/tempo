@@ -6,6 +6,7 @@ export function MiniTempoPanel({
   tasks = [], upcomingEvent, spentToday = 0, currency = "SGD",
   onToggleTask, onAddTask, onOpenTask, onOpenEvent, onExpense, onFull,
   syncStatus = "saved", pendingChanges = 0, onSync,
+  conflictCount = 0, onReviewConflicts,
 }) {
   const [draft, setDraft] = useState("");
   const [masked, setMasked] = useState(false);
@@ -74,6 +75,7 @@ export function MiniTempoPanel({
           <button onClick={() => {setQuickOpen(false);document.querySelector(".mini-task-add input")?.focus()}}>✓ Task</button>
           <button onClick={() => {setQuickOpen(false);openFull("/?create=event")}}>🗓 Event</button>
         </div>}
+        {conflictCount>0 && <button type="button" className="mini-conflict-review" onClick={onReviewConflicts}>⚠️ Review {conflictCount} Budget {conflictCount===1?"conflict":"conflicts"}</button>}
         {notice && <p className="mini-notice">{notice}</p>}
         <footer className="mini-footer">
           <button className={syncStatus==="saved" && !pendingChanges?"mini-sync-saved":"mini-sync-pending"} onClick={onSync}>☁ {pendingChanges ? `${pendingChanges} pending` : syncStatus==="saving"?"Syncing…":syncStatus==="saved"?"Synced":"Retry sync"}</button>
