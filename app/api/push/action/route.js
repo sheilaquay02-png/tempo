@@ -214,7 +214,7 @@ export async function POST(request) {
     let result;
     if (action === 'snooze') result = await handleSnooze(admin, row, body.minutes);
     else if (action === 'complete_task') result = await handleCompleteTask(admin, row);
-    else if (action === 'complete_habit') result = await handleCompleteHabit(admin, row);
+    // Retired habit actions are no longer executable, including from older notifications.
     else return json({ ok: false, error: 'Unsupported action' }, 400);
 
     if (result?.ok) await markActionTokenUsed(admin, row);
