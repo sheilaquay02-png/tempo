@@ -1,0 +1,51 @@
+name: Tempo Budget PostgreSQL migration checks
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/tempo_budget_records_phase2.sql'
+      - 'scripts/sql/phase2-postgres-fixture.sql'
+      - 'scripts/sql/phase2-postgres-assert.sql'
+      - '.github/workflows/budget-postgres-integration.yml'
+  workflow_dispatch:
+
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: tempo_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tempo_disposable"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      PGPASSWORD: test-only-password
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGDATABASE: tempo_disposable
+    steps:
+      - name: Checkout staging scripts
+        uses: actions/checkout@v5
+      - name: Ensure PostgreSQL client is present
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+      - name: Create disposable Supabase auth stubs
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/sql/phase2-postgres-fixture.sql
+      - name: Execute real Phase 2 database migration
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tempo_budget_records_phase2.sql
+      - name: Verify RLS, idempotent writes, conflicts and tombstones
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/sql/phase2-postgres-assert.sql
