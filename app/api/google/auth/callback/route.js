@@ -1,3 +1,4 @@
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED, googleCalendarRetiredResponse } from "../../../../../lib/tempo/google/retiredRoute";
 import {
   exchangeCodeForTokens,
   storeGoogleTokens,
@@ -13,6 +14,7 @@ import {
 } from "../../../../../lib/tempo/google/server";
 
 export async function GET(request) {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return googleCalendarRetiredResponse();
   try {
     await rateLimit(request, { key: "google-auth-callback", limit: 20, windowMs: 60_000 });
     const url = new URL(request.url);
