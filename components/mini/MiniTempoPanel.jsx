@@ -75,7 +75,7 @@ export function MiniTempoPanel({
             <input type="checkbox" checked={Boolean(t.done)} onChange={() => markTask(t)} aria-label={t.done ? `Undo ${t.title}` : `Complete ${t.title}`} />
             <button className={t.done ? "mini-task-done" : ""} onClick={() => onOpenTask?.(t)}>{t.title}</button>
             {t.done && <button type="button" className="mini-task-undo" onClick={() => markTask(t)} aria-label={`Undo completion of ${t.title}`}>Undo</button>}
-          </div>) : <p className="mini-empty">All clear for now 🌸</p>
+          </div>) : <p className="mini-empty">All clear for now 🌸</p>}
           <form className="mini-task-add" onSubmit={addTask}><input aria-label="New task title" placeholder="+ Add a task" value={draft} onChange={e => setDraft(e.target.value)} /><button type="submit" disabled={!draft.trim()}>Add</button></form>
         </section>
         <section className="mini-section" aria-label="Next event">
