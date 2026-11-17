@@ -6,7 +6,8 @@
     "deploymentEnabled": {
       "release/mini-tempo-tasks-calendar-only": false,
       "main": true,
-      "feature/retire-google-calendar-integration": false
+      "feature/retire-google-calendar-integration": false,
+      "feature/mini-tempo-branding-navigation": false
     }
   }
 }
