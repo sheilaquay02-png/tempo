@@ -1208,6 +1208,41 @@ export default function App({ windowMode = "full" }) {
 
   useTempoRealtimeSync({ userId: auth.user?.id, userKey: uk, dataReady, forceSyncNow });
 
+  // Offline journal is durable; retry it on startup, network recovery and focus.
+  // Other windows sharing the same origin update the local Budget view immediately.
+  useEffect(()=>{
+    const userId=auth.user?.id;
+    if(!userId || !dataReady || loadedUserId!==userId || typeof window==="undefined")return;
+    const refreshPending=()=>{
+      try{
+        const journal=readBudgetJournal(window.localStorage,userId);
+        setBudgetPendingCount(journal.operations.length);
+      }catch(error){setBudgetSyncError(error?.message||"Budget journal could not be read.");}
+    };
+    const onStorage=event=>{
+      if(event.key===`${uk}_budget_transactions`){
+        setBudgetTransactionsRaw(normalizeBudgetTransactions(load(`${uk}_budget_transactions`,[])));
+      }
+      if(event.key===budgetRecordStorageKey(userId)){
+        refreshPending();
+        void flushBudgetJournalNow();
+      }
+    };
+    const onFocus=()=>void flushBudgetJournalNow();
+    const onOnline=()=>void flushBudgetJournalNow();
+    refreshPending();
+    void flushBudgetJournalNow();
+    window.addEventListener("storage",onStorage);
+    window.addEventListener("focus",onFocus);
+    window.addEventListener("online",onOnline);
+    return ()=>{
+      window.removeEventListener("storage",onStorage);
+      window.removeEventListener("focus",onFocus);
+      window.removeEventListener("online",onOnline);
+    };
+  },[auth.user?.id,dataReady,loadedUserId,uk]);
+
+
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);
     save(`${uk}_updated_at`, new Date().toISOString());
@@ -3368,7 +3403,7 @@ export default function App({ windowMode = "full" }) {
       <style>{memoAppCSS}</style>
 
       {windowMode === "mini" ? (
-        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={syncStatus?.status} pendingChanges={pendingLocalChanges} onSync={forceSyncNow} />
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} spentToday={spentToday} currency={budgetProfile.currency || "SGD"} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)} onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)} onExpense={()=>openExpenseRecorder()} onFull={openFullTempo} syncStatus={budgetSyncError?"failed":syncStatus?.status} pendingChanges={pendingLocalChanges+budgetPendingCount} onSync={forceSyncNow} />
       ) : windowMode === "recorder" ? (
         <div className="mini-recorder-shell"><p className="mini-recorder-hint">Record your expense with your existing Budget keypad.</p></div>
       ) : (
@@ -3562,7 +3597,7 @@ export default function App({ windowMode = "full" }) {
       </>
       )}
       {expenseForm && <BudgetTransactionPopup form={expenseForm} setForm={setExpenseForm} accounts={budgetAccounts} ledgers={budgetLedgers} buckets={budgetBuckets} currency={budgetProfile.currency || "SGD"} summary={budgetSummary} onSave={()=>saveQuickExpense(false)} onSaveAndAddAnother={windowMode==="recorder" ? ()=>saveQuickExpense(true) : null} saving={expenseSaving} onClose={closeQuickExpense} />}
-      {expenseError && <div className="tempo-mini-error" role="alert">{expenseError}</div>}
+      {(expenseError || budgetSyncError) && <div className="tempo-mini-error" role="alert">{expenseError || budgetSyncError}{budgetPendingCount>0 ? ` (${budgetPendingCount} pending)` : ""}</div>}
     </>
   );
 }
