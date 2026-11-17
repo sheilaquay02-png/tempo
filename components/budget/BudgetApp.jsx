@@ -133,6 +133,8 @@ function formFromTransaction(transaction, fallback) {
     bucketId: safe.bucketId,
     notes: safe.notes,
     tags: safe.tags.join(", "),
+    linkedEventId: safe.linkedEventId || "",
+    excludedFromBudget: safe.excludedFromBudget,
   };
 }
 
@@ -592,10 +594,12 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
     const groupKey = accountGroupKey(account);
     onAccountsChange(moveBudgetItem(accounts, account.id, direction, item => accountGroupKey(item) === groupKey).map(normalizeBudgetAccount));
   };
+  const savingTransferRef = useRef(false);
   const openTransfer = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "transfer" }), accountId, description: "Transfer" });
   const openAccountExpense = (accountId = accounts[0]?.id) => setTransferForm({ ...createEmptyTransactionForm({ accounts, ledgers, buckets, type: "expense" }), accountId, description: "Expense" });
-  const saveTransferTransaction = () => {
-    if (!transferForm) return;
+  const saveTransferTransaction = async () => {
+    if (!transferForm || savingTransferRef.current) return;
+    savingTransferRef.current = true;
     const amount = Math.abs(Number(transferForm.amount || 0));
     if (!amount) return;
     const timestamp = new Date().toISOString();
@@ -606,8 +610,10 @@ function BudgetAccountPage({ accounts, ledgers, buckets, currency, transactions,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    onTransactionsChange([...transactions, next]);
-    setTransferForm(null);
+    try {
+      const saved = await onTransactionsChange([...transactions, next]);
+      if (saved !== false) setTransferForm(null);
+    } finally { savingTransferRef.current = false; }
   };
 
   if (selectedAccount) {
@@ -1178,8 +1184,10 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
 
   const closeHomeTransaction = () => setHomeForm(null);
 
-  const saveHomeTransaction = () => {
-    if (!homeForm) return;
+  const savingHomeRef = useRef(false);
+  const saveHomeTransaction = async () => {
+    if (!homeForm || savingHomeRef.current) return;
+    savingHomeRef.current = true;
     const amount = Math.abs(Number(homeForm.amount || 0));
     if (!amount) return;
     const timestamp = new Date().toISOString();
@@ -1192,8 +1200,10 @@ function BudgetHomePage({ currency, buckets, accounts, ledgers, transactions, on
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    onTransactionsChange([...transactions, next]);
-    setHomeForm(null);
+    try {
+      const saved = await onTransactionsChange([...transactions, next]);
+      if (saved !== false) setHomeForm(null);
+    } finally { savingHomeRef.current = false; }
   };
 
   const openCardEditor = (cashFlowType, bucket = null) => {
@@ -1574,8 +1584,10 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
 
   const openTransaction = (type = "expense") => setForm(createEmptyTransactionForm({ accounts, ledgers, buckets, type }));
   const closeTransaction = () => setForm(null);
-  const saveTransaction = () => {
-    if (!form) return;
+  const savingTransactionRef = useRef(false);
+  const saveTransaction = async () => {
+    if (!form || savingTransactionRef.current) return;
+    savingTransactionRef.current = true;
     const amount = Math.abs(Number(form.amount || 0));
     if (!amount) return;
     const timestamp = new Date().toISOString();
@@ -1587,8 +1599,10 @@ function BudgetTransactionsPage({ transactions, accounts, ledgers, buckets, curr
       updatedAt: timestamp,
     });
     const others = transactions.filter(transaction => transaction.id !== next.id);
-    onTransactionsChange([...others, next]);
-    setForm(null);
+    try {
+      const saved = await onTransactionsChange([...others, next]);
+      if (saved !== false) setForm(null);
+    } finally { savingTransactionRef.current = false; }
   };
   const editTransaction = transaction => setForm(formFromTransaction(transaction, emptyForm));
   const deleteTransaction = id => onTransactionsChange(transactions.filter(transaction => transaction.id !== id));
