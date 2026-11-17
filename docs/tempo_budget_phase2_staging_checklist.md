@@ -22,6 +22,14 @@ Conflict reviews are intentionally conservative. A stale window trying to edit a
 
 Other Tempo settings continue using the legacy snapshot sync. The Phase 2 change only makes Budget transactions the authoritative per-record dataset.
 
+## New: Isolated real PostgreSQL validation
+
+The development branch now includes `.github/workflows/budget-postgres-integration.yml`, which launches **a temporary PostgreSQL 16 service inside GitHub Actions**, creates fake auth roles and user records, runs the actual SQL migration twice, then checks RLS isolation, transaction writes, duplicate operation IDs, stale revisions, deletions, and direct-update denial.
+
+The isolated PostgreSQL checks can be found under the GitHub Actions workflow named **Tempo Budget PostgreSQL migration checks**.
+
+**Scope of this evidence:** A real PostgreSQL server executes the SQL, but its Supabase auth schema is represented by test stubs. This does **not** test actual Supabase Auth, API request headers, Realtime or a separate hosted Supabase project. Those checks remain mandatory and are blocked until staging account access is connected.
+
 ## Step 1 — Create an entirely disposable Supabase staging project
 
 Do not use the Supabase project hosting your real Tempo app. The database migration can write tables and seed financial records.
