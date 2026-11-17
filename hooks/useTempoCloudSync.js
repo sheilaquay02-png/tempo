@@ -86,9 +86,9 @@ export function useTempoRealtimeSync({ userId, userKey, dataReady, forceSyncNow 
     let channel = null;
     const pullLatest = (reason = "cloud") => {
       const now = Date.now();
-      if (now - lastRealtimeSyncRef.current < 2500) return;
+      if (reason !== "budget" && now - lastRealtimeSyncRef.current < 2500) return;
       lastRealtimeSyncRef.current = now;
-      forceSyncNowRef.current({ silent: true, skipCloudSave: reason === "realtime" }).catch(() => {});
+      forceSyncNowRef.current({ silent: true, skipCloudSave: reason === "realtime" || reason === "budget" }).catch(() => {});
     };
 
     getSupabase().then(sb => {
@@ -102,6 +102,10 @@ export function useTempoRealtimeSync({ userId, userKey, dataReady, forceSyncNow 
           const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
           if (cloudTime && cloudTime <= localTime + 1000) return;
           pullLatest("realtime");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "tempo_budget_transactions", filter: `user_id=eq.${userId}` }, () => {
+          // Budget changes are authoritative per-row and have no shared snapshot timestamp.
+          pullLatest("budget");
         })
         .subscribe();
     }).catch(() => {});
