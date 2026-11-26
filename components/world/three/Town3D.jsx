@@ -9,7 +9,7 @@ export const TOWN_SPOTS = [
   { id: "home", label: "My Home", action: { go: "room" }, pos: [2.8, 3.1, 10.5] },
   { id: "budget", label: "Budget Shop", action: { panel: "budget" }, pos: [12.95, 2.7, 10.5] },
 ];
-export const TOWN_VIEW = { target: [7, 0.8, 7], span: 13.5 };
+export const TOWN_VIEW = { target: [7, 1.2, 7], spanW: 21, spanH: 15.5 };
 
 // Windows on the two faces the camera sees (+x and +z).
 function Windows({ x, z, w, d, rows = [0.55], night, cols = 2, frame = "#FFFFFF" }) {

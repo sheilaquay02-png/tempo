@@ -8,7 +8,7 @@ import { DEFAULT_LAYOUT, canPlace, ROOM_SPOTS } from "../Room25D";
 
 // 2.5D spot (x, y, z-up) -> 3D (x, y-up, z)
 export const ROOM_3D_SPOTS = ROOM_SPOTS.map(s => ({ ...s, pos: [s.at[0], s.at[2] - 0.15, s.at[1]] }));
-export const ROOM_VIEW = { target: [3.4, 1.7, 3.4], span: 9.2 };
+export const ROOM_VIEW = { target: [3.4, 1.7, 3.4], spanW: 12, spanH: 9.6 };
 
 function Pickable({ id, decorate, selected, onSelect, children }) {
   const [, handlers] = useHover(decorate ? () => onSelect?.(selected === id ? null : id) : null);

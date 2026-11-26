@@ -34,7 +34,7 @@ function FitView({ view, controls }) {
   useEffect(() => {
     const [tx, ty, tz] = view.target;
     camera.position.set(tx + DIR.x * 40, ty + DIR.y * 40, tz + DIR.z * 40);
-    camera.zoom = Math.max(14, Math.min(size.width, size.height * 1.15) / view.span);
+    camera.zoom = Math.max(12, Math.min(size.width / view.spanW, size.height / view.spanH));
     camera.lookAt(tx, ty, tz);
     camera.updateProjectionMatrix();
     const c = controls.current;

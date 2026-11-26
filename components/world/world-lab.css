@@ -19,7 +19,7 @@
 .wl-tabs { display: flex; gap: 4px; background: var(--wl-soft); padding: 4px; border-radius: 999px; }
 .wl-tabs button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
 .wl-tabs button.on { background: var(--wl-pink); color: #fff; }
-.wl-controls { display: flex; gap: 8px; align-items: center; }
+.wl-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .wl-controls select, .wl-btn { font: inherit; font-weight: 700; border: 1px solid rgba(217, 70, 127, .3); background: var(--wl-card); color: inherit; padding: 7px 12px; border-radius: 12px; cursor: pointer; }
 .wl-btn.on { background: var(--wl-pink); color: #fff; }
 
@@ -91,6 +91,8 @@
   .wl-dock { gap: 6px; }
   .wl-dock > button, .wl-switch { padding: 7px 10px; font-size: 13px; }
   .wl-quick input { width: 110px; }
+  .wl-controls select, .wl-btn { padding: 6px 10px; font-size: 14px; }
+  .wl-canvas { height: max(320px, calc(100dvh - 300px)) !important; }
   .wl-panel { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
 }
 

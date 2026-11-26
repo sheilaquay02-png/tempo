@@ -152,7 +152,7 @@ export function Dog3D({ who, position = [0, 0, 0], rotY = 0, scale = 1 }) {
 }
 
 // Close-up line-up of the whole family on a little round stage.
-export const CAST_VIEW = { target: [0, 0.75, 0.3], span: 4.6 };
+export const CAST_VIEW = { target: [0, 0.75, 0.3], spanW: 6.2, spanH: 4.2 };
 export const CAST_SPOTS = [];
 export function CastLineup() {
   return (
