@@ -93,3 +93,11 @@
   .wl-quick input { width: 110px; }
   .wl-panel { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
 }
+
+/* 3D stage: soft sky behind a transparent canvas */
+.wl-3d-wrap { border-radius: 24px; overflow: hidden; background: linear-gradient(180deg, #cdebf5 0%, #fdeef4 70%, #fff1e8 100%); }
+.wl-3d-wrap.room { background: radial-gradient(ellipse at 50% 40%, #fbeef5 0%, #efdcec 70%, #e4cfe4 100%); }
+.wl-3d-wrap.night { background: linear-gradient(180deg, #3f3470 0%, #6d5ba8 55%, #e7b7d8 100%); }
+.wl-3d-wrap.room.night { background: radial-gradient(ellipse at 50% 40%, #5a4a8a 0%, #3e3460 75%, #2f2850 100%); }
+.wl-canvas { cursor: grab; }
+.wl-canvas:active { cursor: grabbing; }

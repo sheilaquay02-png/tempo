@@ -9,8 +9,8 @@ import TownMap from "./TownMap";
 import Room25D, { DEFAULT_LAYOUT, MOVABLE, canPlace } from "./Room25D";
 import { ROOM_THEMES, PANELS, SAMPLE_TASKS, SAMPLE_EVENTS, SAMPLE_BUDGET, SAMPLE_AFFIRMATION, SAMPLE_WEATHER } from "./worldData";
 
-// three.js only downloads when you open the 3D tab.
-const Room3D = dynamic(() => import("./Room3D"), { ssr: false, loading: () => <div className="wl-fallback">Loading the 3D room…</div> });
+// three.js downloads only on this page, after the page itself has shown.
+const World3D = dynamic(() => import("./World3D"), { ssr: false, loading: () => <div className="wl-fallback">Building Tempo Town…</div> });
 
 const LAYOUT_KEY = "tempo-world-lab-layout";
 
@@ -60,7 +60,8 @@ function PanelBody({ kind, tasks, onToggle }) {
 }
 
 export default function WorldLab() {
-  const [view, setView] = useState("town"); // town | room | room3d
+  const [view, setView] = useState("town"); // town | room
+  const [lite, setLite] = useState(false); // light 2.5D version instead of 3D
   const [theme, setTheme] = useState("kawaii");
   const [night, setNight] = useState(false);
   const [panel, setPanel] = useState(null);
@@ -83,7 +84,7 @@ export default function WorldLab() {
   }, []);
 
   const onAction = action => {
-    if (action.go) { setView(action.go === "room" ? "room" : "town"); setPanel(null); return; }
+    if (action.go) { setView(action.go === "room" ? "room" : "town"); setPanel(null); setDecorate(false); setPicked(null); return; }
     if (action.panel) setPanel(action.panel);
   };
 
@@ -112,15 +113,15 @@ export default function WorldLab() {
 
   const toggleTask = id => setTasks(ts => ts.map(t => (t.id === id ? { ...t, done: !t.done } : t)));
   const left = tasks.filter(t => !t.done).length;
-  const inRoom = view === "room" || view === "room3d";
+  const inRoom = view === "room";
 
   return (
     <div className={`wl-root${night ? " night" : ""}`}>
       <header className="wl-top">
         <div className="wl-brand">Tempo Town <span className="wl-badge">Test lab · pretend data</span></div>
         <nav className="wl-tabs" aria-label="World view">
-          {[["town", "Town"], ["room", "Room 2.5D"], ["room3d", "Room 3D"]].map(([id, label]) => (
-            <button key={id} type="button" className={view === id ? "on" : ""} aria-pressed={view === id} onClick={() => { setView(id); setPanel(null); if (id !== "room") setDecorate(false); }}>{label}</button>
+          {[["town", "Town"], ["room", "My room"], ["cast", "Meet the cast"]].map(([id, label]) => (
+            <button key={id} type="button" className={view === id ? "on" : ""} aria-pressed={view === id} onClick={() => { setView(id); setPanel(null); if (id !== "room") { setDecorate(false); setPicked(null); } }}>{label}</button>
           ))}
         </nav>
         <div className="wl-controls">
@@ -130,6 +131,7 @@ export default function WorldLab() {
             </select>
           )}
           <button type="button" className="wl-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙 Evening" : "☀️ Day"}</button>
+          <button type="button" className="wl-btn" aria-pressed={lite} onClick={() => setLite(l => !l)}>{lite ? "Show 3D" : "Light version"}</button>
           {view === "room" && (
             <button type="button" className={`wl-btn${decorate ? " on" : ""}`} aria-pressed={decorate} onClick={() => { setDecorate(d => !d); setPicked(null); setPanel(null); }}>
               {decorate ? "Done decorating" : "Decorate"}
@@ -139,12 +141,16 @@ export default function WorldLab() {
       </header>
 
       <main className="wl-stage">
-        {view === "town" && <TownMap night={night} onAction={onAction} />}
-        {view === "room" && (
+        {!lite && (
+          <World3D scene={view} theme={theme} night={night} layout={layout} onAction={onAction} onFallback={() => setLite(true)}
+            decorate={decorate} selected={picked} onSelect={setPicked} onPlace={place} />
+        )}
+        {lite && view === "cast" && <div className="wl-fallback">The cast close-up is only in 3D.</div>}
+        {lite && view === "town" && <TownMap night={night} onAction={onAction} />}
+        {lite && view === "room" && (
           <Room25D theme={theme} night={night} layout={layout} onAction={onAction}
             decorate={decorate} selected={picked} onSelect={setPicked} onPlace={place} />
         )}
-        {view === "room3d" && <Room3D theme={theme} night={night} layout={layout} onAction={onAction} onFallback={() => setView("room")} />}
 
         {decorate && view === "room" && (
           <div className="wl-hint" role="status">

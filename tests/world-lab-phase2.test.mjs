@@ -32,8 +32,8 @@ test("/world-lab loads the world only in the browser", () => {
   assert.match(loader, /dynamic\(\(\) => import\("\.\/WorldLab"\)/);
   assert.match(loader, /ssr:\s*false/);
   const lab = read("components/world/WorldLab.jsx");
-  assert.match(lab, /dynamic\(\(\) => import\("\.\/Room3D"\)/, "3D room is loaded on demand");
-  assert.ok(!/import\s+Room3D\s+from/.test(lab), "3D room must not be imported eagerly");
+  assert.match(lab, /dynamic\(\(\) => import\("\.\/World3D"\)/, "3D world is loaded on demand");
+  assert.ok(!/import\s+World3D\s+from/.test(lab), "3D world must not be imported eagerly");
 });
 
 test("the world prototype uses pretend data only", () => {
@@ -43,8 +43,8 @@ test("the world prototype uses pretend data only", () => {
   }
 });
 
-test("3D room renders on demand, caps pixel density and has a fallback", () => {
-  const src = read("components/world/Room3D.jsx");
+test("3D world renders on demand, caps pixel density and has a fallback", () => {
+  const src = read("components/world/World3D.jsx");
   assert.match(src, /frameloop="demand"/);
   assert.match(src, /dpr=\{\[1, 1\.75\]\}/);
   assert.match(src, /hasWebGL/);
