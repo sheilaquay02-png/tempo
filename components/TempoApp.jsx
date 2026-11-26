@@ -61,7 +61,7 @@ import { TodayLitePage } from "./today/TodayDashboard";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
-import { activeTempoCalendars, activeTempoEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
+import { activeTempoCalendars, activeTempoEvents, archiveImportedGoogleEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
 import {
@@ -1375,6 +1375,29 @@ export default function App({ windowMode = "full" }) {
     save(`${uk}_updated_at`, now);
     queueCloudSave(events, tasks, currentSettings({ deletedRecords: pruned, settingsUpdatedAt: nextSettingsUpdatedAt }));
   }, [auth.user?.id, dataReady]);
+
+  // Phase 1 clean-up: permanently remove the hidden imported Google events,
+  // with deletion markers so older copies on other devices cannot bring them
+  // back. Self-checking rather than version-gated, so it also catches any that
+  // reappear later; it does nothing once none are left.
+  useEffect(() => {
+    if (!auth.user?.id || !dataReady) return;
+    if (!events.some(e => isGoogleEventReference(e, calendars))) return;
+    const now = new Date().toISOString();
+    const cleanup = archiveImportedGoogleEvents(events, calendars, normalizeDeletedRecords(deletedRecords), now);
+    if (!cleanup.removedIds.length) return;
+    const nextSettingsUpdatedAt = normalizeSettingsUpdatedAt({ ...settingsUpdatedAt, deletedRecords: now });
+    setEvRaw(cleanup.events);
+    setDeletedRecordsRaw(cleanup.deletedRecords);
+    setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+    save(`${uk}_ev`, cleanup.events);
+    save(`${uk}_deleted_records`, cleanup.deletedRecords);
+    save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    save(`${uk}_updated_at`, now);
+    queueCloudSave(cleanup.events, tasks, currentSettings({ deletedRecords: cleanup.deletedRecords, settingsUpdatedAt: nextSettingsUpdatedAt }));
+    // Runs when the event list or calendars change; the other values are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, dataReady, events, calendars]);
 
   function completeOnboarding(config, options = {}) {
     const now = new Date().toISOString();
