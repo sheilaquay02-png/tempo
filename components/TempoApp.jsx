@@ -62,6 +62,7 @@ import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, Personali
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
 import { activeTempoCalendars, activeTempoEvents, archiveImportedGoogleEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
+import { prepareUndoRestore } from "../utils/undoRestore";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
 import {
@@ -1011,7 +1012,9 @@ export default function App({ windowMode = "full" }) {
     budgetBuckets: normalizeBudgetBuckets(budgetBuckets),
     budgetTransactions: normalizeBudgetTransactions(budgetTransactions),
     bonusAllocationRules: normalizeBonusAllocationRules(bonusAllocationRules),
-    dataMigrationVersion: Math.max(Number(dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
+    // The version this device's data has actually been migrated to (not the app's
+    // latest), so a pending migration is never marked done without running.
+    dataMigrationVersion: Number(dataMigrationVersion || 0) || 0,
     memoryStorageMigratedAt,
     journal,
     ...overrides,
@@ -1069,7 +1072,7 @@ export default function App({ windowMode = "full" }) {
         budgetBuckets: normalizeBudgetBuckets(nextSettings?.budgetBuckets || budgetBuckets),
         budgetTransactions: normalizeBudgetTransactions(nextSettings?.budgetTransactions || budgetTransactions),
         bonusAllocationRules: normalizeBonusAllocationRules(nextSettings?.bonusAllocationRules || bonusAllocationRules),
-        dataMigrationVersion: Math.max(Number(nextSettings?.dataMigrationVersion || dataMigrationVersion || 0), Core.DATA_MIGRATION_VERSION),
+        dataMigrationVersion: Math.max(Number(nextSettings?.dataMigrationVersion || 0), Number(dataMigrationVersion || 0)),
         mealBreaks: normalizeMealBreaks(nextSettings?.mealBreaks || mealBreaks),
         planningRules: normalizePlanningRules(nextSettings?.planningRules || planningRules),
         settingsUpdatedAt: normalizeSettingsUpdatedAt(nextSettings?.settingsUpdatedAt || settingsUpdatedAt),
@@ -2287,11 +2290,33 @@ export default function App({ windowMode = "full" }) {
 
   function pushUndo() { setUndo(s => [...s.slice(-(UNDO_STACK_MAX - 1)), { events, tasks }]); }
   function undo() {
-    setUndo(s => {
-      if (!s.length) return s;
-      const l = s[s.length - 1];
-      setEvRaw(l.events); setTkRaw(l.tasks); syncEvents(l.events, l.tasks); return s.slice(0, -1);
-    });
+    const snapshot = undoStack[undoStack.length - 1];
+    if (!snapshot) return;
+    // Re-stamp what the undo changes and mark what it removes, so other devices
+    // treat the undo as the newest change instead of overruling it.
+    const now = new Date().toISOString();
+    const restored = prepareUndoRestore({ events, tasks }, snapshot, now);
+    let nextDeletedRecords = normalizeDeletedRecords(deletedRecords);
+    if (restored.removedEventIds.length) nextDeletedRecords = addDeletedRecords(nextDeletedRecords, "events", restored.removedEventIds, now);
+    if (restored.removedTaskIds.length) nextDeletedRecords = addDeletedRecords(nextDeletedRecords, "tasks", restored.removedTaskIds, now);
+    const hasRemovals = restored.removedEventIds.length || restored.removedTaskIds.length;
+    const nextSettingsUpdatedAt = hasRemovals ? normalizeSettingsUpdatedAt({ ...settingsUpdatedAt, deletedRecords: now }) : settingsUpdatedAt;
+
+    setUndo(s => s.slice(0, -1));
+    setEvRaw(restored.events);
+    setTkRaw(restored.tasks);
+    save(`${uk}_ev`, restored.events);
+    save(`${uk}_tk`, restored.tasks);
+    if (hasRemovals) {
+      setDeletedRecordsRaw(nextDeletedRecords);
+      setSettingsUpdatedAtRaw(nextSettingsUpdatedAt);
+      save(`${uk}_deleted_records`, nextDeletedRecords);
+      save(`${uk}_settings_updated_at`, nextSettingsUpdatedAt);
+    }
+    save(`${uk}_updated_at`, now);
+    if (auth.user && dataReady) {
+      queueCloudSave(restored.events, restored.tasks, currentSettings({ deletedRecords: nextDeletedRecords, settingsUpdatedAt: nextSettingsUpdatedAt }));
+    }
   }
 
   function toggleTask(id) {

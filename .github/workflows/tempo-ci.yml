@@ -74,6 +74,17 @@ jobs:
           cd "$APP_DIR"
           npm test
 
+      - name: Run tests in a time zone west of UTC
+        # Date handling bugs (e.g. "YYYY-MM-DD" read as UTC midnight) only show up
+        # west of UTC, so run the suite a second time on Los Angeles time.
+        shell: bash
+        env:
+          TZ: America/Los_Angeles
+        run: |
+          set -euo pipefail
+          cd "$APP_DIR"
+          npm test
+
       - name: Lint
         shell: bash
         run: |
