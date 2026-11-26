@@ -10,7 +10,7 @@ const {
   normalizeSyncConflictLog,
 } = Core;
 
-export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
+export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding, onDownloadData }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
   const debug = syncDebug || {};
@@ -99,6 +99,14 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
               </div>
             </div>
           )}
+          {/* Your data */}
+          <div className="settings-section">
+            <div className="settings-section-label">Your data</div>
+            <div className="settings-section-desc">Save a copy of all your Tempo data (events, tasks, budget and settings) as a file on this device. Tempo also keeps automatic copies in the cloud for the last 14 days.</div>
+            <div className="settings-action-row">
+              <button className="tf-save" onClick={onDownloadData}>⬇ Download my data</button>
+            </div>
+          </div>
           {/* Onboarding */}
           <div className="settings-section">
             <div className="settings-section-label">Onboarding</div>
