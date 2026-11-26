@@ -10,7 +10,7 @@ test("Tempo persistence and cloud sync are split into hooks", () => {
   assert.match(appSource, /import \{ useTempoUserKey \} from "\.\.\/hooks\/useTempoPersistence";/);
   assert.match(appSource, /import \{ useTempoCloudSync, useTempoRealtimeSync \} from "\.\.\/hooks\/useTempoCloudSync";/);
   assert.match(appSource, /const uk = useTempoUserKey\(auth\.user\?\.id\);/);
-  assert.match(appSource, /useTempoCloudSync\(\{ authUser: auth\.user, userKey: uk, dataReady \}\)/);
+  assert.match(appSource, /useTempoCloudSync\(\{ authUser: auth\.user, userKey: uk, dataReady, onConflictRef: syncConflictRef \}\)/);
   assert.match(appSource, /useTempoRealtimeSync\(\{ userId: auth\.user\?\.id, userKey: uk, dataReady, forceSyncNow \}\);/);
 });
 
@@ -20,7 +20,7 @@ test("cloud sync hook owns queue, status, pending change, and realtime subscript
   assert.match(cloudHookSource, /cloudHydrationRef = useRef\(\{ usingFallback: false, cloudResolved: false \}\)/);
   assert.match(cloudHookSource, /markPendingLocalChange/);
   assert.match(cloudHookSource, /markCloudSynced/);
-  assert.match(cloudHookSource, /saveToCloud\(authUser\.id, events, tasks, settings\)/);
+  assert.match(cloudHookSource, /saveToCloudChecked\(authUser\.id, events, tasks, settings\)/);
   assert.match(cloudHookSource, /export function useTempoRealtimeSync/);
   assert.match(cloudHookSource, /postgres_changes/);
   assert.match(cloudHookSource, /window\.addEventListener\("online", onOnline\)/);

@@ -52,7 +52,7 @@ import {
   normalizeDeletedRecords,
   normalizeSettingsUpdatedAt,
 } from "../utils/deletedRecordsUtils";
-import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration } from "./auth/LoginScreen";
+import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudChecked, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./calendar/CalendarModals";
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
@@ -370,6 +370,8 @@ export default function App({ windowMode = "full" }) {
   const [quickAddDate,  setQuickAddDate]  = useState(null);
   const [quickMemoryDate, setQuickMemoryDate] = useState(null);
   const [dataReady,    setDataReady]    = useState(false);
+  // Filled in below with forceSyncNow, which merges a conflicting save with the newer cloud row.
+  const syncConflictRef = useRef(null);
   const {
     syncStatus,
     setSyncStatus,
@@ -380,7 +382,7 @@ export default function App({ windowMode = "full" }) {
     markPendingLocalChange,
     markCloudSynced,
     queueCloudSave,
-  } = useTempoCloudSync({ authUser: auth.user, userKey: uk, dataReady });
+  } = useTempoCloudSync({ authUser: auth.user, userKey: uk, dataReady, onConflictRef: syncConflictRef });
   const [loadedUserId, setLoadedUserId] = useState(null);
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
@@ -1025,11 +1027,17 @@ export default function App({ windowMode = "full" }) {
     }
     setSyncStatus({ status: "saving", message: "Force syncing…", lastError: "" });
     try {
-      await cloudQueueRef.current.catch(() => {});
+      // When called from inside the save queue (to resolve a conflict), waiting
+      // for the queue would wait for itself.
+      if (!options.fromQueue) await cloudQueueRef.current.catch(() => {});
       const cloud = await loadFromCloud(auth.user.id);
       const localUpdatedAt = load(`${uk}_updated_at`, null);
       const cloudUpdatedAt = cloud?.updated_at ?? null;
-      const localSnapshot = { events, tasks, settings: currentSettings(), updated_at: localUpdatedAt };
+      // A conflicting save passes the exact snapshot it was trying to save, which
+      // can be newer than the state this render saw.
+      const localSnapshot = options.localSnapshot
+        ? { ...options.localSnapshot, updated_at: localUpdatedAt }
+        : { events, tasks, settings: currentSettings(), updated_at: localUpdatedAt };
       // Always run the conflict-safe merge so delete tombstones and field-level settings timestamps
       // are respected across desktop, browser, and PWA sessions.
       const merged = cloud ? mergeTempoData(cloud, localSnapshot) : localSnapshot;
@@ -1162,8 +1170,17 @@ export default function App({ windowMode = "full" }) {
       const stampedAt = new Date().toISOString();
       save(`${uk}_updated_at`, stampedAt);
       if (!options.skipCloudSave) {
-        const ok = await saveToCloud(auth.user.id, nextEvents, nextTasks, normalizedSettings);
-        if (!ok) throw new Error("Cloud save failed after merge");
+        const result = await saveToCloudChecked(auth.user.id, nextEvents, nextTasks, normalizedSettings);
+        // Another device saved while we merged: merge again with the newest row (max 3 tries).
+        if (!result.ok && result.conflict && (options.attempt || 0) < 2) {
+          return forceSyncNow({
+            ...options,
+            fromQueue: true,
+            attempt: (options.attempt || 0) + 1,
+            localSnapshot: { events: nextEvents, tasks: nextTasks, settings: normalizedSettings },
+          });
+        }
+        if (!result.ok) throw new Error(result.conflict ? "Cloud changed again while merging" : "Cloud save failed after merge");
       }
       markCloudSynced();
       setSyncStatus({ status: "saved", message: options.silent ? "Updated from cloud" : "Force synced just now", lastError: "" });
@@ -1179,6 +1196,7 @@ export default function App({ windowMode = "full" }) {
 
 
   useTempoRealtimeSync({ userId: auth.user?.id, userKey: uk, dataReady, forceSyncNow });
+  syncConflictRef.current = snapshot => forceSyncNow({ silent: true, fromQueue: true, localSnapshot: snapshot });
 
   const syncEvents = (evs, tks) => {
     save(`${uk}_ev`, evs);

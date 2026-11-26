@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { load, save } from "../lib/tempo/core";
-import { getSupabase, saveToCloud } from "../components/auth/LoginScreen";
+import { getSupabase, saveToCloudChecked, getCloudPullCount } from "../components/auth/LoginScreen";
 
-export function useTempoCloudSync({ authUser, userKey, dataReady }) {
+// onConflictRef.current({ events, tasks, settings }) must download the newer
+// cloud row, merge it with that snapshot, save the result and resolve true/false.
+export function useTempoCloudSync({ authUser, userKey, dataReady, onConflictRef }) {
   const [syncStatus, setSyncStatus] = useState({ status: "saved", message: "Saved to cloud", lastError: "" });
   const [pendingLocalChanges, setPendingLocalChanges] = useState(() => load(`${userKey}_pending_sync_count`, 0));
   const [lastSyncedAt, setLastSyncedAt] = useState(() => load(`${userKey}_last_synced_at`, null));
@@ -41,13 +43,24 @@ export function useTempoCloudSync({ authUser, userKey, dataReady }) {
       setSyncStatus({ status: "offline", message: "Waiting for cloud before saving fallback data", lastError: "Cloud load still pending" });
       return Promise.resolve(!options.strict);
     }
+    // A download between queueing and running means this snapshot may be
+    // missing what was downloaded, so it must be merged rather than written.
+    const pullsWhenQueued = getCloudPullCount(authUser.id);
     const run = async () => {
       setSyncStatus({ status: "saving", message: "Saving…", lastError: "" });
-      const ok = await saveToCloud(authUser.id, events, tasks, settings);
-      if (ok) {
+      let result = { ok: false, conflict: true };
+      if (getCloudPullCount(authUser.id) === pullsWhenQueued) {
+        result = await saveToCloudChecked(authUser.id, events, tasks, settings);
+      }
+      if (result.ok) {
         markCloudSynced();
         setSyncStatus({ status: "saved", message: "Saved to cloud", lastError: "" });
         return true;
+      }
+      if (result.conflict && onConflictRef?.current) {
+        setSyncStatus({ status: "saving", message: "Combining changes from another device…", lastError: "" });
+        const merged = await onConflictRef.current({ events, tasks, settings }).catch(() => false);
+        if (merged) return true;
       }
       markPendingLocalChange();
       setSyncStatus({ status: "failed", message: "Sync failed — tap to retry", lastError: "Cloud save failed" });
@@ -57,7 +70,7 @@ export function useTempoCloudSync({ authUser, userKey, dataReady }) {
     const queued = cloudQueueRef.current.then(run, run);
     cloudQueueRef.current = queued.catch(() => {});
     return queued;
-  }, [authUser, dataReady, markCloudSynced, markPendingLocalChange]);
+  }, [authUser, dataReady, markCloudSynced, markPendingLocalChange, onConflictRef]);
 
   return {
     syncStatus,

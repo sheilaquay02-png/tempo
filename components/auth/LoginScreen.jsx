@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as Core from "../../lib/tempo/core";
+import { createCloudSync } from "../../lib/tempo/client/cloudSync";
 const { dateKey, TODAY, uid, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, SER, DES, MEMORY_STORAGE_BUCKET, MEMORY_SIGNED_URL_SECONDS, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_MAX_ORIGINAL_BYTES, MEMORY_MAX_IMAGE_EDGE, MEMORY_THUMB_IMAGE_EDGE, MEMORY_UPLOAD_IMAGE_QUALITY, MEMORY_THUMB_IMAGE_QUALITY, MEMORY_ENCRYPTION_VERSION, hasWebCrypto, bytesToBase64, base64ToBytes } = Core;
 
 function LoginLogoSticker() {
@@ -210,31 +211,36 @@ export async function deleteMemoryStoragePaths(paths = []) {
 export const allMemoryPhotoStoragePaths = photo => [photo?.storagePath, photo?.thumbStoragePath].filter(Boolean);
 export const memoryPhotoNeedsStorageMigration = photo => Boolean(photo?.src && String(photo.src).startsWith("data:") && !photo.storagePath);
 
-export async function saveToCloud(userId, events, tasks, settings) {
+// All user_data writes are version-checked (see lib/tempo/client/cloudSync.js):
+// a save only succeeds if the cloud row is still the version this device last
+// loaded or wrote, so one device can never silently overwrite another's edits.
+const cloudSync = createCloudSync({ getClient: () => getSupabase() });
+export const getCloudVersion = userId => cloudSync.getVersion(userId);
+export const getCloudPullCount = userId => cloudSync.getPullCount(userId);
+
+// Returns { ok, conflict }. On conflict the caller must load, merge and retry.
+export async function saveToCloudChecked(userId, events, tasks, settings) {
   try {
-    const sb = await getSupabase();
     const safeSettings = {
       ...(settings || {}),
       journal: await encryptMemoryJournalForStorage(userId, settings?.journal || {}),
     };
-
-    const { error } = await sb.from("user_data").upsert(
-      {
-        user_id: userId,
-        events: JSON.parse(JSON.stringify(events, SER)),
-        tasks: JSON.parse(JSON.stringify(tasks, SER)),
-        settings: JSON.parse(JSON.stringify(safeSettings, SER)),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-
-    if (error) throw error;
-    return true;
+    const result = await cloudSync.save(userId, {
+      user_id: userId,
+      events: JSON.parse(JSON.stringify(events, SER)),
+      tasks: JSON.parse(JSON.stringify(tasks, SER)),
+      settings: JSON.parse(JSON.stringify(safeSettings, SER)),
+      updated_at: new Date().toISOString(),
+    });
+    if (result.error) throw result.error;
+    return { ok: Boolean(result.ok), conflict: Boolean(result.conflict) };
   } catch (e) {
     console.warn("Cloud save failed, using local:", e);
-    return false;
+    return { ok: false, conflict: false };
   }
+}
+export async function saveToCloud(userId, events, tasks, settings) {
+  return (await saveToCloudChecked(userId, events, tasks, settings)).ok;
 }
 export async function saveToCloudStrict(userId, events, tasks, settings) {
   const ok = await saveToCloud(userId, events, tasks, settings);
@@ -244,13 +250,10 @@ export async function saveToCloudStrict(userId, events, tasks, settings) {
 
 export async function loadFromCloud(userId) {
   try {
-    const sb = await getSupabase();
-    const { data, error } = await sb
-      .from("user_data")
-      .select("user_id, events, tasks, settings, updated_at")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error || !data) return null;
+    // Throws on network/API errors, so a failed load is never mistaken for
+    // "no data yet" (which would allow saving over the real cloud row).
+    const data = await cloudSync.load(userId);
+    if (!data) return null;
 
     // Extra client-side guard: never hydrate a session with a row that
     // does not exactly belong to the signed-in Supabase auth user.
