@@ -7,9 +7,6 @@ const shell = source('components/layout/AppShell.jsx');
 const today = source('components/today/TodayDashboard.jsx');
 const app = source('components/TempoApp.jsx');
 const settings = source('components/settings/SettingsPanel.jsx');
-const reminders = source('app/api/push/reminders/route.js');
-const actions = source('app/api/push/action/route.js');
-const worker = source('public/tempo-sw.js');
 
 test('retired feature screens are no longer navigable on desktop or phone', () => {
   for (const page of ['habits', 'journal', 'tomorrow-reset', 'weekly-reset']) {
@@ -33,18 +30,8 @@ test('Today only shows retained daily features, and old records are still suppor
   }
 });
 
-test('removed features have no user-facing reminder settings or scheduled push candidates', () => {
+test('removed features have no user-facing reminder settings', () => {
   for (const word of ['Journal reminder', 'Tomorrow Reset</strong>', 'Weekly Reset</strong>', '"habits", "🌱"']) {
     assert.equal(settings.includes(word), false);
   }
-  assert.doesNotMatch(reminders, /\.\.\.habitReminderCandidates\(/);
-  assert.doesNotMatch(reminders, /if \(prefs\.journal\.enabled/);
-  assert.doesNotMatch(reminders, /if \(prefs\.tomorrowReset\.enabled/);
-  assert.doesNotMatch(reminders, /if \(prefs\.weeklyReset\.enabled/);
-  assert.doesNotMatch(actions, /else if \(action === 'complete_habit'\)/);
-});
-
-test('retired features are excluded from service-worker navigation targets', () => {
-  assert.match(worker, /\['today','calendar','tasks','affirmations'\]/);
-  assert.doesNotMatch(worker, /'complete_habit'\)/);
 });

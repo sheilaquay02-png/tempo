@@ -1,5 +1,7 @@
 # Retiring unused Tempo modules (2026-11-17)
 
+> Update (2026-11-26): Google Calendar integration and push reminders were later removed entirely. The references to them below describe the state at the time of this retirement. See `legacy_feature_status.md`.
+
 ## Product decision
 
 After six months of use, the Habits, Journal, Tomorrow Reset and Weekly Reset experiences are retired from Tempo's active application.

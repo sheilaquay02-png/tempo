@@ -66,7 +66,7 @@ export function TempoWeather() {
     }
   }
 
-  function useDeviceLocation() {
+  function requestDeviceLocation() {
     if (!navigator.geolocation) {
       setError("Device location is unavailable. Enter a city instead.");
       setCityOpen(true);
@@ -97,7 +97,7 @@ export function TempoWeather() {
       // Never trigger an unexpected location-permission prompt on page load.
       navigator.permissions.query({ name: "geolocation" })
         .then(permission => {
-          if (mounted.current && permission.state === "granted") useDeviceLocation();
+          if (mounted.current && permission.state === "granted") requestDeviceLocation();
         }).catch(() => {});
     }
     return () => { mounted.current = false; requestId.current += 1; };
@@ -109,11 +109,11 @@ export function TempoWeather() {
         {weather && status !== "loading" ? (
           <span>{weather.icon} {label} · {weather.temperature}°C · {weather.label}</span>
         ) : status === "loading" ? (
-          <span>🌤️ Checking today's weather…</span>
+          <span>{"🌤️ Checking today's weather…"}</span>
         ) : (
-          <span>🌤️ Today's weather</span>
+          <span>{"🌤️ Today's weather"}</span>
         )}
-        <button type="button" onClick={useDeviceLocation} title="Use device location for weather">Use location</button>
+        <button type="button" onClick={requestDeviceLocation} title="Use device location for weather">Use location</button>
         <button type="button" onClick={() => setCityOpen(value => !value)}
           aria-expanded={cityOpen} aria-label="Set weather city">City</button>
       </div>

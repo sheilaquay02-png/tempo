@@ -68,31 +68,6 @@ function RecurrenceEditor({ value, onChange, startDate }) {
 }
 
 
-function EventReminderEditor({ value, onChange }) {
-  const reminder = Core.normalizeEventReminder(value);
-  const presetId = Core.eventReminderPresetId(reminder);
-  const setPreset = id => {
-    const preset = Core.EVENT_REMINDER_PRESETS.find(p => p.id === id);
-    if (id === "none") return onChange({ type: "none", minutesBefore: null });
-    if (id === "at") return onChange({ type: "at", minutesBefore: 0 });
-    if (id === "custom") return onChange({ type: "custom", minutesBefore: reminder.minutesBefore ?? 15 });
-    return onChange({ type: "minutes", minutesBefore: preset?.minutesBefore ?? 10 });
-  };
-  return (
-    <div className="reminder-editor">
-      <select className="modal-select" value={presetId} onChange={e => setPreset(e.target.value)}>
-        {Core.EVENT_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-      </select>
-      {presetId === "custom" && (
-        <div className="modal-row reminder-custom-row">
-          <input type="number" min={0} className="modal-select modal-time" value={reminder.minutesBefore ?? 15} onChange={e => onChange({ type: "custom", minutesBefore: Math.max(0, Number(e.target.value) || 0) })} />
-          <span style={{fontSize:12,color:"var(--text2)",fontWeight:800}}>minutes before</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function EventModal({ event, calendars, categories, onClose, onSave, onDelete, onCopy, onDuplicate }) {
   const [form, setForm] = useState({ ...event, allDay: Boolean(event.allDay), reminder: Core.normalizeEventReminder(event.reminder) });
   const cal = calendars.find(c => c.id === form.calendar);
@@ -146,7 +121,6 @@ export function EventModal({ event, calendars, categories, onClose, onSave, onDe
           <div className="modal-row"><label>Calendar</label><select className="modal-select" disabled={isReferenceEvent} value={form.calendar} onChange={e => setForm(f => ({ ...f, calendar: e.target.value }))}>{calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
           <div className="modal-row"><label>Category</label><select className="modal-select" disabled={isReferenceEvent} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           {!isReferenceEvent ? <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={form.start} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div> : <div className="modal-row"><label>Recurrence</label><span className="reference-field">Managed by {calendarSourceLabel(source)}</span></div>}
-          {!isReferenceEvent ? <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div> : <div className="modal-row"><label>Reminder</label><span className="reference-field">Managed by {calendarSourceLabel(source)}</span></div>}
           <div className="modal-row"><label>Fixed</label><input type="checkbox" disabled={isReferenceEvent} checked={form.fixed} onChange={e => setForm(f => ({ ...f, fixed: e.target.checked }))}/><span style={{ fontSize: 11, color: "var(--text2)", marginLeft: 6 }}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c => <button key={c} disabled={isReferenceEvent} className={`color-dot ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({ ...f, color: c }))} />)}<button className="color-dot color-reset" disabled={isReferenceEvent} onClick={() => setForm(f => ({ ...f, color: null }))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" disabled={isReferenceEvent} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add notes..." rows={3} /></div>
@@ -165,7 +139,7 @@ export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALEND
   const end = new Date(now); end.setHours(end.getHours()+1);
   const [form, setForm] = useState({
     title: "", startDate: toDateInput(defaultDate), endDate: toDateInput(defaultDate), startTime: toTimeInputValue(now), endTime: toTimeInputValue(end), allDay: false,
-    calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "minutes", minutesBefore: 10 }
+    calendar: calendars.find(c => c.id === "work")?.id || calendars[0]?.id || "personal", category: "meeting", fixed: false, notes: "", color: null, recurrence: null, reminder: { type: "none", minutesBefore: null }
   });
   const [err, setErr] = useState("");
   function applyEventTemplate(template) {
@@ -213,7 +187,6 @@ export function AddEventModal({ onClose, onSave, defaultDate, calendars = CALEND
           <div className="modal-row"><label>Calendar</label><select className="modal-select" value={form.calendar} onChange={e=>setForm(f=>({...f,calendar:e.target.value}))}>{calendars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
           <div className="modal-row"><label>Category</label><select className="modal-select" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>{categories.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}</select></div>
           <div className="modal-row modal-col"><label>Recurrence</label><RecurrenceEditor value={form.recurrence} startDate={applyDateAndTime(form.startDate, form.startTime)} onChange={recurrence=>setForm(f=>({...f,recurrence}))}/></div>
-          <div className="modal-row modal-col"><label>Reminder</label><EventReminderEditor value={form.reminder} onChange={reminder=>setForm(f=>({...f,reminder}))}/></div>
           <div className="modal-row"><label>Fixed</label><input type="checkbox" checked={form.fixed} onChange={e=>setForm(f=>({...f,fixed:e.target.checked}))}/><span style={{fontSize:11,color:"var(--text2)",marginLeft:6}}>Cannot be dragged</span></div>
           <div className="modal-row"><label>Color</label><div className="color-picker">{COLORS.map(c=><button key={c} className={`color-dot ${form.color===c?"selected":""}`} style={{background:c}} onClick={()=>setForm(f=>({...f,color:c}))}/> )}<button className="color-dot color-reset" onClick={()=>setForm(f=>({...f,color:null}))}>↺</button></div></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Add notes..." rows={2}/></div>
@@ -343,21 +316,20 @@ function highlightMatch(text, query) {
 export function CalendarEditModal({ mode = "edit", calendar, calendars = [], onClose, onSave, onDelete }) {
   const isNew = mode === "add" || !calendar?.id;
   const isDeleteMode = mode === "delete";
-  const isGoogle = calendar?.source === "google";
   const initialColor = cleanCalendarColor(calendar?.color || "#FF7BAC");
   const [name, setName] = useState(calendar?.name || "New Calendar");
   const [color, setColor] = useState(initialColor);
   const [confirmDelete, setConfirmDelete] = useState(isDeleteMode);
 
-  const canDelete = !isNew && !isGoogle && calendars.length > 1;
+  const canDelete = !isNew && calendars.length > 1;
   const title = isNew ? "Create Calendar" : isDeleteMode ? "Remove Calendar" : "Edit Calendar";
 
   function submit() {
     const cleanName = name.trim();
-    if (!isGoogle && !cleanName) return;
+    if (!cleanName) return;
     onSave?.({
       ...(calendar || {}),
-      name: isGoogle ? (calendar?.name || "Google Calendar") : cleanName,
+      name: cleanName,
       color: cleanCalendarColor(color),
       source: calendar?.source || "tempo",
     });
@@ -374,8 +346,8 @@ export function CalendarEditModal({ mode = "edit", calendar, calendars = [], onC
         <div className="calendar-editor-preview">
           <span className="calendar-editor-dot" style={{ background: color }} />
           <div>
-            <strong>{isGoogle ? (calendar?.name || "Google Calendar") : (name.trim() || "New Calendar")}</strong>
-            <small>{isGoogle ? "Google Calendar reference calendar" : "Tempo calendar"}</small>
+            <strong>{name.trim() || "New Calendar"}</strong>
+            <small>Tempo calendar</small>
           </div>
         </div>
 
@@ -384,12 +356,10 @@ export function CalendarEditModal({ mode = "edit", calendar, calendars = [], onC
           <input
             className="modal-input"
             value={name}
-            disabled={isGoogle}
             onChange={e => setName(e.target.value)}
             placeholder="Calendar name"
           />
         </div>
-        {isGoogle && <div className="settings-section-desc">Google calendar names are managed in Google Calendar. You can still change the display color inside Tempo.</div>}
 
         <div className="modal-row calendar-color-row">
           <label>Color</label>
