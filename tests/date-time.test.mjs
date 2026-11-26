@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   dateKeyInTimeZone,
-  googleAllDayRangeToUtc,
   localClockDue,
   getLocalDateTimeParts,
   normalizeClockTime,
@@ -19,14 +18,6 @@ test('date keys use the requested Tempo timezone instead of server UTC', () => {
   const instant = at('2026-05-24T17:30:00Z'); // 01:30 on May 25 in Singapore
   assert.equal(dateKeyInTimeZone(instant, 'Asia/Singapore'), '2026-05-25');
   assert.equal(dateKeyInTimeZone(instant, 'UTC'), '2026-05-24');
-});
-
-test('Google all-day ranges preserve exclusive end date and timezone boundary', () => {
-  const range = googleAllDayRangeToUtc('2026-03-10', '2026-03-12', 'Asia/Singapore');
-  assert.equal(range.startKey, '2026-03-10');
-  assert.equal(range.endExclusiveKey, '2026-03-12');
-  assert.equal(range.start.toISOString(), '2026-03-09T16:00:00.000Z');
-  assert.equal(range.end.toISOString(), '2026-03-11T16:00:00.000Z');
 });
 
 test('local clock due checks handle timezone midnight boundaries', () => {

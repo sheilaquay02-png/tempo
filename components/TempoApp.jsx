@@ -2,14 +2,17 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { tempoLegacyInlineCSS } from "../styles/tempoLegacyInlineStyles";
 import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopupSafety";
 import { DailyStartupModal } from "./shared/DisplayComponents";
 import { AppSidebar, CalendarTopbar, MobileBottomNav, TempoLoadingScreen } from "./layout/AppShell";
 import { BudgetApp, OverallPage } from "./budget/BudgetApp";
-import { DailyCheckInModal, taskFallsOnDateForReset } from "./checkins/CheckInReset";
+import { MiniTempoPanel } from "./mini/MiniTempoPanel";
+import { nextUpcomingEvent } from "../utils/miniTempoDaily";
+import { miniTempoCSS } from "../styles/miniTempoReleaseStyles";
+import { taskFallsOnDateForReset } from "./checkins/CheckInReset";
 import {
   DEFAULT_MEAL_BREAKS,
   DEFAULT_PLANNING_RULES,
@@ -49,7 +52,7 @@ import {
   normalizeDeletedRecords,
   normalizeSettingsUpdatedAt,
 } from "../utils/deletedRecordsUtils";
-import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications } from "./auth/LoginScreen";
+import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./calendar/CalendarModals";
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
@@ -58,8 +61,7 @@ import { TodayLitePage } from "./today/TodayDashboard";
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
-import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleCalendarRequest as requestGoogleCalendar, googleDisconnectWarning } from "../lib/tempo/client/googleCalendarClient";
-import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
+import { activeTempoCalendars, activeTempoEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
 import {
@@ -280,7 +282,7 @@ function OnboardingModal({ onClose, onComplete, workStart = 9, workEnd = 19 }) {
 // ─── Removed legacy local helper panel from product UI. ─────────────────────
 
 
-export default function App() {
+export default function App({ windowMode = "full" }) {
   const auth = useAuth();
   // Use auth user ID when available; fall back to a persistent anonymous key so
   // unsigned-in users do not lose their local Tempo data after closing the browser.
@@ -288,7 +290,7 @@ export default function App() {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "rhythm"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
@@ -358,7 +360,6 @@ export default function App() {
   const [showCarryOver,setShowCarryOver]= useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [showCheckIn, setShowCheckIn] = useState(false);
   const [showStartup, setShowStartup] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [notifs, setNfRaw] = useState(() => load(`${uk}_nf`, false));
@@ -381,7 +382,6 @@ export default function App() {
     queueCloudSave,
   } = useTempoCloudSync({ authUser: auth.user, userKey: uk, dataReady });
   const [loadedUserId, setLoadedUserId] = useState(null);
-  const [googleSync, setGoogleSync] = useState({ connected: false, calendars: [], loading: false, message: "", error: "", lastImportAt: null, googleCalendarSync: null });
   const [journal, setJournalRaw] = useState({}); // populated by useEffect after auth resolves
   const [memoryStorageMigratedAt, setMemoryStorageMigratedAtRaw] = useState(() => load(`${uk}_memory_storage_migrated_at`, null));
   const [memoryPhotoCleanupQueue, setMemoryPhotoCleanupQueueRaw] = useState(() => load(`${uk}_memory_photo_cleanup_queue`, []));
@@ -396,32 +396,25 @@ export default function App() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const requestedPage = params.get("page");
-    if (["today", "calendar", "tasks", "rhythm"].includes(requestedPage)) {
+    if (["today", "calendar", "tasks"].includes(requestedPage)) {
       setPage(requestedPage);
     } else if (requestedPage && !["affirmations", "bloom"].includes(requestedPage)) {
       setPage("today");
     } else if (requestedPage === "bloom") {
-      setPage("rhythm");
+      setPage("today");
     } else if (requestedPage === "affirmations") {
       setPage("today");
-    }
-    if (params.get("google") === "connected") {
-      setSettingsOpen(true);
-      setToast({ text: "Google Calendar connected ✓", ts: Date.now() });
-    } else if (params.get("google") === "error") {
-      setSettingsOpen(true);
-      setToast({ text: `Google Calendar setup failed: ${params.get("reason") || "unknown error"}`, ts: Date.now() });
     }
   }, []);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const key = `${uk}_startup_seen_${dateKey(TODAY)}`;
     if (!load(key, false)) setShowStartup(true);
   }, [dataReady, auth.user?.id, uk]);
 
   useEffect(() => {
-    if (!dataReady || !auth.user?.id) return;
+    if (windowMode !== "full" || !dataReady || !auth.user?.id) return;
     const completed = load(`${uk}_onboarding_completed`, false);
     const skipped = load(`${uk}_onboarding_skipped`, false);
     const prompted = load(`${uk}_onboarding_prompted`, false);
@@ -456,9 +449,18 @@ export default function App() {
     };
   }, []);
 
+  // Closed-app push reminders were removed. Browsers that enabled them still have
+  // the old Tempo service worker and push subscription installed, so remove both.
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/tempo-sw.js").catch(err => console.warn("Tempo service worker registration failed", err));
+    navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(
+      registrations
+        .filter(reg => [reg.active, reg.waiting, reg.installing].some(worker => worker?.scriptURL?.endsWith("/tempo-sw.js")))
+        .map(async reg => {
+          try { await (await reg.pushManager?.getSubscription?.())?.unsubscribe?.(); } catch {}
+          return reg.unregister();
+        })
+    )).catch(() => {});
   }, []);
 
   // Helper: compute, persist, and return the current streak for a given user key
@@ -1467,147 +1469,7 @@ export default function App() {
     setDisplayTimezoneCtx(timezone);
   }, [timezone]);
 
-  useEffect(() => {
-    if (!auth.user?.id || !dataReady) return;
-    refreshGoogleCalendarStatus({ silent: true });
-    // Google status should refresh only after auth/data readiness changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.user?.id, dataReady]);
 
-
-  const setNotifs = v => {
-    const n = typeof v === "function" ? v(notifs) : v;
-    setNfRaw(n);
-    persistSettings({ notifs: n });
-  };
-  const setPushEnabled = v => {
-    const n = typeof v === "function" ? v(pushEnabled) : v;
-    setPushEnabledRaw(Boolean(n));
-    persistSettings({ pushEnabled: Boolean(n) });
-  };
-  const setNotificationPreferences = v => {
-    const n = normalizeNotificationPreferences(typeof v === "function" ? v(notificationPreferences) : v);
-    setNotificationPreferencesRaw(n);
-    save(`${uk}_notification_preferences`, n);
-    const nextAffirmationSettings = normalizeAffirmationSettings({
-      ...affirmationSettings,
-      reminderEnabled: Boolean(n.affirmations.enabled),
-      reminderTime: n.affirmations.time || DEFAULT_NOTIFICATION_PREFERENCES.affirmations.time,
-    });
-    setAffirmationSettingsRaw(nextAffirmationSettings);
-    save(`${uk}_affirmation_settings`, nextAffirmationSettings);
-    persistSettings({ notificationPreferences: n, affirmationSettings: nextAffirmationSettings });
-  };
-  async function enableClosedPushNotifications() {
-    return enableClosedPushNotificationsForUser({
-      userId: auth.user?.id,
-      registerTempoPushNotifications,
-      showToast,
-      logger: console,
-    });
-  }
-
-  function applyGoogleCalendarPayload(payload = {}) {
-    const derived = deriveGoogleCalendarPayloadState(payload, { calendars, prevGoogleSync: googleSync });
-    if (derived.shouldUpdateCalendars) {
-      setCalendarsRaw(derived.nextCalendars);
-      save(`${uk}_calendars`, derived.nextCalendars);
-    }
-    if (derived.hiddenCals) {
-      setHiddenCals(derived.hiddenCals);
-      save(`${uk}_hidden_cals`, derived.hiddenCals);
-    }
-    if (derived.events) {
-      setEvRaw(derived.events);
-      save(`${uk}_ev`, derived.events);
-      markUpdated();
-    }
-    setGoogleSync(derived.googleSync);
-  }
-
-  const googleCalendarRequest = (path, options = {}) => requestGoogleCalendar(getSupabase, path, options);
-
-  async function refreshGoogleCalendarStatus({ silent = false } = {}) {
-    if (!auth.user?.id) return;
-    if (!silent) setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
-    try {
-      const data = await googleCalendarRequest("status");
-      applyGoogleCalendarPayload(data);
-      setGoogleSync(prev => ({ ...prev, connected: Boolean(data.connected), loading: false, message: data.connected ? "Google Calendar is ready." : "Connect Google Calendar to import events.", error: "" }));
-    } catch (err) {
-      console.warn("Google Calendar status failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not check Google Calendar status" }));
-    }
-  }
-
-  async function connectGoogleCalendar() {
-    if (!auth.user?.id) {
-      showToast("Sign in before connecting Google Calendar.");
-      return;
-    }
-    try {
-      const returnTo = `${window.location.pathname || "/"}?page=calendar`;
-      const data = await googleCalendarRequest(`auth/start?returnTo=${encodeURIComponent(returnTo)}`, { method: "POST" });
-      if (!data?.url) throw new Error("Could not start Google Calendar connection.");
-      window.location.href = data.url;
-    } catch (err) {
-      console.warn("Google Calendar connect failed", err);
-      showToast(err.message || "Could not start Google Calendar connection.");
-    }
-  }
-
-  async function importGoogleCalendarNow() {
-    if (!auth.user?.id) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Importing Google Calendar…" }));
-    try {
-      const data = await googleCalendarRequest("sync", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      applyGoogleCalendarPayload(data);
-      setToast({ text: formatGoogleImportToast(data), ts: Date.now() });
-    } catch (err) {
-      console.warn("Google Calendar import failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Google import failed", message: "" }));
-      showToast(err.message || "Google import failed");
-    }
-  }
-
-  async function disconnectGoogleCalendar() {
-    if (!auth.user?.id) return;
-    const importedCount = countImportedGoogleEvents(events);
-    const warning = googleDisconnectWarning(importedCount);
-    if (!window.confirm(warning)) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "", message: "Disconnecting Google Calendar…" }));
-    try {
-      const data = await googleCalendarRequest("disconnect", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      applyGoogleCalendarPayload({ ...data, connected: false, calendars: data.settings?.calendars || [], hiddenCals: data.settings?.hiddenCals || [], events: data.events || [] });
-      setGoogleSync({ connected: false, calendars: [], loading: false, message: "Google Calendar disconnected.", error: "", lastImportAt: null, googleCalendarSync: null });
-      showToast("Google Calendar disconnected ✓");
-    } catch (err) {
-      console.warn("Google Calendar disconnect failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Disconnect failed", message: "" }));
-    }
-  }
-
-  async function updateGoogleCalendarPreference(calendarId, patch) {
-    if (!auth.user?.id) return;
-    setGoogleSync(prev => ({ ...prev, loading: true, error: "" }));
-    try {
-      const data = await googleCalendarRequest("calendars", {
-        method: "POST",
-        body: JSON.stringify({ calendarId, patch }),
-      });
-      applyGoogleCalendarPayload(data);
-      setGoogleSync(prev => ({ ...prev, loading: false, message: "Google calendar preference updated.", error: "" }));
-    } catch (err) {
-      console.warn("Google calendar preference failed", err);
-      setGoogleSync(prev => ({ ...prev, loading: false, error: err.message || "Could not update Google calendar preference" }));
-    }
-  }
 
   const setTimezone = v => {
     setTzRaw(v);
@@ -2040,7 +1902,7 @@ export default function App() {
     persistCalendarConfig(calendars, n);
   };
 
-  const calendarSourceVisible = source => !hiddenCalendarSources.includes(source);
+  const calendarSourceVisible = source => source !== "google" && !hiddenCalendarSources.includes(source);
   const toggleCalendarSource = source => {
     const next = hiddenCalendarSources.includes(source)
       ? hiddenCalendarSources.filter(item => item !== source)
@@ -2076,7 +1938,7 @@ export default function App() {
           readOnly: true,
           source: "habit",
           color: habit.color || null,
-          notes: "Habit reminder shown only inside Tempo. It is not synced to Google Calendar.",
+          notes: "Habit reminder shown only inside Tempo.",
           habitId: habit.id,
         });
       });
@@ -2093,10 +1955,6 @@ export default function App() {
   };
 
   const requestRemoveCalendar = cal => {
-    if (cal.source === "google") {
-      setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() });
-      return;
-    }
     setCalendarEditor({ mode: "delete", calendar: cal });
   };
 
@@ -2111,10 +1969,9 @@ export default function App() {
     } else {
       persistCalendarConfig(calendars.map(c => {
         if (c.id !== cal.id) return c;
-        const isGoogle = c.source === "google";
         return {
           ...c,
-          name: isGoogle ? c.name : (String(cal.name || "").trim() || c.name),
+          name: String(cal.name || "").trim() || c.name,
           color: cleanCalendarColor(cal.color || c.color),
           updatedAt: now,
         };
@@ -2124,11 +1981,10 @@ export default function App() {
   };
 
   const removeCalendar = cal => {
-    if (cal.source === "google") { setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() }); return; }
-    if (calendars.length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
+    if (activeTempoCalendars(calendars).length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
     const timestamp = new Date().toISOString();
     const remaining = calendars.filter(c => c.id !== cal.id);
-    const fallback = remaining[0]?.id || "personal";
+    const fallback = activeTempoCalendars(remaining)[0]?.id || "personal";
     const nextEvents = events.map(e => e.calendar === cal.id ? touchRecord(e, { calendar: fallback }) : e);
     const nextHidden = hiddenCals.filter(id => id !== cal.id);
     const nextDeletedRecords = addDeletedRecords(deletedRecords, "calendars", cal.id, timestamp);
@@ -2388,7 +2244,7 @@ export default function App() {
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, touchRecord(withTaskPeriod(task, taskPeriodDate), { createdAt: task.createdAt || new Date().toISOString() })]); }
   function eventConflictsFor(candidate, skipId = null) {
     const skipBase = skipId ? getBaseEventId(skipId) : getBaseEventId(candidate.id);
-    return expandRecurring(events, dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
+    return expandRecurring(activeTempoEvents(events, calendars), dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
       .filter(e => getBaseEventId(e.id) !== skipBase && eventOccursOnDay(e, candidate.start) && candidate.start < e.end && candidate.end > e.start)
       .slice(0, 4);
   }
@@ -2477,7 +2333,7 @@ export default function App() {
       })
       .filter(b => b.end > b.start);
     const lifestyleBlocks = lifestylePlanningBlocksForDate(date);
-    const rawBooked = expandRecurring([...events, ...safeExtraEvents, ...mealBlocks, ...lifestyleBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
+    const rawBooked = expandRecurring([...activeTempoEvents(events, calendars), ...safeExtraEvents, ...mealBlocks, ...lifestyleBlocks], dayStart(date), addDaysSafe(dayStart(date), 1))
       .filter(e => eventOccursOnDay(e, date) && !isAllDayEvent(e) && !e.deletedAt);
     const bufferMs = Math.max(0, Number(rules.bufferMinutes || 0)) * 60000;
     const booked = rawBooked.map(e => e.planningProtected ? e : ({
@@ -3011,6 +2867,39 @@ export default function App() {
   function handleCarryWeek(ids) { moveRolloverTasks(ids, "week", TODAY, "this week"); }
   function handleDrop(ids)      { pushUndo(); setTasks(ts => ts.filter(t => !ids.includes(t.id))); setShowCarryOver(false); setToast({ text: `Dropped ${ids.length} task${ids.length === 1 ? "" : "s"} ✓`, ts: Date.now() }); }
 
+  // The desktop companion uses the existing authenticated task/event state.
+  // It intentionally never opens or writes Budget records.
+  function addQuickTodayTask(title) {
+    const clean=String(title||"").trim();
+    if(!clean)return;
+    pushUndo();
+    setTasks(current=>[...current,touchRecord(withTaskPeriod({
+      id:"t"+uid(),title:clean,scope:"day",duration:30,category:"light",
+      priority:"medium",done:false,reminder:{type:"none"},recurrence:null
+    },TODAY),{createdAt:new Date().toISOString()})]);
+  }
+  function openFullTempo(route="/") {
+    if(typeof window==="undefined")return;
+    if(window.tempoDesktop?.openFull)window.tempoDesktop.openFull(route);
+    else window.location.assign(route);
+  }
+  useEffect(()=>{
+    if(windowMode!=="full" || !dataReady || !auth.user?.id ||
+       loadedUserId!==auth.user.id || typeof window==="undefined")return;
+    const params=new URLSearchParams(window.location.search);
+    const taskId=params.get("taskId"),eventId=params.get("eventId");
+    if(taskId){
+      const task=tasks.find(t=>t.id===taskId);
+      if(task){setSelectedTask(task);setPage("tasks");}
+    }
+    if(eventId){
+      const ev=events.find(e=>e.id===eventId) ||
+        expandRecurring(events,addDaysSafe(TODAY,-40),addDaysSafe(TODAY,90)).find(e=>e.id===eventId);
+      if(ev){setSelectedEvent(ev);setPage("calendar");}
+    }
+    if(params.get("create")==="event")setQuickAddDate(new Date());
+  },[windowMode,dataReady,loadedUserId,auth.user?.id]);
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e) {
@@ -3065,7 +2954,8 @@ export default function App() {
   const rangeStart = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth(), 1) : view === "week" ? weekStart(viewDate) : viewDate;
   const rangeEnd = view === "month" ? new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0) : view === "week" ? addDaysSafe(weekStart(viewDate), 6) : viewDate;
   const sourceForEvent = event => calendarEventSource(event, calendars.find(c => c.id === event.calendar));
-  const eventSourceVisible = event => calendarSourceVisible(sourceForEvent(event));
+  const eventSourceVisible = event => !isGoogleEventReference(event, calendars) && calendarSourceVisible(sourceForEvent(event));
+  const displayCalendars = activeTempoCalendars(calendars);
   const calendarDisplayEvents = events.filter(eventSourceVisible);
   const expandedEvents  = expandRecurring(calendarDisplayEvents, rangeStart, rangeEnd);
   const viewDayEvents   = expandedEvents.filter(e => e.start instanceof Date && eventOccursOnDay(e, viewDate) && !hiddenCals.includes(e.calendar)).map(e => eventSegmentForDay(e, viewDate));
@@ -3074,7 +2964,7 @@ export default function App() {
   // calendar view. Otherwise XP/levels can change when switching Day/Week/Month
   // because recurring events are expanded differently per view. Hidden
   // calendar filters should also not affect earned XP.
-  const gameEvents      = expandRecurring(events, addDaysSafe(TODAY, -120), addDaysSafe(TODAY, 30));
+  const gameEvents      = expandRecurring(activeTempoEvents(events, calendars), addDaysSafe(TODAY, -120), addDaysSafe(TODAY, 30));
   const gameStats      = calculateGameStats(tasks, journal, gameEvents);
   const openToday     = tasks.filter(t => !t.done && taskBelongsToPeriod(t, "day", TODAY)).length;
   const fontScale     = FONT_SIZES.find(f => f.id === fontSize)?.scale ?? 1;
@@ -3103,15 +2993,11 @@ export default function App() {
     syncConflictLog: normalizeSyncConflictLog(syncSettingsSnapshot.syncConflictLog),
     datasetCounts: syncDatasetCounts(events, tasks, syncSettingsSnapshot),
   };
-  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS;
-  const sidebarTodayCheckIn = dailyCheckInForDate(dailyCheckIns, TODAY);
-  const sidebarMood = sidebarTodayCheckIn?.mood ? DAILY_CHECKIN_MOODS.find(x => x.id === sidebarTodayCheckIn.mood) : null;
-  const sidebarEnergy = sidebarTodayCheckIn?.energy ? DAILY_CHECKIN_ENERGIES.find(x => x.id === sidebarTodayCheckIn.energy) : null;
-  const sidebarCheckInSummary = sidebarMood ? {
-    emoji: sidebarMood.emoji,
-    label: sidebarMood.label,
-    energyLabel: sidebarEnergy?.label || "",
-  } : null;
+  const memoAppCSS    = appCSS(cvars, fontScale) + tempoLegacyInlineCSS + tempoMobileFooterPopupSafetyCSS + miniTempoCSS;
+  const miniUpcomingEvents = expandRecurring(events.filter(eventSourceVisible),dayStart(TODAY),addDaysSafe(dayStart(TODAY),31))
+    .filter(e=>!hiddenCals.includes(e.calendar));
+  const miniUpcomingEvent = nextUpcomingEvent(miniUpcomingEvents);
+  const miniTodayTasks = tasks.filter(t=>taskBelongsToPeriod(t,"day",TODAY));
   const calendarTopbarTitle = view === "day" ? fmtDate(viewDate) : view === "week" ? (() => {
     const mon = new Date(viewDate);
     mon.setDate(viewDate.getDate() - viewDate.getDay() + 1);
@@ -3130,13 +3016,13 @@ export default function App() {
 
   function navigateFromSidebar(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
     closeSidebarOnMobile();
   }
 
   function navigateFromMobileNav(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks", "rhythm"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
     setSidebarOpen(false);
   }
 
@@ -3165,6 +3051,14 @@ export default function App() {
     <>
       <style>{memoAppCSS}</style>
 
+      {windowMode === "mini" ? (
+        <MiniTempoPanel tasks={miniTodayTasks} upcomingEvent={miniUpcomingEvent} affirmations={affirmations}
+          onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
+          onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
+          onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
+          onFull={openFullTempo} />
+      ) : (
+      <>
       <div className="app">
         <AppSidebar
           sidebarOpen={sidebarOpen}
@@ -3175,17 +3069,15 @@ export default function App() {
           pendingLocalChanges={pendingLocalChanges}
           lastSyncedAt={lastSyncedAt}
           onForceSync={forceSyncNow}
-          checkInSummary={sidebarCheckInSummary}
-          onOpenCheckIn={() => { setShowCheckIn(true); closeSidebarOnMobile(); }}
           page={page}
           appMode={appMode}
           budgetPage={budgetPage}
           onAppModeChange={setAppMode}
           onNavigate={navigateFromSidebar}
           onNavigateBudgetPage={navigateBudgetPage}
-          onPlanToday={() => { setDayPlan(buildDailyPlan(TODAY)); closeSidebarOnMobile(); }}
+
           onOpenSettings={() => { setSettingsOpen(true); closeSidebarOnMobile(); }}
-          calendars={calendars}
+          calendars={displayCalendars}
           hiddenCals={hiddenCals}
           hiddenCalendarSources={hiddenCalendarSources}
           onAddCalendar={addCalendar}
@@ -3202,11 +3094,9 @@ export default function App() {
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} dailyCheckIns={dailyCheckIns} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenCheckIn={() => setShowCheckIn(true)} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
-          ) : page === "rhythm" ? (
-            <RhythmStatsPage tasks={tasks} categories={categories} />
           ) : (<>
           <CalendarTopbar
             view={view}
@@ -3238,8 +3128,8 @@ export default function App() {
 
           <div className="content-area">
             <div className={`calendar-pane view-${view}`}>
-              {view === "day" && <DayView events={viewDayEvents} calendars={calendars} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
-              {view === "week" && <WeekView events={visibleEvents} calendars={calendars} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
+              {view === "day" && <DayView events={viewDayEvents} calendars={displayCalendars} categories={categories} onReschedule={reschedule} onEventClick={setSelectedEvent} onDropTask={addEvent} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} />}
+              {view === "week" && <WeekView events={visibleEvents} calendars={displayCalendars} categories={categories} onEventClick={setSelectedEvent} onReschedule={reschedule} viewDate={viewDate} onGridClick={d => handleCalendarSlotClick(d)} onDayClick={d => { setViewDate(d); setView("day"); }} />}
               {view === "month" && (() => {
                 const days = monthDays(viewDate);
 
@@ -3266,7 +3156,7 @@ export default function App() {
                           {heat > 0.6 && day && <div className="month-heat-bar" style={{ width: `${Math.round(heat * 100)}%` }} />}
                           <div className="month-day-events">
                             {de.slice(0, 4).map(e => {
-                              const cal = calendars.find(c => c.id === e.calendar);
+                              const cal = displayCalendars.find(c => c.id === e.calendar);
                               const color = e.color || cal?.color || "#FF7BAC";
                               return (
                                 <MonthEventRow key={e.id} event={e} color={color} onOpen={setSelectedEvent} onReschedule={reschedule} />
@@ -3297,11 +3187,10 @@ export default function App() {
       )}
 
       {showStartup && <DailyStartupModal summary={dailyStartupSummary} onClose={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); }} onPlanDay={() => { save(`${uk}_startup_seen_${dateKey(TODAY)}`, true); setShowStartup(false); setDayPlan(buildDailyPlan(TODAY)); }} />}
-      {showCheckIn && <DailyCheckInModal date={TODAY} checkIn={dailyCheckInForDate(dailyCheckIns, TODAY)} onSave={saveDailyCheckIn} onClose={() => setShowCheckIn(false)} />}
-      {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={calendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
-      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={calendars} categories={categories} />}
-      {selectedEvent && <EventModal event={selectedEvent} calendars={calendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
-      {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={calendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
+      {showSearch && <SearchModal events={visibleEvents} tasks={tasks} calendars={displayCalendars} categories={categories} onClose={() => setShowSearch(false)} onEventClick={setSelectedEvent} onTaskEdit={setSelectedTask} onNavigate={d => { setViewDate(new Date(d)); setView("day"); }} />}
+      {quickAddDate  && <AddEventModal onClose={() => setQuickAddDate(null)} onSave={async ev => { const placed = await addEvent(ev); if (placed) setQuickAddDate(null); return placed; }} defaultDate={quickAddDate} calendars={displayCalendars} categories={categories} />}
+      {selectedEvent && <EventModal event={selectedEvent} calendars={displayCalendars} categories={categories} onClose={() => setSelectedEvent(null)} onSave={saveEvent} onDelete={deleteEvent} onCopy={copyEventForPaste} onDuplicate={duplicateEvent} />}
+      {calendarEditor && <CalendarEditModal mode={calendarEditor.mode} calendar={calendarEditor.calendar} calendars={displayCalendars} onClose={() => setCalendarEditor(null)} onSave={saveCalendarFromModal} onDelete={removeCalendar} />}
       {selectedTask && <TaskModal task={selectedTask} categories={categories} onClose={() => setSelectedTask(null)} onSave={task => { selectedTask._isNew ? addTask({ ...task, _isNew: undefined }) : saveTask(task); setSelectedTask(null); }} onDelete={selectedTask._isNew ? null : deleteTask} />}
       <EventConflictModal />
       <RecurringTaskScopeModal />
@@ -3309,8 +3198,8 @@ export default function App() {
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
-            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} googleSync={googleSync} onGoogleConnect={connectGoogleCalendar} onGoogleDisconnect={disconnectGoogleCalendar} onGoogleSyncNow={importGoogleCalendarNow} onGoogleCalendarPatch={updateGoogleCalendarPreference} />}
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
@@ -3350,6 +3239,8 @@ export default function App() {
       />
 
       {toast && <div className="tempo-toast" onAnimationEnd={() => setToast(null)}>{typeof toast === "string" ? toast : toast.text}</div>}
+      </>
+      )}
     </>
   );
 }
@@ -4055,15 +3946,6 @@ body.tempo-modal-locked{touch-action:auto!important;}
 
 
 /* ── Phase 51-70 conservative UX hardening ─────────────────────────────── */
-.google-sync-status-row.loading .google-sync-dot{background:#D8A74D;animation:pulseDot 1.1s ease-in-out infinite;}
-.google-sync-status-row.stale .google-sync-dot{background:#D8A74D;}
-.google-sync-status-row.failed .google-sync-dot,.google-sync-status-row.offline .google-sync-dot{background:#B94D6A;}
-.google-sync-warning,.google-calendar-empty-state,.notification-support-note{margin-top:8px;padding:10px 12px;border-radius:16px;border:1px solid rgba(var(--accent-rgb),.16);background:rgba(var(--accent-rgb),.06);color:var(--text2);font-size:12px;font-weight:800;line-height:1.35;}
-.google-calendar-empty-state{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
-.google-calendar-empty-state strong{color:var(--text);font-size:13px;font-weight:950;}
-.google-calendar-empty-state span{color:var(--text3);font-size:11px;font-weight:800;}
-.notification-support-note.unsupported{border-color:rgba(185,77,106,.22);background:rgba(185,77,106,.08);color:#B94D6A;}
-.notification-support-note.supported{border-color:rgba(112,200,160,.24);background:rgba(112,200,160,.10);}
 @keyframes pulseDot{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.25);opacity:1}}
 @media(max-width:768px){
   :root{--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);}
