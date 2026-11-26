@@ -10,7 +10,12 @@ import {
   ensureRecurringTasksForPeriod,
 } from '../lib/tempo/core.js';
 
-const at = iso => new Date(iso);
+// Read "YYYY-MM-DDTHH:MM:SS+08:00" as that wall-clock time on the device running
+// the tests, the way Tempo creates dates, so these pass in any time zone.
+const at = iso => {
+  const [, y, mo, d, h = 0, mi = 0, sec = 0] = iso.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/).map(Number);
+  return new Date(y, mo - 1, d, h, mi, sec, 0);
+};
 
 test('daily recurrence emits only the configured count inside a visible window', () => {
   const base = {
