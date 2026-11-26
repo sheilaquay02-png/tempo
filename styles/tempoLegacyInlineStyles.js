@@ -133,9 +133,6 @@ export const tempoLegacyInlineCSS = `
     .tempo-toast{bottom:calc(var(--mobile-nav-h) + 16px)!important;}
   }
 
-  .notification-pref-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
-  .notification-pref-card{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:9px;border:1px solid var(--border);background:var(--bg3);border-radius:16px;padding:10px 12px;cursor:pointer;}
-  .notification-pref-card input,.notification-schedule-row input[type="checkbox"]{accent-color:var(--accent);}
   .notification-pref-emoji{font-size:18px;}.notification-pref-card strong,.notification-schedule-row strong{display:block;color:var(--text);font-size:12px;font-weight:950;}.notification-pref-card small,.notification-schedule-row small{display:block;color:var(--text3);font-size:10px;font-weight:850;margin-top:2px;}
   .notification-schedule-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}.notification-schedule-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;border:1px solid var(--border);background:var(--bg2);border-radius:16px;padding:10px 12px;}.notification-day-select{min-width:118px;padding:8px 10px;}
   @media(max-width:560px){.notification-pref-grid{grid-template-columns:1fr}.notification-schedule-row{grid-template-columns:minmax(0,1fr) auto;}.notification-schedule-row .meal-time,.notification-day-select{grid-column:1/-1;width:100%;}}
@@ -882,28 +879,7 @@ html.dark body,body.dark{background:var(--dark-page)!important;}
 
 
 /* ── Google Calendar sync settings ─────────────────────────────────────── */
-.google-calendar-settings{position:relative;}
-.google-sync-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:16px;background:var(--bg3);}
-.google-sync-dot{width:10px;height:10px;border-radius:999px;background:var(--text3);box-shadow:0 0 0 4px rgba(var(--accent-rgb),.08);}
-.google-sync-dot.connected{background:#70C8A0;}
-.google-sync-dot.disconnected{background:#D989A2;}
-.google-sync-status-row strong{font-size:13px;color:var(--text);font-weight:900;}
-.google-sync-status-row small{font-size:11px;color:var(--text3);font-weight:800;}
-.google-sync-error{color:#B94D6A!important;}
-.google-sync-actions{gap:8px;flex-wrap:wrap;}
-.google-calendar-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
-.google-calendar-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);background:rgba(255,255,255,.54);border-radius:16px;}
-.google-calendar-color{width:13px;height:13px;border-radius:999px;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.08);}
-.google-calendar-meta{min-width:0;}
-.google-calendar-meta strong{display:block;font-size:13px;color:var(--text);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.google-calendar-meta small{display:block;font-size:10px;color:var(--text3);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;}
-.google-calendar-row label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);font-weight:900;white-space:nowrap;}
-.google-calendar-row input{accent-color:var(--accent);}
-.dark .google-sync-status-row,.dark .google-calendar-row{background:var(--dark-field)!important;border-color:rgba(var(--accent-rgb),.28)!important;}
 @media(max-width:640px){
-  .google-calendar-row{grid-template-columns:auto minmax(0,1fr);align-items:flex-start;}
-  .google-calendar-row label{grid-column:2;}
-  .google-sync-actions button{width:100%;}
 }
 
 

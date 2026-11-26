@@ -1,189 +1,78 @@
 # Tempo
 
-> Current product note: older phase documents are kept as implementation history. The visible product is Tempo's daily rhythm planner; legacy Ritual/Bloom implementation names may remain internally for migration/sync compatibility, but they are not separate active navigation surfaces unless intentionally re-enabled.
+Tempo is a soft daily-rhythm planner: one place for your calendar, tasks, a gentle daily plan and a simple budget. It is a Next.js web app (installable as a PWA) backed by Supabase, with Capacitor scaffolding for iOS/Android.
 
-This package performs the next safe split after the initial route/component split.
+## What's in the app
 
-## Structure
+The sidebar switches between three modes.
 
-```txt
-app/page.js
-components/TempoApp.jsx
-components/auth/LoginScreen.jsx
-components/calendar/CalendarViews.jsx
-components/bloom/BloomRoom.jsx
-components/tasks/Tasks.jsx
-lib/tempo/core.js
-lib/tempo/schema.js
-styles/tempoStyles.js
-docs/tempo_pre_split_test_checklist.md
-supabase/memory_images_storage_setup.sql
-```
+**Schedule**
+- **Today**: greeting, mood/energy check-in, Top 3 tasks, today's calendar, a daily affirmation and a Plan Today shortcut.
+- **Calendar**: Day / Week / Month views, multiple colour-coded calendars, recurring events with single-occurrence edits, drag to reschedule, conflict warnings, day templates, search (`/` or ⌘K) and keyboard shortcuts (`?`).
+- **Tasks**: day, week and month tasks with priority, category, duration and recurrence. Unfinished tasks can be carried over.
+- **Plan Today**: fits open tasks into free time between your work hours, around events and meal breaks, and adapts to your energy check-in.
+- **Rhythm Stats**: streaks and task/calendar insights.
 
-## What changed
+**Budget**: Home, Accounts, Transactions, Budget buckets and Settings.
 
-- Main orchestration/state remains in `components/TempoApp.jsx`.
-- Constants, helpers, recurrence, storage, auth hook, date helpers, persistence, encryption, Journal helpers, and gamification calculations moved to `lib/tempo/core.js`.
-- Calendar views moved to `components/calendar/CalendarViews.jsx`.
-- Task board/modals moved to `components/tasks/Tasks.jsx`.
-- Bloom Room cards moved to `components/bloom/BloomRoom.jsx`.
-- Login screen moved to `components/auth/LoginScreen.jsx`.
-- Large CSS function moved to `styles/tempoStyles.js`.
+**Overall**: a combined summary of budget and schedule.
 
-This split is conservative: Journal screens, settings, modals, sync queue, and root state orchestration remain in `TempoApp.jsx` to avoid breaking cross-feature state.
+Tempo has no reminders or notifications, no Google Calendar connection and no assistant. These were removed in November 2026 (see [docs/legacy_feature_status.md](docs/legacy_feature_status.md)).
 
-## Next recommended split
+## How it works
 
-After testing this package, split in this order:
+- `app/page.js` renders `components/TempoApp.jsx`, which owns app state and page routing. Feature UIs live in `components/<feature>/`.
+- Shared logic (dates, recurrence, task periods, categories, sync merge, migrations, encryption) lives in `lib/tempo/core.js`, with helpers in `lib/tempo/` and `utils/`.
+- **Storage**: every change is saved to `localStorage` under a per-user key, then queued to Supabase (`hooks/useTempoCloudSync.js`).
+- **Cloud sync**: one row per user in `public.user_data` (`events`, `tasks`, `settings` JSON), protected by row-level security. Other devices pick up changes through Supabase Realtime and on focus/online. Conflicts are merged per record by `updatedAt`, with delete tombstones kept for 90 days.
+- There are no server API routes. The browser talks to Supabase directly with the public anon key.
 
-1. Journal screen and memory storage service.
-2. Event/Search/Shortcut modals.
-3. Settings panel.
-4. Sync/auth hooks.
-5. Final utility cleanup into date/recurrence/gamification/storage modules.
+## Setup
 
-## Added after split
+Requirements: Node 24 and npm 11.
 
-- Fixed mobile Journal entry backgrounds so selected page backgrounds remain visible on mobile.
-- Added Web Push scaffolding for closed-app notifications:
-  - `public/tempo-sw.js`
-  - `app/api/push/subscribe/route.js`
-  - `app/api/push/send/route.js`
-  - `supabase/push_subscriptions_setup.sql`
-- Added Capacitor wrapper scaffolding:
-  - `capacitor.config.ts`
-  - `native/README.md`
-- Added conservative cross-device merge helpers for events, tasks, Journal entries, activities, templates and tags.
-- Added drag reordering for Journal activities.
-- Added sticker drag-positioning inside scrapbook sticker blocks.
-- Added Phase 6 Habits foundation: habit creation, daily check-offs, weekly grid, streaks, reminders, Today dashboard cards, and sync-safe habit tombstones.
-- Added Phase 7 Habit Templates: starter habit templates, template filters, direct add, customize before saving, and safe duplicate-copy naming.
+1. Create a Supabase project and run these files once in the SQL Editor:
+   - `supabase/user_data_setup.sql`, then enable Realtime for `public.user_data`
+   - `supabase/production_safety_hardening.sql`
+   - `supabase/memory_images_storage_setup.sql` (storage bucket used by archived Journal data)
+2. Create `.env.local`:
+   ```txt
+   NEXT_PUBLIC_SUPABASE_URL=
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=
+   ```
+3. Install and run:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-## External setup for closed-app push
+Deploys go to Vercel (`vercel.json`) with the same two environment variables.
 
-Closed-app push needs more than frontend code. Set these environment variables:
+### Upgrading an existing deployment
 
-```txt
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:you@example.com
-SUPABASE_SERVICE_ROLE_KEY=
-TEMPO_PUSH_SECRET=
-```
+If your deployment used Google Calendar or push reminders before they were removed:
+- Revoke Tempo in your Google Account (Security → Third-party apps with account access).
+- Once you no longer need it, run `supabase/remove_google_calendar_and_push_tables.sql`. It drops the token, sync-state, push-subscription and reminder-log tables, and leaves `user_data` alone.
+- Delete these now-unused Vercel environment variables: `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_OAUTH_STATE_SECRET`, `GOOGLE_WEBHOOK_TOKEN`, `TEMPO_GOOGLE_WEBHOOK_TOKEN`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `TEMPO_PUSH_SECRET`, `CRON_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `REQUIRE_UPSTASH_RATE_LIMIT`, `TEMPO_DEFAULT_TIMEZONE`.
+- Delete the GitHub repository secrets `TEMPO_APP_URL` and `CRON_SECRET`.
 
-Install dependencies from `package.json`, then run the SQL in:
+## Scripts
 
-```txt
-supabase/push_subscriptions_setup.sql
-```
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm test` | Run the test suite (`tests/*.test.mjs`, Node's built-in runner) |
+| `npm run lint` | ESLint |
+| `npm run validate:release` | Release safety checks (`scripts/validate-release.mjs`) |
+| `npm run check` | Validate, test and lint |
+| `npm run build` | Production build (first removes legacy files) |
 
-Your scheduler/cron can call:
+GitHub Actions (`.github/workflows/tempo-ci.yml`) runs validation, tests, lint and build on every push and pull request.
 
-```txt
-POST /api/push/send
-Header: x-tempo-push-secret: TEMPO_PUSH_SECRET
-Body: { "userId":"...", "title":"Tempo reminder 🌸", "body":"Your event starts soon.", "url":"/" }
-```
+## Native wrapper
 
-For a native wrapper, start with the PWA/web app, then use the Capacitor notes in `native/README.md`.
+`capacitor.config.ts` and [native/README.md](native/README.md) describe wrapping Tempo for iOS/Android.
 
-## Automatic reminder checker
+## History
 
-This package includes the reminder route:
-
-```txt
-GET /api/push/reminders
-```
-
-Vercel Hobby accounts cannot run frequent cron jobs, so `vercel.json` intentionally does **not** schedule this route. Use GitHub Actions or another external cron service for frequent reminder checks. See:
-
-```txt
-docs/external_cron_setup.md
-```
-
-Required additional environment variable:
-
-```txt
-CRON_SECRET=your_long_random_secret
-```
-
-External cron should call the route with:
-
-```txt
-Authorization: Bearer <CRON_SECRET>
-```
-
-Run this Supabase SQL once:
-
-```txt
-supabase/push_reminder_log_setup.sql
-```
-
-Manual test after deployment:
-
-```bash
-curl "https://YOUR-APP.vercel.app/api/push/reminders?dryRun=1" \
-  -H "Authorization: Bearer YOUR_CRON_SECRET"
-```
-
-Real test:
-
-```bash
-curl "https://YOUR-APP.vercel.app/api/push/reminders" \
-  -H "Authorization: Bearer YOUR_CRON_SECRET"
-```
-
-Notes:
-- Event reminders are sent around 10 minutes before timed events.
-- All-day events are skipped.
-- Day task reminders are sent around the user's work-start hour, defaulting to 9am.
-- Week task reminders are sent Monday morning.
-- Month task reminders are sent on the 1st morning.
-- Duplicate reminders are prevented using `push_reminder_log`.
-- Invalid/expired push subscriptions are cleaned automatically.
-
-
-## Tempo rebrand Phase 2
-
-This build starts the daily-rhythm rebrand. Navigation now centers on Today, Calendar, Tasks, Rituals, Habits and Journal, with Planning and Personal sections for Plan Today, Tomorrow Reset, Weekly Reset, Bloom Room, Affirmations, Rhythm Stats and Settings. Rituals, Habits, Weekly Reset and Affirmations are placeholder pages in this phase; their data models and full functionality come later.
-
-## Tempo rebrand Phase 3
-
-This build completes the terminology rebrand foundation.
-
-Canonical category IDs are now:
-
-```txt
-important
-main
-light
-meeting
-personal
-wellness
-```
-
-Legacy category IDs are migrated on load and during sync merge:
-
-```txt
-deep -> important
-boss -> main
-admin -> light
-health -> wellness
-```
-
-This keeps existing user events/tasks safe while moving the app to the softer daily-rhythm language.
-
-
-## Phase 4: Rituals Foundation
-
-Tempo now includes Rituals as the soft routine layer for Morning Reset, Night Wind Down, and other repeatable checklist routines. Rituals are stored in Supabase under user settings and include completion history, repeat days, reminders, and sync-safe deletion tombstones.
-
-## Phase 5: Ritual Templates
-
-Tempo now includes a Ritual Template Library inside the Rituals page. Users can start from ready-made templates such as Morning Reset, Night Wind Down, Sunday Reset, Workday Start, Study Reset, Room Reset, Digital Declutter, Weekly Planning, Meal Prep Reset, and Clean Desk Reset.
-
-Templates are not stored as user records until the user chooses them. Users can either add a template immediately or customize it first in the ritual editor. Adding a template always creates a new ritual with a fresh ID, so existing rituals are not overwritten.
-
-## Phase 8: Today Dashboard Revamp
-
-Today is now the main daily rhythm dashboard. It includes a greeting hero, check-in card, rhythm summary strip, Top 3 tasks, today's calendar preview, today's rituals, today's habits, a journal prompt, and Tomorrow Reset shortcut. The dashboard uses today's expanded events directly so it is accurate even when the calendar view is on another week or month.
+Tempo was built in numbered phases. The `PHASE_*.md` files and `docs/phase*` notes are a build log and describe features that may no longer exist. [docs/legacy_feature_status.md](docs/legacy_feature_status.md) lists what is active, retired and removed. Retired data (habits, journal, resets) stays in `user_data` until a migration is approved. Do not delete those fields.

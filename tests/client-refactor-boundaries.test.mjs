@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanCalendarColor, calendarEventReadOnly, calendarEventSource } from '../lib/tempo/client/calendarPresentation.js';
-import { countImportedGoogleEvents, deriveGoogleCalendarPayloadState, formatGoogleImportToast, googleDisconnectWarning, mergeGoogleCalendarsLocal } from '../lib/tempo/client/googleCalendarClient.js';
+import { cleanCalendarColor, calendarEventReadOnly, calendarEventSource, isImportedGoogleEvent, isImportedGoogleCalendar } from '../lib/tempo/client/calendarPresentation.js';
 import { makeScrapbookItem, normalizeScrapbookBlocksForSave, scrapbookItemLayout, scrapbookItemType } from '../lib/tempo/client/journalDecorationModel.js';
 
 test('calendar presentation helpers preserve Tempo/Google/Habit source behavior', () => {
@@ -15,34 +14,13 @@ test('calendar presentation helpers preserve Tempo/Google/Habit source behavior'
   assert.equal(calendarEventReadOnly({ source: 'tempo' }), false);
 });
 
-test('Google client helpers merge Google calendars without deleting Tempo calendars', () => {
-  const merged = mergeGoogleCalendarsLocal(
-    [{ id: 'google-work', source: 'google', name: 'Work' }],
-    [{ id: 'home', source: 'tempo', name: 'Home' }, { id: 'old-google', source: 'google', name: 'Old' }]
-  );
-  assert.deepEqual(merged.map(cal => cal.id), ['home', 'google-work']);
-});
-
-test('Google payload derivation exposes state changes without mutating React state directly', () => {
-  const result = deriveGoogleCalendarPayloadState({
-    ok: true,
-    connected: true,
-    calendars: [{ id: 'google-main', source: 'google', name: 'Main' }],
-    hiddenCals: ['google-private'],
-    events: [{ id: 'g1', title: 'Google event', source: 'google', start: '2026-05-25T01:00:00.000Z', end: '2026-05-25T02:00:00.000Z' }],
-    googleCalendarSync: { lastImportAt: '2026-05-25T00:00:00.000Z' },
-  }, { calendars: [{ id: 'tempo', source: 'tempo', name: 'Tempo' }], prevGoogleSync: { connected: false } });
-  assert.equal(result.shouldUpdateCalendars, true);
-  assert.equal(result.googleSync.connected, true);
-  assert.deepEqual(result.hiddenCals, ['google-private']);
-  assert.equal(result.events[0].start instanceof Date, true);
-  assert.deepEqual(result.nextCalendars.map(cal => cal.id), ['tempo', 'google-main']);
-});
-
-test('Google import and disconnect text remains stable', () => {
-  assert.equal(countImportedGoogleEvents([{ source: 'google' }, { externalSource: 'google_calendar' }, { source: 'tempo' }]), 2);
-  assert.match(formatGoogleImportToast({ imported: 1, skipped: 2 }), /Imported 1 Google event · skipped 2 unsupported/);
-  assert.match(googleDisconnectWarning(2), /This removes 2 imported Google reference events/);
+test('leftover Google imports are recognised so they can be hidden', () => {
+  assert.equal(isImportedGoogleEvent({ source: 'google' }), true);
+  assert.equal(isImportedGoogleEvent({ externalSource: 'google_calendar' }), true);
+  assert.equal(isImportedGoogleEvent({ source: 'tempo' }), false);
+  assert.equal(isImportedGoogleEvent(null), false);
+  assert.equal(isImportedGoogleCalendar({ source: 'google' }), true);
+  assert.equal(isImportedGoogleCalendar({ source: 'tempo' }), false);
 });
 
 test('journal decoration helpers normalize stickers and legacy text blocks safely', () => {
