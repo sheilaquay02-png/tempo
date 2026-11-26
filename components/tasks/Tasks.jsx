@@ -1,24 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, EVENT_DRAG_HOLD_MS, EVENT_DRAG_MOVE_CANCEL_PX, CALENDARS, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, dateRangeKeys, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, _displayTimezone, _workStart } = Core;
 
-
-function TaskReminderFields({ value, onChange, compact = false }) {
-  const reminder = Core.normalizeTaskReminder(value);
-  const presetId = Core.taskReminderPresetId(reminder);
-  const setPreset = id => {
-    const preset = Core.TASK_REMINDER_PRESETS.find(p => p.id === id);
-    onChange(Core.normalizeTaskReminder(id === "custom" ? { type: "custom", time: reminder.time || preset?.time || "09:00" } : { type: id, time: preset?.time || "" }));
-  };
-  return (
-    <>
-      <select className={compact ? "tf-select" : "modal-select"} value={presetId} onChange={e => setPreset(e.target.value)}>
-        {Core.TASK_REMINDER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-      </select>
-      {presetId === "custom" && <input type="time" className={compact ? "tf-select" : "modal-select modal-time"} value={reminder.time || "09:00"} onChange={e => onChange({ type: "custom", time: e.target.value })} />}
-    </>
-  );
-}
 
 function TaskRecurrenceSelect({ value, onChange, anchorDate = TODAY, compact = false }) {
   const preset = Core.recurrencePresetId(value);
@@ -128,7 +111,6 @@ export function TaskItem({ task, onToggle, categories, onEdit, onScheduleTask })
           <span style={{ color: cat?.color }}>{cat?.icon} {cat?.label}</span>
           <span>{formatTaskDuration(task.duration)}</span>
           {task.recurrence && <span>↻ {Core.formatRecurrence(task.recurrence)}</span>}
-          {Core.taskReminderPresetId(task.reminder) !== "none" && <span>🔔 {Core.formatTaskReminder(task.reminder)}</span>}
           {task.scheduledStart && <span>📅 {fmt(new Date(task.scheduledStart))}</span>}
           {pri && <span style={{ color: pri.color }}>{pri.icon} {pri.label}</span>}
           {task.deadline && <span className="deadline">due {task.deadline.slice(5)}</span>}
@@ -280,9 +262,6 @@ export function TaskPanel({ tasks, categories, onToggle, onAdd, onEdit, onSchedu
           <div className="tf-row">
             <TaskRecurrenceSelect compact value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} />
           </div>
-          <div className="tf-row">
-            <TaskReminderFields compact value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} />
-          </div>
           <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
           <div className="tf-actions"><button className="tf-cancel" onClick={() => setAdding(false)}>Cancel</button><button className="tf-save" onClick={handleAdd}>Add task</button></div>
         </div>
@@ -344,7 +323,6 @@ export function TaskModal({ task, categories, onClose, onSave, onDelete }) {
           <div className="modal-row"><label>Duration</label><input type="number" className="modal-select modal-time" min={1} value={durationDraft.amount} onChange={e => setDurationDraft(d => ({ ...d, amount: Number(e.target.value) || 1 }))}/><select className="modal-select" value={durationDraft.unit} onChange={e => setDurationDraft(d => ({ ...d, unit: e.target.value }))}><option value="minutes">minutes</option><option value="hours">hours</option><option value="days">days</option></select></div>
           <div className="modal-row"><label>Deadline</label><input type="date" className="modal-select" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}/></div>
           <div className="modal-row"><label>Recurrence</label><TaskRecurrenceSelect value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} /></div>
-          <div className="modal-row"><label>Reminder</label><TaskReminderFields value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} /></div>
           <div className="modal-row"><label>Done</label><input type="checkbox" checked={Boolean(form.done)} onChange={e => setForm(f => ({ ...f, done: e.target.checked }))}/></div>
           <div className="modal-row modal-col"><label>Notes</label><textarea className="modal-textarea" rows={3} value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/></div>
         </div>
@@ -414,9 +392,6 @@ export function TaskPeriodCard({ cardScope, tasks, categories, periodDate, setPe
           </div>
           <div className="tf-row">
             <TaskRecurrenceSelect compact value={form.recurrence} anchorDate={periodDate} onChange={recurrence => setForm(f => ({ ...f, recurrence }))} />
-          </div>
-          <div className="tf-row">
-            <TaskReminderFields compact value={form.reminder} onChange={reminder => setForm(f => ({ ...f, reminder }))} />
           </div>
           <textarea className="tf-input tf-notes" placeholder="Notes (optional)..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
           <div className="tf-actions"><button className="tf-cancel" onClick={() => setAdding(false)}>Cancel</button><button className="tf-save" onClick={addCardTask}>Add task</button></div>

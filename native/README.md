@@ -9,4 +9,4 @@ Recommended production route:
 4. Run `npm run native:add:ios` and/or `npm run native:add:android`.
 5. Run `npm run native:sync`.
 
-For push notifications in a native wrapper, use Capacitor Push Notifications instead of only Web Push for better reliability.
+Tempo currently has no push notifications. If reminders are added back for a native build, prefer Capacitor Push Notifications over Web Push.

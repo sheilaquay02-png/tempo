@@ -1,56 +1,22 @@
 import { useState } from "react";
 import * as Core from "../../lib/tempo/core";
 import { normalizeMealBreaks, normalizePlanningRules } from "../../utils/planningUtils";
-import { disableTempoPushNotifications } from "../auth/LoginScreen";
 
 const {
   FONT_SIZES,
   THEMES,
   createCategoryId,
   uid,
-  normalizeNotificationPreferences,
   normalizeSyncConflictLog,
 } = Core;
 
-export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, notifs, setNotifs, pushEnabled, setPushEnabled, notificationPreferences, setNotificationPreferences, onEnableClosedPush, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
+export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDarkMode, theme, setTheme, workStart, setWorkStart, workEnd, setWorkEnd, mealBreaks, setMealBreaks, planningRules, setPlanningRules, timezone, setTimezone, categories, setCategories, user, onSignOut, gameStats, onForceSync, syncStatus, syncDebug, onRestartOnboarding }) {
   const [catDraft, setCatDraft] = useState({ icon: "✨", label: "", color: "#FF7BAC" });
   const [syncDebugOpen, setSyncDebugOpen] = useState(false);
-  const reminderPrefs = normalizeNotificationPreferences(notificationPreferences);
-  const updateReminderPrefs = patch => setNotificationPreferences?.(normalizeNotificationPreferences({ ...reminderPrefs, ...patch }));
-  const updateReminderNested = (key, patch) => updateReminderPrefs({ [key]: { ...(reminderPrefs[key] || {}), ...patch } });
-  const notificationSupported = typeof window !== "undefined" && "Notification" in window;
-  const pushSupported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && notificationSupported;
-  const notificationPermission = notificationSupported ? Notification.permission : "unsupported";
   const debug = syncDebug || {};
   const datasetCounts = debug.datasetCounts || {};
   const recentConflicts = normalizeSyncConflictLog(debug.syncConflictLog || []).slice(0, 5);
   const tombstoneCount = Object.values(debug.deletedRecords || {}).reduce((sum, bucket) => sum + Object.keys(bucket || {}).length, 0);
-  async function toggleNotifs() {
-    if (!notificationSupported) {
-      window.alert("This browser does not support notifications. Tempo can still show reminders while the app is open, but browser alerts cannot be enabled here.");
-      return;
-    }
-    if (!notifs && Notification.permission === "default") await Notification.requestPermission();
-    if (!notifs && Notification.permission === "denied") {
-      window.alert("Notifications are blocked for this browser. Enable them in browser/site settings, then come back to Tempo.");
-      return;
-    }
-    setNotifs(!notifs);
-  }
-  async function toggleClosedPush() {
-    if (!pushEnabled) {
-      if (!pushSupported) {
-        window.alert("Closed-app push notifications are not supported on this browser/device. Tempo reminders still work while the app is open.");
-        return;
-      }
-      const ok = await onEnableClosedPush?.();
-      if (ok) setPushEnabled(true);
-    } else {
-      if (!window.confirm("Turn off closed-app push notifications on this device? In-app reminders will stay available.")) return;
-      await disableTempoPushNotifications();
-      setPushEnabled(false);
-    }
-  }
   function addCategory() {
     if (!catDraft.label.trim()) return;
     const id = createCategoryId(catDraft.label);
@@ -219,38 +185,6 @@ export function SettingsPanel({ onClose, fontSize, setFontSize, darkMode, setDar
                 <input type="color" className="tf-input" style={{width:48,flex:"0 0 48px",padding:4}} value={catDraft.color} onChange={e => setCatDraft(d => ({ ...d, color: e.target.value }))}/>
                 <button className="tf-save" onClick={addCategory}>Add</button>
               </div>
-            </div>
-          </div>
-          {/* Notifications */}
-          <div className="settings-section">
-            <div className="settings-section-label">In-app notifications</div>
-            <div className="settings-section-desc">Gentle reminder banners while Tempo is open in this browser.</div>
-            <div className={`notification-support-note ${notificationSupported ? "supported" : "unsupported"}`}>{notificationSupported ? `Browser permission: ${notificationPermission}` : "This browser does not support notification permissions."}</div>
-            <div className="toggle-row"><span>Off</span><button className={`toggle ${notifs ? "on" : ""}`} onClick={toggleNotifs} disabled={!notificationSupported}><div className="toggle-thumb" /></button><span>On</span></div>
-          </div>
-          <div className="settings-section">
-            <div className="settings-section-label">Closed-app push notifications</div>
-            <div className="settings-section-desc">Lets this device receive gentle reminders even when Tempo is closed. Requires browser push support and your VAPID setup.</div>
-            <div className={`notification-support-note ${pushSupported ? "supported" : "unsupported"}`}>{pushSupported ? "Supported on this device/browser." : "Not supported on this device/browser. Keep Tempo open for in-app reminders."}</div>
-            <div className="toggle-row"><span>Off</span><button className={`toggle ${pushEnabled ? "on" : ""}`} onClick={toggleClosedPush} disabled={!pushEnabled && !pushSupported}><div className="toggle-thumb" /></button><span>On</span></div>
-          </div>
-          <div className="settings-section">
-            <div className="settings-section-label">Reminder categories</div>
-            <div className="settings-section-desc">Choose which reminders Tempo can send. Event and task reminders follow the times you set on each item.</div>
-            <div className="notification-pref-grid">
-              {[
-                ["events", "🗓️", "Events", "Calendar reminders"],
-                ["tasks", "✅", "Tasks", "Task reminders"],
-              ].map(([key, emoji, label, desc]) => (
-                <label key={key} className="notification-pref-card">
-                  <input type="checkbox" checked={Boolean(reminderPrefs[key])} onChange={e => updateReminderPrefs({ [key]: e.target.checked })} />
-                  <span className="notification-pref-emoji">{emoji}</span>
-                  <span><strong>{label}</strong><small>{desc}</small></span>
-                </label>
-              ))}
-            </div>
-            <div className="notification-schedule-list">
-              <label className="notification-schedule-row"><span><strong>💌 Daily affirmation</strong><small>Time for one grounded thought.</small></span><input type="checkbox" checked={reminderPrefs.affirmations.enabled} onChange={e => updateReminderNested("affirmations", { enabled: e.target.checked })} /><input type="time" className="tf-input meal-time" value={reminderPrefs.affirmations.time} onChange={e => updateReminderNested("affirmations", { time: e.target.value })} /></label>
             </div>
           </div>
         </div>

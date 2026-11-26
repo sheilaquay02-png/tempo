@@ -108,7 +108,7 @@ export function MiniTempoPanel({
           <div className="mini-section-head">
             <button type="button" className="mini-collapse-toggle" aria-expanded={expanded.tasks}
               aria-controls="mini-tasks-content" onClick={() => toggleCard("tasks")}>
-              <strong>Today's tasks <span className="mini-task-count">({tasks.filter(task => task.done).length}/{tasks.length})</span></strong>
+              <strong>{"Today's tasks"} <span className="mini-task-count">({tasks.filter(task => task.done).length}/{tasks.length})</span></strong>
               <span aria-hidden="true">{expanded.tasks ? "⌃" : "⌄"}</span>
             </button>
             <button type="button" onClick={() => openFull("/?page=tasks")}>View all</button>

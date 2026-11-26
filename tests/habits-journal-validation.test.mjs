@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { incrementHabitCompletion, habitIsCompleteForDate } from '../lib/tempo/habits.js';
 import { encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, isEncryptedMemoryJournal } from '../lib/tempo/client/journalMemory.js';
-import { sanitizeUserDataPayload, sanitizeCalendarPreferencePayload, normalizeUrlPath } from '../lib/tempo/validation.js';
+import { sanitizeUserDataPayload, normalizeUrlPath } from '../lib/tempo/validation.js';
 
 test('habit completion increments by one and caps at target', () => {
   const habit = { id: 'water', targetCount: 2 };
@@ -37,6 +37,4 @@ test('validation helpers preserve safe data and reject unsafe shapes', () => {
   assert.equal(clean.tasks[0].title, 'Task');
   assert.equal(Object.prototype.polluted, undefined);
   assert.equal(normalizeUrlPath('https://evil.example/path', '/'), '/');
-  const pref = sanitizeCalendarPreferencePayload({ calendarId: 'google-primary', patch: { visible: false, syncEnabled: true, ignored: 'x' } });
-  assert.deepEqual(pref.patch, { visible: false, syncEnabled: true });
 });

@@ -70,7 +70,6 @@ export function AppSidebar({
 }) {
   const calendarSources = [
     { id: "tempo", label: "Tempo", icon: "T" },
-    ...(calendars.some(c => c.source === "google") ? [{ id: "google", label: "Google", icon: "G" }] : []),
   ];
   const budgetNavItems = [
     { id: "home", label: "Home", icon: "🏠" },
@@ -139,7 +138,7 @@ export function AppSidebar({
                 </button>
                 <span className="cal-name" onClick={() => onToggleCalendarVisibility(c.id)}>{c.id === "work" && !c.name ? (user?.email ?? c.name) : c.name}</span>
                 <button type="button" className="cal-action-btn" onClick={() => onEditCalendar(c)} title="Rename/edit calendar">✎</button>
-                {c.source !== "google" && <button type="button" className="cal-action-btn" onClick={() => onRequestRemoveCalendar(c)} title="Remove calendar">×</button>}
+                <button type="button" className="cal-action-btn" onClick={() => onRequestRemoveCalendar(c)} title="Remove calendar">×</button>
               </div>
             );
           })}

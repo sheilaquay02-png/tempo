@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, parseTimeStr, parseTimeRange, parseDur, parseDateRef, parseDateMention, parseDayWindow, fitFreeSlot, eventFromWindow, cleanTitle, inferCategory, buildGreeting, processMessage, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, CHAT_REPLY_DELAY_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { tempoLegacyInlineCSS } from "../styles/tempoLegacyInlineStyles";
 import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopupSafety";
@@ -52,7 +52,7 @@ import {
   normalizeDeletedRecords,
   normalizeSettingsUpdatedAt,
 } from "../utils/deletedRecordsUtils";
-import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration, registerTempoPushNotifications } from "./auth/LoginScreen";
+import { LoginScreen, useAuth, getSupabase, loadFromCloud, saveToCloud, saveToCloudStrict, uploadMemoryImageToStorage, uploadMemoryDataUrlToStorage, deleteMemoryStoragePaths, deleteMemoryStoragePathsDetailed, signMemoryImagePath, allMemoryPhotoStoragePaths, memoryPhotoNeedsStorageMigration } from "./auth/LoginScreen";
 import { DayView, WeekView, MonthEventRow } from "./calendar/CalendarViews";
 import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./calendar/CalendarModals";
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
@@ -62,7 +62,6 @@ import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, Personali
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
 import { activeTempoCalendars, activeTempoEvents, isGoogleEventReference } from "../utils/retiredGoogleCalendar";
-import { enableClosedPushNotificationsForUser } from "../lib/tempo/client/pushNotifications";
 import { useTempoUserKey } from "../hooks/useTempoPersistence";
 import { useTempoCloudSync, useTempoRealtimeSync } from "../hooks/useTempoCloudSync";
 import {
@@ -450,9 +449,18 @@ export default function App({ windowMode = "full" }) {
     };
   }, []);
 
+  // Closed-app push reminders were removed. Browsers that enabled them still have
+  // the old Tempo service worker and push subscription installed, so remove both.
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/tempo-sw.js").catch(err => console.warn("Tempo service worker registration failed", err));
+    navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(
+      registrations
+        .filter(reg => [reg.active, reg.waiting, reg.installing].some(worker => worker?.scriptURL?.endsWith("/tempo-sw.js")))
+        .map(async reg => {
+          try { await (await reg.pushManager?.getSubscription?.())?.unsubscribe?.(); } catch {}
+          return reg.unregister();
+        })
+    )).catch(() => {});
   }, []);
 
   // Helper: compute, persist, and return the current streak for a given user key
@@ -1463,38 +1471,6 @@ export default function App({ windowMode = "full" }) {
 
 
 
-  const setNotifs = v => {
-    const n = typeof v === "function" ? v(notifs) : v;
-    setNfRaw(n);
-    persistSettings({ notifs: n });
-  };
-  const setPushEnabled = v => {
-    const n = typeof v === "function" ? v(pushEnabled) : v;
-    setPushEnabledRaw(Boolean(n));
-    persistSettings({ pushEnabled: Boolean(n) });
-  };
-  const setNotificationPreferences = v => {
-    const n = normalizeNotificationPreferences(typeof v === "function" ? v(notificationPreferences) : v);
-    setNotificationPreferencesRaw(n);
-    save(`${uk}_notification_preferences`, n);
-    const nextAffirmationSettings = normalizeAffirmationSettings({
-      ...affirmationSettings,
-      reminderEnabled: Boolean(n.affirmations.enabled),
-      reminderTime: n.affirmations.time || DEFAULT_NOTIFICATION_PREFERENCES.affirmations.time,
-    });
-    setAffirmationSettingsRaw(nextAffirmationSettings);
-    save(`${uk}_affirmation_settings`, nextAffirmationSettings);
-    persistSettings({ notificationPreferences: n, affirmationSettings: nextAffirmationSettings });
-  };
-  async function enableClosedPushNotifications() {
-    return enableClosedPushNotificationsForUser({
-      userId: auth.user?.id,
-      registerTempoPushNotifications,
-      showToast,
-      logger: console,
-    });
-  }
-
   const setTimezone = v => {
     setTzRaw(v);
     persistSettings({ timezone: v });
@@ -1962,7 +1938,7 @@ export default function App({ windowMode = "full" }) {
           readOnly: true,
           source: "habit",
           color: habit.color || null,
-          notes: "Habit reminder shown only inside Tempo. It is not synced to Google Calendar.",
+          notes: "Habit reminder shown only inside Tempo.",
           habitId: habit.id,
         });
       });
@@ -1979,10 +1955,6 @@ export default function App({ windowMode = "full" }) {
   };
 
   const requestRemoveCalendar = cal => {
-    if (cal.source === "google") {
-      setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() });
-      return;
-    }
     setCalendarEditor({ mode: "delete", calendar: cal });
   };
 
@@ -1997,10 +1969,9 @@ export default function App({ windowMode = "full" }) {
     } else {
       persistCalendarConfig(calendars.map(c => {
         if (c.id !== cal.id) return c;
-        const isGoogle = c.source === "google";
         return {
           ...c,
-          name: isGoogle ? c.name : (String(cal.name || "").trim() || c.name),
+          name: String(cal.name || "").trim() || c.name,
           color: cleanCalendarColor(cal.color || c.color),
           updatedAt: now,
         };
@@ -2010,7 +1981,6 @@ export default function App({ windowMode = "full" }) {
   };
 
   const removeCalendar = cal => {
-    if (cal.source === "google") { setToast({ text: "Google calendars can be hidden or managed in Settings", ts: Date.now() }); return; }
     if (activeTempoCalendars(calendars).length <= 1) { setToast({ text: "Keep at least one calendar", ts: Date.now() }); return; }
     const timestamp = new Date().toISOString();
     const remaining = calendars.filter(c => c.id !== cal.id);
@@ -2274,7 +2244,7 @@ export default function App({ windowMode = "full" }) {
   function addTask(task)          { pushUndo(); setTasks(ts => [...ts, touchRecord(withTaskPeriod(task, taskPeriodDate), { createdAt: task.createdAt || new Date().toISOString() })]); }
   function eventConflictsFor(candidate, skipId = null) {
     const skipBase = skipId ? getBaseEventId(skipId) : getBaseEventId(candidate.id);
-    return expandRecurring(events, dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
+    return expandRecurring(activeTempoEvents(events, calendars), dayStart(candidate.start), addDaysSafe(dayStart(candidate.start), 1))
       .filter(e => getBaseEventId(e.id) !== skipBase && eventOccursOnDay(e, candidate.start) && candidate.start < e.end && candidate.end > e.start)
       .slice(0, 4);
   }
@@ -3228,8 +3198,8 @@ export default function App({ windowMode = "full" }) {
       {scheduleTaskTarget && <TaskScheduleModal task={scheduleTaskTarget} workStart={workStart} workEnd={workEnd} onClose={() => setScheduleTaskTarget(null)} onSchedule={(mode) => scheduleTaskIntoCalendar(scheduleTaskTarget, mode)} />}
       {dayPlan && <DailyPlanModal plan={dayPlan} mealBreaks={mealBreaks} planningRules={planningRules} onClose={() => setDayPlan(null)} onApply={applyDayPlan} onRegenerate={regenerateDayPlan} onMoveRemaining={movePlanRemainingToTomorrow} onMoveRemainingToWeek={movePlanRemainingToThisWeek} onSkipLowPriority={skipLowPriorityInDayPlan} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} notificationPreferences={notificationPreferences} />}
-            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} notifs={notifs} setNotifs={setNotifs} pushEnabled={pushEnabled} setPushEnabled={setPushEnabled} notificationPreferences={notificationPreferences} setNotificationPreferences={setNotificationPreferences} onEnableClosedPush={enableClosedPushNotifications} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} onComplete={completeOnboarding} workStart={workStart} workEnd={workEnd} />}
+            {settingsOpen  && <SettingsPanel onClose={() => setSettingsOpen(false)} fontSize={fontSize} setFontSize={setFontSize} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} workStart={workStart} setWorkStart={setWorkStart} workEnd={workEnd} setWorkEnd={setWorkEnd} mealBreaks={mealBreaks} setMealBreaks={setMealBreaks} planningRules={planningRules} setPlanningRules={setPlanningRules} timezone={timezone} setTimezone={setTimezone} categories={categories} setCategories={setCategories} user={auth.user} onSignOut={auth.signOut} gameStats={gameStats} onForceSync={forceSyncNow} syncStatus={syncStatus} syncDebug={syncDebug} onRestartOnboarding={restartOnboarding} />}
       {showTemplates && (
         <div className="modal-overlay" onClick={() => setShowTemplates(false)} role="dialog" aria-modal="true" aria-label="Day templates">
           <div className="templates-panel" onClick={e => e.stopPropagation()}>
@@ -3976,15 +3946,6 @@ body.tempo-modal-locked{touch-action:auto!important;}
 
 
 /* ── Phase 51-70 conservative UX hardening ─────────────────────────────── */
-.google-sync-status-row.loading .google-sync-dot{background:#D8A74D;animation:pulseDot 1.1s ease-in-out infinite;}
-.google-sync-status-row.stale .google-sync-dot{background:#D8A74D;}
-.google-sync-status-row.failed .google-sync-dot,.google-sync-status-row.offline .google-sync-dot{background:#B94D6A;}
-.google-sync-warning,.google-calendar-empty-state,.notification-support-note{margin-top:8px;padding:10px 12px;border-radius:16px;border:1px solid rgba(var(--accent-rgb),.16);background:rgba(var(--accent-rgb),.06);color:var(--text2);font-size:12px;font-weight:800;line-height:1.35;}
-.google-calendar-empty-state{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
-.google-calendar-empty-state strong{color:var(--text);font-size:13px;font-weight:950;}
-.google-calendar-empty-state span{color:var(--text3);font-size:11px;font-weight:800;}
-.notification-support-note.unsupported{border-color:rgba(185,77,106,.22);background:rgba(185,77,106,.08);color:#B94D6A;}
-.notification-support-note.supported{border-color:rgba(112,200,160,.24);background:rgba(112,200,160,.10);}
 @keyframes pulseDot{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.25);opacity:1}}
 @media(max-width:768px){
   :root{--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);}
