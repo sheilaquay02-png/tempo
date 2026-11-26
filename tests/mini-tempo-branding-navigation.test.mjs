@@ -68,5 +68,7 @@ test("Windows taskbar uses the branded app icon and stable application identity"
   assert.match(desktop, /icon:desktopIconPath,/);
   assert.match(desktop, /if \(process\.platform === "win32" && app\.isPackaged\)/);
   assert.match(desktop, /win\.setAppDetails\(\{\s*appId:TASKBAR_APP_ID,\s*appIconPath:process\.execPath,\s*appIconIndex:0/);
-  assert.match(desktop, /tray=new Tray\(trayIconPath\)/);
+  // Windows gets the icon path unchanged; macOS gets a menu-bar-sized copy.
+  assert.match(desktop, /tray=new Tray\(trayImageFor\(trayIconPath\)\)/);
+  assert.match(desktop, /if \(process\.platform !== "darwin"\) return iconPath;/);
 });

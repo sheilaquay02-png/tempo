@@ -7,7 +7,8 @@
       "release/mini-tempo-tasks-calendar-only": false,
       "main": true,
       "feature/retire-google-calendar-integration": false,
-      "feature/mini-tempo-branding-navigation": false
+      "feature/mini-tempo-branding-navigation": false,
+      "mac-desktop-app": false
     }
   }
 }

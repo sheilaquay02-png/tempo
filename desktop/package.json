@@ -1,13 +1,14 @@
 {
-  "name": "tempo-windows-companion",
+  "name": "tempo-desktop-companion",
   "version": "0.1.0",
   "private": true,
-  "description": "Windows desktop shell for Tempo V1",
+  "description": "Windows and macOS desktop shell for Tempo",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "package:windows:qa": "node scripts/package-windows-qa.cjs",
-    "package:windows:personal": "node scripts/package-windows-personal.cjs"
+    "package:windows:personal": "node scripts/package-windows-personal.cjs",
+    "package:mac:personal": "node scripts/package-mac-personal.cjs"
   },
   "devDependencies": {
     "electron": "45.3.3",
