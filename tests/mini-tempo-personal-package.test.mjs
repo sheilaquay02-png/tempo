@@ -37,3 +37,29 @@ test("Personal packaging refuses to run when not explicitly approved",async()=>{
   assert.notEqual(result.status,0);
   assert.match(result.stderr,/Package on the intended Windows PC|TEMPO_PERSONAL_PACKAGE_APPROVED/);
 });
+
+test("Mac personal packaging uses the same HTTPS approval gates and ad-hoc signing",async()=>{
+  const packageConfig=JSON.parse(readFileSync("desktop/package.json","utf8"));
+  assert.equal(packageConfig.scripts["package:mac:personal"],"node scripts/package-mac-personal.cjs");
+  const script=readFileSync("desktop/scripts/package-mac-personal.cjs","utf8");
+  execFileSync(process.execPath,["--check","desktop/scripts/package-mac-personal.cjs"]);
+  assert.ok(script.includes('const { packager } = require("@electron/packager");'));
+  assert.match(script,/TEMPO_PERSONAL_PACKAGE_APPROVED/);
+  assert.match(script,/TEMPO_PERSONAL_ORIGIN/);
+  assert.match(script,/origin\.protocol !== "https:"/);
+  assert.match(script,/personal-entry\.cjs/);
+  assert.match(script,/"codesign", \["--force", "--deep", "--sign", "-"/);
+  assert.doesNotMatch(script,/supabase\.co|SERVICE_ROLE_KEY|NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  const {spawnSync}=await import("node:child_process");
+  const result=spawnSync(process.execPath,["desktop/scripts/package-mac-personal.cjs"],
+    {env:{...process.env,TEMPO_PERSONAL_PACKAGE_APPROVED:"",TEMPO_PERSONAL_ORIGIN:""},encoding:"utf8"});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/Package the Mac app on a Mac|TEMPO_PERSONAL_PACKAGE_APPROVED/);
+});
+
+test("macOS menu-bar icon is resized instead of using the full app icon",()=>{
+  const main=readFileSync("desktop/main.cjs","utf8");
+  assert.match(main,/function trayImageFor\(iconPath\)/);
+  assert.match(main,/resize\(\{ width: 18, height: 18/);
+  assert.match(main,/new Tray\(trayImageFor\(trayIconPath\)\)/);
+});

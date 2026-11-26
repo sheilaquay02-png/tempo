@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, session, nativeImage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const {pathToFileURL} = require("node:url");
@@ -44,6 +44,16 @@ function safeBounds(bounds, fallback) {
   const displays = screen.getAllDisplays();
   const inside = displays.some(({workArea}) => wanted.x+80 >= workArea.x && wanted.y+60 >= workArea.y && wanted.x < workArea.x+workArea.width && wanted.y < workArea.y+workArea.height);
   return inside ? wanted : fallback;
+}
+// macOS menu-bar icons are about 18pt tall; a full-size app icon fills the bar.
+// Provide 1x and 2x (Retina) versions so it stays sharp.
+function trayImageFor(iconPath) {
+  if (process.platform !== "darwin") return iconPath;
+  const source = nativeImage.createFromPath(iconPath);
+  if (source.isEmpty()) return iconPath;
+  const small = source.resize({ width: 18, height: 18, quality: "best" });
+  small.addRepresentation({ scaleFactor: 2, buffer: source.resize({ width: 36, height: 36, quality: "best" }).toPNG() });
+  return small;
 }
 function appPath(route) {
   // Internal navigation only; callers cannot navigate windows to another origin.
@@ -203,7 +213,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     const bundledIcon=path.join(__dirname,"public","icon-192.png");
     const trayIconPath=typeof fs.existsSync==="function" && fs.existsSync(bundledIcon)
       ? bundledIcon : path.join(__dirname,"..","public","icon-192.png");
-    tray=new Tray(trayIconPath);
+    tray=new Tray(trayImageFor(trayIconPath));
+    if (process.platform === "darwin" && app.dock && !app.isPackaged) app.dock.setIcon(desktopIconPath);
     tray.setToolTip("Tempo");
     tray.setContextMenu(Menu.buildFromTemplate([
       {label:"Open Mini Tempo",click:()=>openMini()},

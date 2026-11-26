@@ -18,7 +18,7 @@ The sidebar switches between three modes.
 
 **Mini Tempo** (`/mini`): a compact window with today's weather, today's tasks (quick add, complete, undo), the next event and the daily affirmation. Each card can be collapsed.
 
-**Windows companion** (`desktop/`): an Electron shell that shows Mini Tempo and can open the full app. See [desktop/README.md](desktop/README.md). It is not released yet.
+**Desktop app** (`desktop/`): an Electron shell for macOS and Windows that shows Mini Tempo in a small window, adds a menu-bar/tray icon, and can open the full app. The Mac app is built and installed with one command on a Mac; the Windows build is packaged on a Windows PC. See [desktop/README.md](desktop/README.md).
 
 Tempo has no reminders or notifications, no Google Calendar connection and no assistant. These were removed in November 2026 (see [docs/legacy_feature_status.md](docs/legacy_feature_status.md)).
 
