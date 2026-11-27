@@ -19,6 +19,8 @@ export const miniTempoCSS = `
 .mini-tempo-brand strong{font-size:15px;line-height:1.15;color:var(--accent);font-weight:900}
 .mini-tempo-brand small{font-size:10px;line-height:1.35;color:var(--text2);font-weight:700}
 .mini-tempo-title-actions{display:flex;align-items:center;gap:3px;-webkit-app-region:no-drag}
+.mini-room-view{margin:2px 0 12px;border-radius:14px;overflow:hidden;background:transparent}
+.mini-tempo-title-actions button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .mini-tempo-title-actions button{
   width:30px;height:30px;border:1px solid transparent;border-radius:10px;background:transparent;
   color:var(--text2);font-family:var(--font);font-size:14px;font-weight:900;cursor:pointer;
