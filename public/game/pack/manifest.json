@@ -1,0 +1,874 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 224,
+    "height": 224,
+    "anchor": [
+      112,
+      208
+    ],
+    "anchor_note": "bottom edge, exclusive; visible pixels end at y=207"
+  },
+  "sprites": [
+    {
+      "character": "player",
+      "pose": "front",
+      "file": "player/front.png",
+      "width": 139,
+      "height": 179,
+      "source_crop": [
+        276,
+        115,
+        431,
+        339
+      ],
+      "anchor": [
+        69,
+        178
+      ],
+      "aligned_file": "aligned/player/front.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "left",
+      "file": "player/left.png",
+      "width": 114,
+      "height": 175,
+      "source_crop": [
+        431,
+        115,
+        577,
+        339
+      ],
+      "anchor": [
+        57,
+        174
+      ],
+      "aligned_file": "aligned/player/left.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "left_alt",
+      "file": "player/left_alt.png",
+      "width": 116,
+      "height": 176,
+      "source_crop": [
+        577,
+        115,
+        730,
+        339
+      ],
+      "anchor": [
+        58,
+        175
+      ],
+      "aligned_file": "aligned/player/left_alt.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "back",
+      "file": "player/back.png",
+      "width": 130,
+      "height": 177,
+      "source_crop": [
+        730,
+        115,
+        882,
+        339
+      ],
+      "anchor": [
+        65,
+        176
+      ],
+      "aligned_file": "aligned/player/back.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "sit",
+      "file": "player/sit.png",
+      "width": 130,
+      "height": 162,
+      "source_crop": [
+        882,
+        115,
+        1041,
+        339
+      ],
+      "anchor": [
+        65,
+        161
+      ],
+      "aligned_file": "aligned/player/sit.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "happy",
+      "file": "player/happy.png",
+      "width": 137,
+      "height": 175,
+      "source_crop": [
+        1041,
+        115,
+        1210,
+        339
+      ],
+      "anchor": [
+        68,
+        174
+      ],
+      "aligned_file": "aligned/player/happy.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "sleep",
+      "file": "player/sleep.png",
+      "width": 187,
+      "height": 114,
+      "source_crop": [
+        1210,
+        115,
+        1445,
+        339
+      ],
+      "anchor": [
+        93,
+        113
+      ],
+      "aligned_file": "aligned/player/sleep.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "front",
+      "file": "westie/front.png",
+      "width": 99,
+      "height": 115,
+      "source_crop": [
+        276,
+        339,
+        431,
+        509
+      ],
+      "anchor": [
+        49,
+        114
+      ],
+      "aligned_file": "aligned/westie/front.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "left",
+      "file": "westie/left.png",
+      "width": 127,
+      "height": 114,
+      "source_crop": [
+        431,
+        339,
+        577,
+        509
+      ],
+      "anchor": [
+        63,
+        113
+      ],
+      "aligned_file": "aligned/westie/left.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "right",
+      "file": "westie/right.png",
+      "width": 105,
+      "height": 116,
+      "source_crop": [
+        577,
+        339,
+        730,
+        509
+      ],
+      "anchor": [
+        52,
+        115
+      ],
+      "aligned_file": "aligned/westie/right.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "back",
+      "file": "westie/back.png",
+      "width": 95,
+      "height": 114,
+      "source_crop": [
+        730,
+        339,
+        882,
+        509
+      ],
+      "anchor": [
+        47,
+        113
+      ],
+      "aligned_file": "aligned/westie/back.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "sit",
+      "file": "westie/sit.png",
+      "width": 96,
+      "height": 105,
+      "source_crop": [
+        882,
+        339,
+        1041,
+        509
+      ],
+      "anchor": [
+        48,
+        104
+      ],
+      "aligned_file": "aligned/westie/sit.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "happy",
+      "file": "westie/happy.png",
+      "width": 99,
+      "height": 107,
+      "source_crop": [
+        1041,
+        339,
+        1210,
+        509
+      ],
+      "anchor": [
+        49,
+        106
+      ],
+      "aligned_file": "aligned/westie/happy.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "westie",
+      "pose": "sleep",
+      "file": "westie/sleep.png",
+      "width": 147,
+      "height": 76,
+      "source_crop": [
+        1210,
+        339,
+        1445,
+        509
+      ],
+      "anchor": [
+        73,
+        75
+      ],
+      "aligned_file": "aligned/westie/sleep.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "front",
+      "file": "bernedoodle_cream/front.png",
+      "width": 122,
+      "height": 125,
+      "source_crop": [
+        276,
+        509,
+        431,
+        682
+      ],
+      "anchor": [
+        61,
+        124
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/front.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "left",
+      "file": "bernedoodle_cream/left.png",
+      "width": 123,
+      "height": 117,
+      "source_crop": [
+        431,
+        509,
+        577,
+        682
+      ],
+      "anchor": [
+        61,
+        116
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/left.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "right",
+      "file": "bernedoodle_cream/right.png",
+      "width": 126,
+      "height": 118,
+      "source_crop": [
+        577,
+        509,
+        730,
+        682
+      ],
+      "anchor": [
+        63,
+        117
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/right.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "back",
+      "file": "bernedoodle_cream/back.png",
+      "width": 116,
+      "height": 123,
+      "source_crop": [
+        730,
+        509,
+        882,
+        682
+      ],
+      "anchor": [
+        58,
+        122
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/back.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "sit",
+      "file": "bernedoodle_cream/sit.png",
+      "width": 116,
+      "height": 121,
+      "source_crop": [
+        882,
+        509,
+        1041,
+        682
+      ],
+      "anchor": [
+        58,
+        120
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/sit.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "happy",
+      "file": "bernedoodle_cream/happy.png",
+      "width": 119,
+      "height": 120,
+      "source_crop": [
+        1041,
+        509,
+        1210,
+        682
+      ],
+      "anchor": [
+        59,
+        119
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/happy.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_cream",
+      "pose": "sleep",
+      "file": "bernedoodle_cream/sleep.png",
+      "width": 161,
+      "height": 77,
+      "source_crop": [
+        1210,
+        509,
+        1445,
+        682
+      ],
+      "anchor": [
+        80,
+        76
+      ],
+      "aligned_file": "aligned/bernedoodle_cream/sleep.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "front",
+      "file": "bernedoodle_black_white/front.png",
+      "width": 123,
+      "height": 135,
+      "source_crop": [
+        276,
+        682,
+        431,
+        858
+      ],
+      "anchor": [
+        61,
+        134
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/front.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "left",
+      "file": "bernedoodle_black_white/left.png",
+      "width": 116,
+      "height": 125,
+      "source_crop": [
+        431,
+        682,
+        577,
+        858
+      ],
+      "anchor": [
+        58,
+        124
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/left.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "right",
+      "file": "bernedoodle_black_white/right.png",
+      "width": 111,
+      "height": 126,
+      "source_crop": [
+        577,
+        682,
+        730,
+        858
+      ],
+      "anchor": [
+        55,
+        125
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/right.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "back",
+      "file": "bernedoodle_black_white/back.png",
+      "width": 101,
+      "height": 124,
+      "source_crop": [
+        730,
+        682,
+        882,
+        858
+      ],
+      "anchor": [
+        50,
+        123
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/back.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "sit",
+      "file": "bernedoodle_black_white/sit.png",
+      "width": 113,
+      "height": 124,
+      "source_crop": [
+        882,
+        682,
+        1041,
+        858
+      ],
+      "anchor": [
+        56,
+        123
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/sit.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "happy",
+      "file": "bernedoodle_black_white/happy.png",
+      "width": 115,
+      "height": 125,
+      "source_crop": [
+        1041,
+        682,
+        1210,
+        858
+      ],
+      "anchor": [
+        57,
+        124
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/happy.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_black_white",
+      "pose": "sleep",
+      "file": "bernedoodle_black_white/sleep.png",
+      "width": 162,
+      "height": 85,
+      "source_crop": [
+        1210,
+        682,
+        1445,
+        858
+      ],
+      "anchor": [
+        81,
+        84
+      ],
+      "aligned_file": "aligned/bernedoodle_black_white/sleep.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "front",
+      "file": "bernedoodle_charcoal/front.png",
+      "width": 124,
+      "height": 140,
+      "source_crop": [
+        276,
+        858,
+        431,
+        1079
+      ],
+      "anchor": [
+        62,
+        139
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/front.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "left",
+      "file": "bernedoodle_charcoal/left.png",
+      "width": 126,
+      "height": 136,
+      "source_crop": [
+        431,
+        858,
+        577,
+        1079
+      ],
+      "anchor": [
+        63,
+        135
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/left.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "right",
+      "file": "bernedoodle_charcoal/right.png",
+      "width": 122,
+      "height": 138,
+      "source_crop": [
+        577,
+        858,
+        730,
+        1079
+      ],
+      "anchor": [
+        61,
+        137
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/right.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "back",
+      "file": "bernedoodle_charcoal/back.png",
+      "width": 117,
+      "height": 135,
+      "source_crop": [
+        730,
+        858,
+        882,
+        1079
+      ],
+      "anchor": [
+        58,
+        134
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/back.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "sit",
+      "file": "bernedoodle_charcoal/sit.png",
+      "width": 119,
+      "height": 132,
+      "source_crop": [
+        882,
+        858,
+        1041,
+        1079
+      ],
+      "anchor": [
+        59,
+        131
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/sit.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "happy",
+      "file": "bernedoodle_charcoal/happy.png",
+      "width": 122,
+      "height": 134,
+      "source_crop": [
+        1041,
+        858,
+        1210,
+        1079
+      ],
+      "anchor": [
+        61,
+        133
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/happy.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "bernedoodle_charcoal",
+      "pose": "sleep",
+      "file": "bernedoodle_charcoal/sleep.png",
+      "width": 173,
+      "height": 93,
+      "source_crop": [
+        1210,
+        858,
+        1445,
+        1079
+      ],
+      "anchor": [
+        86,
+        92
+      ],
+      "aligned_file": "aligned/bernedoodle_charcoal/sleep.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    },
+    {
+      "character": "player",
+      "pose": "right",
+      "file": "player/right.png",
+      "width": 114,
+      "height": 175,
+      "anchor": [
+        57,
+        174
+      ],
+      "derived_from": "player/left.png",
+      "transform": "horizontal mirror",
+      "aligned_file": "aligned/player/right.png",
+      "aligned_width": 224,
+      "aligned_height": 224,
+      "aligned_anchor": [
+        112,
+        208
+      ]
+    }
+  ]
+}

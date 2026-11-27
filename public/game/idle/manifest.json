@@ -1,0 +1,247 @@
+{
+  "canvas": [
+    320,
+    320
+  ],
+  "ground_anchor": [
+    160,
+    296
+  ],
+  "texture_filter": "nearest",
+  "animations": {
+    "idle_breathing": {
+      "avatar": {
+        "frames": [
+          "avatar/idle_breathing/idle_breathing_01.png",
+          "avatar/idle_breathing/idle_breathing_02.png",
+          "avatar/idle_breathing/idle_breathing_03.png",
+          "avatar/idle_breathing/idle_breathing_04.png"
+        ],
+        "source_sheet": "avatar/idle_breathing/source_sheet.png",
+        "frame_duration_ms": [
+          550,
+          500,
+          130,
+          550
+        ],
+        "loop": true,
+        "direction": "down"
+      },
+      "westie": {
+        "frames": [
+          "westie/idle_breathing/idle_breathing_01.png",
+          "westie/idle_breathing/idle_breathing_02.png",
+          "westie/idle_breathing/idle_breathing_03.png",
+          "westie/idle_breathing/idle_breathing_04.png"
+        ],
+        "source_sheet": "westie/idle_breathing/source_sheet.png",
+        "frame_duration_ms": [
+          550,
+          500,
+          130,
+          550
+        ],
+        "loop": true,
+        "direction": "down"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/idle_breathing/idle_breathing_01.png",
+          "bernedoodle_black_white/idle_breathing/idle_breathing_02.png",
+          "bernedoodle_black_white/idle_breathing/idle_breathing_03.png",
+          "bernedoodle_black_white/idle_breathing/idle_breathing_04.png"
+        ],
+        "source_sheet": "bernedoodle_black_white/idle_breathing/source_sheet.png",
+        "frame_duration_ms": [
+          550,
+          500,
+          130,
+          550
+        ],
+        "loop": true,
+        "direction": "down"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/idle_breathing/idle_breathing_01.png",
+          "bernedoodle_cream/idle_breathing/idle_breathing_02.png",
+          "bernedoodle_cream/idle_breathing/idle_breathing_03.png",
+          "bernedoodle_cream/idle_breathing/idle_breathing_04.png"
+        ],
+        "source_sheet": "bernedoodle_cream/idle_breathing/source_sheet.png",
+        "frame_duration_ms": [
+          550,
+          500,
+          130,
+          550
+        ],
+        "loop": true,
+        "direction": "down"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/idle_breathing/idle_breathing_01.png",
+          "bernedoodle_charcoal/idle_breathing/idle_breathing_02.png",
+          "bernedoodle_charcoal/idle_breathing/idle_breathing_03.png",
+          "bernedoodle_charcoal/idle_breathing/idle_breathing_04.png"
+        ],
+        "source_sheet": "bernedoodle_charcoal/idle_breathing/source_sheet.png",
+        "frame_duration_ms": [
+          550,
+          500,
+          130,
+          550
+        ],
+        "loop": true,
+        "direction": "down"
+      }
+    },
+    "head_tilt": {
+      "westie": {
+        "frames": [
+          "westie/head_tilt/head_tilt_01.png",
+          "westie/head_tilt/head_tilt_02.png",
+          "westie/head_tilt/head_tilt_03.png",
+          "westie/head_tilt/head_tilt_04.png"
+        ],
+        "source_sheet": "westie/head_tilt/source_sheet.png",
+        "frame_duration_ms": [
+          350,
+          450,
+          150,
+          450
+        ],
+        "loop": false,
+        "direction": "down"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/head_tilt/head_tilt_01.png",
+          "bernedoodle_black_white/head_tilt/head_tilt_02.png",
+          "bernedoodle_black_white/head_tilt/head_tilt_03.png",
+          "bernedoodle_black_white/head_tilt/head_tilt_04.png"
+        ],
+        "source_sheet": "bernedoodle_black_white/head_tilt/source_sheet.png",
+        "frame_duration_ms": [
+          350,
+          450,
+          150,
+          450
+        ],
+        "loop": false,
+        "direction": "down"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/head_tilt/head_tilt_01.png",
+          "bernedoodle_cream/head_tilt/head_tilt_02.png",
+          "bernedoodle_cream/head_tilt/head_tilt_03.png",
+          "bernedoodle_cream/head_tilt/head_tilt_04.png"
+        ],
+        "source_sheet": "bernedoodle_cream/head_tilt/source_sheet.png",
+        "frame_duration_ms": [
+          350,
+          450,
+          150,
+          450
+        ],
+        "loop": false,
+        "direction": "down"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/head_tilt/head_tilt_01.png",
+          "bernedoodle_charcoal/head_tilt/head_tilt_02.png",
+          "bernedoodle_charcoal/head_tilt/head_tilt_03.png",
+          "bernedoodle_charcoal/head_tilt/head_tilt_04.png"
+        ],
+        "source_sheet": "bernedoodle_charcoal/head_tilt/source_sheet.png",
+        "frame_duration_ms": [
+          350,
+          450,
+          150,
+          450
+        ],
+        "loop": false,
+        "direction": "down"
+      }
+    },
+    "tail_wag": {
+      "westie": {
+        "frames": [
+          "westie/tail_wag/tail_wag_01.png",
+          "westie/tail_wag/tail_wag_02.png",
+          "westie/tail_wag/tail_wag_03.png",
+          "westie/tail_wag/tail_wag_04.png"
+        ],
+        "source_sheet": "westie/tail_wag/source_sheet.png",
+        "frame_duration_ms": [
+          150,
+          150,
+          150,
+          150
+        ],
+        "loop": true,
+        "direction": "right"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/tail_wag/tail_wag_01.png",
+          "bernedoodle_black_white/tail_wag/tail_wag_02.png",
+          "bernedoodle_black_white/tail_wag/tail_wag_03.png",
+          "bernedoodle_black_white/tail_wag/tail_wag_04.png"
+        ],
+        "source_sheet": "bernedoodle_black_white/tail_wag/source_sheet.png",
+        "frame_duration_ms": [
+          150,
+          150,
+          150,
+          150
+        ],
+        "loop": true,
+        "direction": "right"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/tail_wag/tail_wag_01.png",
+          "bernedoodle_cream/tail_wag/tail_wag_02.png",
+          "bernedoodle_cream/tail_wag/tail_wag_03.png",
+          "bernedoodle_cream/tail_wag/tail_wag_04.png"
+        ],
+        "source_sheet": "bernedoodle_cream/tail_wag/source_sheet.png",
+        "frame_duration_ms": [
+          150,
+          150,
+          150,
+          150
+        ],
+        "loop": true,
+        "direction": "right"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/tail_wag/tail_wag_01.png",
+          "bernedoodle_charcoal/tail_wag/tail_wag_02.png",
+          "bernedoodle_charcoal/tail_wag/tail_wag_03.png",
+          "bernedoodle_charcoal/tail_wag/tail_wag_04.png"
+        ],
+        "source_sheet": "bernedoodle_charcoal/tail_wag/source_sheet.png",
+        "frame_duration_ms": [
+          150,
+          150,
+          150,
+          150
+        ],
+        "loop": true,
+        "direction": "right"
+      }
+    }
+  },
+  "notes": [
+    "Frames extracted from existing generated sheets; source colors preserved.",
+    "Tail wag is right-facing; mirror at runtime for left-facing.",
+    "Idle breathing includes blinks and some mouth changes. Head tilt includes blink.",
+    "Generated sheets differ slightly in coat shade and proportions; no palette remapping performed.",
+    "Not tested in Tempo."
+  ]
+}

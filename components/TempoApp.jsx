@@ -58,6 +58,9 @@ import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./cal
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { TodayLitePage } from "./today/TodayDashboard";
+import dynamic from "next/dynamic";
+// Cozy Room is only downloaded when you open it; Classic pages and Mini Tempo never load it.
+const CozyRoom = dynamic(() => import("./game/CozyRoom"), { ssr: false, loading: () => <div className="phase-page cozy-room-loading">Opening your room…</div> });
 import { SkillStatsCard, WeeklyRecapCard, LifeGardenCard, StreaksCard, PersonalityCard } from "./bloom/BloomRoom";
 import { TaskPanel, TaskModal, TasksPage } from "./tasks/Tasks";
 import { calendarEventSource, calendarSourceLabel, cleanCalendarColor } from "../lib/tempo/client/calendarPresentation";
@@ -291,7 +294,7 @@ export default function App({ windowMode = "full" }) {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "room"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
@@ -3007,6 +3010,7 @@ export default function App({ windowMode = "full" }) {
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
+      if (page === "room") return; // in the room, letters and arrows walk you around instead
       const k = e.key.toLowerCase();
       if (k === "d" && !e.metaKey && !e.ctrlKey) { setPage("calendar"); setView("day"); }
       else if (k === "w" && !e.metaKey) { setPage("calendar"); setView("week"); }
@@ -3110,13 +3114,13 @@ export default function App({ windowMode = "full" }) {
 
   function navigateFromSidebar(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks", "room"].includes(nextPage) ? nextPage : "today");
     closeSidebarOnMobile();
   }
 
   function navigateFromMobileNav(nextPage) {
     setAppMode("schedule");
-    setPage(["today", "calendar", "tasks"].includes(nextPage) ? nextPage : "today");
+    setPage(["today", "calendar", "tasks", "room"].includes(nextPage) ? nextPage : "today");
     setSidebarOpen(false);
   }
 
@@ -3189,6 +3193,8 @@ export default function App({ windowMode = "full" }) {
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+          ) : page === "room" ? (
+            <CozyRoom tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask} onOpenPage={p => { setPage(p); if (p === "tasks") setTaskScope("day"); if (p === "calendar") setView("day"); }} onToast={showToast} />
           ) : page === "tasks" ? (
             <TasksPage tasks={tasks} categories={categories} onToggle={toggleTask} onAdd={addTask} onEdit={setSelectedTask} onScheduleTask={setScheduleTaskTarget} scope={taskScope} setScope={setTaskScope} periodDate={taskPeriodDate} setPeriodDate={setTaskPeriodDate} onMoveTaskPeriod={moveTaskToPeriod} gameStats={gameStats} />
           ) : (<>
@@ -3329,6 +3335,7 @@ export default function App({ windowMode = "full" }) {
         onNavigateToday={() => navigateFromMobileNav("today")}
         onNavigateCalendar={() => { navigateFromMobileNav("calendar"); setView("day"); }}
         onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
+        onNavigateRoom={() => navigateFromMobileNav("room")}
         onNavigateBudgetPage={navigateBudgetPage}
       />
 

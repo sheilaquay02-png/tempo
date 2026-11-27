@@ -1,0 +1,207 @@
+{
+  "canvas": [
+    320,
+    320
+  ],
+  "ground_anchor": [
+    160,
+    296
+  ],
+  "texture_filter": "nearest",
+  "animations": {
+    "barking": {
+      "westie": {
+        "frames": [
+          "westie/barking/barking_01.png",
+          "westie/barking/barking_02.png",
+          "westie/barking/barking_03.png",
+          "westie/barking/barking_04.png",
+          "westie/barking/barking_05.png",
+          "westie/barking/barking_06.png",
+          "westie/barking/barking_07.png",
+          "westie/barking/barking_08.png"
+        ],
+        "direction": "right",
+        "loop": false,
+        "frame_duration_ms": [
+          200,
+          120,
+          100,
+          180,
+          180,
+          120,
+          150,
+          200
+        ],
+        "scale_factor": 1.07947
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/barking/barking_01.png",
+          "bernedoodle_cream/barking/barking_02.png",
+          "bernedoodle_cream/barking/barking_03.png",
+          "bernedoodle_cream/barking/barking_04.png",
+          "bernedoodle_cream/barking/barking_05.png",
+          "bernedoodle_cream/barking/barking_06.png",
+          "bernedoodle_cream/barking/barking_07.png",
+          "bernedoodle_cream/barking/barking_08.png"
+        ],
+        "direction": "right",
+        "loop": false,
+        "frame_duration_ms": [
+          200,
+          120,
+          100,
+          180,
+          180,
+          120,
+          150,
+          200
+        ],
+        "scale_factor": 1.459854
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/barking/barking_01.png",
+          "bernedoodle_black_white/barking/barking_02.png",
+          "bernedoodle_black_white/barking/barking_03.png",
+          "bernedoodle_black_white/barking/barking_04.png",
+          "bernedoodle_black_white/barking/barking_05.png",
+          "bernedoodle_black_white/barking/barking_06.png",
+          "bernedoodle_black_white/barking/barking_07.png",
+          "bernedoodle_black_white/barking/barking_08.png"
+        ],
+        "direction": "right",
+        "loop": false,
+        "frame_duration_ms": [
+          200,
+          120,
+          100,
+          180,
+          180,
+          120,
+          150,
+          200
+        ],
+        "scale_factor": 1.393502
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/barking/barking_01.png",
+          "bernedoodle_charcoal/barking/barking_02.png",
+          "bernedoodle_charcoal/barking/barking_03.png",
+          "bernedoodle_charcoal/barking/barking_04.png",
+          "bernedoodle_charcoal/barking/barking_05.png",
+          "bernedoodle_charcoal/barking/barking_06.png",
+          "bernedoodle_charcoal/barking/barking_07.png",
+          "bernedoodle_charcoal/barking/barking_08.png"
+        ],
+        "direction": "right",
+        "loop": false,
+        "frame_duration_ms": [
+          200,
+          120,
+          100,
+          180,
+          180,
+          120,
+          150,
+          200
+        ],
+        "scale_factor": 1.460432
+      }
+    },
+    "carrying_toy": {
+      "westie": {
+        "frames": [
+          "westie/carrying_toy/carrying_toy_01.png",
+          "westie/carrying_toy/carrying_toy_02.png",
+          "westie/carrying_toy/carrying_toy_03.png",
+          "westie/carrying_toy/carrying_toy_04.png",
+          "westie/carrying_toy/carrying_toy_05.png",
+          "westie/carrying_toy/carrying_toy_06.png"
+        ],
+        "direction": "right",
+        "loop": true,
+        "frame_duration_ms": [
+          125,
+          125,
+          125,
+          125,
+          125,
+          125
+        ],
+        "scale_factor": 1.083056
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/carrying_toy/carrying_toy_01.png",
+          "bernedoodle_cream/carrying_toy/carrying_toy_02.png",
+          "bernedoodle_cream/carrying_toy/carrying_toy_03.png",
+          "bernedoodle_cream/carrying_toy/carrying_toy_04.png",
+          "bernedoodle_cream/carrying_toy/carrying_toy_05.png",
+          "bernedoodle_cream/carrying_toy/carrying_toy_06.png"
+        ],
+        "direction": "right",
+        "loop": true,
+        "frame_duration_ms": [
+          125,
+          125,
+          125,
+          125,
+          125,
+          125
+        ],
+        "scale_factor": 1.337793
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/carrying_toy/carrying_toy_01.png",
+          "bernedoodle_black_white/carrying_toy/carrying_toy_02.png",
+          "bernedoodle_black_white/carrying_toy/carrying_toy_03.png",
+          "bernedoodle_black_white/carrying_toy/carrying_toy_04.png",
+          "bernedoodle_black_white/carrying_toy/carrying_toy_05.png",
+          "bernedoodle_black_white/carrying_toy/carrying_toy_06.png"
+        ],
+        "direction": "right",
+        "loop": true,
+        "frame_duration_ms": [
+          125,
+          125,
+          125,
+          125,
+          125,
+          125
+        ],
+        "scale_factor": 1.245161
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_01.png",
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_02.png",
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_03.png",
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_04.png",
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_05.png",
+          "bernedoodle_charcoal/carrying_toy/carrying_toy_06.png"
+        ],
+        "direction": "right",
+        "loop": true,
+        "frame_duration_ms": [
+          125,
+          125,
+          125,
+          125,
+          125,
+          125
+        ],
+        "scale_factor": 1.344371
+      }
+    }
+  },
+  "notes": [
+    "All frames face right (three-quarter view). Mirror horizontally for left-facing playback.",
+    "Detached barking sound marks removed from individual frames to keep a consistent ground anchor; original sheets retain them.",
+    "A fixed scale per dog and action matches the approximate standing heights of the existing walking sprites.",
+    "Only visual sprites are included; barking audio is not included."
+  ]
+}

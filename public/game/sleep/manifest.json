@@ -1,0 +1,468 @@
+{
+  "canvas": [
+    320,
+    320
+  ],
+  "ground_anchor": [
+    160,
+    296
+  ],
+  "texture_filter": "nearest",
+  "animations": {
+    "sleeping": {
+      "avatar": {
+        "frames": [
+          "avatar/bed_sleep_wake/bed_sleep_wake_01.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_02.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_03.png"
+        ],
+        "frame_duration_ms": [
+          750,
+          750,
+          750
+        ],
+        "loop": true,
+        "source_sheet": "source_sheets/avatar_bed_sleep_wake.png",
+        "direction": "down",
+        "canvas": [
+          480,
+          480
+        ],
+        "ground_anchor": [
+          240,
+          456
+        ],
+        "composite_bed": true
+      },
+      "westie": {
+        "frames": [
+          "westie/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          1000
+        ],
+        "loop": true,
+        "source_sheet": "source_sheets/westie_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          1000
+        ],
+        "loop": true,
+        "source_sheet": "source_sheets/black_white_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          1000
+        ],
+        "loop": true,
+        "source_sheet": "source_sheets/cream_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          1000
+        ],
+        "loop": true,
+        "source_sheet": "source_sheets/charcoal_sleep_wake.png",
+        "direction": "right"
+      }
+    },
+    "waking_up": {
+      "avatar": {
+        "frames": [
+          "avatar/bed_sleep_wake/bed_sleep_wake_04.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_05.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_06.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_07.png",
+          "avatar/bed_sleep_wake/bed_sleep_wake_08.png"
+        ],
+        "frame_duration_ms": [
+          400,
+          350,
+          300,
+          300,
+          450
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/avatar_bed_sleep_wake.png",
+        "direction": "down",
+        "canvas": [
+          480,
+          480
+        ],
+        "ground_anchor": [
+          240,
+          456
+        ],
+        "composite_bed": true
+      },
+      "westie": {
+        "frames": [
+          "westie/sleep_wake/sleep_wake_05.png",
+          "westie/sleep_wake/sleep_wake_06.png",
+          "westie/sleep_wake/sleep_wake_07.png",
+          "westie/sleep_wake/sleep_wake_08.png"
+        ],
+        "frame_duration_ms": [
+          300,
+          300,
+          350,
+          400
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/westie_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/sleep_wake/sleep_wake_05.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_06.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_07.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_08.png"
+        ],
+        "frame_duration_ms": [
+          300,
+          300,
+          350,
+          400
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/black_white_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/sleep_wake/sleep_wake_05.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_06.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_07.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_08.png"
+        ],
+        "frame_duration_ms": [
+          300,
+          300,
+          350,
+          400
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/cream_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_05.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_06.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_07.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_08.png"
+        ],
+        "frame_duration_ms": [
+          300,
+          300,
+          350,
+          400
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/charcoal_sleep_wake.png",
+        "direction": "right"
+      }
+    },
+    "falling_asleep": {
+      "westie": {
+        "frames": [
+          "westie/sleep_wake/sleep_wake_01.png",
+          "westie/sleep_wake/sleep_wake_02.png",
+          "westie/sleep_wake/sleep_wake_03.png",
+          "westie/sleep_wake/sleep_wake_04.png",
+          "westie/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          300,
+          350,
+          400,
+          500
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/westie_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/sleep_wake/sleep_wake_01.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_02.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_03.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_04.png",
+          "bernedoodle_black_white/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          300,
+          350,
+          400,
+          500
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/black_white_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/sleep_wake/sleep_wake_01.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_02.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_03.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_04.png",
+          "bernedoodle_cream/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          300,
+          350,
+          400,
+          500
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/cream_sleep_wake.png",
+        "direction": "right"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_01.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_02.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_03.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_04.png",
+          "bernedoodle_charcoal/sleep_wake/sleep_wake_05.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          300,
+          350,
+          400,
+          500
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/charcoal_sleep_wake.png",
+        "direction": "right"
+      }
+    },
+    "stretching": {
+      "westie": {
+        "frames": [
+          "westie/stretching/stretching_01.png",
+          "westie/stretching/stretching_02.png",
+          "westie/stretching/stretching_03.png",
+          "westie/stretching/stretching_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/stretching/stretching_01.png",
+          "bernedoodle_cream/stretching/stretching_02.png",
+          "bernedoodle_cream/stretching/stretching_03.png",
+          "bernedoodle_cream/stretching/stretching_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/stretching/stretching_01.png",
+          "bernedoodle_black_white/stretching/stretching_02.png",
+          "bernedoodle_black_white/stretching/stretching_03.png",
+          "bernedoodle_black_white/stretching/stretching_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/stretching/stretching_01.png",
+          "bernedoodle_charcoal/stretching/stretching_02.png",
+          "bernedoodle_charcoal/stretching/stretching_03.png",
+          "bernedoodle_charcoal/stretching/stretching_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "avatar": {
+        "frames": [
+          "avatar/stretch_yawn/stretch_yawn_01.png",
+          "avatar/stretch_yawn/stretch_yawn_02.png",
+          "avatar/stretch_yawn/stretch_yawn_03.png",
+          "avatar/stretch_yawn/stretch_yawn_05.png",
+          "avatar/stretch_yawn/stretch_yawn_06.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          250,
+          550,
+          350,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/avatar_stretch_yawn.png",
+        "direction": "down"
+      }
+    },
+    "yawning": {
+      "westie": {
+        "frames": [
+          "westie/yawning/yawning_01.png",
+          "westie/yawning/yawning_02.png",
+          "westie/yawning/yawning_03.png",
+          "westie/yawning/yawning_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/yawning/yawning_01.png",
+          "bernedoodle_cream/yawning/yawning_02.png",
+          "bernedoodle_cream/yawning/yawning_03.png",
+          "bernedoodle_cream/yawning/yawning_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/yawning/yawning_01.png",
+          "bernedoodle_black_white/yawning/yawning_02.png",
+          "bernedoodle_black_white/yawning/yawning_03.png",
+          "bernedoodle_black_white/yawning/yawning_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/yawning/yawning_01.png",
+          "bernedoodle_charcoal/yawning/yawning_02.png",
+          "bernedoodle_charcoal/yawning/yawning_03.png",
+          "bernedoodle_charcoal/yawning/yawning_04.png"
+        ],
+        "frame_duration_ms": [
+          200,
+          250,
+          550,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/dogs_stretch_yawn.png",
+        "direction": "left_3quarter"
+      },
+      "avatar": {
+        "frames": [
+          "avatar/stretch_yawn/stretch_yawn_01.png",
+          "avatar/stretch_yawn/stretch_yawn_02.png",
+          "avatar/stretch_yawn/stretch_yawn_04.png",
+          "avatar/stretch_yawn/stretch_yawn_05.png",
+          "avatar/stretch_yawn/stretch_yawn_06.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          250,
+          550,
+          350,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/avatar_stretch_yawn.png",
+        "direction": "down"
+      }
+    },
+    "stretch_yawn": {
+      "avatar": {
+        "frames": [
+          "avatar/stretch_yawn/stretch_yawn_01.png",
+          "avatar/stretch_yawn/stretch_yawn_02.png",
+          "avatar/stretch_yawn/stretch_yawn_03.png",
+          "avatar/stretch_yawn/stretch_yawn_04.png",
+          "avatar/stretch_yawn/stretch_yawn_05.png",
+          "avatar/stretch_yawn/stretch_yawn_06.png"
+        ],
+        "frame_duration_ms": [
+          250,
+          250,
+          400,
+          550,
+          350,
+          250
+        ],
+        "loop": false,
+        "source_sheet": "source_sheets/avatar_stretch_yawn.png",
+        "direction": "down"
+      }
+    }
+  },
+  "notes": [
+    "All supplied sheets retained; individual frames are extracted from largest connected silhouette, with hard alpha and cleaned outermost edge. Detached emotes removed from individual frames.",
+    "Avatar bed frames are composite replacements for the bed, not standalone avatar overlays. Use the existing bed world footprint and hide the regular avatar/bed while playing. Bed canvas 480x480, anchor (240,456).",
+    "Avatar stretch and yawn are one combined source sequence; separate manifest entries reference selected frames without creating extra artwork.",
+    "Dog sleeping is a held pose, not a separately drawn breathing loop.",
+    "Westie stretch/yawn uses the attached combined sheet as supplied; neutral mouth detail is minimal.",
+    "Timings and size alignment are recommendations, not tested in Tempo."
+  ]
+}
