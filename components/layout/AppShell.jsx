@@ -113,6 +113,7 @@ export function AppSidebar({
             <div className={`nav-item ${page === "calendar" ? "active" : ""}`} onClick={() => onNavigate("calendar")}><span className="nav-icon">🗓️</span>Calendar</div>
             <div className={`nav-item ${page === "tasks" ? "active" : ""}`} onClick={() => onNavigate("tasks")}><span className="nav-icon">✅</span>Tasks</div>
             <div className={`nav-item ${page === "room" ? "active" : ""}`} onClick={() => onNavigate("room")}><span className="nav-icon">🏠</span>Room</div>
+            <div className={`nav-item ${page === "town" ? "active" : ""}`} onClick={() => onNavigate("town")}><span className="nav-icon">🏘️</span>Town</div>
             <div className="nav-item" onClick={onOpenSettings}><span className="nav-icon">⚙️</span>Settings</div>
           </>
         )}
@@ -241,7 +242,7 @@ export function MobileBottomNav({
             <button className={`mobile-nav-btn ${page === "today" ? "active" : ""}`} onClick={onNavigateToday}>🌤️<span>Today</span></button>
             <button className={`mobile-nav-btn ${page === "calendar" ? "active" : ""}`} onClick={onNavigateCalendar}>🗓️<span>Calendar</span></button>
             <button className={`mobile-nav-btn ${page === "tasks" ? "active" : ""}`} onClick={onNavigateTasks}>✅<span>Tasks</span></button>
-            {onNavigateRoom && <button className={`mobile-nav-btn ${page === "room" ? "active" : ""}`} onClick={onNavigateRoom}>🏠<span>Room</span></button>}
+            {onNavigateRoom && <button className={`mobile-nav-btn ${page === "room" || page === "town" ? "active" : ""}`} onClick={onNavigateRoom}>🏠<span>Room</span></button>}
           </>
         )}
       </div>

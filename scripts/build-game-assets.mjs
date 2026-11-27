@@ -10,12 +10,19 @@ const SRC = process.argv[2];
 if (!SRC || !existsSync(join(SRC, "layouts.js"))) { console.error("Pass the v2-plan folder."); process.exit(1); }
 const OUT = "public/game";
 
-// room objects actually used by the room layout (+ its empty background)
+// objects actually used by each scene's layout (+ its empty background) → public/game/<scene>/
 const layoutText = readFileSync(join(SRC, "layouts.js"), "utf8");
-const roomText = layoutText.slice(layoutText.indexOf("room:"), layoutText.indexOf("town:"));
-const roomFiles = [...new Set([...roomText.matchAll(/src: "([^"]+)"/g)].map(m => m[1]))].concat("backgrounds/room_empty.png");
-
-const jobs = roomFiles.map(f => [join(SRC, "env-zip", f), join(OUT, "room", f)]);
+const sceneText = name => {
+  const start = layoutText.indexOf(`  ${name}: {`), next = layoutText.indexOf("\n  }", start);
+  return layoutText.slice(start, next);
+};
+const jobs = [];
+for (const scene of ["room", "town"]) {
+  const text = sceneText(scene);
+  const bg = text.match(/background: "env-zip\/([^"]+)"/)[1];
+  const files = [...new Set([...text.matchAll(/src: "([^"]+)"/g)].map(m => m[1]))].concat(bg);
+  for (const f of files) jobs.push([join(SRC, "env-zip", f), join(OUT, scene, f)]);
+}
 // character packs: manifests + every frame they reference
 for (const dir of ["pack", "walk", "idle", "sleep", "play"]) {
   jobs.push([join(SRC, dir, "manifest.json"), join(OUT, dir, "manifest.json")]);

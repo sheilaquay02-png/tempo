@@ -1,22 +1,29 @@
 "use client";
 
-// Cozy Room: an optional pixel-art view of your day. It only READS your tasks and events and calls the
-// same actions the rest of the app uses (toggle a task, open a page). It never saves anything of its
-// own: where you and the dogs walk lives only in memory and is forgotten when you leave the room.
+// Cozy Room and Tempo Town: optional pixel-art views of your day. They only READ your tasks and events and
+// call the same actions the rest of the app uses (toggle a task, open a page). They never save anything of
+// their own: where you and the dogs walk lives only in memory and is forgotten when you leave.
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
+import { TOWN_LAYOUT } from "../../lib/game/townLayout";
+
+const SCENES = {
+  room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed, food bowls or the door to town." },
+  town: { layout: TOWN_LAYOUT, label: "Tempo Town: you and your four dogs in the town square", hint: "Tap the paving to walk (or use the arrow keys / WASD). Tap a building: Town Hall, Library, Bank, Market, Café… The bridge takes you home." },
+};
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function CozyRoom({ tasks = [], events = [], onToggleTask, onOpenPage, onToast }) {
+export default function GameScene({ scene = "room", tasks = [], events = [], onToggleTask, onOpenPage }) {
+  const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
   const tapRef = useRef(() => {});
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [attempt, setAttempt] = useState(0);
   const [night, setNight] = useState(false);
-  const [hint, setHint] = useState("Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls.");
+  const [hint, setHint] = useState(S.hint);
 
   const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY));
   const openTasks = todayTasks.filter(t => !t.done);
@@ -32,7 +39,7 @@ export default function CozyRoom({ tasks = [], events = [], onToggleTask, onOpen
     const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     setStatus("loading");
     import("../../lib/game/scene.js")
-      .then(({ createScene }) => createScene(canvasRef.current, ROOM_LAYOUT, { reduceMotion, onTap: tap => tapRef.current(tap) }))
+      .then(({ createScene }) => createScene(canvasRef.current, S.layout, { reduceMotion, onTap: tap => tapRef.current(tap) }))
       .then(api => {
         if (cancelled) { api.destroy(); return; }
         apiRef.current = api;
@@ -54,7 +61,7 @@ export default function CozyRoom({ tasks = [], events = [], onToggleTask, onOpen
       apiRef.current?.destroy();
       apiRef.current = null;
     };
-  }, [attempt]);
+  }, [attempt, S.layout]);
 
   // A task ticked off today (here or anywhere else while the room is open) → the dogs celebrate.
   const lastDone = useRef(doneCount);
@@ -70,20 +77,21 @@ export default function CozyRoom({ tasks = [], events = [], onToggleTask, onOpen
     if (!tap) return;
     if (tap.action === "night") { setNight(n => (tap.name === "Bed" ? true : !n)); setHint(tap.name === "Bed" ? "Goodnight! Walk or press Day to get up." : "Lamp switched."); return; }
     if (tap.action === "dogs") { apiRef.current?.celebrate(); setHint("The dogs came running!"); return; }
-    if (tap.action === "town") { onToast?.("Tempo Town is coming soon 🏘️"); return; }
-    if (["today", "tasks", "calendar"].includes(tap.action)) onOpenPage?.(tap.action);
+    if (tap.action === "note") { setHint(tap.note || tap.name); return; }
+    if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
+    if (["today", "tasks", "calendar", "room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
   };
 
   return (
     <div className="phase-page cozy-room-page">
       <style>{ROOM_CSS}</style>
       <div className="cozy-room-stage">
-        <canvas ref={canvasRef} className="cozy-room-canvas" aria-label="Your cozy room: you and your four dogs" />
+        <canvas ref={canvasRef} className="cozy-room-canvas" style={{ aspectRatio: `${S.layout.size[0]} / ${S.layout.size[1]}` }} aria-label={S.label} />
         {status !== "ready" && (
           <div className="cozy-room-overlay" role="status">
-            {status === "loading" ? "Setting up your room…" : (
+            {status === "loading" ? (scene === "town" ? "Walking into town…" : "Setting up your room…") : (
               <>
-                <span>The room pictures couldn’t load. Check your connection.</span>
+                <span>The pictures couldn’t load. Check your connection.</span>
                 <button className="tf-save" onClick={() => setAttempt(a => a + 1)}>Try again</button>
               </>
             )}
@@ -130,7 +138,7 @@ export default function CozyRoom({ tasks = [], events = [], onToggleTask, onOpen
 const ROOM_CSS = `
 .cozy-room-page{display:grid;gap:14px;max-width:1100px;margin:0 auto;width:100%;}
 .cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:#2B2336;border:1px solid var(--border,rgba(0,0,0,.08));}
-.cozy-room-canvas{display:block;width:100%;height:auto;aspect-ratio:3/2;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;}
+.cozy-room-canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;}
 .cozy-room-overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:#F3EAF6;font-weight:700;text-align:center;padding:16px;background:rgba(43,35,54,.86);}
 .cozy-room-bar{display:flex;align-items:center;gap:12px;}
 .cozy-room-hint{flex:1;margin:0;color:var(--text2,var(--text));font-size:14px;opacity:.85;min-width:0;}
