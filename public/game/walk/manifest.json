@@ -1,0 +1,186 @@
+{
+  "frame_size": [
+    320,
+    320
+  ],
+  "anchor": [
+    160,
+    296
+  ],
+  "anchor_normalized": [
+    0.5,
+    0.925
+  ],
+  "frame_count_per_direction": 4,
+  "direction_order": [
+    "down",
+    "up",
+    "left",
+    "right"
+  ],
+  "suggested_fps": 8,
+  "loop": true,
+  "characters": {
+    "avatar": {
+      "source": "Chibi Shark Hoodie Walk Cycle(1).png",
+      "scale_factor": 1.015625,
+      "animations": {
+        "down": [
+          "avatar/down/walk_down_01.png",
+          "avatar/down/walk_down_02.png",
+          "avatar/down/walk_down_03.png",
+          "avatar/down/walk_down_04.png"
+        ],
+        "left": [
+          "avatar/left/walk_left_01.png",
+          "avatar/left/walk_left_02.png",
+          "avatar/left/walk_left_03.png",
+          "avatar/left/walk_left_04.png"
+        ],
+        "right": [
+          "avatar/right/walk_right_01.png",
+          "avatar/right/walk_right_02.png",
+          "avatar/right/walk_right_03.png",
+          "avatar/right/walk_right_04.png"
+        ],
+        "up": [
+          "avatar/up/walk_up_01.png",
+          "avatar/up/walk_up_02.png",
+          "avatar/up/walk_up_03.png",
+          "avatar/up/walk_up_04.png"
+        ]
+      }
+    },
+    "westie": {
+      "source": "ChatGPT Image Nov 27, 2026, 06_57_10 PM.png",
+      "scale_factor": 0.777778,
+      "animations": {
+        "down": [
+          "westie/down/walk_down_01.png",
+          "westie/down/walk_down_02.png",
+          "westie/down/walk_down_03.png",
+          "westie/down/walk_down_04.png"
+        ],
+        "up": [
+          "westie/up/walk_up_01.png",
+          "westie/up/walk_up_02.png",
+          "westie/up/walk_up_03.png",
+          "westie/up/walk_up_04.png"
+        ],
+        "left": [
+          "westie/left/walk_left_01.png",
+          "westie/left/walk_left_02.png",
+          "westie/left/walk_left_03.png",
+          "westie/left/walk_left_04.png"
+        ],
+        "right": [
+          "westie/right/walk_right_01.png",
+          "westie/right/walk_right_02.png",
+          "westie/right/walk_right_03.png",
+          "westie/right/walk_right_04.png"
+        ]
+      }
+    },
+    "bernedoodle_black_white": {
+      "source": "ChatGPT Image Nov 27, 2026, 06_57_23 PM.png",
+      "scale_factor": 0.853659,
+      "animations": {
+        "down": [
+          "bernedoodle_black_white/down/walk_down_01.png",
+          "bernedoodle_black_white/down/walk_down_02.png",
+          "bernedoodle_black_white/down/walk_down_03.png",
+          "bernedoodle_black_white/down/walk_down_04.png"
+        ],
+        "up": [
+          "bernedoodle_black_white/up/walk_up_01.png",
+          "bernedoodle_black_white/up/walk_up_02.png",
+          "bernedoodle_black_white/up/walk_up_03.png",
+          "bernedoodle_black_white/up/walk_up_04.png"
+        ],
+        "left": [
+          "bernedoodle_black_white/left/walk_left_01.png",
+          "bernedoodle_black_white/left/walk_left_02.png",
+          "bernedoodle_black_white/left/walk_left_03.png",
+          "bernedoodle_black_white/left/walk_left_04.png"
+        ],
+        "right": [
+          "bernedoodle_black_white/right/walk_right_01.png",
+          "bernedoodle_black_white/right/walk_right_02.png",
+          "bernedoodle_black_white/right/walk_right_03.png",
+          "bernedoodle_black_white/right/walk_right_04.png"
+        ]
+      }
+    },
+    "bernedoodle_cream": {
+      "source": "Cream Doodle Pixel Walk Cycle(1).png",
+      "scale_factor": 0.985915,
+      "animations": {
+        "down": [
+          "bernedoodle_cream/down/walk_down_01.png",
+          "bernedoodle_cream/down/walk_down_02.png",
+          "bernedoodle_cream/down/walk_down_03.png",
+          "bernedoodle_cream/down/walk_down_04.png"
+        ],
+        "left": [
+          "bernedoodle_cream/left/walk_left_01.png",
+          "bernedoodle_cream/left/walk_left_02.png",
+          "bernedoodle_cream/left/walk_left_03.png",
+          "bernedoodle_cream/left/walk_left_04.png"
+        ],
+        "right": [
+          "bernedoodle_cream/right/walk_right_01.png",
+          "bernedoodle_cream/right/walk_right_02.png",
+          "bernedoodle_cream/right/walk_right_03.png",
+          "bernedoodle_cream/right/walk_right_04.png"
+        ],
+        "up": [
+          "bernedoodle_cream/up/walk_up_01.png",
+          "bernedoodle_cream/up/walk_up_02.png",
+          "bernedoodle_cream/up/walk_up_03.png",
+          "bernedoodle_cream/up/walk_up_04.png"
+        ]
+      }
+    },
+    "bernedoodle_charcoal": {
+      "source": "Charcoal Doodle Dog Walking Sprite Sheet(1).png",
+      "scale_factor": 0.945946,
+      "animations": {
+        "down": [
+          "bernedoodle_charcoal/down/walk_down_01.png",
+          "bernedoodle_charcoal/down/walk_down_02.png",
+          "bernedoodle_charcoal/down/walk_down_03.png",
+          "bernedoodle_charcoal/down/walk_down_04.png"
+        ],
+        "left": [
+          "bernedoodle_charcoal/left/walk_left_01.png",
+          "bernedoodle_charcoal/left/walk_left_02.png",
+          "bernedoodle_charcoal/left/walk_left_03.png",
+          "bernedoodle_charcoal/left/walk_left_04.png"
+        ],
+        "right": [
+          "bernedoodle_charcoal/right/walk_right_01.png",
+          "bernedoodle_charcoal/right/walk_right_02.png",
+          "bernedoodle_charcoal/right/walk_right_03.png",
+          "bernedoodle_charcoal/right/walk_right_04.png"
+        ],
+        "up": [
+          "bernedoodle_charcoal/up/walk_up_01.png",
+          "bernedoodle_charcoal/up/walk_up_02.png",
+          "bernedoodle_charcoal/up/walk_up_03.png",
+          "bernedoodle_charcoal/up/walk_up_04.png"
+        ]
+      }
+    }
+  },
+  "gait_update": {
+    "template": "westie",
+    "method": "Lower-paw silhouette retargeting from supplied Westie walking frames; doodle upper body fixed per direction. Avatar and Westie original files retained.",
+    "changed_characters": [
+      "bernedoodle_black_white",
+      "bernedoodle_cream",
+      "bernedoodle_charcoal"
+    ],
+    "frame_order": "neutral, step A, passing, step B",
+    "fps": 8
+  }
+}
