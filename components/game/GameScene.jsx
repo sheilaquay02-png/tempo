@@ -161,6 +161,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
 
 // Styles live here so they load only with the game. Colours come from the app's theme variables.
 const ROOM_CSS = `
+/* same font as the rest of Tempo (Nunito via the app's --font setting), for every game screen, panel, button and input */
+.cozy-scene,.cozy-scene button,.cozy-scene input,.cozy-scene h3,.cozy-scene p,.cozy-scene small,.cozy-scene strong,.cozy-scene time{font-family:var(--font,"Nunito",system-ui,-apple-system,sans-serif);}
 .cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:#2B2336;}
 .cozy-room-canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .cozy-room-overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:#F3EAF6;font-weight:700;text-align:center;padding:16px;background:rgba(43,35,54,.86);}
