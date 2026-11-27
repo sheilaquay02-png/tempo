@@ -25,6 +25,7 @@ export function TodayLitePage({
   onPlanToday,
   onToggleTask,
   onEditTask,
+  onOpenRoom,
 }) {
   const todayKey = dateKey(TODAY);
   const nowHour = new Date().getHours();
@@ -67,6 +68,7 @@ export function TodayLitePage({
 
         <div className="today-hero-stack">
           <DailyAffirmationCard compact affirmations={affirmations} />
+          {onOpenRoom && <button type="button" className="tf-save phase-primary today-room-btn" style={{ width: "100%", minHeight: 48, justifyContent: "center" }} onClick={onOpenRoom}>🏠 Visit my room</button>}
         </div>
       </div>
 

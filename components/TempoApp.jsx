@@ -294,6 +294,7 @@ export default function App({ windowMode = "full" }) {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
+  const [miniScene, setMiniScene]   = useState("room"); // Mini Tempo room view: "room" | "town"
   const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "room" | "town"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
@@ -3154,7 +3155,9 @@ export default function App({ windowMode = "full" }) {
           onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
           onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
           onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
-          onFull={openFullTempo} />
+          onFull={openFullTempo}
+          renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask}
+            onOpenPage={p => { if (p === "room" || p === "town") setMiniScene(p); else openFullTempo(p === "budget" ? "/" : `/?page=${p}`); }} />} />
       ) : (
       <>
       <div className="app">
@@ -3192,9 +3195,9 @@ export default function App({ windowMode = "full" }) {
           ) : appMode === "overall" ? (
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
-            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
+            <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenRoom={() => setPage("room")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "room" || page === "town" ? (
-            <GameScene key={page} scene={page} tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask} onOpenPage={(p, sub) => {
+            <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask} onOpenPage={(p, sub) => {
               if (p === "budget") { navigateBudgetPage(sub); return; }
               setPage(p); if (p === "tasks") setTaskScope("day"); if (p === "calendar") setView("day");
             }} />
@@ -3338,7 +3341,6 @@ export default function App({ windowMode = "full" }) {
         onNavigateToday={() => navigateFromMobileNav("today")}
         onNavigateCalendar={() => { navigateFromMobileNav("calendar"); setView("day"); }}
         onNavigateTasks={() => { navigateFromMobileNav("tasks"); setTaskScope("day"); }}
-        onNavigateRoom={() => navigateFromMobileNav("room")}
         onNavigateBudgetPage={navigateBudgetPage}
       />
 

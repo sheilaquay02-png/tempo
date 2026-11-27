@@ -22,13 +22,16 @@ test("Mini Tempo and the other pages never pull in the game", () => {
   }
 });
 
-test("Room is in the menus; Town is reached by walking out of the room and left via My House", () => {
+test("Room opens from a button on Today (not the menus); Town is reached by walking out and left via My House", () => {
   const shell = read("components/layout/AppShell.jsx");
-  assert.match(shell, /onNavigate\("room"\)/);
-  assert.doesNotMatch(shell, /onNavigate\("town"\)/, "Town has no menu item of its own");
+  assert.doesNotMatch(shell, /onNavigate\("room"\)|onNavigate\("town"\)|onNavigateRoom/, "no Room/Town menu items");
+  const today = read("components/today/TodayDashboard.jsx");
+  assert.match(today, /onOpenRoom && <button[^>]*>🏠 Visit my room<\/button>/);
+  assert.ok(today.indexOf("Visit my room") > today.indexOf("<DailyAffirmationCard"), "the button sits under Daily Affirmation");
+  assert.match(app, /onOpenRoom=\{\(\) => setPage\("room"\)\}/);
   const exit = ROOM_LAYOUT.exits.find(e => e.action === "town");
   assert.ok(exit, "the room has a walking exit to town");
-  const [x0, y0, x1, y1] = ROOM_LAYOUT.walk;
+  const [x0, , x1, y1] = ROOM_LAYOUT.walk;
   assert.ok(exit.area[0] >= x0 && exit.area[2] <= x1 + 1 && exit.area[1] < y1, "the exit is inside the walkable floor");
   assert.ok(exit.area[0] < ROOM_LAYOUT.size[0] / 2 && exit.area[2] > ROOM_LAYOUT.size[0] / 2, "the exit is at the bottom middle");
   assert.match(scene, /opts\.onExit\(exit\.action\)/);
@@ -36,9 +39,29 @@ test("Room is in the menus; Town is reached by walking out of the room and left 
   const house = TOWN_LAYOUT.objects.find(o => o.id === "my_house");
   assert.equal(house.tap.action, "room");
   assert.ok(!TOWN_LAYOUT.objects.some(o => o.id === "market"), "My House replaces the market");
-  assert.match(shell, /onNavigateRoom/);
-  assert.equal((app.match(/\["today", "calendar", "tasks", "room", "town"\]/g) || []).length, 2, "both navigation helpers accept the room and town pages");
-  assert.match(app, /onNavigateRoom=\{/);
+  assert.doesNotMatch(app, /onNavigateRoom=\{/);
+});
+
+test("the game opens full screen with a Back button that returns to Today", () => {
+  assert.match(app, /<GameScene key=\{page\} scene=\{page\} variant="full" onBack=\{\(\) => setPage\("today"\)\}/);
+  assert.match(room, /className="cozy-back" onClick=\{onBack\}/);
+  assert.match(room, /\.cozy-full\{position:fixed;inset:0;/);
+  assert.match(room, /env\(safe-area-inset-top\)/, "respects phone notches");
+});
+
+test("Mini Tempo can switch between its normal view and the room, without importing the game itself", () => {
+  const mini = read("components/mini/MiniTempoPanel.jsx");
+  assert.match(mini, /renderRoom/);
+  assert.match(mini, /VIEW_KEY = "tempo-mini-view-v1"/);
+  assert.doesNotMatch(mini, /game\//, "the panel gets the room from TempoApp's lazy import");
+  assert.match(app, /renderRoom=\{\(\) => <GameScene key=\{miniScene\} scene=\{miniScene\} variant="compact"/);
+});
+
+test("dogs follow by chance each time you start walking, and stay-behind dogs keep sleeping", () => {
+  assert.match(scene, /FOLLOW_CHANCE = \{ awake: 0\.\d+, asleep: 0\.\d+ \}/);
+  assert.match(scene, /if \(moving && !state\.wasMoving\) \{/);
+  assert.match(scene, /if \(moving && !c\.following\) return;/);
+  assert.match(scene, /state\.wasMoving && c\.following \? "sit" : c\.pose/);
 });
 
 test("in the room, letter keys walk instead of triggering app shortcuts", () => {

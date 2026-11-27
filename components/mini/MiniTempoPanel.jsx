@@ -7,11 +7,12 @@ import { TempoLogoMark } from "../shared/DisplayComponents";
 import { TempoWeather } from "../weather/TempoWeather";
 
 const EXPANSION_KEY = "tempo-mini-expanded-cards-v1";
+const VIEW_KEY = "tempo-mini-view-v1"; // "list" (normal) or "room" (watch the characters while you work)
 const defaultExpansion = { affirmation: true, tasks: true, event: true };
 
 export function MiniTempoPanel({
   tasks = [], upcomingEvent, affirmations = Core.DEFAULT_AFFIRMATIONS,
-  onToggleTask, onAddTask, onOpenTask, onOpenEvent, onFull,
+  onToggleTask, onAddTask, onOpenTask, onOpenEvent, onFull, renderRoom,
 }) {
   const [draft, setDraft] = useState("");
   const [online, setOnline] = useState(true);
@@ -19,6 +20,18 @@ export function MiniTempoPanel({
   const [quickOpen, setQuickOpen] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState("");
   const [expanded, setExpanded] = useState(defaultExpansion);
+  const [view, setView] = useState("list");
+  useEffect(() => {
+    try { if (window.localStorage.getItem(VIEW_KEY) === "room") setView("room"); } catch {}
+  }, []);
+  const switchView = () => {
+    setView(current => {
+      const next = current === "room" ? "list" : "room";
+      try { window.localStorage.setItem(VIEW_KEY, next); } catch {}
+      return next;
+    });
+  };
+  const roomView = view === "room" && typeof renderRoom === "function";
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(EXPANSION_KEY) || "{}");
@@ -79,6 +92,8 @@ export function MiniTempoPanel({
           <span className="mini-tempo-brand"><strong>Mini Tempo</strong><small>Your daily companion</small></span>
         </div>
         <div className="mini-tempo-title-actions">
+          {typeof renderRoom === "function" && <button type="button" onClick={switchView} aria-pressed={roomView}
+            title={roomView ? "Back to the normal view" : "Show your room while you work"} aria-label={roomView ? "Show normal view" : "Show room view"}>{roomView ? "📋" : "🏠"}</button>}
           {typeof window !== "undefined" && window.tempoDesktop && <>
             <button type="button" onClick={togglePinned} title={pinned ? "Unpin Mini" : "Always on top"} aria-label="Pin Mini">{pinned ? "📌" : "♧"}</button>
             <button type="button" onClick={() => window.tempoDesktop.minimizeMini?.()} aria-label="Minimise Mini">−</button>
@@ -90,7 +105,8 @@ export function MiniTempoPanel({
         <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} ☀️</h1>
         <p className="mini-tempo-subtitle">A little progress every day.</p>
         {!online && <p className="mini-offline-banner" role="status">You are offline. Your tasks and calendar may be out of date until you reconnect.</p>}
-        <section className="mini-section" aria-label="Daily affirmation">
+        {roomView && <div className="mini-room-view">{renderRoom()}</div>}
+        {!roomView && <section className="mini-section" aria-label="Daily affirmation">
           <div className="mini-section-head">
             <button type="button" className="mini-collapse-toggle" aria-expanded={expanded.affirmation}
               aria-controls="mini-affirmation-content" onClick={() => toggleCard("affirmation")}>
@@ -103,7 +119,7 @@ export function MiniTempoPanel({
             </p>
             <TempoWeather />
           </div>}
-        </section>
+        </section>}
         <section className="mini-section" aria-label="Today's tasks">
           <div className="mini-section-head">
             <button type="button" className="mini-collapse-toggle" aria-expanded={expanded.tasks}

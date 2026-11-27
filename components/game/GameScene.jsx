@@ -15,7 +15,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", tasks = [], events = [], onToggleTask, onOpenPage }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], onToggleTask, onOpenPage, onBack }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -72,6 +72,14 @@ export default function GameScene({ scene = "room", tasks = [], events = [], onT
 
   useEffect(() => { apiRef.current?.setNight(night); }, [night, status]);
 
+  // Full screen: stop the page underneath from scrolling while the game is open.
+  useEffect(() => {
+    if (variant !== "full") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [variant]);
+
   // Tapping furniture opens the matching part of the app.
   tapRef.current = tap => {
     if (!tap) return;
@@ -82,71 +90,94 @@ export default function GameScene({ scene = "room", tasks = [], events = [], onT
     if (["today", "tasks", "calendar", "room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
   };
 
-  return (
-    <div className="phase-page cozy-room-page">
-      <style>{ROOM_CSS}</style>
-      <div className="cozy-room-stage">
-        <canvas ref={canvasRef} className="cozy-room-canvas" style={{ aspectRatio: `${S.layout.size[0]} / ${S.layout.size[1]}` }} aria-label={S.label} />
-        {status !== "ready" && (
-          <div className="cozy-room-overlay" role="status">
-            {status === "loading" ? (scene === "town" ? "Walking into town…" : "Setting up your room…") : (
-              <>
-                <span>The pictures couldn’t load. Check your connection.</span>
-                <button className="tf-save" onClick={() => setAttempt(a => a + 1)}>Try again</button>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="cozy-room-bar">
-        <p className="cozy-room-hint" aria-live="polite">{hint}</p>
-        <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙 Night" : "☀️ Day"}</button>
-      </div>
-
-      <div className="cozy-room-cards">
-        <section className="phase-card">
-          <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => onOpenPage?.("tasks")}>Open tasks</button></div>
-          {openTasks.length ? (
-            <div className="today-task-list">
-              {openTasks.slice(0, 6).map(t => (
-                <div key={t.id} className="today-task-row">
-                  <button className="today-task-check" onClick={() => onToggleTask?.(t.id)} aria-label={`Mark ${t.title} done`}>□</button>
-                  <div><strong>{t.title}</strong></div>
-                </div>
-              ))}
-              {openTasks.length > 6 && <small className="cozy-room-more">+{openTasks.length - 6} more in Tasks</small>}
-            </div>
-          ) : (
-            <p className="cozy-room-empty">{doneCount ? `All ${doneCount} done today 🎉` : "Nothing due today 🌸"}</p>
+  const ratio = S.layout.size[0] / S.layout.size[1];
+  const full = variant === "full";
+  const stage = (
+    <div className="cozy-room-stage" style={{ "--cozy-ar": ratio }}>
+      <canvas ref={canvasRef} className="cozy-room-canvas" style={{ aspectRatio: `${S.layout.size[0]} / ${S.layout.size[1]}` }} aria-label={S.label} />
+      {status !== "ready" && (
+        <div className="cozy-room-overlay" role="status">
+          {status === "loading" ? (scene === "town" ? "Walking into town…" : "Setting up your room…") : (
+            <>
+              <span>The pictures couldn’t load. Check your connection.</span>
+              <button className="tf-save" onClick={() => setAttempt(a => a + 1)}>Try again</button>
+            </>
           )}
-        </section>
-        <section className="phase-card">
-          <div className="phase-card-head"><span>Coming up</span><button onClick={() => onOpenPage?.("calendar")}>Open calendar</button></div>
-          {nextEvents.length ? (
-            <div className="today-event-list">
-              {nextEvents.map(e => <div key={e.id} className="today-event-row"><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong></div></div>)}
-            </div>
-          ) : <p className="cozy-room-empty">No more events today.</p>}
-        </section>
+        </div>
+      )}
+    </div>
+  );
+
+  // Compact: just the scene (Mini Tempo's room view).
+  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS}</style>{stage}</div>;
+
+  // Full screen: covers the whole app; Back (top left) or Escape returns to Today.
+  return (
+    <div className="cozy-scene cozy-full" role="dialog" aria-modal="true" aria-label={scene === "town" ? "Tempo Town" : "My Room"}>
+      <style>{ROOM_CSS}</style>
+      <div className="cozy-full-inner" style={{ "--cozy-ar": ratio }}>
+        <div className="cozy-topbar">
+          <button className="cozy-back" onClick={onBack} aria-label="Back to Tempo">← Back</button>
+          <strong className="cozy-title">{scene === "town" ? "Tempo Town" : "My Room"}</strong>
+          <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙 Night" : "☀️ Day"}</button>
+        </div>
+        {stage}
+        <p className="cozy-room-hint" aria-live="polite">{hint}</p>
+        <div className="cozy-room-cards">
+          <section className="phase-card">
+            <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => onOpenPage?.("tasks")}>Open tasks</button></div>
+            {openTasks.length ? (
+              <div className="today-task-list">
+                {openTasks.slice(0, 6).map(t => (
+                  <div key={t.id} className="today-task-row">
+                    <button className="today-task-check" onClick={() => onToggleTask?.(t.id)} aria-label={`Mark ${t.title} done`}>□</button>
+                    <div><strong>{t.title}</strong></div>
+                  </div>
+                ))}
+                {openTasks.length > 6 && <small className="cozy-room-more">+{openTasks.length - 6} more in Tasks</small>}
+              </div>
+            ) : (
+              <p className="cozy-room-empty">{doneCount ? `All ${doneCount} done today 🎉` : "Nothing due today 🌸"}</p>
+            )}
+          </section>
+          <section className="phase-card">
+            <div className="phase-card-head"><span>Coming up</span><button onClick={() => onOpenPage?.("calendar")}>Open calendar</button></div>
+            {nextEvents.length ? (
+              <div className="today-event-list">
+                {nextEvents.map(e => <div key={e.id} className="today-event-row"><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong></div></div>)}
+              </div>
+            ) : <p className="cozy-room-empty">No more events today.</p>}
+          </section>
+        </div>
       </div>
     </div>
   );
 }
 
-// Styles live here so they load only with the room. Colours come from the app's theme variables.
+// Styles live here so they load only with the game. Colours come from the app's theme variables.
 const ROOM_CSS = `
-.cozy-room-page{display:grid;gap:14px;max-width:1100px;margin:0 auto;width:100%;}
-.cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:#2B2336;border:1px solid var(--border,rgba(0,0,0,.08));}
-.cozy-room-canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;}
+.cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:#2B2336;}
+.cozy-room-canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .cozy-room-overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:#F3EAF6;font-weight:700;text-align:center;padding:16px;background:rgba(43,35,54,.86);}
-.cozy-room-bar{display:flex;align-items:center;gap:12px;}
-.cozy-room-hint{flex:1;margin:0;color:var(--text2,var(--text));font-size:14px;opacity:.85;min-width:0;}
-.cozy-room-btn{border:1px solid rgba(var(--accent-rgb),.25);background:var(--surface,#fff);color:var(--accent);border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;flex-shrink:0;}
-.cozy-room-btn[aria-pressed="true"]{background:var(--accent);color:#fff;}
-.cozy-room-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.cozy-room-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;flex-shrink:0;min-height:40px;}
+.cozy-room-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);}
+/* full screen */
+.cozy-full{position:fixed;inset:0;z-index:2000;overflow-y:auto;overscroll-behavior:contain;background:#2B2336;color:#F3EAF6;
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));}
+.cozy-full-inner{width:100%;max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;justify-items:center;}
+/* the scene fills the first screen: as wide as fits under the top bar, never taller than the window */
+.cozy-full .cozy-room-stage{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));}
+.cozy-topbar{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));display:flex;align-items:center;gap:10px;min-height:44px;}
+.cozy-back{border:0;background:#fff;color:var(--accent,#CB416B);border-radius:999px;padding:9px 16px;font:inherit;font-weight:800;cursor:pointer;min-height:42px;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+.cozy-title{flex:1;text-align:center;font-size:15px;letter-spacing:.02em;opacity:.9;}
+.cozy-full .cozy-room-hint{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));margin:0;font-size:14px;opacity:.85;}
+.cozy-full .cozy-room-cards{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;color:var(--text,#3B2A40);}
 .cozy-room-cards>*{min-width:0;}
-.cozy-room-empty{margin:6px 0 0;color:var(--text2,var(--text));opacity:.8;}
+.cozy-full .cozy-room-cards .phase-card{background:var(--surface,#FFFFFF);color:var(--text,#3B2A40);border-radius:18px;padding:14px 16px;}
+.cozy-room-empty{margin:6px 0 0;opacity:.8;}
 .cozy-room-more{display:block;margin-top:6px;opacity:.7;}
 .cozy-room-loading{padding:40px;text-align:center;opacity:.7;}
+@media (max-width:600px){.cozy-room-stage{border-radius:12px;}.cozy-title{font-size:14px;}.cozy-back{padding:8px 13px;}}
+/* compact (Mini Tempo) */
+.cozy-compact .cozy-room-stage{border-radius:14px;}
 `;
