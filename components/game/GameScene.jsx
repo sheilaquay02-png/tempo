@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
+import { GamePanel, PANEL_CSS } from "./GamePanels";
 
 const SCENES = {
   room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls. Walk out the bottom middle to go to town." },
@@ -15,7 +16,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], onToggleTask, onOpenPage, onBack }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onBack }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -24,6 +25,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   const [attempt, setAttempt] = useState(0);
   const [night, setNight] = useState(false);
   const [hint, setHint] = useState(S.hint);
+  const [panel, setPanel] = useState(null); // "today" | "tasks" | "calendar": small in-game versions
 
   const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY));
   const openTasks = todayTasks.filter(t => !t.done);
@@ -87,7 +89,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     if (tap.action === "dogs") { apiRef.current?.celebrate(); setHint("The dogs came running!"); return; }
     if (tap.action === "note") { setHint(tap.note || tap.name); return; }
     if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
-    if (["today", "tasks", "calendar", "room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
+    if (["today", "tasks", "calendar"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
+    if (["room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
   };
 
   const ratio = S.layout.size[0] / S.layout.size[1];
@@ -105,16 +108,18 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
           )}
         </div>
       )}
+      {panel && <GamePanel kind={panel} tasks={tasks} calendarEvents={calendarEvents} onToggleTask={onToggleTask} onAddTask={onAddTask}
+        onOpenPage={p => { setPanel(null); onOpenPage?.(p); }} onClose={() => setPanel(null)} />}
     </div>
   );
 
   // Compact: just the scene (Mini Tempo's room view).
-  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS}</style>{stage}</div>;
+  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS + PANEL_CSS}</style>{stage}</div>;
 
   // Full screen: covers the whole app; Back (top left) or Escape returns to Today.
   return (
     <div className="cozy-scene cozy-full" role="dialog" aria-modal="true" aria-label={scene === "town" ? "Tempo Town" : "My Room"}>
-      <style>{ROOM_CSS}</style>
+      <style>{ROOM_CSS + PANEL_CSS}</style>
       <div className="cozy-full-inner" style={{ "--cozy-ar": ratio }}>
         <div className="cozy-topbar">
           <button className="cozy-back" onClick={onBack} aria-label="Back to Tempo">← Back</button>
@@ -125,7 +130,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
         <p className="cozy-room-hint" aria-live="polite">{hint}</p>
         <div className="cozy-room-cards">
           <section className="phase-card">
-            <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => onOpenPage?.("tasks")}>Open tasks</button></div>
+            <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => setPanel("tasks")}>Open tasks</button></div>
             {openTasks.length ? (
               <div className="today-task-list">
                 {openTasks.slice(0, 6).map(t => (
@@ -141,7 +146,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
             )}
           </section>
           <section className="phase-card">
-            <div className="phase-card-head"><span>Coming up</span><button onClick={() => onOpenPage?.("calendar")}>Open calendar</button></div>
+            <div className="phase-card-head"><span>Coming up</span><button onClick={() => setPanel("calendar")}>Open calendar</button></div>
             {nextEvents.length ? (
               <div className="today-event-list">
                 {nextEvents.map(e => <div key={e.id} className="today-event-row"><time>{e.allDay ? "All day" : fmt(e.start)}</time><div><strong>{e.title}</strong></div></div>)}

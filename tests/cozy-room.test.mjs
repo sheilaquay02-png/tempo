@@ -64,6 +64,27 @@ test("dogs follow by chance each time you start walking, and stay-behind dogs ke
   assert.match(scene, /state\.wasMoving && c\.following \? "sit" : c\.pose/);
 });
 
+test("Today, Tasks and Calendar open as small in-game panels instead of leaving the game", () => {
+  const panels = read("components/game/GamePanels.jsx");
+  assert.match(room, /if \(\["today", "tasks", "calendar"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
+  assert.match(room, /<button onClick=\{\(\) => setPanel\("tasks"\)\}>Open tasks<\/button>/);
+  assert.match(room, /<button onClick=\{\(\) => setPanel\("calendar"\)\}>Open calendar<\/button>/);
+  for (const part of ["TodayBody", "TasksBody", "CalendarBody"]) assert.match(panels, new RegExp(`function ${part}\\(`));
+  // ticking and adding use the app's own actions; the full pages stay one tap away
+  assert.match(panels, /onToggleTask\?\.\(t\.id\)/);
+  assert.match(panels, /onAddTask\?\.\(title\)/);
+  assert.match(panels, /onOpenPage\?\.\(kind\)/);
+  assert.match(app, /onAddTask=\{addQuickTodayTask\}/);
+  assert.match(app, /calendarEvents=\{events\.filter\(eventSourceVisible\)\}/);
+  // Escape closes the panel without leaving the game
+  assert.match(panels, /if \(e\.key === "Escape"\) \{ e\.stopPropagation\(\); onClose\?\.\(\); \}/);
+});
+
+test("the town has no bridge", () => {
+  assert.ok(!TOWN_LAYOUT.objects.some(o => o.id === "bridge"));
+  assert.ok(!existsSync("public/game/town/town/structures/bridge_with_water.png"));
+});
+
 test("in the room, letter keys walk instead of triggering app shortcuts", () => {
   const i = app.indexOf('if (page === "room" || page === "town") return;');
   assert.ok(i > 0, "shortcut handler should step aside in the room");
@@ -71,7 +92,7 @@ test("in the room, letter keys walk instead of triggering app shortcuts", () => 
 });
 
 test("the game never saves anything: no cloud, database or storage writes", () => {
-  for (const [name, src] of [["GameScene.jsx", room], ["scene.js", scene], ["townLayout.js", read("lib/game/townLayout.js")]]) {
+  for (const [name, src] of [["GameScene.jsx", room], ["GamePanels.jsx", read("components/game/GamePanels.jsx")], ["scene.js", scene], ["townLayout.js", read("lib/game/townLayout.js")]]) {
     assert.doesNotMatch(src, /saveToCloud|supabase|localStorage\.setItem|sessionStorage|indexedDB|method:\s*["']POST/i, `${name} must stay read-only`);
   }
   // it changes data only through the app's existing task toggle

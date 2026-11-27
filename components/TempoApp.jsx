@@ -3156,7 +3156,7 @@ export default function App({ windowMode = "full" }) {
           onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
           onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
           onFull={openFullTempo}
-          renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask}
+          renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
             onOpenPage={p => { if (p === "room" || p === "town") setMiniScene(p); else openFullTempo(p === "budget" ? "/" : `/?page=${p}`); }} />} />
       ) : (
       <>
@@ -3197,7 +3197,7 @@ export default function App({ windowMode = "full" }) {
           ) : page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenRoom={() => setPage("room")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "room" || page === "town" ? (
-            <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} tasks={tasks} events={todayDashboardEvents} onToggleTask={toggleTask} onOpenPage={(p, sub) => {
+            <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenPage={(p, sub) => {
               if (p === "budget") { navigateBudgetPage(sub); return; }
               setPage(p); if (p === "tasks") setTaskScope("day"); if (p === "calendar") setView("day");
             }} />
