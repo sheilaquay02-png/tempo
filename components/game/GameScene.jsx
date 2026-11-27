@@ -163,9 +163,9 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
 const ROOM_CSS = `
 /* same font as the rest of Tempo (Nunito via the app's --font setting), for every game screen, panel, button and input */
 .cozy-scene,.cozy-scene button,.cozy-scene input,.cozy-scene h3,.cozy-scene p,.cozy-scene small,.cozy-scene strong,.cozy-scene time{font-family:var(--font,"Nunito",system-ui,-apple-system,sans-serif);}
-.cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:#2B2336;}
+.cozy-room-stage{position:relative;border-radius:18px;overflow:hidden;background:transparent;}
 .cozy-room-canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.cozy-room-overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:#F3EAF6;font-weight:700;text-align:center;padding:16px;background:rgba(43,35,54,.86);}
+.cozy-room-overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:var(--accent,#CB416B);font-weight:800;text-align:center;padding:16px;background:rgba(255,245,248,.55);}
 .cozy-room-btn{border:1px solid rgba(var(--accent-rgb,203,65,107),.25);background:var(--surface,#fff);color:var(--accent,#CB416B);box-shadow:0 2px 10px rgba(var(--accent-rgb,203,65,107),.12);border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;flex-shrink:0;min-height:40px;}
 .cozy-room-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
 /* full screen */
@@ -180,7 +180,6 @@ const ROOM_CSS = `
 .cozy-back{border:1px solid rgba(var(--accent-rgb,203,65,107),.25);background:var(--surface,#fff);color:var(--accent,#CB416B);border-radius:999px;padding:9px 16px;font:inherit;font-weight:800;cursor:pointer;min-height:42px;box-shadow:0 2px 10px rgba(var(--accent-rgb,203,65,107),.15);}
 .cozy-title{flex:1;text-align:center;font-size:15px;letter-spacing:.02em;color:var(--text,#3B2A40);}
 .cozy-full .cozy-room-hint{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));margin:0;font-size:14px;color:var(--text2,#7A4654);}
-.cozy-full .cozy-room-stage{box-shadow:0 8px 24px rgba(var(--accent-rgb,203,65,107),.18);}
 .dark .cozy-full{background:var(--dark-page,var(--bg));}
 .cozy-full .cozy-room-cards{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;color:var(--text,#3B2A40);}
 .cozy-room-cards>*{min-width:0;}
