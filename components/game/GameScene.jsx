@@ -9,8 +9,8 @@ import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
 
 const SCENES = {
-  room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed, food bowls or the door to town." },
-  town: { layout: TOWN_LAYOUT, label: "Tempo Town: you and your four dogs in the town square", hint: "Tap the paving to walk (or use the arrow keys / WASD). Tap a building: Town Hall, Library, Bank, Market, Café… The bridge takes you home." },
+  room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls. Walk out the bottom middle to go to town." },
+  town: { layout: TOWN_LAYOUT, label: "Tempo Town: you and your four dogs in the town square", hint: "Tap the paving to walk (or use the arrow keys / WASD). Tap a building: Town Hall, Library, Bank, Café… Tap My House to go home." },
 };
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
@@ -39,7 +39,7 @@ export default function GameScene({ scene = "room", tasks = [], events = [], onT
     const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     setStatus("loading");
     import("../../lib/game/scene.js")
-      .then(({ createScene }) => createScene(canvasRef.current, S.layout, { reduceMotion, onTap: tap => tapRef.current(tap) }))
+      .then(({ createScene }) => createScene(canvasRef.current, S.layout, { reduceMotion, onTap: tap => tapRef.current(tap), onExit: action => tapRef.current({ action }) }))
       .then(api => {
         if (cancelled) { api.destroy(); return; }
         apiRef.current = api;

@@ -22,12 +22,20 @@ test("Mini Tempo and the other pages never pull in the game", () => {
   }
 });
 
-test("Room and Town are reachable from the menus and from each other", () => {
+test("Room is in the menus; Town is reached by walking out of the room and left via My House", () => {
   const shell = read("components/layout/AppShell.jsx");
   assert.match(shell, /onNavigate\("room"\)/);
-  assert.match(shell, /onNavigate\("town"\)/);
-  assert.equal(ROOM_LAYOUT.objects.find(o => o.id === "door").tap.action, "town");
-  assert.equal(TOWN_LAYOUT.objects.find(o => o.id === "bridge").tap.action, "room");
+  assert.doesNotMatch(shell, /onNavigate\("town"\)/, "Town has no menu item of its own");
+  const exit = ROOM_LAYOUT.exits.find(e => e.action === "town");
+  assert.ok(exit, "the room has a walking exit to town");
+  const [x0, y0, x1, y1] = ROOM_LAYOUT.walk;
+  assert.ok(exit.area[0] >= x0 && exit.area[2] <= x1 + 1 && exit.area[1] < y1, "the exit is inside the walkable floor");
+  assert.ok(exit.area[0] < ROOM_LAYOUT.size[0] / 2 && exit.area[2] > ROOM_LAYOUT.size[0] / 2, "the exit is at the bottom middle");
+  assert.match(scene, /opts\.onExit\(exit\.action\)/);
+  assert.match(room, /onExit: action => tapRef\.current\(\{ action \}\)/);
+  const house = TOWN_LAYOUT.objects.find(o => o.id === "my_house");
+  assert.equal(house.tap.action, "room");
+  assert.ok(!TOWN_LAYOUT.objects.some(o => o.id === "market"), "My House replaces the market");
   assert.match(shell, /onNavigateRoom/);
   assert.equal((app.match(/\["today", "calendar", "tasks", "room", "town"\]/g) || []).length, 2, "both navigation helpers accept the room and town pages");
   assert.match(app, /onNavigateRoom=\{/);
