@@ -9,7 +9,7 @@ import { FURNITURE_BY_ID } from "../lib/game/furniture.js";
 const read = f => readFileSync(f, "utf8");
 
 test("every accessory has front and side pictures, a fair price and a name", () => {
-  assert.equal(ACCESSORIES.length, 13);
+  assert.equal(ACCESSORIES.length, 22);
   for (const a of ACCESSORIES) {
     for (const v of ["front", "side"]) assert.ok(existsSync(`public/game/accessories/${a.id}/${v}.png`), `${a.id}/${v}`);
     assert.ok(a.price > 0 && a.price % 3 === 0, `${a.id} costs whole tasks`);
@@ -72,7 +72,7 @@ test("the Pet Shop sells accessories and the food bowls open the dress-up menu",
   assert.match(engine, /function wear\(c, img, x, y, k, flipped, kAcc, phase = "front"\)/);
   assert.equal((engine.match(/^\s+wear\(c, /gm) || []).length, 8, "accessories drawn on idle, toy, walking and still frames, before and after the dog");
   assert.equal((engine.match(/"behind"\);/g) || []).length, 4, "back views put the accessory behind the dog");
-  assert.match(engine, /if \(\(a\[2\] === "back"\) !== \(phase === "behind"\)\) return;/);
+  assert.match(engine, /if \(\(a\[2\] === "back" && !backPic\) !== \(phase === "behind"\)\) return;/);
 });
 
 test("accessory fine-tuning only names real accessories, dogs and directions", () => {
@@ -84,4 +84,11 @@ test("accessory fine-tuning only names real accessories, dogs and directions", (
     for (const [v, f] of Object.entries(views)) { assert.ok(["front", "right", "left", "back", "nap"].includes(v), v); assert.ok(ok(f), `${k} ${v}`); }
   }
   assert.match(read("lib/game/scene.js"), /DOG_FIT\[c\.key\]/);
+});
+
+test("new hats bring a back view on a bigger canvas, with every picture present", () => {
+  const hats = ACCESSORIES.filter(a => a.art === "hat");
+  assert.equal(hats.length, 9);
+  for (const h of hats) for (const v of ["front", "side", "back"]) assert.ok(existsSync(`public/game/accessories/${h.id}/${v}.png`), `${h.id} ${v}`);
+  assert.match(read("lib/game/accessories.js"), /hat: \{ w: 288, h: 256, ax: 144, ay: 240, back: true, scale: 0.6, sideFacesLeft: true \}/);
 });
