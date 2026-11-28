@@ -70,7 +70,7 @@ export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebra
     setEndAt(null);
     chime();
     if (mode === "focus") {
-      cb.current.onReward?.(`focus@${startedRef.current || new Date().toISOString()}`);
+      cb.current.onReward?.(`focus@${startedRef.current || new Date().toISOString()}~${lengths.focus}`); // ~minutes, for the Flow State badge
       cb.current.onCelebrate?.();
       cb.current.onAnim?.("happy");
       setNote(`Focus session done! +${rewardAmount} 🌸 Time for a little break.`);

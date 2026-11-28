@@ -125,10 +125,10 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   }, [weather, status, hour]);
 
   // milestones: a badge you've reached is given (with its blossom gift) the next time the game is open
-  const reachedKey = typeof onGameChange === "function" && game ? newBadges(game, tasks).map(b => b.id).join(",") : "";
+  const reachedKey = typeof onGameChange === "function" && game ? newBadges(game, tasks, calendarEvents).map(b => b.id).join(",") : "";
   useEffect(() => {
     if (!reachedKey || status !== "ready") return;
-    const fresh = newBadges(game, tasks); if (!fresh.length) return;
+    const fresh = newBadges(game, tasks, calendarEvents); if (!fresh.length) return;
     onGameChange(g => awardBadges(g, fresh));
     const gift = fresh.reduce((n, b) => n + b.gift, 0);
     setHint(`🏅 New ${fresh.length > 1 ? `badges: ${fresh.map(b => b.name).join(", ")}` : `badge: ${fresh[0].name}`}! +${gift} 🌸 · see them at the Town Hall`);
