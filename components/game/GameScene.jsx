@@ -6,14 +6,18 @@
 // Where you and the dogs walk lives only in memory and is forgotten when you leave.
 import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
-import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD } from "../../lib/game/economy";
-import { ACCESSORIES, DOGS, buyAccessory, wearAccessory } from "../../lib/game/accessories";
+import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD, streakInfo, localDayKey } from "../../lib/game/economy";
+import { play, soundOn, setSoundOn } from "../../lib/game/sounds";
+import { ACCESSORIES, ACCESSORY_BY_ID, DOGS, buyAccessory, wearAccessory } from "../../lib/game/accessories";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
 import { CAFE_LAYOUT } from "../../lib/game/cafeLayout";
 import { CafeTimer, CAFE_CSS } from "./CafeTimer";
 import { GamePanel, PANEL_CSS } from "./GamePanels";
+
+// names for the Blossom Bank's purchase list
+const ITEM_NAMES = Object.fromEntries([...Object.values(FURNITURE_BY_ID), ...Object.values(ACCESSORY_BY_ID)].map(i => [i.id, i.name]));
 
 const SCENES = {
   room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls. Walk out the bottom middle to go to town." },
@@ -29,6 +33,20 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   const apiRef = useRef(null);
   const tapRef = useRef(() => {});
   const [status, setStatus] = useState("loading"); // loading | ready | error
+  const [sound, setSound] = useState(true); // 🔊 / 🔇 (remembered on this device)
+  useEffect(() => { setSound(soundOn()); }, []);
+  // daily streak (Town Hall); a new streak day gets a little fanfare
+  const streak = streakInfo(game || {});
+  const streakNow = streak.current;
+  const todayBonus = (game?.earned || {})[`day@${localDayKey()}`];
+  const lastBonus = useRef(todayBonus);
+  useEffect(() => {
+    if (lastBonus.current === undefined && todayBonus !== undefined && streakNow >= 2) {
+      setTimeout(() => play("streak"), 900);
+      setHint(`🔥 ${streakNow}-day streak! +${todayBonus} bonus 🌸`);
+    }
+    lastBonus.current = todayBonus;
+  }, [todayBonus, streakNow]);
   const [attempt, setAttempt] = useState(0);
   const [night, setNight] = useState(false);
   const [hint, setHint] = useState(S.hint);
@@ -54,7 +72,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     setStatus("loading");
     import("../../lib/game/scene.js")
       .then(({ createScene }) => createScene(canvasRef.current, scene === "room" ? roomLayoutFor({ room: roomRef.current }) : S.layout, {
-        reduceMotion, onTap: tap => tapRef.current(tap), onExit: action => tapRef.current({ action }),
+        reduceMotion, onTap: tap => tapRef.current(tap), onExit: action => tapRef.current({ action }), onSound: name => play(name),
         onSelect: o => setSelected(o ? o.id : null), onChange: () => setPlacedNow(apiRef.current?.exportPlaced?.() || null),
       }))
       .then(api => {
@@ -83,7 +101,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   // A task ticked off today (here or anywhere else while the room is open) → the dogs celebrate.
   const lastDone = useRef(doneCount);
   useEffect(() => {
-    if (doneCount > lastDone.current) apiRef.current?.celebrate();
+    if (doneCount > lastDone.current) { apiRef.current?.celebrate(); play("chime"); setTimeout(() => play("woof"), 450); }
     lastDone.current = doneCount;
   }, [doneCount]);
 
@@ -113,11 +131,11 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   tapRef.current = tap => {
     if (!tap) return;
     if (tap.action === "night") { setNight(n => (tap.name === "Bed" ? true : !n)); setHint(tap.name === "Bed" ? "Goodnight! Walk or press Day to get up." : "Lamp switched."); return; }
-    if (tap.action === "dogs") { apiRef.current?.celebrate(); setHint("The dogs came running!"); return; }
+    if (tap.action === "dogs") { apiRef.current?.celebrate(); play("woof"); setHint("The dogs came running!"); return; }
     if (tap.action === "note") { setHint(tap.note || tap.name); return; }
     if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
-    if (["today", "tasks", "calendar", "store", "pets", "petshop"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
-    if (["room", "town", "cafe"].includes(tap.action)) onOpenPage?.(tap.action);
+    if (["today", "tasks", "calendar", "store", "pets", "petshop", "library", "townhall", "bank"].includes(tap.action)) { play("pop"); setPanel(tap.action); return; } // stay in the game
+    if (["room", "town", "cafe"].includes(tap.action)) { play("door"); onOpenPage?.(tap.action); }
   };
 
   // ── Edit room ───────────────────────────────────────────────────────────
@@ -142,13 +160,13 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   const buyAcc = item => {
     const next = buyAccessory(game || {}, item);
     if (!next) { setHint(`You need ${item.price - (game?.blossoms || 0)} more 🌸 for the ${item.name}.`); return; }
-    onGameChange(() => next);
+    onGameChange(() => next); play("buy");
     setHint(`The ${item.name} is yours! Tap the food bowls at home to put it on a dog.`);
   };
   const buy = item => {
     const next = buyItem(game || {}, item);
     if (!next) { setHint(`You need ${item.price - (game?.blossoms || 0)} more 🌸 for the ${item.name}.`); return; }
-    onGameChange(() => next);
+    onGameChange(() => next); play("buy");
     setHint(`The ${item.name} is in your storage. Use ✏️ Edit room at home to place it.`);
   };
 
@@ -179,7 +197,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
         blossoms={game?.blossoms || 0} storeItems={STORE_ITEMS} owned={game?.owned || {}} onBuy={buy} storage={storage} furniture={FURNITURE_BY_ID} onPlace={placeFromStorage}
         accessories={ACCESSORIES} dogs={DOGS} pets={game?.pets || {}} canChange={typeof onGameChange === "function"} onBuyAccessory={buyAcc}
         onWear={(dog, id) => onGameChange?.(g => wearAccessory(g, dog, id))}
-        onOpenPage={p => { setPanel(null); onOpenPage?.(p); }} onClose={() => setPanel(null)} />}
+        game={game} names={ITEM_NAMES}
+        onOpenPage={(p, sub) => { setPanel(null); onOpenPage?.(p, sub); }} onClose={() => setPanel(null)} />}
     </div>
   );
 
@@ -201,8 +220,10 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
           <button className="cozy-back" onClick={editing ? cancelEdit : scene === "cafe" ? () => onOpenPage?.("town") : onBack} aria-label={editing ? "Cancel editing" : scene === "cafe" ? "Leave the café" : "Back to Tempo"}>{editing ? "✕ Cancel" : scene === "cafe" ? "← Back to town" : "← Back"}</button>
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}</strong>
           {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
+          {game && streak.current > 0 && <span className="cozy-blossoms" title={`Daily streak: ${streak.current} ${streak.current === 1 ? "day" : "days"} in a row${streak.doneToday ? "" : ". Finish a task today to keep it"}`}>🔥 {streak.current}</span>}
           {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
           {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
+          <button className="cozy-room-btn" onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (on) play("pop"); }} aria-pressed={sound} aria-label={sound ? "Sound on (tap to mute)" : "Sound off (tap to turn on)"}>{sound ? "🔊" : "🔇"}</button>
         </div>
         {stage}
         {editing ? (

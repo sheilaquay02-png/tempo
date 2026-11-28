@@ -4,15 +4,15 @@
 // Like the rest of the game they only READ your data; ticking or adding a task uses the app's own actions.
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
-import { TASK_REWARD } from "../../lib/game/economy";
+import { TASK_REWARD, STREAK_MAX_BONUS, streakInfo } from "../../lib/game/economy";
 import { STORE_CATEGORIES, storeCategory } from "../../lib/game/furniture";
 
-const { TODAY, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
+const { TODAY, taskCompletedDateKey, localDateFromKey, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
-const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar", store: "🛍️ General Store", storage: "🧺 Your storage", petshop: "🐾 Pet Shop", pets: "🎀 Dress up the dogs" };
-const FULL = { today: "Open Today", tasks: "Open all tasks", calendar: "Open full calendar" };
+const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar", store: "🛍️ General Store", storage: "🧺 Your storage", petshop: "🐾 Pet Shop", pets: "🎀 Dress up the dogs", library: "📚 Library · your done diary", townhall: "🏛️ Town Hall · daily streak", bank: "🏦 Blossom Bank" };
+const FULL = { today: "Open Today", tasks: "Open all tasks", calendar: "Open full calendar", bank: "Open Budget" };
 
-export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose, blossoms = 0, storeItems = [], owned = {}, onBuy, storage = {}, furniture = {}, onPlace, accessories = [], dogs = [], pets = {}, canChange = false, onBuyAccessory, onWear }) {
+export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose, blossoms = 0, storeItems = [], owned = {}, onBuy, storage = {}, furniture = {}, onPlace, accessories = [], dogs = [], pets = {}, canChange = false, onBuyAccessory, onWear, game = null, names = {} }) {
   const ref = useRef(null);
   // Escape closes the panel (not the game); focus moves into the panel for keyboard users.
   useEffect(() => {
@@ -42,9 +42,12 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
           {kind === "storage" && <StorageBody storage={storage} furniture={furniture} onPlace={onPlace} />}
           {kind === "petshop" && <PetShopBody items={accessories} blossoms={blossoms} owned={owned} canBuy={canChange} onBuy={onBuyAccessory} />}
           {kind === "pets" && <PetsBody items={accessories} dogs={dogs} owned={owned} pets={pets} canChange={canChange} onWear={onWear} />}
+          {kind === "library" && <LibraryBody tasks={tasks} />}
+          {kind === "townhall" && <TownHallBody game={game} />}
+          {kind === "bank" && <BankBody game={game} names={names} />}
         </div>
         {FULL[kind] && <footer className="cozy-panel-foot">
-          <button onClick={() => onOpenPage?.(kind)}>{FULL[kind]} ↗</button>
+          <button onClick={() => (kind === "bank" ? onOpenPage?.("budget", "home") : onOpenPage?.(kind))}>{FULL[kind]} ↗</button>
         </footer>}
       </section>
     </div>
@@ -150,6 +153,77 @@ function StorageBody({ storage, furniture, onPlace }) {
   );
 }
 
+// Library: every task you finished in the last 30 days, newest day first.
+function LibraryBody({ tasks }) {
+  const days = new Map();
+  for (const t of tasks) {
+    const key = taskCompletedDateKey(t); if (!key) continue;
+    if (!days.has(key)) days.set(key, []);
+    days.get(key).push(t);
+  }
+  const since = Date.now() - 30 * 86400000;
+  const list = [...days.entries()].filter(([k]) => (localDateFromKey(k)?.getTime() ?? 0) >= since).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const total = list.reduce((n, [, ts]) => n + ts.length, 0);
+  if (!list.length) return <p className="cozy-empty">Your diary is empty for now. Every task you finish is written here 📖</p>;
+  return (
+    <>
+      <p className="cozy-wallet"><strong>{total}</strong> tasks finished in the last 30 days</p>
+      {list.map(([k, ts]) => (
+        <div key={k}>
+          <h3>{fmtDate(localDateFromKey(k))} <small>({ts.length})</small></h3>
+          <ul className="cozy-diary">{ts.map(t => <li key={t.id}>✓ {t.title}</li>)}</ul>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Town Hall: your daily streak — finish at least one task a day to keep it going.
+function TownHallBody({ game }) {
+  const s = streakInfo(game || {});
+  return (
+    <>
+      <div className="cozy-streak-head">
+        <span className="cozy-streak-big">🔥 {s.current}</span>
+        <span>{s.current === 1 ? "day" : "days"} in a row{s.doneToday ? " · today's done ✓" : s.current ? " · finish a task today to keep it" : ""}</span>
+      </div>
+      <p className="cozy-wallet">Best streak: <strong>{s.best}</strong> {s.best === 1 ? "day" : "days"}</p>
+      <h3>Last 4 weeks</h3>
+      <div className="cozy-streak-grid" role="img" aria-label={`${s.recent.filter(d => d.done).length} of the last 28 days had a finished task`}>
+        {s.recent.map(d => <span key={d.key} className={d.done ? "on" : ""} title={d.key} />)}
+      </div>
+      <h3>Streak bonus</h3>
+      <p className="cozy-empty">From the 2nd day in a row, your first task each day earns extra 🌸: 2 on day 2, 3 on day 3… up to {STREAK_MAX_BONUS} a day. {s.doneToday ? "Tomorrow" : "Today"}&rsquo;s first task: <strong>+{TASK_REWARD + s.nextBonus} 🌸</strong>.</p>
+    </>
+  );
+}
+
+// Blossom Bank: where your blossoms came from and what you spent them on (recent records).
+function BankBody({ game, names }) {
+  const earned = Object.entries(game?.earned || {});
+  const sum = test => earned.filter(([k]) => test(k)).reduce((n, [, v]) => n + v, 0);
+  const fromStreak = sum(k => k.startsWith("day@")), fromFocus = sum(k => k.startsWith("focus@"));
+  const fromTasks = sum(k => !k.startsWith("day@") && !k.startsWith("focus@"));
+  const spent = Object.entries(game?.spent || {}).map(([k, v]) => {
+    const [id, stamp] = k.split("#"), t = parseInt(stamp.slice(0, -2), 36);
+    return { k, name: names[id] || id.replace(/_/g, " "), price: v, when: Number.isFinite(t) ? new Date(t) : null };
+  }).sort((a, b) => (b.when?.getTime() || 0) - (a.when?.getTime() || 0)).slice(0, 12); // newest first
+  return (
+    <>
+      <div className="cozy-streak-head"><span className="cozy-streak-big">🌸 {game?.blossoms || 0}</span><span>in your account</span></div>
+      <h3>Recently earned</h3>
+      <ul className="cozy-bank">
+        <li><span>✅ Finishing tasks</span><strong>{fromTasks}</strong></li>
+        <li><span>☕ Café focus sessions</span><strong>{fromFocus}</strong></li>
+        <li><span>🔥 Streak bonuses</span><strong>{fromStreak}</strong></li>
+      </ul>
+      <h3>Recent purchases</h3>
+      {spent.length ? <ul className="cozy-bank">{spent.map(p => <li key={p.k}><span>{p.name}{p.when ? <small> · {fmtDate(p.when)}</small> : null}</span><strong>−{p.price}</strong></li>)}</ul>
+        : <p className="cozy-empty">Nothing bought yet. The General Store and Pet Shop are just around the corner 🛍️</p>}
+    </>
+  );
+}
+
 function TaskRow({ t, onToggleTask }) {
   return (
     <label className={`cozy-task ${t.done ? "done" : ""}`}>
@@ -247,6 +321,16 @@ export const PANEL_CSS = `
 .cozy-event{display:flex;gap:10px;align-items:baseline;background:#fff;border:2px solid #E3D6F2;border-radius:12px;padding:8px 10px;}
 .cozy-event time{font-size:12px;font-weight:800;color:#7B5BB5;white-space:nowrap;min-width:58px;}
 .cozy-empty{margin:2px 0;color:#7A6A80;font-size:14px;}
+.cozy-diary{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:2px;font-size:14px;}
+.cozy-streak-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.cozy-streak-big{font-size:30px;font-weight:900;color:#CB416B;}
+.cozy-streak-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;max-width:280px;}
+.cozy-streak-grid span{aspect-ratio:1;border-radius:6px;background:#F7E3EA;}
+.cozy-streak-grid span.on{background:#E8749B;}
+.cozy-streak-grid span:last-child{outline:2px solid #CB416B;outline-offset:1px;}
+.cozy-bank{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:4px;font-size:14px;}
+.cozy-bank li{display:flex;justify-content:space-between;gap:10px;}
+.cozy-bank small{color:#7A6A80;}
 .cozy-add{display:flex;gap:6px;}
 .cozy-add input{flex:1;min-width:0;border:2px solid #F4D3DF;border-radius:12px;padding:9px 10px;font:inherit;font-size:15px;background:#fff;color:inherit;}
 .cozy-add button,.cozy-daynav button{border:0;border-radius:12px;padding:0 14px;min-height:42px;background:#CB416B;color:#fff;font:inherit;font-weight:800;cursor:pointer;}
