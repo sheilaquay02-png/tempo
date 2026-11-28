@@ -58,7 +58,7 @@ import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./cal
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { TodayLitePage } from "./today/TodayDashboard";
-import { rewardForTaskToggle } from "../lib/game/economy";
+import { rewardForTaskToggle, rewardForUndo } from "../lib/game/economy";
 import dynamic from "next/dynamic";
 // Cozy Room / Tempo Town are only downloaded when you open them; Classic pages and Mini Tempo never load them.
 const GameScene = dynamic(() => import("./game/GameScene"), { ssr: false, loading: () => <div className="phase-page cozy-room-loading">Opening…</div> });
@@ -2324,6 +2324,14 @@ export default function App({ windowMode = "full" }) {
     // treat the undo as the newest change instead of overruling it.
     const now = new Date().toISOString();
     const restored = prepareUndoRestore({ events, tasks }, snapshot, now);
+    // blossoms follow any tick the undo flips (ticked → unticked gives them back, and the other way round)
+    const before = new Map(tasks.map(t => [t.id, t]));
+    const tickChanges = restored.tasks.flatMap(after => {
+      const was = before.get(after.id);
+      if (!was || Boolean(was.done) === Boolean(after.done)) return [];
+      return [{ key: `${after.id}@${taskCompletionTargetKey(after.done ? after : was)}`, done: Boolean(after.done) }];
+    });
+    if (tickChanges.length) updateGame(g => rewardForUndo(g, tickChanges));
     let nextDeletedRecords = normalizeDeletedRecords(deletedRecords);
     if (restored.removedEventIds.length) nextDeletedRecords = addDeletedRecords(nextDeletedRecords, "events", restored.removedEventIds, now);
     if (restored.removedTaskIds.length) nextDeletedRecords = addDeletedRecords(nextDeletedRecords, "tasks", restored.removedTaskIds, now);
