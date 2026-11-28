@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
 import { TASK_REWARD, STREAK_MAX_BONUS, streakInfo } from "../../lib/game/economy";
 import { STORE_CATEGORIES, storeCategory } from "../../lib/game/furniture";
+import { badgeProgress } from "../../lib/game/badges";
 
 const { TODAY, taskCompletedDateKey, localDateFromKey, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
@@ -43,7 +44,7 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
           {kind === "petshop" && <PetShopBody items={accessories} blossoms={blossoms} owned={owned} canBuy={canChange} onBuy={onBuyAccessory} />}
           {kind === "pets" && <PetsBody items={accessories} dogs={dogs} owned={owned} pets={pets} canChange={canChange} onWear={onWear} />}
           {kind === "library" && <LibraryBody tasks={tasks} />}
-          {kind === "townhall" && <TownHallBody game={game} />}
+          {kind === "townhall" && <TownHallBody game={game} tasks={tasks} />}
           {kind === "bank" && <BankBody game={game} names={names} />}
         </div>
         {FULL[kind] && <footer className="cozy-panel-foot">
@@ -179,8 +180,9 @@ function LibraryBody({ tasks }) {
 }
 
 // Town Hall: your daily streak — finish at least one task a day to keep it going.
-function TownHallBody({ game }) {
+function TownHallBody({ game, tasks }) {
   const s = streakInfo(game || {});
+  const badges = badgeProgress(game || {}, tasks);
   return (
     <>
       <div className="cozy-streak-head">
@@ -194,6 +196,16 @@ function TownHallBody({ game }) {
       </div>
       <h3>Streak bonus</h3>
       <p className="cozy-empty">From the 2nd day in a row, your first task each day earns extra 🌸: 2 on day 2, 3 on day 3… up to {STREAK_MAX_BONUS} a day. {s.doneToday ? "Tomorrow" : "Today"}&rsquo;s first task: <strong>+{TASK_REWARD + s.nextBonus} 🌸</strong>.</p>
+      <h3>Badges <small>({badges.filter(b => b.have).length}/{badges.length})</small></h3>
+      <div className="cozy-badges">
+        {badges.map(b => (
+          <div key={b.id} className={`cozy-badge ${b.have ? "have" : ""}`} title={b.desc}>
+            <span className="cozy-badge-icon" aria-hidden="true">{b.icon}</span>
+            <strong>{b.name}</strong>
+            <small>{b.have ? `Earned · +${b.gift} 🌸` : `${b.desc} · ${b.value}/${b.goal}`}</small>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -203,7 +215,8 @@ function BankBody({ game, names }) {
   const earned = Object.entries(game?.earned || {});
   const sum = test => earned.filter(([k]) => test(k)).reduce((n, [, v]) => n + v, 0);
   const fromStreak = sum(k => k.startsWith("day@")), fromFocus = sum(k => k.startsWith("focus@"));
-  const fromTasks = sum(k => !k.startsWith("day@") && !k.startsWith("focus@"));
+  const fromBadges = sum(k => k.startsWith("badge@"));
+  const fromTasks = sum(k => !k.startsWith("day@") && !k.startsWith("focus@") && !k.startsWith("badge@"));
   const spent = Object.entries(game?.spent || {}).map(([k, v]) => {
     const [id, stamp] = k.split("#"), t = parseInt(stamp.slice(0, -2), 36);
     return { k, name: names[id] || id.replace(/_/g, " "), price: v, when: Number.isFinite(t) ? new Date(t) : null };
@@ -216,6 +229,7 @@ function BankBody({ game, names }) {
         <li><span>✅ Finishing tasks</span><strong>{fromTasks}</strong></li>
         <li><span>☕ Café focus sessions</span><strong>{fromFocus}</strong></li>
         <li><span>🔥 Streak bonuses</span><strong>{fromStreak}</strong></li>
+        <li><span>🏅 Badge gifts</span><strong>{fromBadges}</strong></li>
       </ul>
       <h3>Recent purchases</h3>
       {spent.length ? <ul className="cozy-bank">{spent.map(p => <li key={p.k}><span>{p.name}{p.when ? <small> · {fmtDate(p.when)}</small> : null}</span><strong>−{p.price}</strong></li>)}</ul>
@@ -328,6 +342,13 @@ export const PANEL_CSS = `
 .cozy-streak-grid span{aspect-ratio:1;border-radius:6px;background:#F7E3EA;}
 .cozy-streak-grid span.on{background:#E8749B;}
 .cozy-streak-grid span:last-child{outline:2px solid #CB416B;outline-offset:1px;}
+.cozy-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;}
+.cozy-badge{display:grid;justify-items:center;text-align:center;gap:2px;padding:8px 6px;border-radius:12px;border:2px dashed #EBD3DC;background:#FBF5F7;opacity:.7;}
+.cozy-badge.have{border:2px solid #E9A9C1;background:#fff;opacity:1;}
+.cozy-badge-icon{font-size:24px;filter:grayscale(1);}
+.cozy-badge.have .cozy-badge-icon{filter:none;}
+.cozy-badge strong{font-size:13px;line-height:1.2;}
+.cozy-badge small{font-size:11px;color:#7A6A80;line-height:1.25;}
 .cozy-bank{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:4px;font-size:14px;}
 .cozy-bank li{display:flex;justify-content:space-between;gap:10px;}
 .cozy-bank small{color:#7A6A80;}

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
 import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD, streakInfo, localDayKey } from "../../lib/game/economy";
 import { play, soundOn, setSoundOn } from "../../lib/game/sounds";
+import { weatherAt } from "../../lib/game/weather";
+import { newBadges, awardBadges } from "../../lib/game/badges";
 import { ACCESSORIES, ACCESSORY_BY_ID, DOGS, buyAccessory, wearAccessory } from "../../lib/game/accessories";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
@@ -27,7 +29,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack, clockHour }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack, clockHour, weatherOverride }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -114,6 +116,24 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     return () => clearInterval(id);
   }, []);
   useEffect(() => { apiRef.current?.setHour?.(Number.isFinite(clockHour) ? clockHour : hour); }, [hour, clockHour, status]);
+  // now and then it rains (or snows in winter) over the town; changes in 3-hour spells (lib/game/weather.js)
+  const weather = scene === "town" ? (weatherOverride !== undefined ? weatherOverride : weatherAt(new Date())) : null;
+  useEffect(() => {
+    if (status !== "ready") return;
+    apiRef.current?.setWeather?.(weather);
+    if (weather) setHint(weather === "snow" ? "❄️ Snow is drifting over Tempo Town." : "🌧️ A gentle rain is falling on Tempo Town.");
+  }, [weather, status, hour]);
+
+  // milestones: a badge you've reached is given (with its blossom gift) the next time the game is open
+  const reachedKey = typeof onGameChange === "function" && game ? newBadges(game, tasks).map(b => b.id).join(",") : "";
+  useEffect(() => {
+    if (!reachedKey || status !== "ready") return;
+    const fresh = newBadges(game, tasks); if (!fresh.length) return;
+    onGameChange(g => awardBadges(g, fresh));
+    const gift = fresh.reduce((n, b) => n + b.gift, 0);
+    setHint(`🏅 New ${fresh.length > 1 ? `badges: ${fresh.map(b => b.name).join(", ")}` : `badge: ${fresh[0].name}`}! +${gift} 🌸 · see them at the Town Hall`);
+    setTimeout(() => play("streak"), 600);
+  }, [reachedKey, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // dress the dogs with whatever they're wearing (pet bowl menu), whenever it changes
   const petsKey = JSON.stringify(game?.pets || {});
@@ -175,7 +195,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     <CafeTimer compact={compact} rewardAmount={onGameChange ? FOCUS_REWARD : 0}
       onAnim={name => apiRef.current?.setCafeAnim?.(name)}
       onCelebrate={() => apiRef.current?.celebrate()}
-      onReward={key => onGameChange?.(g => rewardForFocus(g, key))} />
+      onReward={key => onGameChange?.(g => rewardForFocus(g, key))}
+      saved={game?.cafe || null} onSaveLengths={l => onGameChange?.(g => ({ ...g, cafe: l }))} />
   );
 
   const ratio = S.layout.size[0] / S.layout.size[1];
