@@ -221,7 +221,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}</strong>
           {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
           {game && streak.current > 0 && <span className="cozy-blossoms" title={`Daily streak: ${streak.current} ${streak.current === 1 ? "day" : "days"} in a row${streak.doneToday ? "" : ". Finish a task today to keep it"}`}>🔥 {streak.current}</span>}
-          {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
+          {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"} aria-label="Edit room">✏️<span className="cozy-edit-label"> Edit room</span></button>}
           {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
           <button className="cozy-room-btn" onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (on) play("pop"); }} aria-pressed={sound} aria-label={sound ? "Sound on (tap to mute)" : "Sound off (tap to turn on)"}>{sound ? "🔊" : "🔇"}</button>
         </div>
@@ -291,12 +291,18 @@ const ROOM_CSS = `
 .cozy-edit-bar .cozy-room-hint{flex:1 1 220px;}
 .cozy-room-btn:disabled{opacity:.45;cursor:default;}
 .cozy-save{background:var(--accent,#CB416B)!important;color:#fff!important;border-color:var(--accent,#CB416B)!important;}
-@media (max-width:600px){.cozy-topbar{flex-wrap:wrap;}.cozy-title{order:-1;flex-basis:100%;}}
+@media (max-width:600px){.cozy-topbar{flex-wrap:wrap;gap:6px;}.cozy-title{order:-1;flex-basis:100%;}
+  /* phones: everything after the title fits on one row */
+  .cozy-topbar .cozy-room-btn,.cozy-topbar .cozy-blossoms{min-height:36px;padding:0 10px;font-size:14px;}
+  .cozy-topbar .cozy-back{min-height:36px;padding:0 12px;font-size:14px;}
+  .cozy-edit-label{display:none;}}
 .cozy-full .cozy-room-hint{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));margin:0;font-size:14px;color:var(--text2,#7A4654);}
 .dark .cozy-full{background:var(--dark-page,var(--bg));}
 .cozy-full .cozy-room-cards{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;color:var(--text,#3B2A40);}
 .cozy-room-cards>*{min-width:0;}
 .cozy-full .cozy-room-cards .phase-card{background:var(--surface,#FFFFFF);color:var(--text,#3B2A40);border-radius:18px;padding:14px 16px;}
+.cozy-full .cozy-room-cards .phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;font-weight:800;}
+.cozy-full .cozy-room-cards .phase-card-head button{border:1px solid rgba(var(--accent-rgb,203,65,107),.25);background:var(--surface,#fff);color:var(--accent,#CB416B);border-radius:999px;padding:6px 12px;min-height:36px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}
 .cozy-room-empty{margin:6px 0 0;opacity:.8;}
 .cozy-room-more{display:block;margin-top:6px;opacity:.7;}
 .cozy-room-loading{padding:40px;text-align:center;opacity:.7;}

@@ -42,11 +42,21 @@ for (const dir of ["pack", "walk", "idle", "sleep", "play", "celebrate", "cafe",
 
 // ONLY=room/furniture rebuilds just the files under that output folder
 if (process.env.ONLY) jobs.splice(0, jobs.length, ...jobs.filter(([, to]) => to.startsWith(join(OUT, process.env.ONLY))));
+const ROOM_MAX = 640; // longest side for room furniture pictures (px)
 let before = 0, after = 0, packed = 0;
 for (const [from, to] of jobs) {
   mkdirSync(dirname(to), { recursive: true });
   if (!from.endsWith(".png")) { copyFileSync(from, to); continue; }
   const orig = readFileSync(from); before += orig.length;
+  // Room furniture is drawn at most ~600 px wide in the room, but some pictures are ~2000 px:
+  // shrink those to ROOM_MAX on their longest side (smooth resize) so the room opens faster.
+  if (to.includes(join("room", "room")) && to.endsWith(".png")) {
+    const meta = await sharp(orig).metadata();
+    if (Math.max(meta.width, meta.height) > ROOM_MAX) {
+      const small = await sharp(orig).resize({ width: ROOM_MAX, height: ROOM_MAX, fit: "inside", kernel: "lanczos3" }).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+      writeFileSync(to, small); after += small.length; packed++; continue;
+    }
+  }
   const src = await sharp(orig).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const colours = new Set(); for (let i = 0; i < src.data.length && colours.size <= 256; i += 4) colours.add(src.data.readUInt32BE(i));
   const out = await sharp(orig).png(colours.size <= 256 ? { palette: true, colours: 256, dither: 0, effort: 10, compressionLevel: 9 } : { compressionLevel: 9, adaptiveFiltering: true }).toBuffer(); // (no effort/colours: those switch sharp to palette mode)

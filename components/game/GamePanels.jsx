@@ -351,6 +351,8 @@ export const PANEL_CSS = `
 .cozy-dog-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
 .cozy-dog-tabs button{border:2px solid #F4D3DF;background:#fff;color:#B0436E;border-radius:999px;padding:6px 12px;min-height:38px;font:inherit;font-weight:800;cursor:pointer;}
 .cozy-dog-tabs button[aria-selected="true"]{background:#CB416B;border-color:#CB416B;color:#fff;}
+/* phones: the store's many sections become one row you swipe sideways */
+@media (max-width:600px){.cozy-store-tabs{flex:none;min-height:44px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}.cozy-store-tabs::-webkit-scrollbar{display:none;}.cozy-store-tabs button{flex-shrink:0;}}
 .cozy-wearing{border-color:#CB416B;box-shadow:0 0 0 2px #FBE3EC;}
 .cozy-none{width:72px;height:72px;display:grid;place-items:center;font-size:28px;color:#C9A8B6;}
 .cozy-panel-foot button{border:2px solid #E9A9C1;background:#fff;color:#B0436E;border-radius:999px;padding:7px 14px;font:inherit;font-weight:800;cursor:pointer;}
