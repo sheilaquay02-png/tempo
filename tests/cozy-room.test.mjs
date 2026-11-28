@@ -80,6 +80,16 @@ test("Today, Tasks and Calendar open as small in-game panels instead of leaving 
   assert.match(panels, /if \(e\.key === "Escape"\) \{ e\.stopPropagation\(\); onClose\?\.\(\); \}/);
 });
 
+test("finishing a task plays the celebration pack: you cheer, the dogs bounce then wag", () => {
+  assert.match(scene, /\["idle", "sleep", "play", "celebrate"\]/);
+  assert.match(scene, /c\.act = \{ name: "celebrate", start: now, repeat: 1 \}/);
+  assert.match(scene, /\{ name: "happy_bounce", start: now \+ i \* 90, repeat: 1, then: "tail_wag"/);
+  assert.match(scene, /else if \(c\.act\.repeat > 0\)/);
+  const m = JSON.parse(read("public/game/celebrate/manifest.json"));
+  assert.deepEqual(Object.keys(m.animations.happy_bounce).sort(), ["bernedoodle_black_white", "bernedoodle_charcoal", "bernedoodle_cream", "westie"]);
+  assert.ok(m.animations.celebrate.avatar);
+});
+
 test("the town has no bridge", () => {
   assert.ok(!TOWN_LAYOUT.objects.some(o => o.id === "bridge"));
   assert.ok(!existsSync("public/game/town/town/structures/bridge_with_water.png"));
@@ -115,7 +125,7 @@ test("every picture the room and town use is shipped in public/game", () => {
   for (const sp of pack.sprites) assert.ok(existsSync("public/game/pack/" + sp.file), sp.file);
   const walk = JSON.parse(read("public/game/walk/manifest.json"));
   for (const c of Object.values(walk.characters)) for (const files of Object.values(c.animations)) for (const f of files) assert.ok(existsSync("public/game/walk/" + f), f);
-  for (const dir of ["idle", "sleep", "play"]) {
+  for (const dir of ["idle", "sleep", "play", "celebrate"]) {
     const m = JSON.parse(read(`public/game/${dir}/manifest.json`));
     for (const chars of Object.values(m.animations)) for (const a of Object.values(chars)) for (const f of a.frames) assert.ok(existsSync(`public/game/${dir}/${f}`), `${dir}/${f}`);
   }

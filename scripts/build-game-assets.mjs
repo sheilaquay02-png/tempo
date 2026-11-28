@@ -24,7 +24,7 @@ for (const scene of ["room", "town"]) {
   for (const f of files) jobs.push([join(SRC, "env-zip", f), join(OUT, scene, f)]);
 }
 // character packs: manifests + every frame they reference
-for (const dir of ["pack", "walk", "idle", "sleep", "play"]) {
+for (const dir of ["pack", "walk", "idle", "sleep", "play", "celebrate"]) {
   jobs.push([join(SRC, dir, "manifest.json"), join(OUT, dir, "manifest.json")]);
   const walkDir = d => readdirSync(d).flatMap(n => { const p = join(d, n); return statSync(p).isDirectory() ? (n === "source_sheets" ? [] : walkDir(p)) : [p]; });
   for (const p of walkDir(join(SRC, dir))) {

@@ -1,0 +1,158 @@
+{
+  "canvas": [
+    320,
+    320
+  ],
+  "ground_anchor": [
+    160,
+    296
+  ],
+  "texture_filter": "nearest",
+  "animations": {
+    "celebrate": {
+      "avatar": {
+        "frames": [
+          "avatar/celebrate/celebrate_01.png",
+          "avatar/celebrate/celebrate_02.png",
+          "avatar/celebrate/celebrate_03.png",
+          "avatar/celebrate/celebrate_04.png",
+          "avatar/celebrate/celebrate_05.png",
+          "avatar/celebrate/celebrate_06.png"
+        ],
+        "direction": "down",
+        "loop": false,
+        "frame_duration_ms": [
+          150,
+          100,
+          100,
+          150,
+          100,
+          150
+        ],
+        "jump_offset_px": [
+          0,
+          0,
+          16,
+          22,
+          10,
+          0
+        ]
+      }
+    },
+    "happy_bounce": {
+      "westie": {
+        "frames": [
+          "westie/happy_bounce/happy_bounce_01.png",
+          "westie/happy_bounce/happy_bounce_02.png",
+          "westie/happy_bounce/happy_bounce_03.png",
+          "westie/happy_bounce/happy_bounce_04.png",
+          "westie/happy_bounce/happy_bounce_05.png",
+          "westie/happy_bounce/happy_bounce_06.png"
+        ],
+        "direction": "down",
+        "loop": false,
+        "frame_duration_ms": [
+          150,
+          100,
+          100,
+          150,
+          100,
+          150
+        ],
+        "jump_offset_px": [
+          0,
+          2,
+          26,
+          7,
+          1,
+          0
+        ]
+      },
+      "bernedoodle_cream": {
+        "frames": [
+          "bernedoodle_cream/happy_bounce/happy_bounce_01.png",
+          "bernedoodle_cream/happy_bounce/happy_bounce_02.png",
+          "bernedoodle_cream/happy_bounce/happy_bounce_03.png",
+          "bernedoodle_cream/happy_bounce/happy_bounce_04.png",
+          "bernedoodle_cream/happy_bounce/happy_bounce_05.png",
+          "bernedoodle_cream/happy_bounce/happy_bounce_06.png"
+        ],
+        "direction": "down",
+        "loop": false,
+        "frame_duration_ms": [
+          150,
+          100,
+          100,
+          150,
+          100,
+          150
+        ],
+        "jump_offset_px": [
+          0,
+          10,
+          32,
+          20,
+          0,
+          0
+        ]
+      },
+      "bernedoodle_black_white": {
+        "frames": [
+          "bernedoodle_black_white/happy_bounce/happy_bounce_01.png",
+          "bernedoodle_black_white/happy_bounce/happy_bounce_02.png",
+          "bernedoodle_black_white/happy_bounce/happy_bounce_03.png",
+          "bernedoodle_black_white/happy_bounce/happy_bounce_04.png",
+          "bernedoodle_black_white/happy_bounce/happy_bounce_05.png",
+          "bernedoodle_black_white/happy_bounce/happy_bounce_06.png"
+        ],
+        "direction": "down",
+        "loop": false,
+        "frame_duration_ms": [
+          150,
+          100,
+          100,
+          150,
+          100,
+          150
+        ],
+        "jump_offset_px": [
+          0,
+          0,
+          24,
+          42,
+          26,
+          0
+        ]
+      },
+      "bernedoodle_charcoal": {
+        "frames": [
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_01.png",
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_02.png",
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_03.png",
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_04.png",
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_05.png",
+          "bernedoodle_charcoal/happy_bounce/happy_bounce_06.png"
+        ],
+        "direction": "down",
+        "loop": false,
+        "frame_duration_ms": [
+          150,
+          100,
+          100,
+          150,
+          100,
+          150
+        ],
+        "jump_offset_px": [
+          0,
+          11,
+          35,
+          19,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "notes": "Main silhouettes extracted from source sheets. Detached celebration marks omitted from individual frames and preserved in original sheets. Jump offsets retained relative to first and last frame. Play once on task completion."
+}
