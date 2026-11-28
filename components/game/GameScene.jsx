@@ -6,14 +6,17 @@
 // Where you and the dogs walk lives only in memory and is forgotten when you leave.
 import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
-import { buyItem, TASK_REWARD } from "../../lib/game/economy";
+import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD } from "../../lib/game/economy";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
+import { CAFE_LAYOUT } from "../../lib/game/cafeLayout";
+import { CafeTimer, CAFE_CSS } from "./CafeTimer";
 import { GamePanel, PANEL_CSS } from "./GamePanels";
 
 const SCENES = {
   room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls. Walk out the bottom middle to go to town." },
+  cafe: { layout: CAFE_LAYOUT, label: "Tempo Café: you working at your laptop while the dogs wander around", hint: "Start a focus session and get comfy. The dogs will keep you company. ← Town takes you back outside." },
   town: { layout: TOWN_LAYOUT, label: "Tempo Town: you and your four dogs in the town square", hint: "Tap the paving to walk (or use the arrow keys / WASD). Tap a building: Town Hall, Library, Bank, Café… Tap My House to go home." },
 };
 
@@ -101,7 +104,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     if (tap.action === "note") { setHint(tap.note || tap.name); return; }
     if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
     if (["today", "tasks", "calendar", "store"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
-    if (["room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
+    if (["room", "town", "cafe"].includes(tap.action)) onOpenPage?.(tap.action);
   };
 
   // ── Edit room ───────────────────────────────────────────────────────────
@@ -130,6 +133,14 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     setHint(`The ${item.name} is in your storage. Use ✏️ Edit room at home to place it.`);
   };
 
+  // ── Café focus timer ────────────────────────────────────────────────────
+  const timer = compact => (
+    <CafeTimer compact={compact} rewardAmount={onGameChange ? FOCUS_REWARD : 0}
+      onAnim={name => apiRef.current?.setCafeAnim?.(name)}
+      onCelebrate={() => apiRef.current?.celebrate()}
+      onReward={key => onGameChange?.(g => rewardForFocus(g, key))} />
+  );
+
   const ratio = S.layout.size[0] / S.layout.size[1];
   const full = variant === "full";
   const stage = (
@@ -137,7 +148,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
       <canvas ref={canvasRef} className="cozy-room-canvas" style={{ aspectRatio: `${S.layout.size[0]} / ${S.layout.size[1]}` }} aria-label={S.label} />
       {status !== "ready" && (
         <div className="cozy-room-overlay" role="status">
-          {status === "loading" ? (scene === "town" ? "Walking into town…" : "Setting up your room…") : (
+          {status === "loading" ? (scene === "town" ? "Walking into town…" : scene === "cafe" ? "Finding you a table…" : "Setting up your room…") : (
             <>
               <span>The pictures couldn’t load. Check your connection.</span>
               <button className="tf-save" onClick={() => setAttempt(a => a + 1)}>Try again</button>
@@ -152,16 +163,16 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   );
 
   // Compact: just the scene (Mini Tempo's room view).
-  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS + PANEL_CSS}</style>{stage}</div>;
+  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS + PANEL_CSS + CAFE_CSS}</style>{stage}{scene === "cafe" && timer(true)}</div>;
 
   // Full screen: covers the whole app; Back (top left) or Escape returns to Today.
   return (
-    <div className="cozy-scene cozy-full" role="dialog" aria-modal="true" aria-label={scene === "town" ? "Tempo Town" : "My Room"}>
-      <style>{ROOM_CSS + PANEL_CSS}</style>
+    <div className="cozy-scene cozy-full" role="dialog" aria-modal="true" aria-label={scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}>
+      <style>{ROOM_CSS + PANEL_CSS + CAFE_CSS}</style>
       <div className="cozy-full-inner" style={{ "--cozy-ar": ratio }}>
         <div className="cozy-topbar">
-          <button className="cozy-back" onClick={editing ? cancelEdit : onBack} aria-label={editing ? "Cancel editing" : "Back to Tempo"}>{editing ? "✕ Cancel" : "← Back"}</button>
-          <strong className="cozy-title">{scene === "town" ? "Tempo Town" : "My Room"}</strong>
+          <button className="cozy-back" onClick={editing ? cancelEdit : scene === "cafe" ? () => onOpenPage?.("town") : onBack} aria-label={editing ? "Cancel editing" : scene === "cafe" ? "Leave the café" : "Back to Tempo"}>{editing ? "✕ Cancel" : scene === "cafe" ? "← Town" : "← Back"}</button>
+          <strong className="cozy-title">{scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}</strong>
           {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
           {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
           {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
@@ -175,6 +186,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
             <button className="cozy-room-btn cozy-save" onClick={saveEdit}>✓ Save</button>
           </div>
         ) : <p className="cozy-room-hint" aria-live="polite">{hint}</p>}
+        {scene === "cafe" && timer(false)}
         <div className="cozy-room-cards">
           <section className="phase-card">
             <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => setPanel("tasks")}>Open tasks</button></div>
