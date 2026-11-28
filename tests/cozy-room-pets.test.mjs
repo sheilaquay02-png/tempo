@@ -69,6 +69,8 @@ test("the Pet Shop sells accessories and the food bowls open the dress-up menu",
   assert.match(scene, /apiRef\.current\?\.setAccessories\?\.\(/);
   assert.match(panels, /function PetShopBody\(/);
   assert.match(panels, /function PetsBody\(/);
-  assert.match(engine, /function wear\(c, img, x, y, k, flipped, kAcc\)/);
-  assert.equal((engine.match(/^\s+wear\(c, /gm) || []).length, 4, "accessories drawn on idle, toy, walking and still frames");
+  assert.match(engine, /function wear\(c, img, x, y, k, flipped, kAcc, phase = "front"\)/);
+  assert.equal((engine.match(/^\s+wear\(c, /gm) || []).length, 8, "accessories drawn on idle, toy, walking and still frames, before and after the dog");
+  assert.equal((engine.match(/"behind"\);/g) || []).length, 4, "back views put the accessory behind the dog");
+  assert.match(engine, /if \(\(a\[2\] === "back"\) !== \(phase === "behind"\)\) return;/);
 });
