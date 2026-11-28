@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
 import { TASK_REWARD } from "../../lib/game/economy";
+import { STORE_CATEGORIES, storeCategory } from "../../lib/game/furniture";
 
 const { TODAY, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
@@ -52,11 +53,18 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
 
 // General Store: buy furniture with blossoms; it arrives in your storage.
 function StoreBody({ items, blossoms, owned, onBuy }) {
+  // shelves of the General Store; only sections that have something for sale show up
+  const cats = STORE_CATEGORIES.filter(([key]) => items.some(i => storeCategory(i) === key));
+  const [cat, setCat] = useState(cats[0]?.[0]);
+  const shown = items.filter(i => storeCategory(i) === cat);
   return (
     <>
       <p className="cozy-wallet">You have <strong>🌸 {blossoms}</strong> · earn {TASK_REWARD} for every task you finish</p>
-      <div className="cozy-shop">
-        {items.map(item => (
+      <div className="cozy-dog-tabs cozy-store-tabs" role="tablist" aria-label="Store sections">
+        {cats.map(([key, label]) => <button key={key} role="tab" aria-selected={cat === key} onClick={() => setCat(key)}>{label}</button>)}
+      </div>
+      <div className="cozy-shop" role="tabpanel">
+        {shown.map(item => (
           <div key={item.id} className="cozy-shop-item">
             {/* plain <img>: pixel art must not be re-encoded or smoothed by next/image */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
