@@ -9,7 +9,7 @@ import { FURNITURE_BY_ID } from "../lib/game/furniture.js";
 const read = f => readFileSync(f, "utf8");
 
 test("every accessory has front and side pictures, a fair price and a name", () => {
-  assert.equal(ACCESSORIES.length, 24);
+  assert.equal(ACCESSORIES.length, 22);
   for (const a of ACCESSORIES) {
     for (const v of ["front", "side"]) assert.ok(existsSync(`public/game/accessories/${a.id}/${v}.png`), `${a.id}/${v}`);
     assert.ok(a.price > 0 && a.price % 3 === 0, `${a.id} costs whole tasks`);
