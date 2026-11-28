@@ -65,7 +65,7 @@ test("the Pet Shop sells accessories and the food bowls open the dress-up menu",
   assert.equal(TOWN_LAYOUT.objects.find(o => o.id === "pet_shop").tap.action, "petshop");
   assert.equal(FURNITURE_BY_ID.pet_station.tap.action, "pets");
   const scene = read("components/game/GameScene.jsx"), panels = read("components/game/GamePanels.jsx"), engine = read("lib/game/scene.js");
-  assert.match(scene, /"store", "pets", "petshop"\]\.includes\(tap\.action\)/);
+  assert.match(scene, /"store", "pets", "petshop", "library", "townhall", "bank"\]\.includes\(tap\.action\)/);
   assert.match(scene, /apiRef\.current\?\.setAccessories\?\.\(/);
   assert.match(panels, /function PetShopBody\(/);
   assert.match(panels, /function PetsBody\(/);

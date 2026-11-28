@@ -58,7 +58,7 @@ import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./cal
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { TodayLitePage } from "./today/TodayDashboard";
-import { rewardForTaskToggle, rewardForUndo } from "../lib/game/economy";
+import { rewardForTaskToggle, rewardForUndo, rewardStreakDay } from "../lib/game/economy";
 import dynamic from "next/dynamic";
 // Cozy Room / Tempo Town are only downloaded when you open them; Classic pages and Mini Tempo never load them.
 const GameScene = dynamic(() => import("./game/GameScene"), { ssr: false, loading: () => <div className="phase-page cozy-room-loading">Opening…</div> });
@@ -2358,7 +2358,11 @@ export default function App({ windowMode = "full" }) {
   function toggleTask(id) {
     // Cozy Room reward: 🌸 for finishing a task, taken back if it's unticked (see lib/game/economy.js)
     const before = tasks.find(t => t.id === id);
-    if (before) updateGame(g => rewardForTaskToggle(g, `${before.id}@${taskCompletionTargetKey(before)}`, !before.done));
+    // finishing a task also counts today toward your daily streak (bonus from day 2, see economy.js)
+    if (before) updateGame(g => {
+      const next = rewardForTaskToggle(g, `${before.id}@${taskCompletionTargetKey(before)}`, !before.done);
+      return before.done ? next : rewardStreakDay(next);
+    });
     pushUndo();
     setTasks(ts => {
       const task = ts.find(t => t.id === id);

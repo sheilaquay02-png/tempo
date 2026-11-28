@@ -3,6 +3,7 @@
 // Café focus timer (pomodoro). Lives in the café scene: you work at your laptop while the dogs roam.
 // Timing uses the clock (an end time), so it stays right even if the tab is in the background.
 // Finishing a focus session earns blossoms through onReward; nothing else is saved.
+import { play } from "../../lib/game/sounds";
 import { useEffect, useRef, useState } from "react";
 
 const LENGTHS = { focus: [15, 25, 45], break: [5, 10] };
@@ -16,22 +17,8 @@ const fmt = ms => {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 };
 
-// a soft two-note chime (no sound files needed); silently skipped if the browser blocks audio
-function chime() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return;
-    const ctx = new Ctx(), now = ctx.currentTime;
-    [[880, 0], [1320, 0.18]].forEach(([freq, at]) => {
-      const o = ctx.createOscillator(), gain = ctx.createGain();
-      o.type = "sine"; o.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, now + at);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.9);
-      o.connect(gain).connect(ctx.destination); o.start(now + at); o.stop(now + at + 1);
-    });
-    setTimeout(() => ctx.close(), 1500);
-  } catch { /* no sound */ }
-}
+// a soft two-note chime (lib/game/sounds.js; follows the game's 🔊 switch)
+const chime = () => play("timer");
 
 export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebrate, onReward }) {
   const [mode, setMode] = useState("focus");
