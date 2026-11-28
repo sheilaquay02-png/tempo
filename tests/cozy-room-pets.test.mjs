@@ -90,5 +90,5 @@ test("new hats bring a back view on a bigger canvas, with every picture present"
   const hats = ACCESSORIES.filter(a => a.art === "hat");
   assert.equal(hats.length, 9);
   for (const h of hats) for (const v of ["front", "side", "back"]) assert.ok(existsSync(`public/game/accessories/${h.id}/${v}.png`), `${h.id} ${v}`);
-  assert.match(read("lib/game/accessories.js"), /hat: \{ w: 288, h: 256, ax: 144, ay: 240, back: true, scale: 0.6, sideFacesLeft: true \}/);
+  assert.match(read("lib/game/accessories.js"), /hat: \{ w: 288, h: 256, ax: 144, ay: 240, back: true, scale: 0.6, sideFacesLeft: false \}/);
 });
