@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { ACCESSORIES, DOGS, buyAccessory, wearAccessory } from "../lib/game/accessories.js";
+import { ACCESSORIES, ACCESSORY_FIT, DOG_FIT, DOGS, buyAccessory, wearAccessory } from "../lib/game/accessories.js";
 import { normalizeGameState } from "../lib/tempo/core.js";
 import { TOWN_LAYOUT } from "../lib/game/townLayout.js";
 import { FURNITURE_BY_ID } from "../lib/game/furniture.js";
@@ -73,4 +73,15 @@ test("the Pet Shop sells accessories and the food bowls open the dress-up menu",
   assert.equal((engine.match(/^\s+wear\(c, /gm) || []).length, 8, "accessories drawn on idle, toy, walking and still frames, before and after the dog");
   assert.equal((engine.match(/"behind"\);/g) || []).length, 4, "back views put the accessory behind the dog");
   assert.match(engine, /if \(\(a\[2\] === "back"\) !== \(phase === "behind"\)\) return;/);
+});
+
+test("accessory fine-tuning only names real accessories, dogs and directions", () => {
+  const ids = new Set(ACCESSORIES.map(a => a.id)), dogs = new Set(DOGS.map(d => d.key));
+  const ok = v => Number.isFinite(v.x) && Number.isFinite(v.y) && v.size > 0;
+  for (const [id, f] of Object.entries(ACCESSORY_FIT)) { assert.ok(ids.has(id), id); assert.ok(ok(f), id); }
+  for (const [k, views] of Object.entries(DOG_FIT)) {
+    assert.ok(dogs.has(k), k);
+    for (const [v, f] of Object.entries(views)) { assert.ok(["front", "right", "left", "back"].includes(v), v); assert.ok(ok(f), `${k} ${v}`); }
+  }
+  assert.match(read("lib/game/scene.js"), /DOG_FIT\[c\.key\]/);
 });
