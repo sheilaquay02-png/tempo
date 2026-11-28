@@ -1,9 +1,12 @@
 "use client";
 
 // Cozy Room and Tempo Town: optional pixel-art views of your day. They only READ your tasks and events and
-// call the same actions the rest of the app uses (toggle a task, open a page). They never save anything of
-// their own: where you and the dogs walk lives only in memory and is forgotten when you leave.
+// call the same actions the rest of the app uses (toggle a task, open a page). The only things they save are
+// game things (blossoms, furniture, your room layout), through onGameChange into Tempo's normal save.
+// Where you and the dogs walk lives only in memory and is forgotten when you leave.
 import { useEffect, useRef, useState } from "react";
+import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
+import { buyItem, TASK_REWARD } from "../../lib/game/economy";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
@@ -16,7 +19,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onBack }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -25,7 +28,12 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   const [attempt, setAttempt] = useState(0);
   const [night, setNight] = useState(false);
   const [hint, setHint] = useState(S.hint);
-  const [panel, setPanel] = useState(null); // "today" | "tasks" | "calendar": small in-game versions
+  const [panel, setPanel] = useState(null); // "today" | "tasks" | "calendar" | "store" | "storage"
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [placedNow, setPlacedNow] = useState(null); // pieces in the room while editing (for storage counts)
+  // the room as it was when the scene was built; Save updates it without rebuilding, Cancel rebuilds from it
+  const roomRef = useRef(game?.room ?? null);
 
   const todayTasks = tasks.filter(t => taskBelongsToPeriod(t, "day", TODAY));
   const openTasks = todayTasks.filter(t => !t.done);
@@ -41,7 +49,10 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     setStatus("loading");
     import("../../lib/game/scene.js")
-      .then(({ createScene }) => createScene(canvasRef.current, S.layout, { reduceMotion, onTap: tap => tapRef.current(tap), onExit: action => tapRef.current({ action }) }))
+      .then(({ createScene }) => createScene(canvasRef.current, scene === "room" ? roomLayoutFor({ room: roomRef.current }) : S.layout, {
+        reduceMotion, onTap: tap => tapRef.current(tap), onExit: action => tapRef.current({ action }),
+        onSelect: o => setSelected(o ? o.id : null), onChange: () => setPlacedNow(apiRef.current?.exportPlaced?.() || null),
+      }))
       .then(api => {
         if (cancelled) { api.destroy(); return; }
         apiRef.current = api;
@@ -63,7 +74,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
       apiRef.current?.destroy();
       apiRef.current = null;
     };
-  }, [attempt, S.layout]);
+  }, [attempt, scene, S.layout]);
 
   // A task ticked off today (here or anywhere else while the room is open) → the dogs celebrate.
   const lastDone = useRef(doneCount);
@@ -89,8 +100,34 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     if (tap.action === "dogs") { apiRef.current?.celebrate(); setHint("The dogs came running!"); return; }
     if (tap.action === "note") { setHint(tap.note || tap.name); return; }
     if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
-    if (["today", "tasks", "calendar"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
+    if (["today", "tasks", "calendar", "store"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
     if (["room", "town"].includes(tap.action)) onOpenPage?.(tap.action);
+  };
+
+  // ── Edit room ───────────────────────────────────────────────────────────
+  const canEdit = scene === "room" && typeof onGameChange === "function";
+  const startEdit = () => { setPanel(null); apiRef.current?.setEdit(true); setEditing(true); setPlacedNow(apiRef.current?.exportPlaced() || null); setHint("Drag a piece to move it · drag its pink corner to resize · 📦 puts it away"); };
+  const saveEdit = () => {
+    const placed = apiRef.current?.exportPlaced() || [];
+    roomRef.current = placed;
+    onGameChange(g => ({ ...g, room: placed }));
+    apiRef.current?.setEdit(false); setEditing(false); setSelected(null); setPanel(null); setHint("Room saved 🌸");
+  };
+  const cancelEdit = () => { setEditing(false); setSelected(null); setPanel(null); setHint(S.hint); setAttempt(a => a + 1); };
+  const putAway = () => { apiRef.current?.removeSelected(); setSelected(null); };
+  const storage = storageCounts(game, placedNow || apiRef.current?.exportPlaced?.() || undefined);
+  const storageTotal = Object.values(storage).reduce((a, b) => a + b, 0);
+  const placeFromStorage = itemId => {
+    const uids = (apiRef.current?.exportPlaced() || []).map(p => p.uid);
+    const piece = newPiece(itemId, uids); if (!piece) return;
+    apiRef.current?.addObject(sceneObject(piece));
+    setPanel(null);
+  };
+  const buy = item => {
+    const next = buyItem(game || {}, item);
+    if (!next) { setHint(`You need ${item.price - (game?.blossoms || 0)} more 🌸 for the ${item.name}.`); return; }
+    onGameChange(() => next);
+    setHint(`The ${item.name} is in your storage. Use ✏️ Edit room at home to place it.`);
   };
 
   const ratio = S.layout.size[0] / S.layout.size[1];
@@ -109,6 +146,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
         </div>
       )}
       {panel && <GamePanel kind={panel} tasks={tasks} calendarEvents={calendarEvents} onToggleTask={onToggleTask} onAddTask={onAddTask}
+        blossoms={game?.blossoms || 0} storeItems={STORE_ITEMS} owned={game?.owned || {}} onBuy={buy} storage={storage} furniture={FURNITURE_BY_ID} onPlace={placeFromStorage}
         onOpenPage={p => { setPanel(null); onOpenPage?.(p); }} onClose={() => setPanel(null)} />}
     </div>
   );
@@ -122,12 +160,21 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
       <style>{ROOM_CSS + PANEL_CSS}</style>
       <div className="cozy-full-inner" style={{ "--cozy-ar": ratio }}>
         <div className="cozy-topbar">
-          <button className="cozy-back" onClick={onBack} aria-label="Back to Tempo">← Back</button>
+          <button className="cozy-back" onClick={editing ? cancelEdit : onBack} aria-label={editing ? "Cancel editing" : "Back to Tempo"}>{editing ? "✕ Cancel" : "← Back"}</button>
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : "My Room"}</strong>
-          <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙 Night" : "☀️ Day"}</button>
+          {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
+          {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
+          {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
         </div>
         {stage}
-        <p className="cozy-room-hint" aria-live="polite">{hint}</p>
+        {editing ? (
+          <div className="cozy-edit-bar">
+            <p className="cozy-room-hint" aria-live="polite">{hint}</p>
+            <button className="cozy-room-btn" onClick={putAway} disabled={!selected}>📦 Put away</button>
+            <button className="cozy-room-btn" onClick={() => setPanel("storage")}>🧺 Storage ({storageTotal})</button>
+            <button className="cozy-room-btn cozy-save" onClick={saveEdit}>✓ Save</button>
+          </div>
+        ) : <p className="cozy-room-hint" aria-live="polite">{hint}</p>}
         <div className="cozy-room-cards">
           <section className="phase-card">
             <div className="phase-card-head"><span>Today’s tasks</span><button onClick={() => setPanel("tasks")}>Open tasks</button></div>
@@ -179,6 +226,12 @@ const ROOM_CSS = `
 .cozy-topbar{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));display:flex;align-items:center;gap:10px;min-height:44px;}
 .cozy-back{border:1px solid rgba(var(--accent-rgb,203,65,107),.25);background:var(--surface,#fff);color:var(--accent,#CB416B);border-radius:999px;padding:9px 16px;font:inherit;font-weight:800;cursor:pointer;min-height:42px;box-shadow:0 2px 10px rgba(var(--accent-rgb,203,65,107),.15);}
 .cozy-title{flex:1;text-align:center;font-size:15px;letter-spacing:.02em;color:var(--text,#3B2A40);}
+.cozy-blossoms{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 12px;border-radius:999px;background:var(--surface,#fff);border:1px solid rgba(var(--accent-rgb,203,65,107),.25);color:var(--accent,#CB416B);font-weight:900;white-space:nowrap;}
+.cozy-edit-bar{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.cozy-edit-bar .cozy-room-hint{flex:1 1 220px;}
+.cozy-room-btn:disabled{opacity:.45;cursor:default;}
+.cozy-save{background:var(--accent,#CB416B)!important;color:#fff!important;border-color:var(--accent,#CB416B)!important;}
+@media (max-width:600px){.cozy-topbar{flex-wrap:wrap;}.cozy-title{order:-1;flex-basis:100%;}}
 .cozy-full .cozy-room-hint{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));margin:0;font-size:14px;color:var(--text2,#7A4654);}
 .dark .cozy-full{background:var(--dark-page,var(--bg));}
 .cozy-full .cozy-room-cards{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;color:var(--text,#3B2A40);}

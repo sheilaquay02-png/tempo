@@ -4,13 +4,14 @@
 // Like the rest of the game they only READ your data; ticking or adding a task uses the app's own actions.
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
+import { TASK_REWARD } from "../../lib/game/economy";
 
 const { TODAY, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
-const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar" };
+const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar", store: "🛍️ General Store", storage: "🧺 Your storage" };
 const FULL = { today: "Open Today", tasks: "Open all tasks", calendar: "Open full calendar" };
 
-export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose }) {
+export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose, blossoms = 0, storeItems = [], owned = {}, onBuy, storage = {}, furniture = {}, onPlace }) {
   const ref = useRef(null);
   // Escape closes the panel (not the game); focus moves into the panel for keyboard users.
   useEffect(() => {
@@ -36,11 +37,53 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
           {kind === "today" && <TodayBody todayTasks={todayTasks} events={eventsOn(TODAY)} onToggleTask={onToggleTask} />}
           {kind === "tasks" && <TasksBody todayTasks={todayTasks} onToggleTask={onToggleTask} onAddTask={onAddTask} />}
           {kind === "calendar" && <CalendarBody eventsOn={eventsOn} />}
+          {kind === "store" && <StoreBody items={storeItems} blossoms={blossoms} owned={owned} onBuy={onBuy} />}
+          {kind === "storage" && <StorageBody storage={storage} furniture={furniture} onPlace={onPlace} />}
         </div>
-        <footer className="cozy-panel-foot">
+        {FULL[kind] && <footer className="cozy-panel-foot">
           <button onClick={() => onOpenPage?.(kind)}>{FULL[kind]} ↗</button>
-        </footer>
+        </footer>}
       </section>
+    </div>
+  );
+}
+
+// General Store: buy furniture with blossoms; it arrives in your storage.
+function StoreBody({ items, blossoms, owned, onBuy }) {
+  return (
+    <>
+      <p className="cozy-wallet">You have <strong>🌸 {blossoms}</strong> · earn {TASK_REWARD} for every task you finish</p>
+      <div className="cozy-shop">
+        {items.map(item => (
+          <div key={item.id} className="cozy-shop-item">
+            {/* plain <img>: pixel art must not be re-encoded or smoothed by next/image */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/game/room/${item.src}`} alt="" loading="lazy" />
+            <strong>{item.name}</strong>
+            <small>{owned[item.id] ? `You've bought ${owned[item.id]}` : "\u00a0"}</small>
+            <button onClick={() => onBuy?.(item)} disabled={blossoms < item.price} aria-label={`Buy ${item.name} for ${item.price} blossoms`}>🌸 {item.price}</button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Storage: pieces you own that aren't in the room right now.
+function StorageBody({ storage, furniture, onPlace }) {
+  const ids = Object.keys(storage);
+  if (!ids.length) return <p className="cozy-empty">Storage is empty. Buy more at the General Store in Tempo Town 🛍️</p>;
+  return (
+    <div className="cozy-shop">
+      {ids.map(id => (
+        <div key={id} className="cozy-shop-item">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/game/room/${furniture[id].src}`} alt="" loading="lazy" />
+          <strong>{furniture[id].name}</strong>
+          <small>{storage[id] > 1 ? `×${storage[id]}` : "\u00a0"}</small>
+          <button onClick={() => onPlace?.(id)}>Place</button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -150,6 +193,15 @@ export const PANEL_CSS = `
 .cozy-daynav button{font-size:20px;min-width:44px;}
 .cozy-linkish{justify-self:center;border:0;background:none;color:#CB416B;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline;}
 .cozy-panel-foot{padding:8px 16px 12px;display:flex;justify-content:flex-end;}
+.cozy-wallet{margin:0 0 4px;font-size:14px;color:#7A6A80;}
+.cozy-wallet strong{color:#CB416B;}
+.cozy-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px;padding-bottom:6px;}
+.cozy-shop-item{display:grid;justify-items:center;gap:3px;background:#fff;border:2px solid #F4D3DF;border-radius:14px;padding:8px 6px;text-align:center;}
+.cozy-shop-item img{width:72px;height:72px;object-fit:contain;image-rendering:pixelated;}
+.cozy-shop-item strong{font-size:13px;line-height:1.2;}
+.cozy-shop-item small{font-size:11px;color:#7A6A80;min-height:14px;}
+.cozy-shop-item button{border:0;border-radius:999px;padding:6px 12px;min-height:36px;background:#CB416B;color:#fff;font:inherit;font-weight:800;cursor:pointer;}
+.cozy-shop-item button:disabled{background:#E9C4D2;cursor:default;}
 .cozy-panel-foot button{border:2px solid #E9A9C1;background:#fff;color:#B0436E;border-radius:999px;padding:7px 14px;font:inherit;font-weight:800;cursor:pointer;}
 /* Mini Tempo: the panel covers the whole Mini window rather than the small room picture */
 .cozy-compact .cozy-panel-backdrop{position:fixed;z-index:2100;padding:8px;}

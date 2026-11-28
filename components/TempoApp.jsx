@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import * as Core from "../lib/tempo/core";
-const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart } = Core;
+const { makeRecurringTaskOccurrence, taskOccurrenceFallsInPeriod, ensureRecurringTasksForPeriod, stepRecurringDate, weeksBetween, shouldEmitOccurrence, applyOccurrenceExceptions, deleteSingleOccurrence, modifySingleOccurrence, createFollowingSeries, createNextRecurringTask, expandRecurring, deriveMemoryCryptoKey, encryptMemoryJournalForStorage, decryptMemoryJournalFromStorage, saveJournalLocal, loadJournalLocal, readFileAsDataUrl, prepareJournalPhotosFromFiles, DAY_START, RECURRENCE_WINDOW_DAYS, RECURRENCE_SAFETY_LIMIT, UNDO_STACK_MAX, CLOUD_FALLBACK_MS, EVENT_DRAG_HOLD_MS, CALENDARS, normalizeCalendars, CATEGORIES, PRIORITIES, normalizeCategories, FONT_SIZES, THEMES, DAY_TEMPLATES, TODAY, DEFAULT_TIMEZONE, setDisplayTimezoneCtx, formatWithDisplayTimezone, fmt, fmtDate, sameDay, fmtDay, minsToTime, dateKey, cloneDate, addDaysSafe, addMonthsSafe, dayStart, getEventsOnDay, weekStart, weekDays, monthDays, getFreeBlocks, totalMins, hasConflict, endOfDay, eventOccursOnDay, isAllDayEvent, isMultiDayEvent, isAllDayOrMulti, eventSegmentForDay, toDateInput, toTimeInputValue, applyDateAndTime, taskDurationToMinutes, splitTaskDuration, formatTaskDuration, localDateFromKey, localDateFromMonthKey, monthKey, taskScopeOf, taskAnchorDate, taskDayKey, taskWeekKey, taskMonthKey, taskPeriodPatchForScope, withTaskPeriod, normalizeTasks, taskBelongsToPeriod, shiftTaskPeriodDate, formatTaskPeriodLabel, taskCompletionTargetKey, taskHasCompletionStamp, taskCompletedDateKey, taskSeriesId, taskPeriodIdentity, taskSkippedPeriods, taskSamePeriod, taskExistsForPeriod, completedTasksForDateKey, LEVEL_TITLES, XP_PER_LEVEL, taskXPValue, hasJournalEntryForKey, allDayTasksForKey, dailyGameSummary, productiveKeysFromData, plannedTomorrowKeysFromData, countBackwardStreak, buildDailyQuests, buildWeeklyRecap, buildWeeklyMissions, buildCombos, buildPersonalLeaderboard, buildRhythmPersonality, buildBadges, skillRank, buildSkillStats, MASCOT_STAGES, buildMascotProgression, THEME_UNLOCK_RULES, buildThemeUnlocksForStats, buildMonthlyLifeGarden, calculateGameStats, createCategoryId, isRecurringEvent, uid, setWorkHoursCtx, freeBlocks, SER, DES, save, load, reviveEvents, normalizeRecurrence, recurrenceDateKey, recurrenceEndDate, recurrenceSkippedDates, occurrenceId, getBaseEventId, isOccurrence, stripOccurrenceMeta, _t, INIT_EVENTS, _deadline, INIT_TASKS, hasStoredUserData, loadStoredEventsOrSeed, loadStoredTasksOrSeed, JOURNAL_MOODS, JOURNAL_ACTIVITIES, JOURNAL_PROMPTS, DAILY_CHECKIN_MOODS, DAILY_CHECKIN_ENERGIES, normalizeDailyCheckIn, normalizeDailyCheckIns, dailyCheckInForDate, TOMORROW_RESET_TASK_ACTIONS, normalizeTomorrowReset, normalizeTomorrowResets, tomorrowResetForDate, WEEKLY_RESET_TASK_ACTIONS, normalizeWeeklyReset, normalizeWeeklyResets, weeklyResetForDate, AFFIRMATION_CATEGORIES, DEFAULT_AFFIRMATIONS, DEFAULT_AFFIRMATION_SETTINGS, DEFAULT_NOTIFICATION_PREFERENCES, normalizeAffirmation, normalizeAffirmations, normalizeAffirmationSettings, normalizeNotificationPreferences, normalizeSyncConflictLog, syncDatasetCounts, affirmationCategoryById, affirmationForDate, MEMORY_TAGS, SCRAPBOOK_STICKERS, MEMORY_ASSET_BASE, MEMORY_IMAGE_LIMIT_PER_ENTRY, MEMORY_BACKGROUNDS, COZY_STICKER_PACK, memoryBackgroundById, memoryBackgroundStyle, normalizeMemoryEntry, sanitizeMemoryPhotoForStorage, sanitizeMemoryEntryForStorage, sanitizeMemoryJournalForStorage, normalizeMemoryJournalForState, isEncryptedMemoryJournal, memoryPhotoSrc, memoryEntryCover, memoryTagLabel, buildJournalPhotoCleanupQueue, markJournalPhotoCleanupAttempt, mergeTempoData, _displayTimezone, _workStart , normalizeGameState, DEFAULT_GAME_STATE } = Core;
 import { appCSS } from "../styles/tempoStyles";
 import { tempoLegacyInlineCSS } from "../styles/tempoLegacyInlineStyles";
 import { tempoMobileFooterPopupSafetyCSS } from "../styles/tempoMobileFooterPopupSafety";
@@ -58,6 +58,7 @@ import { EventModal, AddEventModal, SearchModal, CalendarEditModal } from "./cal
 import { TaskScheduleModal, DailyPlanModal } from "./planning/PlanningModals";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { TodayLitePage } from "./today/TodayDashboard";
+import { rewardForTaskToggle } from "../lib/game/economy";
 import dynamic from "next/dynamic";
 // Cozy Room / Tempo Town are only downloaded when you open them; Classic pages and Mini Tempo never load them.
 const GameScene = dynamic(() => import("./game/GameScene"), { ssr: false, loading: () => <div className="phase-page cozy-room-loading">Opening…</div> });
@@ -352,6 +353,7 @@ export default function App({ windowMode = "full" }) {
   const [affirmations, setAffirmationsRaw] = useState(() => normalizeAffirmations(load(`${uk}_affirmations`, DEFAULT_AFFIRMATIONS)));
   const [affirmationSettings, setAffirmationSettingsRaw] = useState(() => normalizeAffirmationSettings(load(`${uk}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
   const [notificationPreferences, setNotificationPreferencesRaw] = useState(() => normalizeNotificationPreferences(load(`${uk}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+  const [game, setGameRaw] = useState(() => normalizeGameState(load(`${uk}_game`, DEFAULT_GAME_STATE)));
   const [syncConflictLog, setSyncConflictLogRaw] = useState(() => normalizeSyncConflictLog(load(`${uk}_sync_conflict_log`, [])));
   const [dataMigrationVersion, setDataMigrationVersionRaw] = useState(() => Number(load(`${uk}_data_migration_version`, 0)) || 0);
   const [budgetProfile, setBudgetProfileRaw] = useState(() => normalizeBudgetProfile(load(`${uk}_budget_profile`, DEFAULT_BUDGET_PROFILE)));
@@ -503,6 +505,7 @@ export default function App({ windowMode = "full" }) {
       setAffirmationsRaw([]);
       setAffirmationSettingsRaw(normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES));
+      setGameRaw(normalizeGameState(DEFAULT_GAME_STATE));
       setSyncConflictLogRaw([]);
       setDataMigrationVersionRaw(0);
       setBudgetProfileRaw(normalizeBudgetProfile(DEFAULT_BUDGET_PROFILE));
@@ -539,6 +542,7 @@ export default function App({ windowMode = "full" }) {
     setAffirmationsRaw(normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)));
     setAffirmationSettingsRaw(normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)));
     setNotificationPreferencesRaw(normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)));
+    setGameRaw(normalizeGameState(load(`${userKey}_game`, DEFAULT_GAME_STATE)));
     setSyncConflictLogRaw(normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])));
     setDataMigrationVersionRaw(Number(load(`${userKey}_data_migration_version`, 0)) || 0);
     setAppModeRaw(load(`${userKey}_app_mode`, "schedule"));
@@ -592,6 +596,7 @@ export default function App({ windowMode = "full" }) {
         affirmations: normalizeAffirmations(safeSettings.affirmations ?? load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
         affirmationSettings: normalizeAffirmationSettings(safeSettings.affirmationSettings ?? load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
         notificationPreferences: normalizeNotificationPreferences(safeSettings.notificationPreferences ?? load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+        game: normalizeGameState(safeSettings.game ?? load(`${userKey}_game`, DEFAULT_GAME_STATE)),
         syncConflictLog: normalizeSyncConflictLog(safeSettings.syncConflictLog ?? load(`${userKey}_sync_conflict_log`, [])),
         appMode: safeSettings.appMode ?? load(`${userKey}_app_mode`, "schedule"),
         budgetProfile: normalizeBudgetProfile(safeSettings.budgetProfile ?? load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
@@ -634,6 +639,7 @@ export default function App({ windowMode = "full" }) {
       setAffirmationsRaw(normalizeAffirmations(nextSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(nextSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      setGameRaw(normalizeGameState(nextSettings.game));
       setSyncConflictLogRaw(normalizeSyncConflictLog(nextSettings.syncConflictLog));
       setAppModeRaw(["schedule", "budget", "overall"].includes(nextSettings.appMode) ? nextSettings.appMode : "schedule");
       setBudgetProfileRaw(normalizeBudgetProfile(nextSettings.budgetProfile));
@@ -668,6 +674,7 @@ export default function App({ windowMode = "full" }) {
       save(`${userKey}_affirmations`, normalizeAffirmations(nextSettings.affirmations));
       save(`${userKey}_affirmation_settings`, normalizeAffirmationSettings(nextSettings.affirmationSettings));
       save(`${userKey}_notification_preferences`, normalizeNotificationPreferences(nextSettings.notificationPreferences));
+      save(`${userKey}_game`, normalizeGameState(nextSettings.game));
       save(`${userKey}_sync_conflict_log`, normalizeSyncConflictLog(nextSettings.syncConflictLog));
       save(`${userKey}_app_mode`, ["schedule", "budget", "overall"].includes(nextSettings.appMode) ? nextSettings.appMode : "schedule");
       save(`${userKey}_budget_profile`, normalizeBudgetProfile(nextSettings.budgetProfile));
@@ -729,6 +736,7 @@ export default function App({ windowMode = "full" }) {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          game: normalizeGameState(load(`${userKey}_game`, DEFAULT_GAME_STATE)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           appMode: load(`${userKey}_app_mode`, "schedule"),
           budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
@@ -793,6 +801,7 @@ export default function App({ windowMode = "full" }) {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          game: normalizeGameState(load(`${userKey}_game`, DEFAULT_GAME_STATE)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           appMode: load(`${userKey}_app_mode`, "schedule"),
           budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
@@ -853,6 +862,7 @@ export default function App({ windowMode = "full" }) {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          game: normalizeGameState(load(`${userKey}_game`, DEFAULT_GAME_STATE)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           appMode: load(`${userKey}_app_mode`, "schedule"),
           budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
@@ -899,6 +909,7 @@ export default function App({ windowMode = "full" }) {
           affirmations: normalizeAffirmations(DEFAULT_AFFIRMATIONS),
           affirmationSettings: normalizeAffirmationSettings(DEFAULT_AFFIRMATION_SETTINGS),
           notificationPreferences: normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES),
+          game: normalizeGameState(DEFAULT_GAME_STATE),
           syncConflictLog: [],
           appMode: "schedule",
           budgetProfile: normalizeBudgetProfile(DEFAULT_BUDGET_PROFILE),
@@ -953,6 +964,7 @@ export default function App({ windowMode = "full" }) {
           affirmations: normalizeAffirmations(load(`${userKey}_affirmations`, DEFAULT_AFFIRMATIONS)),
           affirmationSettings: normalizeAffirmationSettings(load(`${userKey}_affirmation_settings`, DEFAULT_AFFIRMATION_SETTINGS)),
           notificationPreferences: normalizeNotificationPreferences(load(`${userKey}_notification_preferences`, DEFAULT_NOTIFICATION_PREFERENCES)),
+          game: normalizeGameState(load(`${userKey}_game`, DEFAULT_GAME_STATE)),
           syncConflictLog: normalizeSyncConflictLog(load(`${userKey}_sync_conflict_log`, [])),
           appMode: load(`${userKey}_app_mode`, "schedule"),
           budgetProfile: normalizeBudgetProfile(load(`${userKey}_budget_profile`, DEFAULT_BUDGET_PROFILE)),
@@ -1008,6 +1020,7 @@ export default function App({ windowMode = "full" }) {
     affirmations: normalizeAffirmations(affirmations),
     affirmationSettings: normalizeAffirmationSettings(affirmationSettings),
     notificationPreferences: normalizeNotificationPreferences(notificationPreferences),
+    game: normalizeGameState(game),
     syncConflictLog: normalizeSyncConflictLog(syncConflictLog),
     appMode: ["schedule", "budget", "overall"].includes(appMode) ? appMode : "schedule",
     budgetProfile: normalizeBudgetProfile(budgetProfile),
@@ -1068,6 +1081,7 @@ export default function App({ windowMode = "full" }) {
         affirmations: normalizeAffirmations(nextSettings?.affirmations || affirmations),
         affirmationSettings: normalizeAffirmationSettings(nextSettings?.affirmationSettings || affirmationSettings),
         notificationPreferences: normalizeNotificationPreferences(nextSettings?.notificationPreferences || notificationPreferences),
+        game: normalizeGameState(nextSettings?.game || game),
         syncConflictLog: normalizeSyncConflictLog(nextSettings?.syncConflictLog || syncConflictLog),
         appMode: ["schedule", "budget", "overall"].includes(nextSettings?.appMode) ? nextSettings.appMode : (["schedule", "budget", "overall"].includes(appMode) ? appMode : "schedule"),
         budgetProfile: normalizeBudgetProfile(nextSettings?.budgetProfile || budgetProfile),
@@ -1118,6 +1132,7 @@ export default function App({ windowMode = "full" }) {
       setAffirmationsRaw(normalizeAffirmations(normalizedSettings.affirmations));
       setAffirmationSettingsRaw(normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       setNotificationPreferencesRaw(normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      setGameRaw(normalizeGameState(normalizedSettings.game));
       setSyncConflictLogRaw(normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
       setAppModeRaw(["schedule", "budget", "overall"].includes(normalizedSettings.appMode) ? normalizedSettings.appMode : "schedule");
       setBudgetProfileRaw(normalizeBudgetProfile(normalizedSettings.budgetProfile));
@@ -1162,6 +1177,7 @@ export default function App({ windowMode = "full" }) {
       save(`${uk}_affirmations`, normalizeAffirmations(normalizedSettings.affirmations));
       save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(normalizedSettings.affirmationSettings));
       save(`${uk}_notification_preferences`, normalizeNotificationPreferences(normalizedSettings.notificationPreferences));
+      save(`${uk}_game`, normalizeGameState(normalizedSettings.game));
       save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(normalizedSettings.syncConflictLog));
       save(`${uk}_app_mode`, ["schedule", "budget", "overall"].includes(normalizedSettings.appMode) ? normalizedSettings.appMode : "schedule");
       save(`${uk}_budget_profile`, normalizeBudgetProfile(normalizedSettings.budgetProfile));
@@ -1243,6 +1259,13 @@ export default function App({ windowMode = "full" }) {
     const next = ensureRecurringTasksForPeriod(tasks, taskScope, taskPeriodDate);
     if (next !== tasks) setTasks(next);
   }, [dataReady, taskScope, taskPeriodDate, tasks]);
+  // Cozy Room game data (blossoms, furniture, room layout): saved with the rest of the settings.
+  const updateGame = fn => {
+    const next = normalizeGameState(fn(game));
+    if (JSON.stringify(next) === JSON.stringify(game)) return;
+    setGameRaw(next);
+    persistSettings({ game: next });
+  };
   const persistSettings = overrides => {
     const touchedAt = new Date().toISOString();
     const touchedKeys = Object.keys(overrides || {}).filter(k => k !== "settingsUpdatedAt");
@@ -1283,6 +1306,7 @@ export default function App({ windowMode = "full" }) {
     save(`${uk}_affirmations`, normalizeAffirmations(next.affirmations));
     save(`${uk}_affirmation_settings`, normalizeAffirmationSettings(next.affirmationSettings));
     save(`${uk}_notification_preferences`, normalizeNotificationPreferences(next.notificationPreferences));
+    save(`${uk}_game`, normalizeGameState(next.game));
     save(`${uk}_sync_conflict_log`, normalizeSyncConflictLog(next.syncConflictLog));
     save(`${uk}_app_mode`, ["schedule", "budget", "overall"].includes(next.appMode) ? next.appMode : "schedule");
     save(`${uk}_budget_profile`, normalizeBudgetProfile(next.budgetProfile));
@@ -2324,6 +2348,9 @@ export default function App({ windowMode = "full" }) {
   }
 
   function toggleTask(id) {
+    // Cozy Room reward: 🌸 for finishing a task, taken back if it's unticked (see lib/game/economy.js)
+    const before = tasks.find(t => t.id === id);
+    if (before) updateGame(g => rewardForTaskToggle(g, `${before.id}@${taskCompletionTargetKey(before)}`, !before.done));
     pushUndo();
     setTasks(ts => {
       const task = ts.find(t => t.id === id);
@@ -3156,7 +3183,7 @@ export default function App({ windowMode = "full" }) {
           onOpenTask={task=>openFullTempo(`/?page=tasks&taskId=${encodeURIComponent(task.id)}`)}
           onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
           onFull={openFullTempo}
-          renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
+          renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" game={game} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
             onOpenPage={p => { if (p === "room" || p === "town") setMiniScene(p); else openFullTempo(p === "budget" ? "/" : `/?page=${p}`); }} />} />
       ) : (
       <>
@@ -3197,7 +3224,7 @@ export default function App({ windowMode = "full" }) {
           ) : page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenRoom={() => setPage("room")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
           ) : page === "room" || page === "town" ? (
-            <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenPage={(p, sub) => {
+            <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} game={game} onGameChange={updateGame} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenPage={(p, sub) => {
               if (p === "budget") { navigateBudgetPage(sub); return; }
               setPage(p); if (p === "tasks") setTaskScope("day"); if (p === "calendar") setView("day");
             }} />

@@ -44,7 +44,7 @@ test("Room opens from a button on Today (not the menus); Town is reached by walk
 
 test("the game opens full screen with a Back button that returns to Today", () => {
   assert.match(app, /<GameScene key=\{page\} scene=\{page\} variant="full" onBack=\{\(\) => setPage\("today"\)\}/);
-  assert.match(room, /className="cozy-back" onClick=\{onBack\}/);
+  assert.match(room, /className="cozy-back" onClick=\{editing \? cancelEdit : onBack\}/);
   assert.match(room, /\.cozy-full\{position:fixed;inset:0;/);
   assert.match(room, /env\(safe-area-inset-top\)/, "respects phone notches");
 });
@@ -66,7 +66,7 @@ test("dogs follow by chance each time you start walking, and stay-behind dogs ke
 
 test("Today, Tasks and Calendar open as small in-game panels instead of leaving the game", () => {
   const panels = read("components/game/GamePanels.jsx");
-  assert.match(room, /if \(\["today", "tasks", "calendar"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
+  assert.match(room, /if \(\["today", "tasks", "calendar", "store"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("tasks"\)\}>Open tasks<\/button>/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("calendar"\)\}>Open calendar<\/button>/);
   for (const part of ["TodayBody", "TasksBody", "CalendarBody"]) assert.match(panels, new RegExp(`function ${part}\\(`));
@@ -78,6 +78,16 @@ test("Today, Tasks and Calendar open as small in-game panels instead of leaving 
   assert.match(app, /calendarEvents=\{events\.filter\(eventSourceVisible\)\}/);
   // Escape closes the panel without leaving the game
   assert.match(panels, /if \(e\.key === "Escape"\) \{ e\.stopPropagation\(\); onClose\?\.\(\); \}/);
+});
+
+test("finishing a task plays the celebration pack: you cheer, the dogs bounce then wag", () => {
+  assert.match(scene, /\["idle", "sleep", "play", "celebrate"\]/);
+  assert.match(scene, /c\.act = \{ name: "celebrate", start: now, repeat: 1 \}/);
+  assert.match(scene, /\{ name: "happy_bounce", start: now \+ i \* 90, repeat: 1, then: "tail_wag"/);
+  assert.match(scene, /else if \(c\.act\.repeat > 0\)/);
+  const m = JSON.parse(read("public/game/celebrate/manifest.json"));
+  assert.deepEqual(Object.keys(m.animations.happy_bounce).sort(), ["bernedoodle_black_white", "bernedoodle_charcoal", "bernedoodle_cream", "westie"]);
+  assert.ok(m.animations.celebrate.avatar);
 });
 
 test("the town has no bridge", () => {
@@ -115,14 +125,14 @@ test("every picture the room and town use is shipped in public/game", () => {
   for (const sp of pack.sprites) assert.ok(existsSync("public/game/pack/" + sp.file), sp.file);
   const walk = JSON.parse(read("public/game/walk/manifest.json"));
   for (const c of Object.values(walk.characters)) for (const files of Object.values(c.animations)) for (const f of files) assert.ok(existsSync("public/game/walk/" + f), f);
-  for (const dir of ["idle", "sleep", "play"]) {
+  for (const dir of ["idle", "sleep", "play", "celebrate"]) {
     const m = JSON.parse(read(`public/game/${dir}/manifest.json`));
     for (const chars of Object.values(m.animations)) for (const a of Object.values(chars)) for (const f of a.frames) assert.ok(existsSync(`public/game/${dir}/${f}`), `${dir}/${f}`);
   }
 });
 
 test("taps only open existing pages or scene-only effects", () => {
-  const allowed = new Set(["today", "tasks", "calendar", "budget", "room", "town", "night", "dogs", "note"]);
+  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "room", "town", "night", "dogs", "note"]);
   for (const o of [...ROOM_LAYOUT.objects, ...TOWN_LAYOUT.objects]) if (o.tap) {
     assert.ok(allowed.has(o.tap.action), `${o.id} → ${o.tap.action}`);
     if (o.tap.action === "note") assert.ok(o.tap.note, `${o.id} needs a note`);
