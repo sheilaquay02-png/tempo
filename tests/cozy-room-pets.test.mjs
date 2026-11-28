@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { ACCESSORIES, ACCESSORY_FIT, DOG_FIT, DOGS, buyAccessory, wearAccessory } from "../lib/game/accessories.js";
+import { ACCESSORIES, ACCESSORY_FIT, DOG_FIT, HAT_DOG_FIT, DOGS, buyAccessory, wearAccessory } from "../lib/game/accessories.js";
 import { normalizeGameState } from "../lib/tempo/core.js";
 import { TOWN_LAYOUT } from "../lib/game/townLayout.js";
 import { FURNITURE_BY_ID } from "../lib/game/furniture.js";
@@ -79,11 +79,11 @@ test("accessory fine-tuning only names real accessories, dogs and directions", (
   const ids = new Set(ACCESSORIES.map(a => a.id)), dogs = new Set(DOGS.map(d => d.key));
   const ok = v => Number.isFinite(v.x) && Number.isFinite(v.y) && v.size > 0;
   for (const [id, f] of Object.entries(ACCESSORY_FIT)) { assert.ok(ids.has(id), id); assert.ok(ok(f), id); }
-  for (const [k, views] of Object.entries(DOG_FIT)) {
+  for (const [k, views] of [...Object.entries(DOG_FIT), ...Object.entries(HAT_DOG_FIT)]) {
     assert.ok(dogs.has(k), k);
     for (const [v, f] of Object.entries(views)) { assert.ok(["front", "right", "left", "back", "nap"].includes(v), v); assert.ok(ok(f), `${k} ${v}`); }
   }
-  assert.match(read("lib/game/scene.js"), /DOG_FIT\[c\.key\]/);
+  assert.match(read("lib/game/scene.js"), /dogFitFor\(id\)\[c\.key\]/);
 });
 
 test("new hats bring a back view on a bigger canvas, with every picture present", () => {
