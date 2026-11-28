@@ -23,7 +23,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack, clockHour }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -88,6 +88,14 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   }, [doneCount]);
 
   useEffect(() => { apiRef.current?.setNight(night); }, [night, status]);
+  // the light follows your clock: pink morning, daylight, golden evening, night (checked every minute)
+  const [hour, setHour] = useState(() => { const d = new Date(); return d.getHours() + d.getMinutes() / 60; });
+  useEffect(() => {
+    const tick = () => { const d = new Date(); setHour(d.getHours() + d.getMinutes() / 60); };
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => { apiRef.current?.setHour?.(Number.isFinite(clockHour) ? clockHour : hour); }, [hour, clockHour, status]);
 
   // dress the dogs with whatever they're wearing (pet bowl menu), whenever it changes
   const petsKey = JSON.stringify(game?.pets || {});

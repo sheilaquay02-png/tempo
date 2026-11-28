@@ -16,7 +16,7 @@ test("blossoms: earned once per completion, given back when unticked", () => {
   assert.equal(rewardForTaskToggle(g, "t1@2026-11-28", true), g, "ticking again doesn't pay twice");
   g = rewardForTaskToggle(g, "t1@2026-11-28", false);
   assert.equal(g.blossoms, 0);
-  assert.equal(g.earned["t1@2026-11-28"], undefined);
+  assert.equal(g.earned["t1@2026-11-28"], 0, "remembered as given back, so other devices learn it too");
   assert.equal(rewardForTaskToggle(g, "never-paid", false), g, "unticking an unpaid task changes nothing");
 });
 
