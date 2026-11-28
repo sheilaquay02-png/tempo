@@ -7,11 +7,13 @@ import { rewardForFocus, FOCUS_REWARD, TASK_REWARD } from "../lib/game/economy.j
 
 const read = f => readFileSync(f, "utf8");
 
-test("the Café in Tempo Town opens the café focus scene, and ← Town leads back out", () => {
+test("the Café in Tempo Town opens the café focus scene, and ← Back to town leads back out (full screen and Mini)", () => {
   assert.equal(TOWN_LAYOUT.objects.find(o => o.id === "cafe").tap.action, "cafe");
   const scene = read("components/game/GameScene.jsx"), app = read("components/TempoApp.jsx");
   assert.match(scene, /cafe: \{ layout: CAFE_LAYOUT/);
   assert.match(scene, /scene === "cafe" \? \(\) => onOpenPage\?\.\("town"\)/);
+  assert.match(scene, /← Back to town/, "full screen: a clear way back to town");
+  assert.match(scene, /className="cozy-back cozy-compact-back" onClick=\{\(\) => onOpenPage\?\.\("town"\)\}/, "Mini Tempo's café has a way out too");
   assert.match(app, /page === "room" \|\| page === "town" \|\| page === "cafe"/);
   assert.match(app, /if \(p === "room" \|\| p === "town" \|\| p === "cafe"\) setMiniScene\(p\)/, "works in Mini Tempo too");
 });

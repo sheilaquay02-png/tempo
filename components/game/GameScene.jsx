@@ -17,7 +17,7 @@ import { GamePanel, PANEL_CSS } from "./GamePanels";
 
 const SCENES = {
   room: { layout: ROOM_LAYOUT, label: "Your cozy room: you and your four dogs", hint: "Tap the floor to walk (or use the arrow keys / WASD). Tap the desk, window, bed or food bowls. Walk out the bottom middle to go to town." },
-  cafe: { layout: CAFE_LAYOUT, label: "Tempo Café: you working at your laptop while the dogs wander around", hint: "Start a focus session and get comfy. The dogs will keep you company. ← Town takes you back outside." },
+  cafe: { layout: CAFE_LAYOUT, label: "Tempo Café: you working at your laptop while the dogs wander around", hint: "Start a focus session and get comfy. The dogs will keep you company. ← Back to town takes you outside." },
   town: { layout: TOWN_LAYOUT, label: "Tempo Town: you and your four dogs in the town square", hint: "Tap the paving to walk (or use the arrow keys / WASD). Tap a building: Town Hall, Library, Bank, Café… Tap My House to go home." },
 };
 
@@ -176,7 +176,13 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
   );
 
   // Compact: just the scene (Mini Tempo's room view).
-  if (!full) return <div className="cozy-scene cozy-compact"><style>{ROOM_CSS + PANEL_CSS + CAFE_CSS}</style>{stage}{scene === "cafe" && timer(true)}</div>;
+  // Compact (Mini Tempo): just the scene. In the café there's no door to walk out of, so it gets its own way back to town.
+  if (!full) return (
+    <div className="cozy-scene cozy-compact"><style>{ROOM_CSS + PANEL_CSS + CAFE_CSS}</style>
+      {scene === "cafe" && <button className="cozy-back cozy-compact-back" onClick={() => onOpenPage?.("town")} aria-label="Leave the café">← Back to town</button>}
+      {stage}{scene === "cafe" && timer(true)}
+    </div>
+  );
 
   // Full screen: covers the whole app; Back (top left) or Escape returns to Today.
   return (
@@ -184,7 +190,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
       <style>{ROOM_CSS + PANEL_CSS + CAFE_CSS}</style>
       <div className="cozy-full-inner" style={{ "--cozy-ar": ratio }}>
         <div className="cozy-topbar">
-          <button className="cozy-back" onClick={editing ? cancelEdit : scene === "cafe" ? () => onOpenPage?.("town") : onBack} aria-label={editing ? "Cancel editing" : scene === "cafe" ? "Leave the café" : "Back to Tempo"}>{editing ? "✕ Cancel" : scene === "cafe" ? "← Town" : "← Back"}</button>
+          <button className="cozy-back" onClick={editing ? cancelEdit : scene === "cafe" ? () => onOpenPage?.("town") : onBack} aria-label={editing ? "Cancel editing" : scene === "cafe" ? "Leave the café" : "Back to Tempo"}>{editing ? "✕ Cancel" : scene === "cafe" ? "← Back to town" : "← Back"}</button>
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}</strong>
           {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
           {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
@@ -268,4 +274,5 @@ const ROOM_CSS = `
 @media (max-width:600px){.cozy-room-stage{border-radius:12px;}.cozy-title{font-size:14px;}.cozy-back{padding:8px 13px;}}
 /* compact (Mini Tempo) */
 .cozy-compact .cozy-room-stage{border-radius:14px;}
+.cozy-compact-back{display:block;margin:0 0 8px;min-height:38px;padding:7px 14px;font-size:14px;}
 `;
