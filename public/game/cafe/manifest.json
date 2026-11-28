@@ -14,81 +14,55 @@
         "avatar/typing/typing_01.png",
         "avatar/typing/typing_02.png",
         "avatar/typing/typing_03.png",
-        "avatar/typing/typing_04.png",
-        "avatar/typing/typing_05.png",
-        "avatar/typing/typing_06.png",
-        "avatar/typing/typing_07.png"
+        "avatar/typing/typing_04.png"
       ],
-      "fps": 8,
+      "fps": 3,
       "loop": true
-    },
-    "happy": {
-      "frames": [
-        "avatar/happy/happy_01.png",
-        "avatar/happy/happy_02.png",
-        "avatar/happy/happy_03.png",
-        "avatar/happy/happy_04.png"
-      ],
-      "fps": 5,
-      "loop": false
     },
     "sip_drink": {
       "frames": [
         "avatar/sip_drink/sip_drink_01.png",
         "avatar/sip_drink/sip_drink_02.png",
         "avatar/sip_drink/sip_drink_03.png",
-        "avatar/sip_drink/sip_drink_04.png",
-        "avatar/sip_drink/sip_drink_05.png",
-        "avatar/sip_drink/sip_drink_06.png",
-        "avatar/sip_drink/sip_drink_07.png",
-        "avatar/sip_drink/sip_drink_08.png"
+        "avatar/sip_drink/sip_drink_04.png"
       ],
-      "fps": 5,
+      "fps": 3,
+      "loop": false
+    },
+    "happy": {
+      "frames": [
+        "avatar/happy/happy_01.png",
+        "avatar/happy/happy_02.png",
+        "avatar/happy/happy_03.png"
+      ],
+      "fps": 3,
       "loop": false
     },
     "thinking": {
       "frames": [
         "avatar/thinking/thinking_01.png",
         "avatar/thinking/thinking_02.png",
-        "avatar/thinking/thinking_03.png",
-        "avatar/thinking/thinking_04.png"
+        "avatar/thinking/thinking_03.png"
       ],
-      "fps": 3,
+      "fps": 2,
       "loop": false
     },
-    "glance_around": {
+    "dozing": {
       "frames": [
-        "avatar/glance_around/glance_around_01.png",
-        "avatar/glance_around/glance_around_02.png",
-        "avatar/glance_around/glance_around_03.png",
-        "avatar/glance_around/glance_around_04.png",
-        "avatar/glance_around/glance_around_05.png",
-        "avatar/glance_around/glance_around_06.png"
+        "avatar/dozing/dozing_01.png",
+        "avatar/dozing/dozing_02.png",
+        "avatar/dozing/dozing_03.png",
+        "avatar/dozing/dozing_04.png"
       ],
-      "fps": 5,
-      "loop": false
-    },
-    "work_drink_work": {
-      "frames": [
-        "avatar/work_drink_work/work_drink_work_01.png",
-        "avatar/work_drink_work/work_drink_work_02.png",
-        "avatar/work_drink_work/work_drink_work_03.png",
-        "avatar/work_drink_work/work_drink_work_04.png",
-        "avatar/work_drink_work/work_drink_work_05.png",
-        "avatar/work_drink_work/work_drink_work_06.png",
-        "avatar/work_drink_work/work_drink_work_07.png",
-        "avatar/work_drink_work/work_drink_work_08.png"
-      ],
-      "fps": 5,
+      "fps": 2,
       "loop": false
     }
   },
   "notes": [
-    "Updated chunky pixel style from the supplied avatar reference.",
-    "Original static cafe background retained.",
-    "Checkerboard background removed; thinking bubble retained in its source pose.",
-    "Work-drink-work reuses complete typing and sipping frames because source bottom row is clipped.",
-    "Cup visibility varies in source poses.",
-    "Playback not tested in Tempo."
+    "All 18 poses extracted from the latest short-legged sheet.",
+    "Fixed scale across frames; aligned by lower furniture silhouette.",
+    "Thinking bubble and sleep symbols retained.",
+    "Typing frame 3 has fully closed eyes.",
+    "Recommended low frame rates; in-app playback not tested."
   ]
 }

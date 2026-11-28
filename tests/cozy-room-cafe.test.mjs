@@ -19,7 +19,7 @@ test("the Café in Tempo Town opens the café focus scene, and ← Town leads ba
 test("café pictures are shipped and only loaded for the café", () => {
   assert.ok(existsSync("public" + CAFE_LAYOUT.assetBase + CAFE_LAYOUT.background));
   const m = JSON.parse(read("public/game/cafe/manifest.json"));
-  for (const name of ["typing", "happy", "sip_drink", "thinking", "glance_around", "work_drink_work"]) {
+  for (const name of ["typing", "happy", "sip_drink", "thinking", "dozing"]) {
     assert.ok(m.animations[name], name);
     for (const f of m.animations[name].frames) assert.ok(existsSync("public/game/cafe/" + f), f);
   }

@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from "react";
 
 const LENGTHS = { focus: [15, 25, 45], break: [5, 10] };
 const DEFAULT = { focus: 25, break: 5 };
-// what you do at the laptop while focusing (rotates every ~12 s)
-const FOCUS_ANIMS = ["typing", "typing", "work_drink_work", "thinking", "typing", "glance_around"];
+// what you do at the laptop (café short-legs pack: typing, thinking, sip_drink, dozing, happy); rotates every ~12 s
+const FOCUS_ANIMS = ["typing", "typing", "thinking", "typing", "typing", "sip_drink"];
+const BREAK_ANIMS = ["sip_drink", "dozing"];
 
 const fmt = ms => {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -56,10 +57,10 @@ export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebra
   // what you're doing at the laptop
   useEffect(() => {
     const anim = name => cb.current.onAnim?.(name);
-    if (!running) { anim(mode === "break" ? "sip_drink" : "glance_around"); return; }
-    if (mode === "break") { anim("sip_drink"); return; }
-    let i = 0; anim(FOCUS_ANIMS[0]);
-    const id = setInterval(() => { i = (i + 1) % FOCUS_ANIMS.length; anim(FOCUS_ANIMS[i]); }, 12000);
+    if (!running) { anim(mode === "break" ? "sip_drink" : "thinking"); return; }
+    const list = mode === "break" ? BREAK_ANIMS : FOCUS_ANIMS;
+    let i = 0; anim(list[0]);
+    const id = setInterval(() => { i = (i + 1) % list.length; anim(list[i]); }, 12000);
     return () => clearInterval(id);
   }, [running, mode]);
 
