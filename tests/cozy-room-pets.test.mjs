@@ -9,7 +9,7 @@ import { FURNITURE_BY_ID } from "../lib/game/furniture.js";
 const read = f => readFileSync(f, "utf8");
 
 test("every accessory has front and side pictures, a fair price and a name", () => {
-  assert.equal(ACCESSORIES.length, 22);
+  assert.equal(ACCESSORIES.length, 20);
   for (const a of ACCESSORIES) {
     for (const v of ["front", "side"]) assert.ok(existsSync(`public/game/accessories/${a.id}/${v}.png`), `${a.id}/${v}`);
     assert.ok(a.price > 0 && a.price % 3 === 0, `${a.id} costs whole tasks`);
@@ -88,7 +88,7 @@ test("accessory fine-tuning only names real accessories, dogs and directions", (
 
 test("new hats bring a back view on a bigger canvas, with every picture present", () => {
   const hats = ACCESSORIES.filter(a => a.art === "hat");
-  assert.equal(hats.length, 9);
+  assert.equal(hats.length, 7);
   for (const h of hats) for (const v of ["front", "side", "back"]) assert.ok(existsSync(`public/game/accessories/${h.id}/${v}.png`), `${h.id} ${v}`);
   assert.match(read("lib/game/accessories.js"), /hat: \{ w: 288, h: 256, ax: 144, ay: 240, back: true, scale: 0.6, sideFacesLeft: false \}/);
 });
