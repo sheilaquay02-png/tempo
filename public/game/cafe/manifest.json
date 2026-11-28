@@ -84,10 +84,11 @@
     }
   },
   "notes": [
-    "All frames contain avatar, table, chair and laptop.",
-    "Original sheet has 7 typing poses (labels 1\u20136 and 8); no frame 7 was present.",
-    "Detached effects and labels removed.",
-    "Source has inconsistent cup visibility; no poses redrawn.",
+    "Updated chunky pixel style from the supplied avatar reference.",
+    "Original static cafe background retained.",
+    "Checkerboard background removed; thinking bubble retained in its source pose.",
+    "Work-drink-work reuses complete typing and sipping frames because source bottom row is clipped.",
+    "Cup visibility varies in source poses.",
     "Playback not tested in Tempo."
   ]
 }
