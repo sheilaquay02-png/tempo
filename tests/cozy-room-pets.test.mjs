@@ -81,7 +81,7 @@ test("accessory fine-tuning only names real accessories, dogs and directions", (
   for (const [id, f] of Object.entries(ACCESSORY_FIT)) { assert.ok(ids.has(id), id); assert.ok(ok(f), id); }
   for (const [k, views] of Object.entries(DOG_FIT)) {
     assert.ok(dogs.has(k), k);
-    for (const [v, f] of Object.entries(views)) { assert.ok(["front", "right", "left", "back"].includes(v), v); assert.ok(ok(f), `${k} ${v}`); }
+    for (const [v, f] of Object.entries(views)) { assert.ok(["front", "right", "left", "back", "nap"].includes(v), v); assert.ok(ok(f), `${k} ${v}`); }
   }
   assert.match(read("lib/game/scene.js"), /DOG_FIT\[c\.key\]/);
 });
