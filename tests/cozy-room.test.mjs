@@ -44,7 +44,7 @@ test("Room opens from a button on Today (not the menus); Town is reached by walk
 
 test("the game opens full screen with a Back button that returns to Today", () => {
   assert.match(app, /<GameScene key=\{page\} scene=\{page\} variant="full" onBack=\{\(\) => setPage\("today"\)\}/);
-  assert.match(room, /className="cozy-back" onClick=\{onBack\}/);
+  assert.match(room, /className="cozy-back" onClick=\{editing \? cancelEdit : onBack\}/);
   assert.match(room, /\.cozy-full\{position:fixed;inset:0;/);
   assert.match(room, /env\(safe-area-inset-top\)/, "respects phone notches");
 });
@@ -66,7 +66,7 @@ test("dogs follow by chance each time you start walking, and stay-behind dogs ke
 
 test("Today, Tasks and Calendar open as small in-game panels instead of leaving the game", () => {
   const panels = read("components/game/GamePanels.jsx");
-  assert.match(room, /if \(\["today", "tasks", "calendar"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
+  assert.match(room, /if \(\["today", "tasks", "calendar", "store"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("tasks"\)\}>Open tasks<\/button>/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("calendar"\)\}>Open calendar<\/button>/);
   for (const part of ["TodayBody", "TasksBody", "CalendarBody"]) assert.match(panels, new RegExp(`function ${part}\\(`));
@@ -132,7 +132,7 @@ test("every picture the room and town use is shipped in public/game", () => {
 });
 
 test("taps only open existing pages or scene-only effects", () => {
-  const allowed = new Set(["today", "tasks", "calendar", "budget", "room", "town", "night", "dogs", "note"]);
+  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "room", "town", "night", "dogs", "note"]);
   for (const o of [...ROOM_LAYOUT.objects, ...TOWN_LAYOUT.objects]) if (o.tap) {
     assert.ok(allowed.has(o.tap.action), `${o.id} → ${o.tap.action}`);
     if (o.tap.action === "note") assert.ok(o.tap.note, `${o.id} needs a note`);

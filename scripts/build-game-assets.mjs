@@ -21,7 +21,9 @@ for (const scene of ["room", "town"]) {
   const text = sceneText(scene);
   const bg = text.match(/background: "env-zip\/([^"]+)"/)[1];
   const files = [...new Set([...text.matchAll(/src: "([^"]+)"/g)].map(m => m[1]))].concat(bg);
-  for (const f of files) jobs.push([join(SRC, "env-zip", f), join(OUT, scene, f)]);
+  // the room also ships every furniture picture, so pieces from the General Store and storage can be placed
+  if (scene === "room") for (const f of readdirSync(join(SRC, "env-zip", "room"))) if (f.endsWith(".png") && !/floor_panel/.test(f)) files.push("room/" + f);
+  for (const f of [...new Set(files)]) jobs.push([join(SRC, "env-zip", f), join(OUT, scene, f)]);
 }
 // character packs: manifests + every frame they reference
 for (const dir of ["pack", "walk", "idle", "sleep", "play", "celebrate"]) {
