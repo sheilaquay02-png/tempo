@@ -66,7 +66,7 @@ test("dogs follow by chance each time you start walking, and stay-behind dogs ke
 
 test("Today, Tasks and Calendar open as small in-game panels instead of leaving the game", () => {
   const panels = read("components/game/GamePanels.jsx");
-  assert.match(room, /if \(\["today", "tasks", "calendar", "store"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
+  assert.match(room, /if \(\["today", "tasks", "calendar", "store", "pets", "petshop"\]\.includes\(tap\.action\)\) \{ setPanel\(tap\.action\); return; \}/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("tasks"\)\}>Open tasks<\/button>/);
   assert.match(room, /<button onClick=\{\(\) => setPanel\("calendar"\)\}>Open calendar<\/button>/);
   for (const part of ["TodayBody", "TasksBody", "CalendarBody"]) assert.match(panels, new RegExp(`function ${part}\\(`));
@@ -132,7 +132,7 @@ test("every picture the room and town use is shipped in public/game", () => {
 });
 
 test("taps only open existing pages or scene-only effects", () => {
-  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "cafe", "room", "town", "night", "dogs", "note"]);
+  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "petshop", "pets", "cafe", "room", "town", "night", "dogs", "note"]);
   for (const o of [...ROOM_LAYOUT.objects, ...TOWN_LAYOUT.objects]) if (o.tap) {
     assert.ok(allowed.has(o.tap.action), `${o.id} → ${o.tap.action}`);
     if (o.tap.action === "note") assert.ok(o.tap.note, `${o.id} needs a note`);
