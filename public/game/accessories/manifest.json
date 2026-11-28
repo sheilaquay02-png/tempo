@@ -1,0 +1,565 @@
+{
+  "canvas": [
+    192,
+    192
+  ],
+  "suggested_overlay_anchor": [
+    96,
+    176
+  ],
+  "notes": "Source-sized sprites, no rescaling. Side view is supplied as drawn; mirror horizontally for the opposite direction. Back views not supplied. Anchor is a starting point; adjust per breed and pose.",
+  "accessories": [
+    {
+      "id": "small_pink_bow",
+      "views": {
+        "front": {
+          "file": "small_pink_bow/front.png",
+          "bounds": [
+            38,
+            110,
+            115,
+            66
+          ]
+        },
+        "side": {
+          "file": "small_pink_bow/side.png",
+          "bounds": [
+            44,
+            105,
+            104,
+            71
+          ]
+        }
+      }
+    },
+    {
+      "id": "large_pink_bow",
+      "views": {
+        "front": {
+          "file": "large_pink_bow/front.png",
+          "bounds": [
+            33,
+            81,
+            126,
+            95
+          ]
+        },
+        "side": {
+          "file": "large_pink_bow/side.png",
+          "bounds": [
+            46,
+            76,
+            99,
+            100
+          ]
+        }
+      }
+    },
+    {
+      "id": "daisy_headband",
+      "views": {
+        "front": {
+          "file": "daisy_headband/front.png",
+          "bounds": [
+            40,
+            100,
+            112,
+            76
+          ]
+        },
+        "side": {
+          "file": "daisy_headband/side.png",
+          "bounds": [
+            51,
+            98,
+            89,
+            78
+          ]
+        }
+      }
+    },
+    {
+      "id": "pink_flower_crown",
+      "views": {
+        "front": {
+          "file": "pink_flower_crown/front.png",
+          "bounds": [
+            24,
+            87,
+            144,
+            89
+          ]
+        },
+        "side": {
+          "file": "pink_flower_crown/side.png",
+          "bounds": [
+            43,
+            93,
+            106,
+            83
+          ]
+        }
+      }
+    },
+    {
+      "id": "leaf_crown",
+      "views": {
+        "front": {
+          "file": "leaf_crown/front.png",
+          "bounds": [
+            23,
+            95,
+            146,
+            81
+          ]
+        },
+        "side": {
+          "file": "leaf_crown/side.png",
+          "bounds": [
+            45,
+            97,
+            102,
+            79
+          ]
+        }
+      }
+    },
+    {
+      "id": "pink_gem_tiara",
+      "views": {
+        "front": {
+          "file": "pink_gem_tiara/front.png",
+          "bounds": [
+            36,
+            94,
+            120,
+            82
+          ]
+        },
+        "side": {
+          "file": "pink_gem_tiara/side.png",
+          "bounds": [
+            46,
+            95,
+            99,
+            81
+          ]
+        }
+      }
+    },
+    {
+      "id": "gold_crown",
+      "views": {
+        "front": {
+          "file": "gold_crown/front.png",
+          "bounds": [
+            39,
+            85,
+            114,
+            91
+          ]
+        },
+        "side": {
+          "file": "gold_crown/side.png",
+          "bounds": [
+            51,
+            85,
+            89,
+            91
+          ]
+        }
+      }
+    },
+    {
+      "id": "angel_halo",
+      "views": {
+        "front": {
+          "file": "angel_halo/front.png",
+          "bounds": [
+            36,
+            77,
+            119,
+            99
+          ]
+        },
+        "side": {
+          "file": "angel_halo/side.png",
+          "bounds": [
+            47,
+            78,
+            98,
+            98
+          ]
+        }
+      }
+    },
+    {
+      "id": "heart_antennae",
+      "views": {
+        "front": {
+          "file": "heart_antennae/front.png",
+          "bounds": [
+            31,
+            77,
+            129,
+            99
+          ]
+        },
+        "side": {
+          "file": "heart_antennae/side.png",
+          "bounds": [
+            52,
+            73,
+            88,
+            103
+          ]
+        }
+      }
+    },
+    {
+      "id": "bunny_ears",
+      "views": {
+        "front": {
+          "file": "bunny_ears/front.png",
+          "bounds": [
+            33,
+            61,
+            125,
+            115
+          ]
+        },
+        "side": {
+          "file": "bunny_ears/side.png",
+          "bounds": [
+            54,
+            58,
+            83,
+            118
+          ]
+        }
+      }
+    },
+    {
+      "id": "cat_ears",
+      "views": {
+        "front": {
+          "file": "cat_ears/front.png",
+          "bounds": [
+            32,
+            93,
+            128,
+            83
+          ]
+        },
+        "side": {
+          "file": "cat_ears/side.png",
+          "bounds": [
+            52,
+            89,
+            87,
+            87
+          ]
+        }
+      }
+    },
+    {
+      "id": "party_hat",
+      "views": {
+        "front": {
+          "file": "party_hat/front.png",
+          "bounds": [
+            38,
+            62,
+            115,
+            114
+          ]
+        },
+        "side": {
+          "file": "party_hat/side.png",
+          "bounds": [
+            50,
+            67,
+            92,
+            109
+          ]
+        }
+      }
+    },
+    {
+      "id": "pink_beret",
+      "views": {
+        "front": {
+          "file": "pink_beret/front.png",
+          "bounds": [
+            31,
+            87,
+            129,
+            89
+          ]
+        },
+        "side": {
+          "file": "pink_beret/side.png",
+          "bounds": [
+            41,
+            84,
+            110,
+            92
+          ]
+        }
+      }
+    },
+    {
+      "id": "cream_beanie",
+      "views": {
+        "front": {
+          "file": "cream_beanie/front.png",
+          "bounds": [
+            32,
+            67,
+            128,
+            109
+          ]
+        },
+        "side": {
+          "file": "cream_beanie/side.png",
+          "bounds": [
+            46,
+            63,
+            99,
+            113
+          ]
+        }
+      }
+    },
+    {
+      "id": "star_sleep_cap",
+      "views": {
+        "front": {
+          "file": "star_sleep_cap/front.png",
+          "bounds": [
+            26,
+            75,
+            140,
+            101
+          ]
+        },
+        "side": {
+          "file": "star_sleep_cap/side.png",
+          "bounds": [
+            48,
+            73,
+            95,
+            103
+          ]
+        }
+      }
+    },
+    {
+      "id": "flower_sunhat",
+      "views": {
+        "front": {
+          "file": "flower_sunhat/front.png",
+          "bounds": [
+            22,
+            91,
+            148,
+            85
+          ]
+        },
+        "side": {
+          "file": "flower_sunhat/side.png",
+          "bounds": [
+            37,
+            81,
+            117,
+            95
+          ]
+        }
+      }
+    },
+    {
+      "id": "paw_baseball_cap",
+      "views": {
+        "front": {
+          "file": "paw_baseball_cap/front.png",
+          "bounds": [
+            29,
+            95,
+            134,
+            81
+          ]
+        },
+        "side": {
+          "file": "paw_baseball_cap/side.png",
+          "bounds": [
+            40,
+            88,
+            112,
+            88
+          ]
+        }
+      }
+    },
+    {
+      "id": "strawberry_hat",
+      "views": {
+        "front": {
+          "file": "strawberry_hat/front.png",
+          "bounds": [
+            32,
+            65,
+            128,
+            111
+          ]
+        },
+        "side": {
+          "file": "strawberry_hat/side.png",
+          "bounds": [
+            44,
+            72,
+            103,
+            104
+          ]
+        }
+      }
+    },
+    {
+      "id": "frog_hat",
+      "views": {
+        "front": {
+          "file": "frog_hat/front.png",
+          "bounds": [
+            26,
+            64,
+            139,
+            112
+          ]
+        },
+        "side": {
+          "file": "frog_hat/side.png",
+          "bounds": [
+            44,
+            65,
+            103,
+            111
+          ]
+        }
+      }
+    },
+    {
+      "id": "bear_hat",
+      "views": {
+        "front": {
+          "file": "bear_hat/front.png",
+          "bounds": [
+            24,
+            73,
+            143,
+            103
+          ]
+        },
+        "side": {
+          "file": "bear_hat/side.png",
+          "bounds": [
+            36,
+            70,
+            120,
+            106
+          ]
+        }
+      }
+    },
+    {
+      "id": "sailor_hat",
+      "views": {
+        "front": {
+          "file": "sailor_hat/front.png",
+          "bounds": [
+            28,
+            83,
+            135,
+            93
+          ]
+        },
+        "side": {
+          "file": "sailor_hat/side.png",
+          "bounds": [
+            37,
+            79,
+            117,
+            97
+          ]
+        }
+      }
+    },
+    {
+      "id": "pink_headphones",
+      "views": {
+        "front": {
+          "file": "pink_headphones/front.png",
+          "bounds": [
+            25,
+            72,
+            141,
+            104
+          ]
+        },
+        "side": {
+          "file": "pink_headphones/side.png",
+          "bounds": [
+            42,
+            75,
+            107,
+            101
+          ]
+        }
+      }
+    },
+    {
+      "id": "star_headband",
+      "views": {
+        "front": {
+          "file": "star_headband/front.png",
+          "bounds": [
+            29,
+            108,
+            133,
+            68
+          ]
+        },
+        "side": {
+          "file": "star_headband/side.png",
+          "bounds": [
+            50,
+            103,
+            91,
+            73
+          ]
+        }
+      }
+    },
+    {
+      "id": "pink_lace_bonnet",
+      "views": {
+        "front": {
+          "file": "pink_lace_bonnet/front.png",
+          "bounds": [
+            21,
+            16,
+            149,
+            160
+          ]
+        },
+        "side": {
+          "file": "pink_lace_bonnet/side.png",
+          "bounds": [
+            37,
+            32,
+            117,
+            144
+          ]
+        }
+      }
+    }
+  ]
+}

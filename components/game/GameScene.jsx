@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
 import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD } from "../../lib/game/economy";
+import { ACCESSORIES, DOGS, buyAccessory, wearAccessory } from "../../lib/game/accessories";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
@@ -88,6 +89,10 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
 
   useEffect(() => { apiRef.current?.setNight(night); }, [night, status]);
 
+  // dress the dogs with whatever they're wearing (pet bowl menu), whenever it changes
+  const petsKey = JSON.stringify(game?.pets || {});
+  useEffect(() => { if (status === "ready") apiRef.current?.setAccessories?.(JSON.parse(petsKey)); }, [status, petsKey]);
+
   // Full screen: stop the page underneath from scrolling while the game is open.
   useEffect(() => {
     if (variant !== "full") return;
@@ -103,7 +108,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     if (tap.action === "dogs") { apiRef.current?.celebrate(); setHint("The dogs came running!"); return; }
     if (tap.action === "note") { setHint(tap.note || tap.name); return; }
     if (tap.action === "budget") { onOpenPage?.("budget", tap.budgetPage || "home"); return; }
-    if (["today", "tasks", "calendar", "store"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
+    if (["today", "tasks", "calendar", "store", "pets", "petshop"].includes(tap.action)) { setPanel(tap.action); return; } // stay in the game
     if (["room", "town", "cafe"].includes(tap.action)) onOpenPage?.(tap.action);
   };
 
@@ -125,6 +130,12 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     const piece = newPiece(itemId, uids); if (!piece) return;
     apiRef.current?.addObject(sceneObject(piece));
     setPanel(null);
+  };
+  const buyAcc = item => {
+    const next = buyAccessory(game || {}, item);
+    if (!next) { setHint(`You need ${item.price - (game?.blossoms || 0)} more 🌸 for the ${item.name}.`); return; }
+    onGameChange(() => next);
+    setHint(`The ${item.name} is yours! Tap the food bowls at home to put it on a dog.`);
   };
   const buy = item => {
     const next = buyItem(game || {}, item);
@@ -158,6 +169,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
       )}
       {panel && <GamePanel kind={panel} tasks={tasks} calendarEvents={calendarEvents} onToggleTask={onToggleTask} onAddTask={onAddTask}
         blossoms={game?.blossoms || 0} storeItems={STORE_ITEMS} owned={game?.owned || {}} onBuy={buy} storage={storage} furniture={FURNITURE_BY_ID} onPlace={placeFromStorage}
+        accessories={ACCESSORIES} dogs={DOGS} pets={game?.pets || {}} canChange={typeof onGameChange === "function"} onBuyAccessory={buyAcc}
+        onWear={(dog, id) => onGameChange?.(g => wearAccessory(g, dog, id))}
         onOpenPage={p => { setPanel(null); onOpenPage?.(p); }} onClose={() => setPanel(null)} />}
     </div>
   );

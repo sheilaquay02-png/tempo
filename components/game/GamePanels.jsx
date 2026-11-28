@@ -8,10 +8,10 @@ import { TASK_REWARD } from "../../lib/game/economy";
 
 const { TODAY, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
-const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar", store: "🛍️ General Store", storage: "🧺 Your storage" };
+const TITLES = { today: "🌤️ Today", tasks: "✅ Tasks", calendar: "🗓️ Calendar", store: "🛍️ General Store", storage: "🧺 Your storage", petshop: "🐾 Pet Shop", pets: "🎀 Dress up the dogs" };
 const FULL = { today: "Open Today", tasks: "Open all tasks", calendar: "Open full calendar" };
 
-export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose, blossoms = 0, storeItems = [], owned = {}, onBuy, storage = {}, furniture = {}, onPlace }) {
+export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask, onAddTask, onOpenPage, onClose, blossoms = 0, storeItems = [], owned = {}, onBuy, storage = {}, furniture = {}, onPlace, accessories = [], dogs = [], pets = {}, canChange = false, onBuyAccessory, onWear }) {
   const ref = useRef(null);
   // Escape closes the panel (not the game); focus moves into the panel for keyboard users.
   useEffect(() => {
@@ -39,6 +39,8 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
           {kind === "calendar" && <CalendarBody eventsOn={eventsOn} />}
           {kind === "store" && <StoreBody items={storeItems} blossoms={blossoms} owned={owned} onBuy={onBuy} />}
           {kind === "storage" && <StorageBody storage={storage} furniture={furniture} onPlace={onPlace} />}
+          {kind === "petshop" && <PetShopBody items={accessories} blossoms={blossoms} owned={owned} canBuy={canChange} onBuy={onBuyAccessory} />}
+          {kind === "pets" && <PetsBody items={accessories} dogs={dogs} owned={owned} pets={pets} canChange={canChange} onWear={onWear} />}
         </div>
         {FULL[kind] && <footer className="cozy-panel-foot">
           <button onClick={() => onOpenPage?.(kind)}>{FULL[kind]} ↗</button>
@@ -65,6 +67,58 @@ function StoreBody({ items, blossoms, owned, onBuy }) {
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+// Pet Shop: head accessories for the dogs. Owning one lets any dog wear it.
+function PetShopBody({ items, blossoms, owned, canBuy, onBuy }) {
+  return (
+    <>
+      <p className="cozy-wallet">You have <strong>🌸 {blossoms}</strong> · wear them via the food bowls at home</p>
+      <div className="cozy-shop">
+        {items.map(item => (
+          <div key={item.id} className="cozy-shop-item">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/game/accessories/${item.id}/front.png`} alt="" loading="lazy" />
+            <strong>{item.name}</strong>
+            {owned[item.id] ? <small>Owned ✓</small> : <small>{"\u00a0"}</small>}
+            {owned[item.id] ? <button disabled>Owned</button>
+              : <button onClick={() => onBuy?.(item)} disabled={!canBuy || blossoms < item.price} aria-label={`Buy ${item.name} for ${item.price} blossoms`}>🌸 {item.price}</button>}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Pet bowl menu: choose a dog, then what it wears.
+function PetsBody({ items, dogs, owned, pets, canChange, onWear }) {
+  const [dog, setDog] = useState(dogs[0]?.key);
+  const mine = items.filter(i => owned[i.id]);
+  const wearing = pets[dog] || null;
+  return (
+    <>
+      <div className="cozy-dog-tabs" role="tablist" aria-label="Choose a dog">
+        {dogs.map(d => <button key={d.key} role="tab" aria-selected={dog === d.key} onClick={() => setDog(d.key)}>{d.name}{pets[d.key] ? " 🎀" : ""}</button>)}
+      </div>
+      {!mine.length ? <p className="cozy-empty">No accessories yet. Buy some at the Pet Shop in Tempo Town 🐾</p> : (
+        <div className="cozy-shop">
+          <div className={`cozy-shop-item ${!wearing ? "cozy-wearing" : ""}`}>
+            <div className="cozy-none" aria-hidden="true">✕</div>
+            <strong>Nothing</strong><small>{"\u00a0"}</small>
+            <button onClick={() => onWear?.(dog, null)} disabled={!canChange || !wearing}>{wearing ? "Take off" : "Wearing"}</button>
+          </div>
+          {mine.map(item => (
+            <div key={item.id} className={`cozy-shop-item ${wearing === item.id ? "cozy-wearing" : ""}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/game/accessories/${item.id}/front.png`} alt="" loading="lazy" />
+              <strong>{item.name}</strong><small>{"\u00a0"}</small>
+              <button onClick={() => onWear?.(dog, item.id)} disabled={!canChange || wearing === item.id}>{wearing === item.id ? "Wearing" : "Put on"}</button>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -202,6 +256,11 @@ export const PANEL_CSS = `
 .cozy-shop-item small{font-size:11px;color:#7A6A80;min-height:14px;}
 .cozy-shop-item button{border:0;border-radius:999px;padding:6px 12px;min-height:36px;background:#CB416B;color:#fff;font:inherit;font-weight:800;cursor:pointer;}
 .cozy-shop-item button:disabled{background:#E9C4D2;cursor:default;}
+.cozy-dog-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+.cozy-dog-tabs button{border:2px solid #F4D3DF;background:#fff;color:#B0436E;border-radius:999px;padding:6px 12px;min-height:38px;font:inherit;font-weight:800;cursor:pointer;}
+.cozy-dog-tabs button[aria-selected="true"]{background:#CB416B;border-color:#CB416B;color:#fff;}
+.cozy-wearing{border-color:#CB416B;box-shadow:0 0 0 2px #FBE3EC;}
+.cozy-none{width:72px;height:72px;display:grid;place-items:center;font-size:28px;color:#C9A8B6;}
 .cozy-panel-foot button{border:2px solid #E9A9C1;background:#fff;color:#B0436E;border-radius:999px;padding:7px 14px;font:inherit;font-weight:800;cursor:pointer;}
 /* Mini Tempo: the panel covers the whole Mini window rather than the small room picture */
 .cozy-compact .cozy-panel-backdrop{position:fixed;z-index:2100;padding:8px;}
