@@ -24,6 +24,11 @@ for (const scene of ["room", "town"]) {
   // the room also ships every furniture picture, so pieces from the General Store and storage can be placed
   if (scene === "room") for (const f of readdirSync(join(SRC, "env-zip", "room"))) if (f.endsWith(".png") && !/floor_panel/.test(f)) files.push("room/" + f);
   for (const f of [...new Set(files)]) jobs.push([join(SRC, "env-zip", f), join(OUT, scene, f)]);
+  // General Store furniture (Tempo_Room_Furniture): env-zip/furniture/<category>/*.png → room/furniture/…
+  if (scene === "room") for (const cat of readdirSync(join(SRC, "env-zip", "furniture"))) {
+    const dir = join(SRC, "env-zip", "furniture", cat);
+    if (statSync(dir).isDirectory()) for (const f of readdirSync(dir)) if (f.endsWith(".png")) jobs.push([join(dir, f), join(OUT, "room", "furniture", cat, f)]);
+  }
 }
 // character packs: manifests + every frame they reference
 for (const dir of ["pack", "walk", "idle", "sleep", "play", "celebrate", "cafe", "accessories"]) {
@@ -35,6 +40,8 @@ for (const dir of ["pack", "walk", "idle", "sleep", "play", "celebrate", "cafe",
   }
 }
 
+// ONLY=room/furniture rebuilds just the files under that output folder
+if (process.env.ONLY) jobs.splice(0, jobs.length, ...jobs.filter(([, to]) => to.startsWith(join(OUT, process.env.ONLY))));
 let before = 0, after = 0, packed = 0;
 for (const [from, to] of jobs) {
   mkdirSync(dirname(to), { recursive: true });
