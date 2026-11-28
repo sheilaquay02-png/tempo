@@ -295,8 +295,8 @@ export default function App({ windowMode = "full" }) {
 
   const [view, setView]             = useState("day");
   const [viewDate, setViewDate]     = useState(new Date(TODAY));
-  const [miniScene, setMiniScene]   = useState("room"); // Mini Tempo room view: "room" | "town"
-  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "room" | "town"
+  const [miniScene, setMiniScene]   = useState("room"); // Mini Tempo room view: "room" | "town" | "cafe"
+  const [page, setPage]             = useState("today"); // "today" | "calendar" | "tasks" | "room" | "town" | "cafe"
   const [appMode, setAppModeRaw]    = useState(() => load(`${uk}_app_mode`, "schedule"));
   const [budgetPage, setBudgetPage] = useState("home");
   const [taskScope, setTaskScope]   = useState("day");
@@ -3038,7 +3038,7 @@ export default function App({ windowMode = "full" }) {
       }
       if (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key === "k")) { e.preventDefault(); setShowSearch(v => !v); return; }
       if (e.key === "?") { setShowShortcuts(v => !v); return; }
-      if (page === "room" || page === "town") return; // in the room and town, letters and arrows walk you around instead
+      if (page === "room" || page === "town" || page === "cafe") return; // in the game, letters and arrows walk you around instead
       const k = e.key.toLowerCase();
       if (k === "d" && !e.metaKey && !e.ctrlKey) { setPage("calendar"); setView("day"); }
       else if (k === "w" && !e.metaKey) { setPage("calendar"); setView("week"); }
@@ -3184,7 +3184,7 @@ export default function App({ windowMode = "full" }) {
           onOpenEvent={event=>openFullTempo(`/?page=calendar&eventId=${encodeURIComponent(event.id)}`)}
           onFull={openFullTempo}
           renderRoom={() => <GameScene key={miniScene} scene={miniScene} variant="compact" game={game} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask}
-            onOpenPage={p => { if (p === "room" || p === "town") setMiniScene(p); else openFullTempo(p === "budget" ? "/" : `/?page=${p}`); }} />} />
+            onOpenPage={p => { if (p === "room" || p === "town" || p === "cafe") setMiniScene(p); else openFullTempo(p === "budget" ? "/" : `/?page=${p}`); }} />} />
       ) : (
       <>
       <div className="app">
@@ -3223,7 +3223,7 @@ export default function App({ windowMode = "full" }) {
             <OverallPage budgetSummary={budgetSummary} rhythmSummary={overallRhythmSummary} />
           ) : page === "today" ? (
             <TodayLitePage summary={dailyStartupSummary} events={todayDashboardEvents} tasks={tasks} affirmations={affirmations} categories={categories} onOpenCalendar={() => setPage("calendar")} onOpenTasks={() => setPage("tasks")} onOpenRoom={() => setPage("room")} onPlanToday={() => setDayPlan(buildDailyPlan(TODAY))} onToggleTask={toggleTask} onEditTask={setSelectedTask} />
-          ) : page === "room" || page === "town" ? (
+          ) : page === "room" || page === "town" || page === "cafe" ? (
             <GameScene key={page} scene={page} variant="full" onBack={() => setPage("today")} game={game} onGameChange={updateGame} tasks={tasks} events={todayDashboardEvents} calendarEvents={events.filter(eventSourceVisible)} onToggleTask={toggleTask} onAddTask={addQuickTodayTask} onOpenPage={(p, sub) => {
               if (p === "budget") { navigateBudgetPage(sub); return; }
               setPage(p); if (p === "tasks") setTaskScope("day"); if (p === "calendar") setView("day");

@@ -13,7 +13,7 @@ test("Cozy Room and Town are loaded lazily, only when opened", () => {
   assert.match(app, /dynamic\(\(\) => import\("\.\/game\/GameScene"\)/, "GameScene must be a dynamic import");
   assert.doesNotMatch(app, /^import .*game\/GameScene/m, "GameScene must not be statically imported");
   assert.doesNotMatch(app, /lib\/game\/scene/, "the scene engine must only be imported by the room");
-  assert.match(app, /page === "room" \|\| page === "town" \? \(\s*<GameScene key=\{page\} scene=\{page\}/);
+  assert.match(app, /page === "room" \|\| page === "town" \|\| page === "cafe" \? \(\s*<GameScene key=\{page\} scene=\{page\}/);
 });
 
 test("Mini Tempo and the other pages never pull in the game", () => {
@@ -44,7 +44,7 @@ test("Room opens from a button on Today (not the menus); Town is reached by walk
 
 test("the game opens full screen with a Back button that returns to Today", () => {
   assert.match(app, /<GameScene key=\{page\} scene=\{page\} variant="full" onBack=\{\(\) => setPage\("today"\)\}/);
-  assert.match(room, /className="cozy-back" onClick=\{editing \? cancelEdit : onBack\}/);
+  assert.match(room, /className="cozy-back" onClick=\{editing \? cancelEdit : scene === "cafe" \? \(\) => onOpenPage\?\.\("town"\) : onBack\}/);
   assert.match(room, /\.cozy-full\{position:fixed;inset:0;/);
   assert.match(room, /env\(safe-area-inset-top\)/, "respects phone notches");
 });
@@ -96,7 +96,7 @@ test("the town has no bridge", () => {
 });
 
 test("in the room, letter keys walk instead of triggering app shortcuts", () => {
-  const i = app.indexOf('if (page === "room" || page === "town") return;');
+  const i = app.indexOf('if (page === "room" || page === "town" || page === "cafe") return;');
   assert.ok(i > 0, "shortcut handler should step aside in the room");
   assert.ok(i < app.indexOf('if (k === "d" && !e.metaKey'), "the room check must come before the letter shortcuts");
 });
@@ -132,7 +132,7 @@ test("every picture the room and town use is shipped in public/game", () => {
 });
 
 test("taps only open existing pages or scene-only effects", () => {
-  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "room", "town", "night", "dogs", "note"]);
+  const allowed = new Set(["today", "tasks", "calendar", "budget", "store", "cafe", "room", "town", "night", "dogs", "note"]);
   for (const o of [...ROOM_LAYOUT.objects, ...TOWN_LAYOUT.objects]) if (o.tap) {
     assert.ok(allowed.has(o.tap.action), `${o.id} → ${o.tap.action}`);
     if (o.tap.action === "note") assert.ok(o.tap.note, `${o.id} needs a note`);

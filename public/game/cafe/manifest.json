@@ -1,0 +1,68 @@
+{
+  "canvas": [
+    320,
+    320
+  ],
+  "ground_anchor": [
+    160,
+    296
+  ],
+  "background": "background/cafe.png",
+  "animations": {
+    "typing": {
+      "frames": [
+        "avatar/typing/typing_01.png",
+        "avatar/typing/typing_02.png",
+        "avatar/typing/typing_03.png",
+        "avatar/typing/typing_04.png"
+      ],
+      "fps": 3,
+      "loop": true
+    },
+    "sip_drink": {
+      "frames": [
+        "avatar/sip_drink/sip_drink_01.png",
+        "avatar/sip_drink/sip_drink_02.png",
+        "avatar/sip_drink/sip_drink_03.png",
+        "avatar/sip_drink/sip_drink_04.png"
+      ],
+      "fps": 3,
+      "loop": false
+    },
+    "happy": {
+      "frames": [
+        "avatar/happy/happy_01.png",
+        "avatar/happy/happy_02.png",
+        "avatar/happy/happy_03.png"
+      ],
+      "fps": 3,
+      "loop": false
+    },
+    "thinking": {
+      "frames": [
+        "avatar/thinking/thinking_01.png",
+        "avatar/thinking/thinking_02.png",
+        "avatar/thinking/thinking_03.png"
+      ],
+      "fps": 2,
+      "loop": false
+    },
+    "dozing": {
+      "frames": [
+        "avatar/dozing/dozing_01.png",
+        "avatar/dozing/dozing_02.png",
+        "avatar/dozing/dozing_03.png",
+        "avatar/dozing/dozing_04.png"
+      ],
+      "fps": 2,
+      "loop": false
+    }
+  },
+  "notes": [
+    "All 18 poses extracted from the latest short-legged sheet.",
+    "Fixed scale across frames; aligned by lower furniture silhouette.",
+    "Thinking bubble and sleep symbols retained.",
+    "Typing frame 3 has fully closed eyes.",
+    "Recommended low frame rates; in-app playback not tested."
+  ]
+}
