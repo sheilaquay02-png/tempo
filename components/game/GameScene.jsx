@@ -6,7 +6,7 @@
 // Where you and the dogs walk lives only in memory and is forgotten when you leave.
 import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
-import { buyItem } from "../../lib/game/economy";
+import { buyItem, TASK_REWARD } from "../../lib/game/economy";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
 import { TOWN_LAYOUT } from "../../lib/game/townLayout";
@@ -162,7 +162,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
         <div className="cozy-topbar">
           <button className="cozy-back" onClick={editing ? cancelEdit : onBack} aria-label={editing ? "Cancel editing" : "Back to Tempo"}>{editing ? "✕ Cancel" : "← Back"}</button>
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : "My Room"}</strong>
-          {game && <span className="cozy-blossoms" title="Blossoms: earn 10 for every task you finish">🌸 {game.blossoms || 0}</span>}
+          {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
           {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
           {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
         </div>

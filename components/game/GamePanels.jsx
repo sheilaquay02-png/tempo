@@ -4,6 +4,7 @@
 // Like the rest of the game they only READ your data; ticking or adding a task uses the app's own actions.
 import { useEffect, useRef, useState } from "react";
 import * as Core from "../../lib/tempo/core";
+import { TASK_REWARD } from "../../lib/game/economy";
 
 const { TODAY, taskBelongsToPeriod, expandRecurring, eventOccursOnDay, dayStart, addDaysSafe, sameDay, fmt, fmtDate } = Core;
 
@@ -51,7 +52,7 @@ export function GamePanel({ kind, tasks = [], calendarEvents = [], onToggleTask,
 function StoreBody({ items, blossoms, owned, onBuy }) {
   return (
     <>
-      <p className="cozy-wallet">You have <strong>🌸 {blossoms}</strong> · earn 10 for every task you finish</p>
+      <p className="cozy-wallet">You have <strong>🌸 {blossoms}</strong> · earn {TASK_REWARD} for every task you finish</p>
       <div className="cozy-shop">
         {items.map(item => (
           <div key={item.id} className="cozy-shop-item">
