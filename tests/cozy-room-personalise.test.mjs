@@ -71,7 +71,7 @@ test("every piece of furniture has a shipped picture, and only real pieces are f
 test("the General Store in town opens the shop; Edit room and the shop live in the game screen", () => {
   assert.equal(TOWN_LAYOUT.objects.find(o => o.id === "general_store").tap.action, "store");
   const scene = read("components/game/GameScene.jsx"), panels = read("components/game/GamePanels.jsx");
-  assert.match(scene, /✏️ Edit room/);
+  assert.match(scene, /✏️<span className="cozy-edit-label"> Edit room<\/span>/);
   assert.match(scene, /📦 Put away/);
   assert.match(scene, /🧺 Storage/);
   assert.match(scene, /onGameChange\(g => \(\{ \.\.\.g, room: placed \}\)\)/);
@@ -95,4 +95,18 @@ test("the Room Furniture pack is in the General Store: 89 pieces, sorted into se
     assert.ok(f.size[0] > 0 && f.size[1] > 0);
   }
   for (const [k] of STORE_CATEGORIES) assert.ok(STORE_ITEMS.some(i => storeCategory(i) === k), `section ${k} has something`);
+});
+
+test("phones and speed: compact top bar, swipeable store tabs, room furniture pictures kept small", async () => {
+  const { readdirSync } = await import("node:fs");
+  const { createRequire } = await import("node:module");
+  const sharp = createRequire(import.meta.url)("sharp");
+  const scene = read("components/game/GameScene.jsx"), panels = read("components/game/GamePanels.jsx");
+  assert.match(scene, /\.cozy-edit-label\{display:none;\}/);
+  assert.match(panels, /\.cozy-store-tabs\{flex:none;min-height:44px;flex-wrap:nowrap;overflow-x:auto;/);
+  assert.match(read("scripts/build-game-assets.mjs"), /const ROOM_MAX = 640;/);
+  for (const f of readdirSync("public/game/room/room").filter(f => f.endsWith(".png"))) {
+    const m = await sharp(`public/game/room/room/${f}`).metadata();
+    assert.ok(Math.max(m.width, m.height) <= 640, `${f} is ${m.width}×${m.height}`);
+  }
 });

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { roomLayoutFor, storageCounts, newPiece, sceneObject, STORE_ITEMS, FURNITURE_BY_ID } from "../../lib/game/furniture";
 import { buyItem, rewardForFocus, TASK_REWARD, FOCUS_REWARD, streakInfo, localDayKey } from "../../lib/game/economy";
 import { play, soundOn, setSoundOn } from "../../lib/game/sounds";
+import { weatherAt } from "../../lib/game/weather";
+import { newBadges, awardBadges } from "../../lib/game/badges";
 import { ACCESSORIES, ACCESSORY_BY_ID, DOGS, buyAccessory, wearAccessory } from "../../lib/game/accessories";
 import * as Core from "../../lib/tempo/core";
 import { ROOM_LAYOUT } from "../../lib/game/roomLayout";
@@ -27,7 +29,7 @@ const SCENES = {
 
 const { TODAY, taskBelongsToPeriod, getEventsOnDay, fmt } = Core;
 
-export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack, clockHour }) {
+export default function GameScene({ scene = "room", variant = "full", tasks = [], events = [], calendarEvents = [], game, onGameChange, onToggleTask, onAddTask, onOpenPage, onBack, clockHour, weatherOverride }) {
   const S = SCENES[scene] || SCENES.room;
   const canvasRef = useRef(null);
   const apiRef = useRef(null);
@@ -114,6 +116,24 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     return () => clearInterval(id);
   }, []);
   useEffect(() => { apiRef.current?.setHour?.(Number.isFinite(clockHour) ? clockHour : hour); }, [hour, clockHour, status]);
+  // now and then it rains (or snows in winter) over the town; changes in 3-hour spells (lib/game/weather.js)
+  const weather = scene === "town" ? (weatherOverride !== undefined ? weatherOverride : weatherAt(new Date())) : null;
+  useEffect(() => {
+    if (status !== "ready") return;
+    apiRef.current?.setWeather?.(weather);
+    if (weather) setHint(weather === "snow" ? "❄️ Snow is drifting over Tempo Town." : "🌧️ A gentle rain is falling on Tempo Town.");
+  }, [weather, status, hour]);
+
+  // milestones: a badge you've reached is given (with its blossom gift) the next time the game is open
+  const reachedKey = typeof onGameChange === "function" && game ? newBadges(game, tasks, calendarEvents).map(b => b.id).join(",") : "";
+  useEffect(() => {
+    if (!reachedKey || status !== "ready") return;
+    const fresh = newBadges(game, tasks, calendarEvents); if (!fresh.length) return;
+    onGameChange(g => awardBadges(g, fresh));
+    const gift = fresh.reduce((n, b) => n + b.gift, 0);
+    setHint(`🏅 New ${fresh.length > 1 ? `badges: ${fresh.map(b => b.name).join(", ")}` : `badge: ${fresh[0].name}`}! +${gift} 🌸 · see them at the Town Hall`);
+    setTimeout(() => play("streak"), 600);
+  }, [reachedKey, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // dress the dogs with whatever they're wearing (pet bowl menu), whenever it changes
   const petsKey = JSON.stringify(game?.pets || {});
@@ -175,7 +195,8 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
     <CafeTimer compact={compact} rewardAmount={onGameChange ? FOCUS_REWARD : 0}
       onAnim={name => apiRef.current?.setCafeAnim?.(name)}
       onCelebrate={() => apiRef.current?.celebrate()}
-      onReward={key => onGameChange?.(g => rewardForFocus(g, key))} />
+      onReward={key => onGameChange?.(g => rewardForFocus(g, key))}
+      saved={game?.cafe || null} onSaveLengths={l => onGameChange?.(g => ({ ...g, cafe: l }))} />
   );
 
   const ratio = S.layout.size[0] / S.layout.size[1];
@@ -221,7 +242,7 @@ export default function GameScene({ scene = "room", variant = "full", tasks = []
           <strong className="cozy-title">{scene === "town" ? "Tempo Town" : scene === "cafe" ? "Tempo Café" : "My Room"}</strong>
           {game && <span className="cozy-blossoms" title={`Blossoms: earn ${TASK_REWARD} for every task you finish`}>🌸 {game.blossoms || 0}</span>}
           {game && streak.current > 0 && <span className="cozy-blossoms" title={`Daily streak: ${streak.current} ${streak.current === 1 ? "day" : "days"} in a row${streak.doneToday ? "" : ". Finish a task today to keep it"}`}>🔥 {streak.current}</span>}
-          {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"}>✏️ Edit room</button>}
+          {canEdit && !editing && <button className="cozy-room-btn" onClick={startEdit} disabled={status !== "ready"} aria-label="Edit room">✏️<span className="cozy-edit-label"> Edit room</span></button>}
           {!editing && <button className="cozy-room-btn" onClick={() => setNight(n => !n)} aria-pressed={night}>{night ? "🌙" : "☀️"}</button>}
           <button className="cozy-room-btn" onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (on) play("pop"); }} aria-pressed={sound} aria-label={sound ? "Sound on (tap to mute)" : "Sound off (tap to turn on)"}>{sound ? "🔊" : "🔇"}</button>
         </div>
@@ -291,12 +312,18 @@ const ROOM_CSS = `
 .cozy-edit-bar .cozy-room-hint{flex:1 1 220px;}
 .cozy-room-btn:disabled{opacity:.45;cursor:default;}
 .cozy-save{background:var(--accent,#CB416B)!important;color:#fff!important;border-color:var(--accent,#CB416B)!important;}
-@media (max-width:600px){.cozy-topbar{flex-wrap:wrap;}.cozy-title{order:-1;flex-basis:100%;}}
+@media (max-width:600px){.cozy-topbar{flex-wrap:wrap;gap:6px;}.cozy-title{order:-1;flex-basis:100%;}
+  /* phones: everything after the title fits on one row */
+  .cozy-topbar .cozy-room-btn,.cozy-topbar .cozy-blossoms{min-height:36px;padding:0 10px;font-size:14px;}
+  .cozy-topbar .cozy-back{min-height:36px;padding:0 12px;font-size:14px;}
+  .cozy-edit-label{display:none;}}
 .cozy-full .cozy-room-hint{width:min(100%, calc((100dvh - 86px) * var(--cozy-ar)));margin:0;font-size:14px;color:var(--text2,#7A4654);}
 .dark .cozy-full{background:var(--dark-page,var(--bg));}
 .cozy-full .cozy-room-cards{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;color:var(--text,#3B2A40);}
 .cozy-room-cards>*{min-width:0;}
 .cozy-full .cozy-room-cards .phase-card{background:var(--surface,#FFFFFF);color:var(--text,#3B2A40);border-radius:18px;padding:14px 16px;}
+.cozy-full .cozy-room-cards .phase-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;font-weight:800;}
+.cozy-full .cozy-room-cards .phase-card-head button{border:1px solid rgba(var(--accent-rgb,203,65,107),.25);background:var(--surface,#fff);color:var(--accent,#CB416B);border-radius:999px;padding:6px 12px;min-height:36px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}
 .cozy-room-empty{margin:6px 0 0;opacity:.8;}
 .cozy-room-more{display:block;margin-top:6px;opacity:.7;}
 .cozy-room-loading{padding:40px;text-align:center;opacity:.7;}

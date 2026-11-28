@@ -6,8 +6,10 @@
 import { play } from "../../lib/game/sounds";
 import { useEffect, useRef, useState } from "react";
 
-const LENGTHS = { focus: [15, 25, 45], break: [5, 10] };
+// focus / break pairs to pick from (minutes); "Custom" lets you set your own
+export const CAFE_PRESETS = [[15, 3], [25, 5], [50, 10]];
 const DEFAULT = { focus: 25, break: 5 };
+const clampMins = (v, max) => Math.max(1, Math.min(max, Math.round(Number(v) || 1)));
 // what you do at the laptop (café short-legs pack: typing, thinking, sip_drink, dozing, happy); rotates every ~12 s
 const FOCUS_ANIMS = ["typing", "typing", "thinking", "typing", "typing", "sip_drink"];
 const BREAK_ANIMS = ["sip_drink", "dozing"];
@@ -20,11 +22,14 @@ const fmt = ms => {
 // a soft two-note chime (lib/game/sounds.js; follows the game's 🔊 switch)
 const chime = () => play("timer");
 
-export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebrate, onReward }) {
+// saved: { focus, brk } in minutes (kept with your game so every device uses the same)
+export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebrate, onReward, saved = null, onSaveLengths }) {
+  const start0 = saved ? { focus: saved.focus, break: saved.brk } : DEFAULT;
   const [mode, setMode] = useState("focus");
-  const [lengths, setLengths] = useState(DEFAULT);
+  const [lengths, setLengths] = useState(start0);
+  const [custom, setCustom] = useState(false); // custom steppers open
   const [endAt, setEndAt] = useState(null);       // running: when it ends
-  const [left, setLeft] = useState(DEFAULT.focus * 60000); // paused / not started: time left
+  const [left, setLeft] = useState(start0.focus * 60000); // paused / not started: time left
   const [now, setNow] = useState(() => Date.now());
   const [note, setNote] = useState("");
   const startedRef = useRef(null);
@@ -65,7 +70,7 @@ export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebra
     setEndAt(null);
     chime();
     if (mode === "focus") {
-      cb.current.onReward?.(`focus@${startedRef.current || new Date().toISOString()}`);
+      cb.current.onReward?.(`focus@${startedRef.current || new Date().toISOString()}~${lengths.focus}`); // ~minutes, for the Flow State badge
       cb.current.onCelebrate?.();
       cb.current.onAnim?.("happy");
       setNote(`Focus session done! +${rewardAmount} 🌸 Time for a little break.`);
@@ -80,7 +85,14 @@ export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebra
   const pause = () => { setLeft(Math.max(0, endAt - Date.now())); setEndAt(null); };
   const reset = () => { setEndAt(null); setLeft(lengths[mode] * 60000); setNote(""); };
   const switchMode = m => { if (running) return; setMode(m); setLeft(lengths[m] * 60000); setNote(""); };
-  const pickLength = mins => { if (running) return; setLengths(l => ({ ...l, [mode]: mins })); setLeft(mins * 60000); };
+  // choose a focus/break pair (or custom minutes); resets the clock if it isn't running
+  const setPair = (focus, brk) => {
+    if (running) return;
+    const next = { focus: clampMins(focus, 180), break: clampMins(brk, 60) };
+    setLengths(next); setLeft(next[mode] * 60000); setNote("");
+    onSaveLengths?.({ focus: next.focus, brk: next.break });
+  };
+  const isPreset = CAFE_PRESETS.some(([f, b]) => f === lengths.focus && b === lengths.break);
 
   return (
     <section className={`cafe-timer ${compact ? "compact" : ""}`} aria-label="Focus timer">
@@ -90,8 +102,19 @@ export function CafeTimer({ compact = false, rewardAmount = 0, onAnim, onCelebra
         ))}
       </div>
       <div className="cafe-time" aria-live="off">{fmt(remaining)}</div>
-      {!running && <div className="cafe-lengths">
-        {LENGTHS[mode].map(mins => <button key={mins} aria-pressed={lengths[mode] === mins} onClick={() => pickLength(mins)}>{mins} min</button>)}
+      {!running && <div className="cafe-lengths" role="group" aria-label="Focus and break lengths">
+        {CAFE_PRESETS.map(([f, b]) => <button key={f} aria-pressed={!custom && lengths.focus === f && lengths.break === b} onClick={() => { setCustom(false); setPair(f, b); }} aria-label={`${f} minutes focus, ${b} minutes break`}>{f} / {b}</button>)}
+        <button aria-pressed={custom || !isPreset} onClick={() => setCustom(c => !c)}>Custom</button>
+      </div>}
+      {!running && (custom || !isPreset) && <div className="cafe-custom">
+        {[["focus", "Focus", 180, 5], ["break", "Break", 60, 1]].map(([k, label, max, step]) => (
+          <span key={k} className="cafe-stepper">
+            <span>{label}</span>
+            <button onClick={() => setPair(k === "focus" ? lengths.focus - step : lengths.focus, k === "break" ? lengths.break - step : lengths.break)} disabled={lengths[k] <= 1} aria-label={`${label} ${step} minute${step > 1 ? "s" : ""} shorter`}>−</button>
+            <strong>{lengths[k]} min</strong>
+            <button onClick={() => setPair(k === "focus" ? lengths.focus + step : lengths.focus, k === "break" ? lengths.break + step : lengths.break)} disabled={lengths[k] >= max} aria-label={`${label} ${step} minute${step > 1 ? "s" : ""} longer`}>+</button>
+          </span>
+        ))}
       </div>}
       <div className="cafe-actions">
         {running ? <button className="cafe-main" onClick={pause}>⏸ Pause</button> : <button className="cafe-main" onClick={start}>▶ {left < lengths[mode] * 60000 ? "Resume" : "Start"}</button>}
@@ -116,5 +139,10 @@ export const CAFE_CSS = `
 .cafe-lengths,.cafe-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
 .cafe-actions .cafe-main{background:#CB416B;border-color:#CB416B;color:#fff;min-width:120px;}
 .cafe-note{margin:0;font-weight:800;text-align:center;color:#B0436E;}
+.cafe-custom{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.cafe-stepper{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:#7A6A80;font-weight:700;}
+.cafe-stepper strong{min-width:56px;text-align:center;color:#3B2A40;}
+.cafe-stepper button{width:34px;height:34px;border-radius:50%;border:2px solid #F4D3DF;background:#fff;color:#B0436E;font:inherit;font-weight:900;cursor:pointer;}
+.cafe-stepper button:disabled{opacity:.4;cursor:default;}
 .cafe-hint{margin:0;font-size:13px;color:#7A6A80;}
 `;
